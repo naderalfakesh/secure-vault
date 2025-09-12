@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["ExpoVaultModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.vault.ExpoVaultModule"]
+  }
+}
