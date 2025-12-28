@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "crypto-note-vault",
-    "slug": "crypto-note-vault",
+    "name": "SecureVault",
+    "slug": "secure-vault",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "crypto-note-vault",
+    "scheme": "secure-vault",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nader.alfakesh.crypto-note-vault"
+      "bundleIdentifier": "com.nader.alfakesh.securevault"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nader.alfakesh.cryptonotevault"
+      "package": "com.nader.alfakesh.securevault"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -172,6 +172,78 @@ public class ExpoVaultModule: Module {
             promise.reject("DELETE_FAILED", error.localizedDescription)
         }
     }
+
+    // File-based encryption methods for binary data (images, PDFs, etc.)
+
+    AsyncFunction("putFile") { (key: String, sourcePath: String, promise: Promise) in
+        do {
+            let encryptionKey = try self.getEncryptionKey()
+
+            // Read source file
+            let sourceURL = URL(fileURLWithPath: sourcePath)
+            let fileData = try Data(contentsOf: sourceURL)
+
+            // Encrypt
+            let sealedBox = try AES.GCM.seal(fileData, using: encryptionKey)
+
+            // Save encrypted data
+            let destURL = try self.getFileURL(for: key)
+            try sealedBox.combined?.write(to: destURL)
+
+            promise.resolve(nil)
+        } catch {
+            promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: \(error.localizedDescription)")
+        }
+    }
+
+    AsyncFunction("getFile") { (key: String, destPath: String, promise: Promise) in
+        do {
+            let encryptionKey = try self.getEncryptionKey()
+
+            // Read encrypted file
+            let encryptedURL = try self.getFileURL(for: key)
+            let sealedBoxData = try Data(contentsOf: encryptedURL)
+
+            // Decrypt
+            let sealedBox = try AES.GCM.SealedBox(combined: sealedBoxData)
+            let decryptedData = try AES.GCM.open(sealedBox, using: encryptionKey)
+
+            // Write to destination
+            let destURL = URL(fileURLWithPath: destPath)
+            try FileManager.default.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try decryptedData.write(to: destURL)
+
+            promise.resolve(destPath)
+        } catch {
+            promise.reject("GET_FILE_FAILED", "Failed to decrypt file: \(error.localizedDescription)")
+        }
+    }
+
+    AsyncFunction("deleteFile") { (key: String, promise: Promise) in
+        do {
+            let fileURL = try self.getFileURL(for: key)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+            promise.resolve(nil)
+        } catch {
+            promise.reject("DELETE_FILE_FAILED", "Failed to delete file: \(error.localizedDescription)")
+        }
+    }
+
+    AsyncFunction("getFileSize") { (key: String, promise: Promise) in
+        do {
+            let fileURL = try self.getFileURL(for: key)
+            let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            if let fileSize = attributes[.size] as? NSNumber {
+                promise.resolve(fileSize.doubleValue)
+            } else {
+                promise.reject("GET_FILE_SIZE_FAILED", "Could not determine file size")
+            }
+        } catch {
+            promise.reject("GET_FILE_SIZE_FAILED", error.localizedDescription)
+        }
+    }
   }
 
   private func getEncryptionKey() throws -> SymmetricKey {

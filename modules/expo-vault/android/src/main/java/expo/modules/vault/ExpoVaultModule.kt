@@ -228,6 +228,96 @@ class ExpoVaultModule : Module() {
                 promise.reject("DELETE_FAILED", e.message, e)
             }
         }
+
+        // File-based encryption methods for binary data (images, PDFs, etc.)
+
+        AsyncFunction("putFile") { key: String, sourcePath: String, promise: Promise ->
+            try {
+                val secretKey = getSecretKey()
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+
+                val iv = cipher.iv
+                ivPreferences.edit().putString(key, android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)).apply()
+
+                // Read source file
+                val sourceFile = File(sourcePath)
+                if (!sourceFile.exists()) {
+                    promise.reject("PUT_FILE_FAILED", "Source file not found: $sourcePath", null)
+                    return@AsyncFunction
+                }
+                val fileData = sourceFile.readBytes()
+
+                // Encrypt and save
+                val encryptedData = cipher.doFinal(fileData)
+                val destFile = File(appContext.reactContext!!.filesDir, key)
+                destFile.writeBytes(encryptedData)
+
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: ${e.message}", e)
+            }
+        }
+
+        AsyncFunction("getFile") { key: String, destPath: String, promise: Promise ->
+            try {
+                val secretKey = getSecretKey()
+                val ivString = ivPreferences.getString(key, null)
+                if (ivString == null) {
+                    promise.reject("GET_FILE_FAILED", "IV not found for key: $key", null)
+                    return@AsyncFunction
+                }
+                val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
+
+                val encryptedFile = File(appContext.reactContext!!.filesDir, key)
+                if (!encryptedFile.exists()) {
+                    promise.reject("GET_FILE_FAILED", "Encrypted file not found for key: $key", null)
+                    return@AsyncFunction
+                }
+                val encryptedData = encryptedFile.readBytes()
+
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                val spec = GCMParameterSpec(128, iv)
+                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
+
+                val decryptedData = cipher.doFinal(encryptedData)
+
+                // Write to destination
+                val destFile = File(destPath)
+                destFile.parentFile?.mkdirs()
+                destFile.writeBytes(decryptedData)
+
+                promise.resolve(destPath)
+            } catch (e: Exception) {
+                promise.reject("GET_FILE_FAILED", "Failed to decrypt file: ${e.message}", e)
+            }
+        }
+
+        AsyncFunction("deleteFile") { key: String, promise: Promise ->
+            try {
+                val file = File(appContext.reactContext!!.filesDir, key)
+                if (file.exists()) {
+                    file.delete()
+                }
+                ivPreferences.edit().remove(key).apply()
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("DELETE_FILE_FAILED", "Failed to delete file: ${e.message}", e)
+            }
+        }
+
+        AsyncFunction("getFileSize") { key: String, promise: Promise ->
+            try {
+                val file = File(appContext.reactContext!!.filesDir, key)
+                if (!file.exists()) {
+                    promise.reject("FILE_NOT_FOUND", "File not found for key: $key", null)
+                    return@AsyncFunction
+                }
+                promise.resolve(file.length().toDouble())
+            } catch (e: Exception) {
+                promise.reject("GET_FILE_SIZE_FAILED", e.message, e)
+            }
+        }
     }
 
     private fun getSecretKey(): SecretKey {
