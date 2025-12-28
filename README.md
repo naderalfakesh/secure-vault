@@ -1,96 +1,207 @@
-# ExpoCryptoVault: A Local-First Encrypted Notes Vault
+# SecureVault
 
-This project is a secure, local-first encrypted notes vault built with React Native and Expo. It demonstrates advanced skills in integrating native modules with Expo, handling cryptographic operations, and utilizing biometric authentication for enhanced security.
+A secure document scanner and vault app built with React Native and Expo. Store sensitive documents with military-grade encryption, biometric authentication, and on-device OCR.
 
 ## Features
 
--   **Local-First:** All your notes are stored encrypted on your device.
--   **Secure:** Uses AES-GCM encryption to protect your notes. The encryption key is stored securely in the device's Keychain (iOS) or Keystore (Android).
--   **Biometric Authentication:** Access to the encryption key is protected by Face ID or Touch ID.
--   **Cross-Platform:** Works on both iOS and Android.
--   **Export/Import:** You can export your encrypted notes to a JSON file and import them on another device.
+- **Biometric Authentication** - Secure access with Face ID, Touch ID, or device PIN
+- **Native Encryption** - AES-256-GCM encryption using Android Keystore and iOS Keychain
+- **Document Scanning** - Capture documents using camera or import from gallery/files
+- **OCR Text Extraction** - Extract searchable text from images using ML Kit
+- **Category Organization** - Organize documents by type: ID, Medical, Finance, Legal, Insurance, Receipts
+- **Full-Text Search** - Search across document titles, tags, and extracted OCR text
+- **Secure Sharing** - Temporarily decrypt and share documents when needed
+- **Export/Import** - Backup and restore your encrypted vault
+- **Offline-First** - All data stored locally with no cloud dependency
+
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| React Native | Cross-platform mobile framework |
+| Expo (Bare Workflow) | Development tooling and native modules |
+| Expo Router | File-based navigation |
+| TypeScript | Type safety |
+| Custom Native Module | AES-GCM encryption with hardware-backed key storage |
+| ML Kit Text Recognition | On-device OCR |
+| expo-image-picker | Image/document selection |
+| expo-camera | Document scanning |
+
+## Architecture
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── DocumentCard.tsx     # Document thumbnail card
+│   ├── CategoryChips.tsx    # Category filter chips
+│   ├── EmptyState.tsx       # Empty list placeholder
+│   ├── Skeleton.tsx         # Loading skeletons
+│   ├── AnimatedComponents.tsx # Animation wrappers
+│   └── ErrorBoundary.tsx    # Error handling
+├── hooks/
+│   └── useDocuments.ts      # Document state management with optimistic updates
+├── services/
+│   ├── DocumentService.ts   # CRUD operations for documents
+│   └── OcrService.ts        # Text extraction wrapper
+├── types/
+│   └── index.ts             # TypeScript type definitions
+└── utils/                   # Utility functions
+
+app/                         # Expo Router screens
+├── _layout.tsx              # Root layout with error boundary
+├── index.tsx                # Lock screen (biometric auth)
+├── settings.tsx             # Settings modal
+└── documents/
+    ├── _layout.tsx
+    ├── index.tsx            # Document list with search
+    ├── [id].tsx             # Document detail view
+    └── add.tsx              # Add document flow
+
+modules/expo-vault/          # Custom native module
+├── android/                 # Kotlin implementation
+│   └── ...                  # Android Keystore + AES-GCM
+└── ios/                     # Swift implementation
+    └── ...                  # iOS Keychain + AES-GCM
+```
+
+## Security Model
+
+### Encryption
+- **Algorithm**: AES-256-GCM (authenticated encryption)
+- **Key Storage**:
+  - Android: Keystore with hardware backing when available
+  - iOS: Secure Enclave via Keychain
+- **Key Generation**: Random 256-bit key generated on first launch
+- **IV Handling**: Unique IV per encryption, stored alongside ciphertext
+
+### Authentication
+- Biometric prompt required on app launch
+- Falls back to device PIN/password if biometrics unavailable
+- Session persists while app is in foreground
+
+### Data Storage
+- Encrypted files stored in app's private directory
+- Metadata stored as encrypted JSON
+- Thumbnails encrypted separately for fast list loading
+- No data leaves the device
 
 ## Getting Started
 
 ### Prerequisites
-
--   Node.js and npm
--   Expo CLI
--   Xcode for iOS development
--   Android Studio for Android development
+- Node.js 18+
+- Yarn
+- Xcode 15+ (iOS development)
+- Android Studio (Android development)
+- Physical device recommended for biometrics/camera
 
 ### Installation
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/your-username/ExpoCryptoVault.git
-    ```
-2.  Install the dependencies:
-    ```bash
-    npm install
-    ```
-3.  Run the app:
-    -   For iOS:
-        ```bash
-        npx expo run:ios
-        ```
-    -   For Android:
-        ```bash
-        npx expo run:android
-        ```
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/secure-vault.git
+cd secure-vault
 
-## Project Overview
+# Install dependencies
+yarn install
 
-ExpoCryptoVault is designed to provide a secure and private note-taking experience by keeping all data encrypted and stored locally on the user's device. The application leverages native device capabilities for strong encryption and biometric authentication, ensuring that sensitive information remains protected.
+# Generate native projects
+npx expo prebuild
 
-The architecture is divided into several key components:
+# iOS: Install pods
+cd ios && pod install && cd ..
 
-1.  **React Native Application:** The frontend user interface, built with React Native and managed by Expo, provides a seamless cross-platform experience. It includes screens for vault management (locked/unlocked states), note listing, note detail editing, and settings for data export/import.
-2.  **Native Module (`ExpoVault`):** This is the core of the security features. Implemented in Swift for iOS and Kotlin for Android, this module exposes functions to the JavaScript layer for:
-    *   **Key Management:** Generating and securely storing AES-GCM encryption keys in the platform-specific secure storage (Keychain on iOS, Android Keystore on Android).
-    *   **Biometric Authentication:** Interfacing with Face ID/Touch ID (iOS) or BiometricPrompt (Android) to authenticate the user before accessing the encryption key.
-    *   **Cryptographic Operations:** Performing AES-GCM encryption and decryption of note content.
-    *   **File Management:** Reading and writing encrypted note data to the device's local storage.
-    *   **Vault Backup/Restore:** Exporting all encrypted notes as a single JSON string and importing them back.
-3.  **Expo Config Plugin:** A custom plugin automates the configuration of native project settings, such as adding necessary permissions and usage descriptions for biometrics, ensuring proper integration with the Expo ecosystem.
+# Run on iOS
+yarn ios
+
+# Run on Android
+yarn android
+```
+
+### Development
+
+```bash
+# Start Metro bundler
+yarn start
+
+# Run with fresh cache
+yarn start --reset-cache
+
+# Type check
+npx tsc --noEmit
+```
+
+## Native Module API
+
+The `expo-vault` module provides secure storage operations:
+
+```typescript
+import { vault } from './modules/expo-vault';
+
+// Initialize vault (generates encryption key if needed)
+await vault.createVault();
+
+// Authenticate with biometrics
+const authenticated = await vault.unlockWithBiometrics();
+
+// Store/retrieve strings
+await vault.put('key', 'secret value');
+const value = await vault.get('key');
+
+// Store/retrieve files (encrypted)
+await vault.putFile('document-id', '/path/to/file.pdf');
+const decryptedPath = await vault.getFile('document-id', '/destination/path.pdf');
+
+// Delete data
+await vault.delete('key');
+await vault.deleteFile('document-id');
+
+// Export/Import vault
+const backup = await vault.exportVault();
+await vault.importVault(backup);
+```
+
+## Project Status
+
+| Feature | Status |
+|---------|--------|
+| Biometric Authentication | Complete |
+| Native Encryption Module | Complete |
+| Document CRUD | Complete |
+| Camera Scanning | Complete |
+| Gallery/File Import | Complete |
+| OCR Integration | Complete |
+| Search & Filtering | Complete |
+| Skeleton Loaders | Complete |
+| Optimistic Updates | Complete |
+| Thumbnail Caching | Complete |
+| Error Boundaries | Complete |
+| Accessibility | Complete |
 
 ## Technical Details
 
-### Native Module (`ExpoVault`)
+### Native Module Implementation
 
-The `ExpoVault` native module is the backbone of the application's security.
+#### iOS
+- **Key Management**: Uses `SecRandomCopyBytes` to generate a 32-byte symmetric key stored in the iOS Keychain with `SecAccessControl` requiring `biometryCurrentSet`
+- **Biometric Authentication**: `LAContext` from `LocalAuthentication.framework` for Face ID/Touch ID
+- **Cryptography**: `CryptoKit`'s `AES.GCM` for authenticated encryption
+- **File Storage**: `FileManager` for encrypted file operations
 
-#### iOS Implementation
-
--   **Key Management:** Utilizes `SecRandomCopyBytes` to generate a 32-byte symmetric key for AES-GCM. This key is stored in the iOS Keychain using `SecItemAdd` and protected with `SecAccessControl` flags requiring `biometryCurrentSet` for access.
--   **Biometric Authentication:** `LocalAuthentication.framework`'s `LAContext` is used to prompt for Face ID or Touch ID. The act of retrieving the key from the Keychain automatically triggers the biometric prompt due to the access control settings.
--   **Cryptography:** `CryptoKit`'s `AES.GCM` is employed for robust authenticated encryption and decryption of note content.
--   **File Management:** `FileManager` is used to store encrypted note data as individual files within the app's documents directory.
-
-#### Android Implementation
-
--   **Key Management:** An AES key is generated using `KeyGenerator` and stored in the Android Keystore. `KeyGenParameterSpec` ensures the key requires user authentication for encryption and decryption operations.
--   **Biometric Authentication:** `androidx.biometric.BiometricPrompt` is used to authenticate the user. The Android Keystore automatically triggers the biometric prompt when the protected key is accessed.
--   **Cryptography:** `javax.crypto`'s `Cipher` class with `AES/GCM/NoPadding` is used for encryption and decryption. Initialization Vectors (IVs) for each encrypted note are stored separately in `SharedPreferences`.
--   **File Management:** Encrypted note data is stored as individual files in the app's internal storage (`Context.filesDir`).
+#### Android
+- **Key Management**: `KeyGenerator` with Android Keystore and `KeyGenParameterSpec` requiring user authentication
+- **Biometric Authentication**: `androidx.biometric.BiometricPrompt` with `DEVICE_CREDENTIAL` fallback
+- **Cryptography**: `javax.crypto.Cipher` with `AES/GCM/NoPadding`
+- **File Storage**: App's internal storage (`Context.filesDir`)
 
 ### Expo Config Plugin
+Custom plugin (`expo-crypto-vault-plugin.js`) automates native setup:
+- **iOS**: Injects `NSFaceIDUsageDescription` into `Info.plist`
+- **Android**: Adds `USE_BIOMETRIC` permission and Proguard rules
 
-The custom JavaScript-based Expo config plugin (`expo-crypto-vault-plugin.js`) automates native project setup:
+## License
 
--   **iOS:** Injects `NSFaceIDUsageDescription` into `Info.plist` to comply with Apple's privacy requirements for Face ID usage.
--   **Android:** Adds the `android.permission.USE_BIOMETRIC` permission to `AndroidManifest.xml` and includes Proguard rules (`-keep class expo.modules.vault.** { *; }`) in `proguard-rules.pro` to prevent obfuscation of the native module's code during release builds.
+MIT
 
-## Testing
+## Author
 
-While comprehensive unit and integration tests are beyond the scope of this README, the following manual testing steps can be performed to verify core functionality:
-
-1.  **Initial Launch:** Verify "VaultLocked Screen" with "Unlock Vault" and "Create a New Vault" buttons.
-2.  **Create Vault:** Tap "Create a New Vault", confirm "Vault created" alert.
-3.  **Unlock Vault:** Tap "Unlock Vault", authenticate with biometrics, verify navigation to "Your Notes" screen.
-4.  **Create Note:** Tap "Create New Note", enter text, tap "Save Note", verify note appears in list.
-5.  **Edit Note:** Tap existing note, modify content, tap "Save Note", verify update.
-6.  **Delete Note:** Tap "Delete" next to a note, verify removal from list.
-7.  **Export Vault:** Go to "Settings", tap "Export Vault", copy the displayed JSON string.
-8.  **Import Vault:** Go to "Settings", tap "Import Vault", paste JSON, confirm "Import successful", verify imported notes.
-9.  **Error Handling (Optional):** Test failed biometrics, creating vault when one exists, importing invalid JSON.
+Nader Alfakesh

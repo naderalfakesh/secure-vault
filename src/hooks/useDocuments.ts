@@ -1,6 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { documentService } from '../services/DocumentService';
 import { Document, DocumentCategory, PickedFile } from '../types';
+
+// In-memory thumbnail cache for performance
+const thumbnailCache = new Map<string, string>();
+const CACHE_MAX_SIZE = 50;
 
 interface UseDocumentsReturn {
   documents: Document[];
@@ -15,6 +19,7 @@ interface UseDocumentsReturn {
   searchDocuments: (query: string) => Promise<Document[]>;
   filterByCategory: (category: DocumentCategory | null) => void;
   selectedCategory: DocumentCategory | null;
+  clearThumbnailCache: () => void;
 }
 
 export function useDocuments(): UseDocumentsReturn {
@@ -22,6 +27,7 @@ export function useDocuments(): UseDocumentsReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | null>(null);
+  const previousDocumentsRef = useRef<Document[]>([]);
 
   const refreshDocuments = useCallback(async () => {
     try {
@@ -60,24 +66,55 @@ export function useDocuments(): UseDocumentsReturn {
 
   const updateDocument = useCallback(
     async (id: string, updates: Partial<Document>): Promise<Document | null> => {
-      const doc = await documentService.updateDocument(id, updates);
-      if (doc) {
-        await refreshDocuments();
+      // Optimistic update
+      const previousDocs = [...documents];
+      previousDocumentsRef.current = previousDocs;
+
+      setDocuments((prev) =>
+        prev.map((doc) => (doc.id === id ? { ...doc, ...updates } : doc))
+      );
+
+      try {
+        const doc = await documentService.updateDocument(id, updates);
+        if (!doc) {
+          // Rollback on failure
+          setDocuments(previousDocs);
+        }
+        return doc;
+      } catch (e) {
+        // Rollback on error
+        setDocuments(previousDocs);
+        throw e;
       }
-      return doc;
     },
-    [refreshDocuments]
+    [documents]
   );
 
   const deleteDocument = useCallback(
     async (id: string): Promise<boolean> => {
-      const success = await documentService.deleteDocument(id);
-      if (success) {
-        await refreshDocuments();
+      // Optimistic delete
+      const previousDocs = [...documents];
+      previousDocumentsRef.current = previousDocs;
+
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id));
+
+      // Clear thumbnail from cache
+      thumbnailCache.delete(id);
+
+      try {
+        const success = await documentService.deleteDocument(id);
+        if (!success) {
+          // Rollback on failure
+          setDocuments(previousDocs);
+        }
+        return success;
+      } catch (e) {
+        // Rollback on error
+        setDocuments(previousDocs);
+        throw e;
       }
-      return success;
     },
-    [refreshDocuments]
+    [documents]
   );
 
   const getDocumentFile = useCallback(async (id: string): Promise<string | null> => {
@@ -85,7 +122,29 @@ export function useDocuments(): UseDocumentsReturn {
   }, []);
 
   const getDocumentThumbnail = useCallback(async (id: string): Promise<string | null> => {
-    return documentService.getDocumentThumbnail(id);
+    // Check cache first
+    if (thumbnailCache.has(id)) {
+      return thumbnailCache.get(id) || null;
+    }
+
+    const thumbnail = await documentService.getDocumentThumbnail(id);
+
+    if (thumbnail) {
+      // Manage cache size
+      if (thumbnailCache.size >= CACHE_MAX_SIZE) {
+        const firstKey = thumbnailCache.keys().next().value;
+        if (firstKey) {
+          thumbnailCache.delete(firstKey);
+        }
+      }
+      thumbnailCache.set(id, thumbnail);
+    }
+
+    return thumbnail;
+  }, []);
+
+  const clearThumbnailCache = useCallback(() => {
+    thumbnailCache.clear();
   }, []);
 
   const searchDocuments = useCallback(async (query: string): Promise<Document[]> => {
@@ -112,6 +171,7 @@ export function useDocuments(): UseDocumentsReturn {
     searchDocuments,
     filterByCategory,
     selectedCategory,
+    clearThumbnailCache,
   };
 }
 

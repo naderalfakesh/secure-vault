@@ -12,9 +12,11 @@ import {
   Modal,
   Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { documentService } from '../../src/services/DocumentService';
+import { ocrService } from '../../src/services/OcrService';
 import {
   Document,
   DocumentCategory,
@@ -33,6 +35,8 @@ export default function DocumentDetailScreen() {
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [showOcrText, setShowOcrText] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [runningOcr, setRunningOcr] = useState(false);
 
   useEffect(() => {
     loadDocument();
@@ -102,6 +106,41 @@ export default function DocumentDetailScreen() {
       if (e.message !== 'User did not share') {
         Alert.alert('Error', 'Failed to share document');
       }
+    }
+  }, [document, fileUri]);
+
+  const handleCopyOcrText = useCallback(async () => {
+    if (!document?.ocrText) return;
+
+    try {
+      await Clipboard.setStringAsync(document.ocrText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to copy text');
+    }
+  }, [document?.ocrText]);
+
+  const handleRunOcr = useCallback(async () => {
+    if (!document || !fileUri || document.fileType !== 'image') return;
+
+    try {
+      setRunningOcr(true);
+      const ocrResult = await ocrService.extractText(fileUri);
+
+      if (ocrResult.text && ocrService.isTextMeaningful(ocrResult.text)) {
+        const cleanedText = ocrService.cleanText(ocrResult.text);
+        await documentService.updateDocument(document.id, { ocrText: cleanedText });
+        setDocument({ ...document, ocrText: cleanedText });
+        setShowOcrText(true);
+        Alert.alert('Success', 'Text extracted successfully!');
+      } else {
+        Alert.alert('No Text Found', 'Could not extract meaningful text from this image.');
+      }
+    } catch (e: any) {
+      Alert.alert('OCR Failed', e.message || 'Failed to extract text from image');
+    } finally {
+      setRunningOcr(false);
     }
   }, [document, fileUri]);
 
@@ -216,17 +255,64 @@ export default function DocumentDetailScreen() {
           </View>
 
           {/* OCR Text */}
-          {document.ocrText && (
-            <TouchableOpacity
-              style={styles.ocrSection}
-              onPress={() => setShowOcrText(!showOcrText)}
-            >
-              <View style={styles.ocrHeader}>
-                <Text style={styles.ocrTitle}>Extracted Text</Text>
-                <Text style={styles.ocrToggle}>{showOcrText ? '▼' : '▶'}</Text>
-              </View>
+          {document.ocrText ? (
+            <View style={styles.ocrSection}>
+              <TouchableOpacity
+                style={styles.ocrHeader}
+                onPress={() => setShowOcrText(!showOcrText)}
+              >
+                <View style={styles.ocrTitleRow}>
+                  <Text style={styles.ocrTitle}>Extracted Text</Text>
+                  <Text style={styles.ocrToggle}>{showOcrText ? '▼' : '▶'}</Text>
+                </View>
+              </TouchableOpacity>
               {showOcrText && (
-                <Text style={styles.ocrText}>{document.ocrText}</Text>
+                <>
+                  <Text style={styles.ocrText}>{document.ocrText}</Text>
+                  <View style={styles.ocrActions}>
+                    <TouchableOpacity
+                      style={styles.copyButton}
+                      onPress={handleCopyOcrText}
+                    >
+                      <Text style={styles.copyButtonIcon}>{copied ? '✓' : '📋'}</Text>
+                      <Text style={styles.copyButtonText}>
+                        {copied ? 'Copied!' : 'Copy Text'}
+                      </Text>
+                    </TouchableOpacity>
+                    {document.fileType === 'image' && (
+                      <TouchableOpacity
+                        style={[styles.ocrRetryButton, runningOcr && styles.ocrRetryButtonDisabled]}
+                        onPress={handleRunOcr}
+                        disabled={runningOcr}
+                      >
+                        {runningOcr ? (
+                          <ActivityIndicator size="small" color="#6c757d" />
+                        ) : (
+                          <Text style={styles.ocrRetryIcon}>🔄</Text>
+                        )}
+                        <Text style={styles.ocrRetryText}>Re-run OCR</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
+          ) : document.fileType === 'image' && (
+            <TouchableOpacity
+              style={[styles.ocrSection, styles.ocrExtractButton]}
+              onPress={handleRunOcr}
+              disabled={runningOcr}
+            >
+              {runningOcr ? (
+                <View style={styles.ocrExtractContent}>
+                  <ActivityIndicator size="small" color="#4361ee" />
+                  <Text style={styles.ocrExtractText}>Extracting text...</Text>
+                </View>
+              ) : (
+                <View style={styles.ocrExtractContent}>
+                  <Text style={styles.ocrExtractIcon}>📝</Text>
+                  <Text style={styles.ocrExtractText}>Extract Text (OCR)</Text>
+                </View>
               )}
             </TouchableOpacity>
           )}
@@ -450,6 +536,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  ocrTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flex: 1,
+  },
   ocrTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -464,6 +556,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#495057',
     lineHeight: 22,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e7f1ff',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 6,
+  },
+  copyButtonIcon: {
+    fontSize: 14,
+  },
+  copyButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4361ee',
+  },
+  ocrActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  ocrRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  ocrRetryButtonDisabled: {
+    opacity: 0.6,
+  },
+  ocrRetryIcon: {
+    fontSize: 14,
+  },
+  ocrRetryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6c757d',
+  },
+  ocrExtractButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4361ee',
+    borderStyle: 'dashed',
+  },
+  ocrExtractContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ocrExtractIcon: {
+    fontSize: 18,
+  },
+  ocrExtractText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4361ee',
   },
   actionBar: {
     flexDirection: 'row',

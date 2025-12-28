@@ -13,3 +13,4 @@ export {
   ScaleInView,
   PressableScale,
 } from './AnimatedComponents';
+export { ErrorBoundary } from './ErrorBoundary';
