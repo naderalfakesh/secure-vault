@@ -6,6 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -44,14 +45,14 @@ class ExpoVaultModule : Module() {
                 keyGenerator.generateKey()
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("KEY_CREATION_FAILED", e.message)
+                promise.reject("KEY_CREATION_FAILED", e.message, e)
             }
         }
 
         AsyncFunction("unlockWithBiometrics") { promise: Promise ->
-            val activity = appContext.activityProvider?.currentActivity
+            val activity = appContext.activityProvider?.currentActivity as? FragmentActivity
             if (activity == null) {
-                promise.reject("ACTIVITY_NOT_FOUND", "Activity not found")
+                promise.reject("ACTIVITY_NOT_FOUND", "Activity not found", null)
                 return@AsyncFunction
             }
 
@@ -65,7 +66,7 @@ class ExpoVaultModule : Module() {
 
                     override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                         super.onAuthenticationError(errorCode, errString)
-                        promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString())
+                        promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
                     }
                 })
 
@@ -92,7 +93,7 @@ class ExpoVaultModule : Module() {
                 file.writeBytes(encryptedData)
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("PUT_FAILED", e.message)
+                promise.reject("PUT_FAILED", e.message, e)
             }
         }
 
@@ -101,14 +102,14 @@ class ExpoVaultModule : Module() {
                 val secretKey = getSecretKey()
                 val ivString = ivPreferences.getString(key, null)
                 if (ivString == null) {
-                    promise.reject("GET_FAILED", "IV not found for key: $key")
+                    promise.reject("GET_FAILED", "IV not found for key: $key", null)
                     return@AsyncFunction
                 }
                 val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
 
                 val file = File(appContext.reactContext!!.filesDir, key)
                 if (!file.exists()) {
-                    promise.reject("GET_FAILED", "File not found for key: $key")
+                    promise.reject("GET_FAILED", "File not found for key: $key", null)
                     return@AsyncFunction
                 }
                 val encryptedData = file.readBytes()
@@ -120,7 +121,7 @@ class ExpoVaultModule : Module() {
                 val decryptedData = cipher.doFinal(encryptedData)
                 promise.resolve(String(decryptedData))
             } catch (e: Exception) {
-                promise.reject("GET_FAILED", e.message)
+                promise.reject("GET_FAILED", e.message, e)
             }
         }
 
@@ -137,7 +138,7 @@ class ExpoVaultModule : Module() {
                 }
                 promise.resolve(exportedData.toString())
             } catch (e: Exception) {
-                promise.reject("EXPORT_FAILED", e.message)
+                promise.reject("EXPORT_FAILED", e.message, e)
             }
         }
 
@@ -159,7 +160,7 @@ class ExpoVaultModule : Module() {
                 }
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("IMPORT_FAILED", e.message)
+                promise.reject("IMPORT_FAILED", e.message, e)
             }
         }
 
@@ -169,7 +170,7 @@ class ExpoVaultModule : Module() {
                 val keys = filesDir.listFiles()?.map { it.name }?.filter { it != "ExpoVault_IVs.xml" }
                 promise.resolve(keys)
             } catch (e: Exception) {
-                promise.reject("GET_ALL_KEYS_FAILED", e.message)
+                promise.reject("GET_ALL_KEYS_FAILED", e.message, e)
             }
         }
 
@@ -182,7 +183,7 @@ class ExpoVaultModule : Module() {
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("DELETE_FAILED", e.message)
+                promise.reject("DELETE_FAILED", e.message, e)
             }
         }
     }
