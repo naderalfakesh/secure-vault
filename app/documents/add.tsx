@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { documentService } from '../../src/services/DocumentService';
+import { ocrService } from '../../src/services/OcrService';
 import {
   DocumentCategory,
   DocumentCategoryLabels,
@@ -24,7 +25,7 @@ import {
   PickedFile,
 } from '../../src/types';
 
-type ImportMethod = 'gallery' | 'camera' | 'file' | null;
+type SaveStep = 'idle' | 'ocr' | 'encrypting' | 'saving';
 
 export default function AddDocumentScreen() {
   const [step, setStep] = useState<'select' | 'preview'>('select');
@@ -34,6 +35,7 @@ export default function AddDocumentScreen() {
   const [category, setCategory] = useState<DocumentCategory>(DocumentCategory.OTHER);
   const [tags, setTags] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveStep, setSaveStep] = useState<SaveStep>('idle');
 
   const handlePickImage = useCallback(async () => {
     try {
@@ -140,18 +142,53 @@ export default function AddDocumentScreen() {
         .map((t) => t.trim())
         .filter((t) => t.length > 0);
 
+      // Run OCR on images
+      let ocrText: string | undefined;
+      const isImage = selectedFile.type?.startsWith('image');
+
+      if (isImage && previewUri) {
+        setSaveStep('ocr');
+        try {
+          const ocrResult = await ocrService.extractText(previewUri);
+          if (ocrResult.text && ocrService.isTextMeaningful(ocrResult.text)) {
+            ocrText = ocrService.cleanText(ocrResult.text);
+          }
+        } catch (e) {
+          // OCR failed, continue without it
+          console.warn('OCR failed:', e);
+        }
+      }
+
+      setSaveStep('encrypting');
+
       await documentService.addDocument(selectedFile, {
         title: title.trim(),
         category,
         tags: tagList,
+        ocrText,
       });
 
+      setSaveStep('saving');
       router.back();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save document');
       setSaving(false);
+      setSaveStep('idle');
     }
-  }, [selectedFile, title, category, tags]);
+  }, [selectedFile, title, category, tags, previewUri]);
+
+  const getSaveButtonText = () => {
+    switch (saveStep) {
+      case 'ocr':
+        return 'Extracting text...';
+      case 'encrypting':
+        return 'Encrypting...';
+      case 'saving':
+        return 'Saving...';
+      default:
+        return 'Save Document';
+    }
+  };
 
   const handleBack = useCallback(() => {
     if (step === 'preview') {
@@ -327,7 +364,10 @@ export default function AddDocumentScreen() {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <View style={styles.savingContainer}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.saveButtonText}>{getSaveButtonText()}</Text>
+              </View>
             ) : (
               <Text style={styles.saveButtonText}>Save Document</Text>
             )}
@@ -521,6 +561,11 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: {
     opacity: 0.7,
+  },
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   saveButtonText: {
     fontSize: 16,

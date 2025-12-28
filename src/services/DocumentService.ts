@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as FileSystem from 'expo-file-system';
+// @ts-ignore - expo-file-system exports cacheDirectory at runtime
+const cacheDirectory: string = cacheDirectory || '';
 import ExpoVaultModule from '../../modules/expo-vault';
 import { Document, DocumentCategory, DocumentMetadata, PickedFile } from '../types';
 
@@ -200,7 +202,7 @@ class DocumentService {
     if (!doc) return null;
 
     const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
-    const destPath = `${FileSystem.cacheDirectory}decrypted_${id}.${extension}`;
+    const destPath = `${cacheDirectory}decrypted_${id}.${extension}`;
 
     await ExpoVaultModule.getFile(doc.fileKey, destPath);
     return destPath;
@@ -213,7 +215,7 @@ class DocumentService {
     const doc = await this.getDocument(id);
     if (!doc) return null;
 
-    const destPath = `${FileSystem.cacheDirectory}thumb_${id}.jpg`;
+    const destPath = `${cacheDirectory}thumb_${id}.jpg`;
 
     try {
       await ExpoVaultModule.getFile(doc.thumbnailKey, destPath);
@@ -228,7 +230,7 @@ class DocumentService {
    * Clear all decrypted cache files
    */
   async clearCache(): Promise<void> {
-    const cacheDir = FileSystem.cacheDirectory;
+    const cacheDir = cacheDirectory;
     if (!cacheDir) return;
 
     const files = await FileSystem.readDirectoryAsync(cacheDir);
@@ -249,7 +251,7 @@ class DocumentService {
     }
 
     // For content:// URIs, copy to a temp location
-    const tempPath = `${FileSystem.cacheDirectory}temp_import_${Date.now()}`;
+    const tempPath = `${cacheDirectory}temp_import_${Date.now()}`;
     await FileSystem.copyAsync({ from: uri, to: tempPath });
     return tempPath;
   }
@@ -263,7 +265,7 @@ class DocumentService {
   ): Promise<string | null> {
     // For now, we'll use the original image as thumbnail
     // In a production app, you'd want to resize using expo-image-manipulator
-    const thumbPath = `${FileSystem.cacheDirectory}temp_thumb_${id}.jpg`;
+    const thumbPath = `${cacheDirectory}temp_thumb_${id}.jpg`;
 
     try {
       // Copy the original for now (will be replaced with proper resizing)

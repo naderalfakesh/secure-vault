@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDocuments } from '../../src/hooks';
-import { DocumentCard, CategoryChips, EmptyState } from '../../src/components';
+import { DocumentCard, CategoryChips, EmptyState, DocumentListSkeleton } from '../../src/components';
 import { Document } from '../../src/types';
 
 const { width } = Dimensions.get('window');
@@ -134,10 +134,11 @@ export default function DocumentsListScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         {renderHeader()}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361ee" />
-          <Text style={styles.loadingText}>Loading documents...</Text>
-        </View>
+        <CategoryChips
+          selectedCategory={selectedCategory}
+          onSelectCategory={filterByCategory}
+        />
+        <DocumentListSkeleton count={6} />
       </SafeAreaView>
     );
   }

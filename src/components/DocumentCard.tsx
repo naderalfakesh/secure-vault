@@ -59,11 +59,17 @@ export function DocumentCard({ document, onPress, getThumbnail }: DocumentCardPr
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const accessibilityLabel = `${document.title}, ${DocumentCategoryLabels[document.category]} document, created ${formatDate(document.createdAt)}, ${formatFileSize(document.fileSize)}`;
+
   return (
     <TouchableOpacity
       style={styles.container}
       onPress={() => onPress(document)}
       activeOpacity={0.7}
+      accessible={true}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      accessibilityHint="Double tap to view document details"
     >
       <View style={styles.thumbnailContainer}>
         {loading ? (
