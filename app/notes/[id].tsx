@@ -1,33 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, StyleSheet, Button, Alert } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import { useCryptoVault } from '../hooks/useCryptoVault';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
-import { RouteProp } from '@react-navigation/native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCryptoVault } from '../../src/hooks/useCryptoVault';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type NoteDetailScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  'NoteDetail'
->;
-type NoteDetailScreenRouteProp = RouteProp<RootStackParamList, 'NoteDetail'>;
-
 const NoteDetailScreen = () => {
-  const navigation = useNavigation<NoteDetailScreenNavigationProp>();
-  const route = useRoute<NoteDetailScreenRouteProp>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const vault = useCryptoVault();
-  const { noteId } = route.params;
-
   const [content, setContent] = useState('');
 
   useEffect(() => {
     const loadNote = async () => {
-      if (noteId !== 'new') {
+      if (id !== 'new') {
         try {
-          const noteContent = await vault.get(noteId);
+          const noteContent = await vault.get(id);
           setContent(noteContent);
         } catch (e: any) {
           Alert.alert('Error loading note', e.message);
@@ -35,13 +23,13 @@ const NoteDetailScreen = () => {
       }
     };
     loadNote();
-  }, [noteId, vault]);
+  }, [id, vault]);
 
   const handleSave = async () => {
-    const idToSave = noteId === 'new' ? uuidv4() : noteId;
+    const idToSave = id === 'new' ? uuidv4() : id;
     try {
       await vault.put(idToSave, content);
-      navigation.goBack();
+      router.back();
     } catch (e: any) {
       Alert.alert('Error saving note', e.message);
     }

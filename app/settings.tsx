@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Button, Alert } from "react-native";
-import { useCryptoVault } from "../hooks/useCryptoVault";
+import { useCryptoVault } from "../src/hooks/useCryptoVault";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SettingsScreen = () => {

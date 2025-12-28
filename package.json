@@ -1,7 +1,7 @@
 {
   "name": "crypto-note-vault",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start -c",
     "android": "expo run:android -d",
@@ -9,9 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@react-navigation/native": "^6.1.17",
-    "@react-navigation/native-stack": "^6.9.26",
     "expo": "~53.0.22",
+    "expo-router": "~5.1.5",
+    "expo-linking": "~7.1.7",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-native": "0.79.6",

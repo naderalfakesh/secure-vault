@@ -1,18 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Button, FlatList, Alert, TouchableOpacity } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
-import { useCryptoVault } from '../hooks/useCryptoVault';
+import { router, useFocusEffect } from 'expo-router';
+import { useCryptoVault } from '../../src/hooks/useCryptoVault';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type NoteListScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  'NoteList'
->;
-
 const NoteListScreen = () => {
-  const navigation = useNavigation<NoteListScreenNavigationProp>();
   const vault = useCryptoVault();
   const [notes, setNotes] = useState<string[]>([]);
 
@@ -46,14 +38,14 @@ const NoteListScreen = () => {
         <Text style={styles.title}>Your Notes</Text>
         <Button
           title="Settings"
-          onPress={() => navigation.navigate('Settings')}
+          onPress={() => router.push('/settings')}
         />
       </View>
       <FlatList
         data={notes}
         keyExtractor={(item) => item}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => navigation.navigate('NoteDetail', { noteId: item })}>
+          <TouchableOpacity onPress={() => router.push(`/notes/${item}`)}>
             <View style={styles.noteItem}>
               <Text>{item}</Text>
               <Button title="Delete" onPress={() => handleDelete(item)} color="red" />
@@ -63,7 +55,7 @@ const NoteListScreen = () => {
       />
       <Button
         title="Create New Note"
-        onPress={() => navigation.navigate('NoteDetail', { noteId: 'new' })}
+        onPress={() => router.push('/notes/new')}
       />
     </SafeAreaView>
   );

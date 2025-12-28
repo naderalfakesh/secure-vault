@@ -1,25 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { useCryptoVault } from '../hooks/useCryptoVault';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { router } from 'expo-router';
+import { useCryptoVault } from '../src/hooks/useCryptoVault';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type VaultLockedScreenNavigationProp = NativeStackNavigationProp<
-  RootStackParamList,
-  'VaultLocked'
->;
-
 const VaultLockedScreen = () => {
-  const navigation = useNavigation<VaultLockedScreenNavigationProp>();
   const vault = useCryptoVault();
 
   const handleUnlock = async () => {
     try {
       const success = await vault.unlockWithBiometrics();
       if (success) {
-        navigation.replace('NoteList');
+        router.replace('/notes');
       }
     } catch (e: any) {
       Alert.alert('Unlock failed', e.message);
