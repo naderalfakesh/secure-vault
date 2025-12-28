@@ -30,7 +30,15 @@
     },
     "plugins": [
       "expo-router",
-      "./expo-crypto-vault-plugin.js"
+      "./expo-crypto-vault-plugin.js",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ]
     ]
   }
 }
