@@ -6,14 +6,22 @@ export default function DocumentsLayout() {
       <Stack.Screen
         name="index"
         options={{
-          title: 'Documents',
-          headerShown: true,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="[id]"
         options={{
-          title: 'Document',
+          title: 'Document Details',
+          headerShown: true,
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="add"
+        options={{
+          title: 'Add Document',
+          presentation: 'modal',
           headerShown: true,
         }}
       />

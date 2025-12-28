@@ -132,11 +132,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 
 ---
 
-## Milestone 3: Document Service Layer
+## Milestone 3: Document Service Layer ✅
 > Create service to manage document CRUD operations
 
 ### Tasks
-- [ ] Create `DocumentService` class/module
+- [x] Create `DocumentService` class/module
   ```typescript
   class DocumentService {
     async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document>
@@ -150,20 +150,20 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
   }
   ```
 
-- [ ] Implement document metadata storage
-  - [ ] Store as JSON string via `vault.put()`
-  - [ ] Index structure for fast lookups
+- [x] Implement document metadata storage
+  - [x] Store as JSON string via `vault.put()`
+  - [x] Index structure for fast lookups
 
-- [ ] Implement file storage
-  - [ ] Generate unique file keys
-  - [ ] Store original file via `vault.putFile()`
-  - [ ] Generate and store thumbnail for images
+- [x] Implement file storage
+  - [x] Generate unique file keys
+  - [x] Store original file via `vault.putFile()`
+  - [x] Generate and store thumbnail for images
 
-- [ ] Implement thumbnail generation
-  - [ ] Resize images to ~200px width
-  - [ ] Store thumbnail separately for fast list loading
+- [x] Implement thumbnail generation
+  - [x] Resize images to ~200px width
+  - [x] Store thumbnail separately for fast list loading
 
-- [ ] Create `useDocuments` hook
+- [x] Create `useDocuments` hook
   ```typescript
   function useDocuments() {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -178,58 +178,59 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 
 ---
 
-## Milestone 4: Core UI - Document List & Viewer
+## Milestone 4: Core UI - Document List & Viewer ✅
 > Build the main screens for viewing and managing documents
 
 ### Tasks
-- [ ] **Lock Screen (update existing)**
-  - [ ] Update branding/text for SecureVault
-  - [ ] Add app icon/logo
-  - [ ] Improve styling
+- [x] **Lock Screen (update existing)**
+  - [x] Update branding/text for SecureVault
+  - [x] Add app icon/logo
+  - [x] Improve styling
 
-- [ ] **Documents List Screen**
-  - [ ] Header with search icon and add button
-  - [ ] Category filter chips (horizontal scroll)
-  - [ ] Document grid/list view
-    - [ ] Thumbnail image
-    - [ ] Title
-    - [ ] Category badge
-    - [ ] Date
-  - [ ] Empty state when no documents
-  - [ ] Pull-to-refresh
-  - [ ] Loading skeleton
+- [x] **Documents List Screen**
+  - [x] Header with search icon and add button
+  - [x] Category filter chips (horizontal scroll)
+  - [x] Document grid/list view
+    - [x] Thumbnail image
+    - [x] Title
+    - [x] Category badge
+    - [x] Date
+  - [x] Empty state when no documents
+  - [x] Pull-to-refresh
+  - [x] Loading skeleton
 
-- [ ] **Document Detail Screen**
-  - [ ] Full-screen image viewer with pinch-to-zoom
-  - [ ] PDF viewer for PDF files
-  - [ ] Document metadata display
-    - [ ] Title (editable)
-    - [ ] Category (editable)
-    - [ ] Tags (editable)
-    - [ ] Created/updated dates
-  - [ ] OCR text section (expandable)
-  - [ ] Action buttons
-    - [ ] Share
-    - [ ] Delete
-    - [ ] Edit metadata
+- [x] **Document Detail Screen**
+  - [x] Full-screen image viewer with pinch-to-zoom
+  - [ ] PDF viewer for PDF files (basic image display works)
+  - [x] Document metadata display
+    - [x] Title (editable)
+    - [x] Category (editable)
+    - [x] Tags (editable)
+    - [x] Created/updated dates
+  - [x] OCR text section (expandable)
+  - [x] Action buttons
+    - [x] Share
+    - [x] Delete
+    - [ ] Edit metadata (view-only for now)
 
-- [ ] **Add Document Modal/Screen**
-  - [ ] Option: Scan with camera
-  - [ ] Option: Pick from gallery
-  - [ ] Option: Pick from files (PDF)
-  - [ ] After selection:
-    - [ ] Preview image
-    - [ ] Title input
-    - [ ] Category picker
-    - [ ] Tags input
-    - [ ] Save button
+- [x] **Add Document Modal/Screen**
+  - [x] Option: Scan with camera
+  - [x] Option: Pick from gallery
+  - [x] Option: Pick from files (PDF)
+  - [x] After selection:
+    - [x] Preview image
+    - [x] Title input
+    - [x] Category picker
+    - [x] Tags input
+    - [x] Save button
 
-- [ ] **Settings Screen**
+- [x] **Settings Screen**
   - [ ] Auto-lock timeout setting
-  - [ ] Export vault (encrypted backup)
-  - [ ] Import vault
-  - [ ] About section
-  - [ ] Clear all data (with confirmation)
+  - [x] Export vault (encrypted backup)
+  - [x] Import vault
+  - [x] About section
+  - [x] Clear all data (with confirmation)
+  - [x] Lock vault button
 
 ---
 
@@ -443,12 +444,12 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 |-----------|--------|------------|
 | 1. Project Restructure | ✅ Complete | 100% |
 | 2. Native Module Enhancement | ✅ Complete | 100% |
-| 3. Document Service Layer | Not Started | 0% |
-| 4. Core UI | Not Started | 0% |
-| 5. File Picking | Not Started | 0% |
-| 6. Camera Scanning | Not Started | 0% |
+| 3. Document Service Layer | ✅ Complete | 100% |
+| 4. Core UI | ✅ Complete | 95% |
+| 5. File Picking | ✅ Complete | 100% |
+| 6. Camera Scanning | ✅ Complete | 100% |
 | 7. OCR Integration | Not Started | 0% |
-| 8. Search & Filtering | Not Started | 0% |
+| 8. Search & Filtering | ✅ Complete | 100% |
 | 9. Polish | Not Started | 0% |
 | 10. Stretch Goals | Not Started | 0% |
 
