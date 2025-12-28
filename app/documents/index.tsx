@@ -132,7 +132,7 @@ export default function DocumentsListScreen() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {renderHeader()}
         <CategoryChips
           selectedCategory={selectedCategory}
@@ -145,7 +145,7 @@ export default function DocumentsListScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {renderHeader()}
         <EmptyState
           icon="⚠️"
@@ -160,7 +160,7 @@ export default function DocumentsListScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {renderHeader()}
 
       {!showSearch && (

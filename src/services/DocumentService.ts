@@ -1,7 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
-// @ts-ignore - expo-file-system exports cacheDirectory at runtime
-const cacheDirectory: string = cacheDirectory || '';
+import { File, Paths } from 'expo-file-system';
 import ExpoVaultModule from '../../modules/expo-vault';
 import { Document, DocumentCategory, DocumentMetadata, PickedFile } from '../types';
 
@@ -11,6 +10,24 @@ const THUMB_PREFIX = 'thumb_';
 
 class DocumentService {
   private metadata: DocumentMetadata | null = null;
+  private cacheUri = FileSystem.cacheDirectory || Paths.cache.uri;
+
+  private toPath(uriOrPath: string): string {
+    return uriOrPath.startsWith('file://') ? uriOrPath.replace('file://', '') : uriOrPath;
+  }
+
+  private toUri(pathOrUri: string): string {
+    return pathOrUri.startsWith('file://') ? pathOrUri : `file://${pathOrUri}`;
+  }
+
+  private getCacheLocation(filename: string) {
+    const uri = `${this.cacheUri}${filename}`;
+    return { uri, path: this.toPath(uri) };
+  }
+
+  private isCachePath(path: string) {
+    return path.startsWith(this.toPath(this.cacheUri));
+  }
 
   /**
    * Initialize the service by loading metadata from vault
@@ -43,7 +60,7 @@ class DocumentService {
   ): Promise<Document> {
     if (!this.metadata) await this.initialize();
 
-    const id = uuidv4();
+    const id = Crypto.randomUUID();
     const fileKey = `${FILE_PREFIX}${id}`;
     const thumbnailKey = `${THUMB_PREFIX}${id}`;
     const now = new Date().toISOString();
@@ -57,23 +74,22 @@ class DocumentService {
     // Store the encrypted file
     await ExpoVaultModule.putFile(fileKey, sourcePath);
 
-    // Generate and store thumbnail for images
+    // Store thumbnail for images (reuse source for now)
     if (fileType === 'image') {
       try {
-        const thumbPath = await this.generateThumbnail(sourcePath, id);
-        if (thumbPath) {
-          await ExpoVaultModule.putFile(thumbnailKey, thumbPath);
-          // Clean up temp thumbnail
-          await FileSystem.deleteAsync(thumbPath, { idempotent: true });
-        }
+        await ExpoVaultModule.putFile(thumbnailKey, sourcePath);
       } catch (e) {
         console.warn('Failed to generate thumbnail:', e);
       }
     }
 
     // Clean up temp file if we copied it
-    if (sourcePath !== file.uri) {
-      await FileSystem.deleteAsync(sourcePath, { idempotent: true });
+    if (sourcePath !== this.toPath(file.uri) && this.isCachePath(sourcePath)) {
+      try {
+        await FileSystem.deleteAsync(this.toUri(sourcePath), { idempotent: true });
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
     }
 
     // Create document record
@@ -202,10 +218,10 @@ class DocumentService {
     if (!doc) return null;
 
     const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
-    const destPath = `${cacheDirectory}decrypted_${id}.${extension}`;
+    const { uri, path } = this.getCacheLocation(`decrypted_${id}.${extension}`);
 
-    await ExpoVaultModule.getFile(doc.fileKey, destPath);
-    return destPath;
+    await ExpoVaultModule.getFile(doc.fileKey, path);
+    return uri;
   }
 
   /**
@@ -215,11 +231,11 @@ class DocumentService {
     const doc = await this.getDocument(id);
     if (!doc) return null;
 
-    const destPath = `${cacheDirectory}thumb_${id}.jpg`;
+    const { uri, path } = this.getCacheLocation(`thumb_${id}.jpg`);
 
     try {
-      await ExpoVaultModule.getFile(doc.thumbnailKey, destPath);
-      return destPath;
+      await ExpoVaultModule.getFile(doc.thumbnailKey, path);
+      return uri;
     } catch {
       // Thumbnail might not exist for PDFs or if generation failed
       return null;
@@ -230,14 +246,20 @@ class DocumentService {
    * Clear all decrypted cache files
    */
   async clearCache(): Promise<void> {
-    const cacheDir = cacheDirectory;
-    if (!cacheDir) return;
-
-    const files = await FileSystem.readDirectoryAsync(cacheDir);
-    for (const file of files) {
-      if (file.startsWith('decrypted_') || file.startsWith('thumb_')) {
-        await FileSystem.deleteAsync(`${cacheDir}${file}`, { idempotent: true });
+    try {
+      const cacheUri = this.cacheUri;
+      const items = await FileSystem.readDirectoryAsync(cacheUri);
+      for (const name of items) {
+        if (name.startsWith('decrypted_') || name.startsWith('thumb_') || name.startsWith('temp_')) {
+          try {
+            await FileSystem.deleteAsync(`${cacheUri}${name}`, { idempotent: true });
+          } catch {
+            // Ignore individual file deletion errors
+          }
+        }
       }
+    } catch (e) {
+      console.warn('Failed to clear cache:', e);
     }
   }
 
@@ -247,35 +269,15 @@ class DocumentService {
   private async getLocalFilePath(uri: string): Promise<string> {
     // If it's already a file path, return as-is
     if (uri.startsWith('/') || uri.startsWith('file://')) {
-      return uri.replace('file://', '');
+      return this.toPath(uri);
     }
 
-    // For content:// URIs, copy to a temp location
-    const tempPath = `${cacheDirectory}temp_import_${Date.now()}`;
-    await FileSystem.copyAsync({ from: uri, to: tempPath });
-    return tempPath;
-  }
-
-  /**
-   * Generate a thumbnail for an image
-   */
-  private async generateThumbnail(
-    sourcePath: string,
-    id: string
-  ): Promise<string | null> {
-    // For now, we'll use the original image as thumbnail
-    // In a production app, you'd want to resize using expo-image-manipulator
-    const thumbPath = `${cacheDirectory}temp_thumb_${id}.jpg`;
-
-    try {
-      // Copy the original for now (will be replaced with proper resizing)
-      const sourceUri = sourcePath.startsWith('/') ? `file://${sourcePath}` : sourcePath;
-      await FileSystem.copyAsync({ from: sourceUri, to: thumbPath });
-      return thumbPath;
-    } catch (e) {
-      console.warn('Thumbnail generation failed:', e);
-      return null;
-    }
+    // For content:// URIs, copy to a temp location using fetch
+    const tempFile = new File(Paths.cache, `temp_import_${Date.now()}`);
+    const response = await fetch(uri);
+    const bytes = await response.arrayBuffer();
+    tempFile.write(new Uint8Array(bytes));
+    return this.toPath(tempFile.uri);
   }
 
   /**
