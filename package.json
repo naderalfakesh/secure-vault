@@ -6,7 +6,8 @@
     "start": "expo start -c",
     "android": "expo run:android -d",
     "ios": "expo run:ios -d",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "regenerate": "expo prebuild --clean"
   },
   "dependencies": {
     "expo": "~53.0.22",

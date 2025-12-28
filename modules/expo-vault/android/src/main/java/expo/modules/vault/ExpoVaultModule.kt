@@ -2,8 +2,10 @@ package expo.modules.vault
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -31,52 +33,92 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("createVault") { promise: Promise ->
             try {
+                val context = appContext.reactContext ?: run {
+                    promise.reject("NO_CONTEXT", "Application context not available", null)
+                    return@AsyncFunction
+                }
+
+                val biometricManager = BiometricManager.from(context)
+                val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                when (biometricManager.canAuthenticate(authenticators)) {
+                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
+                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE,
+                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                        promise.reject("NO_AUTH_ENROLLED", "Please set up screen lock (PIN, pattern, or biometrics) in your device settings first", null)
+                        return@AsyncFunction
+                    }
+                }
+
                 val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, keystoreProvider)
-                val parameterSpec = KeyGenParameterSpec.Builder(
+                val parameterSpecBuilder = KeyGenParameterSpec.Builder(
                     keyAlias,
                     KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
                 )
                     .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                     .setUserAuthenticationRequired(true)
-                    .build()
+
+                // Allow device credentials (PIN/pattern/password) as fallback on Android 11+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    parameterSpecBuilder.setUserAuthenticationParameters(
+                        0, // 0 = require auth for every use
+                        KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+                    )
+                }
+
+                val parameterSpec = parameterSpecBuilder.build()
 
                 keyGenerator.init(parameterSpec)
                 keyGenerator.generateKey()
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("KEY_CREATION_FAILED", e.message, e)
+                promise.reject("KEY_CREATION_FAILED", "Failed to create vault: ${e.message}", e)
             }
         }
 
         AsyncFunction("unlockWithBiometrics") { promise: Promise ->
             val activity = appContext.activityProvider?.currentActivity as? FragmentActivity
             if (activity == null) {
-                promise.reject("ACTIVITY_NOT_FOUND", "Activity not found", null)
+                promise.reject("ACTIVITY_NOT_FOUND", "Unable to show biometric prompt. Please try again.", null)
                 return@AsyncFunction
             }
 
-            val executor = ContextCompat.getMainExecutor(activity)
-            val biometricPrompt = BiometricPrompt(activity, executor,
-                object : BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        super.onAuthenticationSucceeded(result)
-                        promise.resolve(true)
-                    }
+            activity.runOnUiThread {
+                try {
+                    val executor = ContextCompat.getMainExecutor(activity)
+                    val biometricPrompt = BiometricPrompt(activity, executor,
+                        object : BiometricPrompt.AuthenticationCallback() {
+                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                super.onAuthenticationSucceeded(result)
+                                promise.resolve(true)
+                            }
 
-                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        super.onAuthenticationError(errorCode, errString)
-                        promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
-                    }
-                })
+                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                super.onAuthenticationError(errorCode, errString)
+                                promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
+                            }
 
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock your vault")
-                .setSubtitle("Authenticate to access your notes")
-                .setNegativeButtonText("Cancel")
-                .build()
+                            override fun onAuthenticationFailed() {
+                                super.onAuthenticationFailed()
+                                // Don't reject here - user can retry
+                            }
+                        })
 
-            biometricPrompt.authenticate(promptInfo)
+                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                        .setTitle("Unlock your vault")
+                        .setSubtitle("Authenticate to access your notes")
+                        .setAllowedAuthenticators(
+                            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                        )
+                        .build()
+
+                    biometricPrompt.authenticate(promptInfo)
+                } catch (e: Exception) {
+                    promise.reject("BIOMETRIC_ERROR", "Failed to show biometric prompt: ${e.message}", e)
+                }
+            }
         }
 
         AsyncFunction("put") { key: String, value: String, promise: Promise ->
