@@ -1,6 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import * as FileSystem from 'expo-file-system';
-import { File, Paths } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 import ExpoVaultModule from '../../modules/expo-vault';
 import { Document, DocumentCategory, DocumentMetadata, PickedFile } from '../types';
 
@@ -86,7 +85,8 @@ class DocumentService {
     // Clean up temp file if we copied it
     if (sourcePath !== this.toPath(file.uri) && this.isCachePath(sourcePath)) {
       try {
-        await FileSystem.deleteAsync(this.toUri(sourcePath), { idempotent: true });
+        const tempFile = new File(this.toUri(sourcePath));
+        if (tempFile.exists) tempFile.delete();
       } catch (cleanupError) {
         console.warn('Failed to cleanup temp file:', cleanupError);
       }
@@ -247,12 +247,12 @@ class DocumentService {
    */
   async clearCache(): Promise<void> {
     try {
-      const cacheUri = this.cacheUri;
-      const items = await FileSystem.readDirectoryAsync(cacheUri);
-      for (const name of items) {
+      const entries = new Directory(this.cacheUri).list();
+      for (const entry of entries) {
+        const { name } = entry;
         if (name.startsWith('decrypted_') || name.startsWith('thumb_') || name.startsWith('temp_')) {
           try {
-            await FileSystem.deleteAsync(`${cacheUri}${name}`, { idempotent: true });
+            entry.delete();
           } catch {
             // Ignore individual file deletion errors
           }
