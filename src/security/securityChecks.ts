@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 
 export interface SecurityCheckResult {
   rooted: boolean;
@@ -48,11 +49,14 @@ function pathExists(path: string): boolean {
 export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
   const indicators: string[] = [];
 
-  const pathsToCheck = Platform.OS === 'android' ? ANDROID_ROOT_PATHS : IOS_JAILBREAK_PATHS;
-  for (const path of pathsToCheck) {
-    // Checking for well-known root/jailbreak artifacts
-    if (pathExists(path)) {
-      indicators.push(`Detected artifact: ${path}`);
+  // Simulators and emulators expose host paths such as /bin/bash, so the
+  // artifact scan only means something on a physical device.
+  if (Device.isDevice) {
+    const pathsToCheck = Platform.OS === 'android' ? ANDROID_ROOT_PATHS : IOS_JAILBREAK_PATHS;
+    for (const path of pathsToCheck) {
+      if (pathExists(path)) {
+        indicators.push(`Detected artifact: ${path}`);
+      }
     }
   }
 
