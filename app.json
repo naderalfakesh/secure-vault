@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "securevault",
     "ios": {
       "supportsTablet": true,
@@ -36,6 +36,10 @@
         }
       ],
       "expo-status-bar"
-    ]
+    ],
+    "experiments": {
+      "reactCompiler": true,
+      "typedRoutes": true
+    }
   }
 }
