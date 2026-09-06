@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "securevault",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.naderalfakesh.securevault"
@@ -29,16 +24,17 @@
     "plugins": [
       "expo-router",
       "./plugins/withSecureVault.js",
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "deploymentTarget": "15.5"
-          }
-        }
-      ],
       "./plugins/withMlkitSimulatorFix",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ]
   }
 }
