@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "securevault",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -22,7 +21,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.naderalfakesh.securevault"
     },
     "web": {
@@ -39,7 +37,8 @@
           }
         }
       ],
-      "./plugins/withMlkitSimulatorFix"
+      "./plugins/withMlkitSimulatorFix",
+      "expo-font"
     ]
   }
 }
