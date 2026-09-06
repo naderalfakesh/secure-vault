@@ -38,7 +38,8 @@
             "deploymentTarget": "15.5"
           }
         }
-      ]
+      ],
+      "./plugins/withMlkitSimulatorFix"
     ]
   }
 }
