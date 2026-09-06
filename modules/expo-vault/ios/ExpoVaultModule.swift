@@ -21,7 +21,7 @@ public class ExpoVaultModule: Module {
       let accessControl = SecAccessControlCreateWithFlags(
         kCFAllocatorDefault,
         kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-        .biometryCurrentSet,
+        .userPresence,
         nil
       )!
 
@@ -49,9 +49,9 @@ public class ExpoVaultModule: Module {
       let context = LAContext()
       var error: NSError?
 
-      if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+      if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
         let reason = "Unlock your vault to access your notes."
-        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, authenticationError in
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
           if success {
             do {
               _ = try self.getEncryptionKey()
