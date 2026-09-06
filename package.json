@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@react-native-ml-kit/text-recognition": "^2.0.0",
+    "babel-preset-expo": "~54.0.10",
     "expo": "^54.0.0",
     "expo-build-properties": "^1.0.10",
     "expo-clipboard": "^8.0.8",
@@ -31,7 +32,6 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
-    "babel-plugin-module-resolver": "^5.0.0",
     "typescript": "~5.9.2"
   },
   "private": true,
