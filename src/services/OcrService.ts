@@ -53,7 +53,7 @@ class OcrService {
         blocks,
       };
     } catch (error: any) {
-      console.warn('OCR extraction failed:', error);
+      console.warn('OCR extraction failed:', error?.message || 'Unknown OCR error');
       // Return empty result on failure - don't block document import
       return {
         text: '',

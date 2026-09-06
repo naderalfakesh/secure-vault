@@ -274,10 +274,17 @@ class DocumentService {
 
     // For content:// URIs, copy to a temp location using fetch
     const tempFile = new File(Paths.cache, `temp_import_${Date.now()}`);
-    const response = await fetch(uri);
-    const bytes = await response.arrayBuffer();
-    tempFile.write(new Uint8Array(bytes));
-    return this.toPath(tempFile.uri);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(uri, { signal: controller.signal });
+      const bytes = await response.arrayBuffer();
+      tempFile.write(new Uint8Array(bytes));
+      return this.toPath(tempFile.uri);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   /**

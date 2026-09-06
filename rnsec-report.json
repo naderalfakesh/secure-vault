@@ -1,0 +1,53 @@
+{
+  "findings": [
+    {
+      "ruleId": "ROOT_JAILBREAK_DETECTION_ABSENT",
+      "description": "Sensitive app (banking/fintech/healthcare) without root/jailbreak detection",
+      "severity": "HIGH",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/app/index.tsx",
+      "line": 1,
+      "suggestion": "Implement root/jailbreak detection using jail-monkey or similar library. Warn users or restrict functionality on compromised devices."
+    },
+    {
+      "ruleId": "MISSING_RUNTIME_INTEGRITY_CHECKS",
+      "description": "Sensitive app without runtime integrity or tamper detection",
+      "severity": "MEDIUM",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/app/index.tsx",
+      "line": 1,
+      "suggestion": "Implement runtime integrity checks: Play Integrity API (Android), App Attest (iOS), or signature verification to detect tampering."
+    },
+    {
+      "ruleId": "ROOT_JAILBREAK_DETECTION_ABSENT",
+      "description": "Sensitive app (banking/fintech/healthcare) without root/jailbreak detection",
+      "severity": "HIGH",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/src/hooks/index.ts",
+      "line": 1,
+      "suggestion": "Implement root/jailbreak detection using jail-monkey or similar library. Warn users or restrict functionality on compromised devices."
+    },
+    {
+      "ruleId": "MISSING_RUNTIME_INTEGRITY_CHECKS",
+      "description": "Sensitive app without runtime integrity or tamper detection",
+      "severity": "MEDIUM",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/src/hooks/index.ts",
+      "line": 1,
+      "suggestion": "Implement runtime integrity checks: Play Integrity API (Android), App Attest (iOS), or signature verification to detect tampering."
+    },
+    {
+      "ruleId": "ANDROID_EXPORTED_COMPONENT",
+      "description": "Exported activity without permission protection - accessible by any app",
+      "severity": "HIGH",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/android/app/src/main/AndroidManifest.xml",
+      "suggestion": "Add android:permission attribute to exported activity or set android:exported=\"false\" if external access is not needed."
+    },
+    {
+      "ruleId": "ANDROID_INTENT_FILTER_PERMISSIVE",
+      "description": "Permissive intent filter with android.intent.action.VIEW: Can be invoked by any app",
+      "severity": "MEDIUM",
+      "filePath": "/Users/naderalfakesh/projects/Mine/cryptoNoteVault/android/app/src/main/AndroidManifest.xml",
+      "suggestion": "Validate all incoming intents and restrict with custom permissions if external access is not required."
+    }
+  ],
+  "scannedFiles": 48,
+  "duration": 523,
+  "timestamp": "2025-12-31T14:35:25.688Z"
+}

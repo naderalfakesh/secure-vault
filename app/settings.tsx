@@ -133,6 +133,23 @@ export default function SettingsScreen() {
     router.replace('/');
   }, []);
 
+  const handleAuthFallback = useCallback(async () => {
+    try {
+      const success = await vault.unlockWithBiometrics();
+      if (success) {
+        Alert.alert(
+          'Authentication Confirmed',
+          'Biometrics or your device passcode can unlock the vault.'
+        );
+      }
+    } catch (e: any) {
+      Alert.alert(
+        'Authentication Failed',
+        e?.message || 'Try again or re-enroll biometrics/device passcode.'
+      );
+    }
+  }, [vault]);
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView}>
@@ -188,6 +205,21 @@ export default function SettingsScreen() {
               <Text style={styles.settingTitle}>Lock Vault</Text>
               <Text style={styles.settingDescription}>
                 Lock the app and require authentication
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={handleAuthFallback}
+          >
+            <View style={styles.settingIcon}>
+              <Text style={styles.settingEmoji}>🛡️</Text>
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>Test Authentication</Text>
+              <Text style={styles.settingDescription}>
+                Trigger biometrics with device passcode as fallback
               </Text>
             </View>
           </TouchableOpacity>
