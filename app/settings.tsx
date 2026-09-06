@@ -69,7 +69,7 @@ export default function SettingsScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Import',
-          onPress: async (text) => {
+          onPress: async (text?: string) => {
             if (!text?.trim()) {
               Alert.alert('Error', 'Please paste valid vault data.');
               return;
