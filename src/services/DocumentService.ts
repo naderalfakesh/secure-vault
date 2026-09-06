@@ -10,7 +10,7 @@ const THUMB_PREFIX = 'thumb_';
 
 class DocumentService {
   private metadata: DocumentMetadata | null = null;
-  private cacheUri = FileSystem.cacheDirectory || Paths.cache.uri;
+  private cacheUri = Paths.cache.uri;
 
   private toPath(uriOrPath: string): string {
     return uriOrPath.startsWith('file://') ? uriOrPath.replace('file://', '') : uriOrPath;
