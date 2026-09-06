@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 
 export interface SecurityCheckResult {
@@ -32,10 +32,9 @@ const IOS_JAILBREAK_PATHS = [
   '/private/var/lib/apt/',
 ];
 
-async function pathExists(path: string): Promise<boolean> {
+function pathExists(path: string): boolean {
   try {
-    const info = await FileSystem.getInfoAsync(path);
-    return info.exists;
+    return new File(path).exists;
   } catch {
     return false;
   }
@@ -52,7 +51,7 @@ export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
   const pathsToCheck = Platform.OS === 'android' ? ANDROID_ROOT_PATHS : IOS_JAILBREAK_PATHS;
   for (const path of pathsToCheck) {
     // Checking for well-known root/jailbreak artifacts
-    if (await pathExists(path)) {
+    if (pathExists(path)) {
       indicators.push(`Detected artifact: ${path}`);
     }
   }
