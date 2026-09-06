@@ -98,7 +98,7 @@ modules/expo-vault/          # Custom native module
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/secure-vault.git
+git clone https://github.com/naderalfakesh/secure-vault.git
 cd secure-vault
 
 # Install dependencies
@@ -194,7 +194,7 @@ await vault.importVault(backup);
 - **File Storage**: App's internal storage (`Context.filesDir`)
 
 ### Expo Config Plugin
-Custom plugin (`expo-crypto-vault-plugin.js`) automates native setup:
+Custom plugin (`plugins/withSecureVault.js`) automates native setup:
 - **iOS**: Injects `NSFaceIDUsageDescription` into `Info.plist`
 - **Android**: Adds `USE_BIOMETRIC` permission and Proguard rules
 

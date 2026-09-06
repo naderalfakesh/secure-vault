@@ -2,12 +2,12 @@ const { withPlugins, withInfoPlist, withAndroidManifest, withDangerousMod } = re
 const fs = require('fs');
 const path = require('path');
 
-const withExpoCryptoVault = (config) => {
+const withSecureVault = (config) => {
   return withPlugins(config, [
     // iOS
     (config) => {
       return withInfoPlist(config, (config) => {
-        config.modResults.NSFaceIDUsageDescription = 'This app uses Face ID to secure your notes.';
+        config.modResults.NSFaceIDUsageDescription = 'SecureVault uses Face ID to unlock your documents.';
         return config;
       });
     },
@@ -37,4 +37,4 @@ const withExpoCryptoVault = (config) => {
   ]);
 };
 
-module.exports = withExpoCryptoVault;
+module.exports = withSecureVault;

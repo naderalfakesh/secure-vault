@@ -1,9 +1,9 @@
 Pod::Spec.new do |s|
   s.name           = 'ExpoVault'
   s.version        = '1.0.0'
-  s.summary        = 'A sample project summary'
-  s.description    = 'A sample project description'
-  s.author         = ''
+  s.summary        = 'Hardware-backed AES-GCM vault for SecureVault'
+  s.description    = 'Expo module that encrypts SecureVault documents with a Keychain-protected key'
+  s.author         = 'Nadir Alfakesh'
   s.homepage       = 'https://docs.expo.dev/modules/'
   s.platforms      = {
     :ios => '15.1',

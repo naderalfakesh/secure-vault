@@ -9,8 +9,8 @@ export interface SecurityCheckResult {
   integrityIssues: string[];
 }
 
-const EXPECTED_ANDROID_PACKAGE = 'com.nader.alfakesh.securevault';
-const EXPECTED_IOS_BUNDLE = 'com.nader.alfakesh.securevault';
+const EXPECTED_ANDROID_PACKAGE = 'com.naderalfakesh.securevault';
+const EXPECTED_IOS_BUNDLE = 'com.naderalfakesh.securevault';
 
 const ANDROID_ROOT_PATHS = [
   '/system/app/Superuser.apk',

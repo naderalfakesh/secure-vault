@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "secure-vault",
+    "scheme": "securevault",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nader.alfakesh.securevault"
+      "bundleIdentifier": "com.naderalfakesh.securevault"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,14 +23,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nader.alfakesh.securevault"
+      "package": "com.naderalfakesh.securevault"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "./expo-crypto-vault-plugin.js",
+      "./plugins/withSecureVault.js",
       [
         "expo-build-properties",
         {

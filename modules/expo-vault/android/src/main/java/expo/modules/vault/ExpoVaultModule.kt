@@ -107,7 +107,7 @@ class ExpoVaultModule : Module() {
 
                     val promptInfo = BiometricPrompt.PromptInfo.Builder()
                         .setTitle("Unlock your vault")
-                        .setSubtitle("Authenticate to access your notes")
+                        .setSubtitle("Authenticate to access your documents")
                         .setAllowedAuthenticators(
                             BiometricManager.Authenticators.BIOMETRIC_STRONG or
                             BiometricManager.Authenticators.DEVICE_CREDENTIAL

@@ -4,6 +4,8 @@ import LocalAuthentication
 import CryptoKit
 
 public class ExpoVaultModule: Module {
+  private let keychainService = "com.naderalfakesh.securevault.vault"
+
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
 
@@ -28,7 +30,7 @@ public class ExpoVaultModule: Module {
       let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrAccount as String: "encryptionKey",
-        kSecAttrService as String: "com.example.ExpoCryptoVault",
+        kSecAttrService as String: keychainService,
         kSecValueData as String: key,
         kSecAttrAccessControl as String: accessControl
       ]
@@ -50,7 +52,7 @@ public class ExpoVaultModule: Module {
       var error: NSError?
 
       if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
-        let reason = "Unlock your vault to access your notes."
+        let reason = "Unlock SecureVault to access your documents."
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
           if success {
             do {
@@ -250,7 +252,7 @@ public class ExpoVaultModule: Module {
     let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
         kSecAttrAccount as String: "encryptionKey",
-        kSecAttrService as String: "com.example.ExpoCryptoVault",
+        kSecAttrService as String: keychainService,
         kSecReturnData as String: true
     ]
 
