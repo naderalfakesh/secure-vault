@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
-import { useCryptoVault } from '../src/hooks/useCryptoVault';
+import { useVault } from '../src/hooks/useVault';
 import { useSecurityStatus } from '../src/hooks/useSecurityStatus';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const VaultLockedScreen = () => {
-  const vault = useCryptoVault();
+  const vault = useVault();
   const security = useSecurityStatus();
 
   const handleUnlock = async () => {

@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useCryptoVault } from '../src/hooks/useCryptoVault';
+import { useVault } from '../src/hooks/useVault';
 import { documentService } from '../src/services/DocumentService';
 
 const APP_VERSION = '1.0.0';
 
 export default function SettingsScreen() {
-  const vault = useCryptoVault();
+  const vault = useVault();
   const [exporting, setExporting] = useState(false);
   const [clearing, setClearing] = useState(false);
 

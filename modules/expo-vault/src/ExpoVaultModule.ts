@@ -26,7 +26,4 @@ export interface SecureVault {
   importEncrypted(jsonString: string): Promise<void>;
 }
 
-// Keep old name for backward compatibility
-export type CryptoVault = SecureVault;
-
 export default ExpoVaultModule as SecureVault;
