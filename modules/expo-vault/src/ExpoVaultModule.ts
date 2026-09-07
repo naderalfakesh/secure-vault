@@ -12,6 +12,34 @@ export interface RenderedPage {
   height: number;
 }
 
+export interface BackupFile {
+  key: string;
+  path: string;
+}
+
+export interface BackupSummary {
+  entries: number;
+  bytes: number;
+}
+
+export interface BackupInfo {
+  version: number;
+  app: string;
+  created: string;
+  entries: number;
+}
+
+export interface BackupImportResult {
+  entries: number;
+  extras: BackupFile[];
+}
+
+export interface BackupProgress {
+  phase: 'export' | 'import';
+  done: number;
+  total: number;
+}
+
 export interface SecureVault {
   // Vault management
   /** True once a device key exists, even while it is still locked. */
@@ -45,7 +73,34 @@ export interface SecureVault {
   getFileSize(key: string): Promise<number>;
 
   // Backup & restore
+  /**
+   * Writes every vault entry plus `extraFiles` into a passphrase-protected
+   * container at `destPath`. Emits `backupProgress` while it works.
+   */
+  exportBackup(
+    destPath: string,
+    passphrase: string,
+    extraFiles: BackupFile[],
+  ): Promise<BackupSummary>;
+  /** Reads the container header without a passphrase; rejects with BACKUP_INVALID otherwise. */
+  inspectBackup(sourcePath: string): Promise<BackupInfo>;
+  /**
+   * Replaces the vault with the container's entries. Rejects with
+   * BACKUP_PASSPHRASE before touching anything when the passphrase is wrong.
+   * Extra files land in `extraDir` and are listed in the result.
+   */
+  importBackup(
+    sourcePath: string,
+    passphrase: string,
+    extraDir: string,
+  ): Promise<BackupImportResult>;
+  addListener(
+    event: 'backupProgress',
+    listener: (progress: BackupProgress) => void,
+  ): { remove(): void };
+  /** @deprecated Prototype clipboard export under the device key; replaced by exportBackup. */
   exportEncrypted(): Promise<string>;
+  /** @deprecated See exportEncrypted. */
   importEncrypted(jsonString: string): Promise<void>;
 }
 

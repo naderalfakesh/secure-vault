@@ -9,6 +9,8 @@ public class ExpoVaultModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
 
+    Events("backupProgress")
+
     AsyncFunction("createVault") { (promise: Promise) in
       var key = Data(count: 32)
       let result = key.withUnsafeMutableBytes {
@@ -127,6 +129,96 @@ public class ExpoVaultModule: Module {
             promise.resolve(String(data: decryptedData, encoding: .utf8))
         } catch {
             promise.reject("GET_FAILED", error.localizedDescription)
+        }
+    }
+
+    // MARK: Passphrase-protected backups (see BackupContainer.swift)
+
+    AsyncFunction("exportBackup") { (destPath: String, passphrase: String, extraFiles: [[String: String]], promise: Promise) in
+        var plaintexts: [URL] = []
+        defer { plaintexts.forEach { try? FileManager.default.removeItem(at: $0) } }
+        do {
+            let encryptionKey = try self.getEncryptionKey()
+            var entries: [BackupContainer.Entry] = []
+            for url in try self.vaultEntryURLs() {
+                let plain = BackupContainer.temporaryFile()
+                plaintexts.append(plain)
+                let kind = try self.decryptEntry(at: url, to: plain, key: encryptionKey)
+                entries.append(.init(key: url.lastPathComponent, kind: kind, url: plain))
+            }
+            for extra in extraFiles {
+                guard let key = extra["key"], let path = extra["path"] else { continue }
+                entries.append(.init(key: key, kind: "x", url: URL(fileURLWithPath: path)))
+            }
+            let result = try BackupContainer.write(
+                to: URL(fileURLWithPath: destPath), passphrase: passphrase, entries: entries
+            ) { done, total in
+                self.sendEvent("backupProgress", ["phase": "export", "done": done, "total": total])
+            }
+            promise.resolve(["entries": result.entries, "bytes": result.bytes])
+        } catch {
+            promise.reject("BACKUP_EXPORT_FAILED", error.localizedDescription)
+        }
+    }
+
+    AsyncFunction("inspectBackup") { (sourcePath: String, promise: Promise) in
+        do {
+            let header = try BackupContainer.readHeader(from: URL(fileURLWithPath: sourcePath))
+            promise.resolve([
+                "version": header.version, "app": header.app, "created": header.created,
+                "entries": max(0, header.entries - 1),
+            ])
+        } catch {
+            promise.reject("BACKUP_INVALID", error.localizedDescription)
+        }
+    }
+
+    AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, promise: Promise) in
+        do {
+            let encryptionKey = try self.getEncryptionKey()
+            let source = URL(fileURLWithPath: sourcePath)
+            let extras = URL(fileURLWithPath: extraDir, isDirectory: true)
+            try FileManager.default.createDirectory(at: extras, withIntermediateDirectories: true)
+            // The check entry comes first, so a wrong passphrase fails here
+            // before anything is removed.
+            _ = try BackupContainer.readHeader(from: source)
+            var cleared = false
+            var restored: [[String: String]] = []
+            var count = 0
+            try BackupContainer.read(from: source, passphrase: passphrase, progress: { done, total in
+                self.sendEvent("backupProgress", ["phase": "import", "done": done, "total": total])
+            }) { meta, plain in
+                if !cleared {
+                    for url in try self.vaultEntryURLs() { try FileManager.default.removeItem(at: url) }
+                    cleared = true
+                }
+                defer { try? FileManager.default.removeItem(at: plain) }
+                switch meta.kind {
+                case "s":
+                    let sealed = try AES.GCM.seal(Data(contentsOf: plain), using: encryptionKey)
+                    guard let combined = sealed.combined else { throw BackupError.corrupt("seal") }
+                    try combined.write(to: self.getFileURL(for: meta.key), options: .atomic)
+                case "f":
+                    try VaultCrypto.encryptFile(from: plain, to: self.getFileURL(for: meta.key), key: encryptionKey)
+                case "x":
+                    let target = extras.appendingPathComponent(meta.key)
+                    try? FileManager.default.removeItem(at: target)
+                    try FileManager.default.moveItem(at: plain, to: target)
+                    restored.append(["key": meta.key, "path": target.path])
+                default:
+                    break
+                }
+                count += 1
+            }
+            promise.resolve(["entries": count, "extras": restored])
+        } catch let error as BackupError {
+            switch error {
+            case .passphrase: promise.reject("BACKUP_PASSPHRASE", error.localizedDescription)
+            case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
+            case .corrupt: promise.reject("BACKUP_INVALID", error.localizedDescription)
+            }
+        } catch {
+            promise.reject("BACKUP_IMPORT_FAILED", error.localizedDescription)
         }
     }
 
@@ -309,6 +401,33 @@ public class ExpoVaultModule: Module {
     }
 
     return SymmetricKey(data: keyData)
+  }
+
+  /// Regular files in the vault directory; directories and hidden files are not entries.
+  private func vaultEntryURLs() throws -> [URL] {
+    let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    return try FileManager.default
+      .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
+      .filter { url in
+        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+          && !url.lastPathComponent.hasPrefix(".")
+      }
+      .sorted { $0.lastPathComponent < $1.lastPathComponent }
+  }
+
+  /// Decrypts one vault entry with the device key and reports its kind:
+  /// "f" for the chunked file container, "s" for a single sealed box.
+  private func decryptEntry(at url: URL, to plain: URL, key: SymmetricKey) throws -> String {
+    let input = try FileHandle(forReadingFrom: url)
+    let header = input.readData(ofLength: 4)
+    try? input.close()
+    if header == Data("SVC1".utf8) {
+      try VaultCrypto.decryptFile(from: url, to: plain, key: key)
+      return "f"
+    }
+    let box = try AES.GCM.SealedBox(combined: Data(contentsOf: url))
+    try AES.GCM.open(box, using: key).write(to: plain, options: .atomic)
+    return "s"
   }
 
   private func getFileURL(for key: String) throws -> URL {

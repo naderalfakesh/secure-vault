@@ -4,5 +4,14 @@ import ExpoVaultModule from './src/ExpoVaultModule';
 import { withKeyRecovery } from './src/withKeyRecovery';
 
 export default withKeyRecovery(ExpoVaultModule);
-export type { BiometryType, RenderedPage, SecureVault } from './src/ExpoVaultModule';
+export type {
+  BackupFile,
+  BackupImportResult,
+  BackupInfo,
+  BackupProgress,
+  BackupSummary,
+  BiometryType,
+  RenderedPage,
+  SecureVault,
+} from './src/ExpoVaultModule';
 export { isKeyLocked, withKeyRecovery } from './src/withKeyRecovery';

@@ -32,6 +32,8 @@ class ExpoVaultModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("ExpoVault")
 
+        Events("backupProgress")
+
         AsyncFunction("createVault") { promise: Promise ->
             try {
                 val context = appContext.reactContext ?: run {
@@ -203,6 +205,99 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        // Passphrase-protected backups (see BackupContainer.kt)
+
+        AsyncFunction("exportBackup") { destPath: String, passphrase: String, extraFiles: List<Map<String, String>>, promise: Promise ->
+            val plaintexts = mutableListOf<File>()
+            try {
+                val secretKey = getSecretKey()
+                val entries = mutableListOf<BackupContainer.Entry>()
+                for (file in vaultEntryFiles()) {
+                    val plain = BackupContainer.temporaryFile(appContext.reactContext!!.cacheDir)
+                    plaintexts.add(plain)
+                    val kind = decryptEntry(file, plain, secretKey)
+                    entries.add(BackupContainer.Entry(file.name, kind, plain))
+                }
+                for (extra in extraFiles) {
+                    val key = extra["key"] ?: continue
+                    val path = extra["path"] ?: continue
+                    entries.add(BackupContainer.Entry(key, "x", File(path)))
+                }
+                val result = BackupContainer.write(File(destPath), passphrase, entries) { done, total ->
+                    sendEvent("backupProgress", mapOf("phase" to "export", "done" to done, "total" to total))
+                }
+                promise.resolve(mapOf("entries" to result.first, "bytes" to result.second))
+            } catch (e: Exception) {
+                promise.reject(failureCode(e, "BACKUP_EXPORT_FAILED"), e.message, e)
+            } finally {
+                plaintexts.forEach { it.delete() }
+            }
+        }
+
+        AsyncFunction("inspectBackup") { sourcePath: String, promise: Promise ->
+            try {
+                val header = BackupContainer.readHeader(File(sourcePath))
+                promise.resolve(
+                    mapOf(
+                        "version" to header.version, "app" to header.app, "created" to header.created,
+                        "entries" to maxOf(0, header.entries - 1)
+                    )
+                )
+            } catch (e: Exception) {
+                promise.reject("BACKUP_INVALID", e.message, e)
+            }
+        }
+
+        AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, promise: Promise ->
+            try {
+                val secretKey = getSecretKey()
+                val extras = File(extraDir).apply { mkdirs() }
+                var cleared = false
+                val restored = mutableListOf<Map<String, String>>()
+                var count = 0
+                BackupContainer.read(File(sourcePath), passphrase, appContext.reactContext!!.cacheDir, { done, total ->
+                    sendEvent("backupProgress", mapOf("phase" to "import", "done" to done, "total" to total))
+                }) { meta, plain ->
+                    if (!cleared) {
+                        vaultEntryFiles().forEach { it.delete() }
+                        ivPreferences.edit().clear().apply()
+                        cleared = true
+                    }
+                    try {
+                        when (meta.kind) {
+                            "s" -> {
+                                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+                                ivPreferences.edit().putString(meta.key, android.util.Base64.encodeToString(cipher.iv, android.util.Base64.DEFAULT)).apply()
+                                File(appContext.reactContext!!.filesDir, meta.key).writeBytes(cipher.doFinal(plain.readBytes()))
+                            }
+                            "f" -> VaultCrypto.encryptFile(plain, File(appContext.reactContext!!.filesDir, meta.key), secretKey)
+                            "x" -> {
+                                val target = File(extras, meta.key)
+                                target.delete()
+                                if (!plain.renameTo(target)) {
+                                    plain.copyTo(target, overwrite = true)
+                                }
+                                restored.add(mapOf("key" to meta.key, "path" to target.absolutePath))
+                            }
+                        }
+                        count += 1
+                    } finally {
+                        plain.delete()
+                    }
+                }
+                promise.resolve(mapOf("entries" to count, "extras" to restored))
+            } catch (e: BackupContainer.PassphraseException) {
+                promise.reject("BACKUP_PASSPHRASE", e.message, e)
+            } catch (e: BackupContainer.UnsupportedException) {
+                promise.reject("BACKUP_UNSUPPORTED", e.message, e)
+            } catch (e: BackupContainer.CorruptException) {
+                promise.reject("BACKUP_INVALID", e.message, e)
+            } catch (e: Exception) {
+                promise.reject(failureCode(e, "BACKUP_IMPORT_FAILED"), e.message, e)
+            }
+        }
+
         AsyncFunction("exportEncrypted") { promise: Promise ->
             try {
                 val filesDir = appContext.reactContext!!.filesDir
@@ -356,6 +451,26 @@ class ExpoVaultModule : Module() {
             cause = cause.cause
         }
         return fallback
+    }
+
+    /** Regular files in the vault directory; the IV preferences file and directories are not entries. */
+    private fun vaultEntryFiles(): List<File> =
+        appContext.reactContext!!.filesDir.listFiles()
+            ?.filter { it.isFile && it.name != "ExpoVault_IVs.xml" && !it.name.startsWith(".") }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+
+    /** Decrypts one entry with the device key: "f" for the chunked container, "s" for a single GCM box. */
+    private fun decryptEntry(source: File, plain: File, key: SecretKey): String {
+        if (VaultCrypto.isChunked(source)) {
+            VaultCrypto.decryptFile(source, plain, key, null)
+            return "f"
+        }
+        val iv = ivPreferences.getString(source.name, null)?.let {
+            android.util.Base64.decode(it, android.util.Base64.DEFAULT)
+        }
+        VaultCrypto.decryptFile(source, plain, key, iv)
+        return "s"
     }
 
     private fun getSecretKey(): SecretKey {
