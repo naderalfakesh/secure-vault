@@ -31,21 +31,23 @@ describe('withKeyRecovery', () => {
   });
 
   it('surfaces the original error when the user declines and for other failures', async () => {
-    const declined = withKeyRecovery({
+    const decliningVault = {
       unlockWithBiometrics: async () => false,
       async getFile() {
         throw lockedError();
       },
-    });
+    };
+    const declined = withKeyRecovery(decliningVault);
     await expect(declined.getFile()).rejects.toThrow('User not authenticated');
 
-    const other = withKeyRecovery({
+    const corruptVault = {
       unlockWithBiometrics: jest.fn(async () => true),
       async getFile() {
         throw new Error('corrupt');
       },
-    });
+    };
+    const other = withKeyRecovery(corruptVault);
     await expect(other.getFile()).rejects.toThrow('corrupt');
-    expect(other.unlockWithBiometrics).not.toHaveBeenCalled();
+    expect(corruptVault.unlockWithBiometrics).not.toHaveBeenCalled();
   });
 });
