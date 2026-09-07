@@ -101,7 +101,7 @@ were chosen to avoid those keys; production builds have no such shortcuts.
 ## Quality gate
 
 `npm run validate` passes: Prettier, ESLint, TypeScript 6 strict, Jest
-(14 suites, 58 tests), Expo Doctor. New tests cover the passphrase policy,
+(14 suites, 59 tests), Expo Doctor. New tests cover the passphrase policy,
 error wording, a create-restore round trip through the mock container with
 progress events, and a wrong passphrase leaving the vault untouched.
 
