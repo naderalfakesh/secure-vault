@@ -51,6 +51,8 @@ export default function SettingsScreen() {
   } | null>(null);
   const [restorePassphrase, setRestorePassphrase] = useState('');
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  // Shown inside the open sheet; a toast would sit behind it.
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'export' | 'import' | 'clear' | null>(null);
 
   const setAppearance = useCallback((next: Appearance) => {
@@ -66,6 +68,7 @@ export default function SettingsScreen() {
   const openExport = useCallback(() => {
     setPassphrase('');
     setConfirmation('');
+    setSheetError(null);
     setExportSheet(true);
   }, []);
 
@@ -74,9 +77,10 @@ export default function SettingsScreen() {
   const exportVault = useCallback(async () => {
     const problem = passphraseProblem(passphrase, confirmation);
     if (problem) {
-      toast.show({ message: problem });
+      setSheetError(problem);
       return;
     }
+    setSheetError(null);
     setBusy('export');
     setProgress({ done: 0, total: 1 });
     let uri: string | null = null;
@@ -98,10 +102,7 @@ export default function SettingsScreen() {
         tone: 'success',
       });
     } catch (e) {
-      toast.show({
-        message: e instanceof Error ? e.message : 'Could not create the backup.',
-        tone: 'danger',
-      });
+      setSheetError(e instanceof Error ? e.message : 'Could not create the backup.');
     } finally {
       if (uri) backupService.discardBackup(uri);
       setProgress(null);
@@ -119,6 +120,7 @@ export default function SettingsScreen() {
       if (!asset) return;
       const info = await backupService.inspectBackup(asset.uri);
       setRestorePassphrase('');
+      setSheetError(null);
       setRestore({
         uri: asset.uri,
         name: asset.name,
@@ -132,6 +134,7 @@ export default function SettingsScreen() {
 
   const importVault = useCallback(async () => {
     if (!restore || !restorePassphrase) return;
+    setSheetError(null);
     setBusy('import');
     setProgress({ done: 0, total: 1 });
     try {
@@ -144,7 +147,7 @@ export default function SettingsScreen() {
       setRestorePassphrase('');
       toast.show({ message: `Vault restored: ${entries} entries`, tone: 'success' });
     } catch (e) {
-      toast.show({ message: describeBackupError(e), tone: 'danger' });
+      setSheetError(describeBackupError(e));
     } finally {
       setProgress(null);
       setBusy(null);
@@ -358,6 +361,11 @@ export default function SettingsScreen() {
           autoCorrect={false}
           editable={busy !== 'export'}
         />
+        {sheetError ? (
+          <Text variant="footnote" tone="danger" accessibilityRole="alert">
+            {sheetError}
+          </Text>
+        ) : null}
         {progress && busy === 'export' ? (
           <Text variant="footnote" tone="secondary" accessibilityLiveRegion="polite">
             Encrypting {progress.done} of {progress.total}
@@ -395,6 +403,11 @@ export default function SettingsScreen() {
               autoCorrect={false}
               editable={busy !== 'import'}
             />
+            {sheetError ? (
+              <Text variant="footnote" tone="danger" accessibilityRole="alert">
+                {sheetError}
+              </Text>
+            ) : null}
             {progress && busy === 'import' ? (
               <Text variant="footnote" tone="secondary" accessibilityLiveRegion="polite">
                 Restoring {progress.done} of {progress.total}

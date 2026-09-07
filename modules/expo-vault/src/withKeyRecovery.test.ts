@@ -50,4 +50,14 @@ describe('withKeyRecovery', () => {
     await expect(other.getFile()).rejects.toThrow('corrupt');
     expect(corruptVault.unlockWithBiometrics).not.toHaveBeenCalled();
   });
+
+  it('leaves synchronous helpers such as event subscriptions alone', () => {
+    const subscription = { remove: jest.fn() };
+    const vault = {
+      unlockWithBiometrics: async () => true,
+      addListener: () => subscription,
+    };
+    const wrapped = withKeyRecovery(vault);
+    expect(wrapped.addListener()).toBe(subscription);
+  });
 });

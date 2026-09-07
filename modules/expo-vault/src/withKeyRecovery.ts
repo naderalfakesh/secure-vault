@@ -13,6 +13,15 @@ export function isKeyLocked(error: unknown): boolean {
   return typeof message === 'string' && /not authenticated/i.test(message);
 }
 
+function isThenable(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'then' in value &&
+    typeof value.then === 'function'
+  );
+}
+
 /**
  * Wraps the native vault so that a call failing with a locked key prompts the
  * system credential once and retries. On iOS the Keychain shows its own
@@ -23,16 +32,18 @@ export function withKeyRecovery<T extends KeyRecoveryTarget>(vault: T): T {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver) as unknown;
       if (typeof value !== 'function' || property === 'unlockWithBiometrics') return value;
-      const method = value as (...args: unknown[]) => Promise<unknown>;
-      return async (...args: unknown[]) => {
-        try {
-          return await method.apply(target, args);
-        } catch (error) {
+      const method = value as (...args: unknown[]) => unknown;
+      return (...args: unknown[]) => {
+        const result = method.apply(target, args);
+        // Only promise-returning vault calls take part; event subscriptions
+        // and other synchronous helpers pass through untouched.
+        if (!isThenable(result)) return result;
+        return result.catch(async (error: unknown) => {
           if (!isKeyLocked(error)) throw error;
           const unlocked = await target.unlockWithBiometrics().catch(() => false);
           if (!unlocked) throw error;
           return method.apply(target, args);
-        }
+        });
       };
     },
   });
