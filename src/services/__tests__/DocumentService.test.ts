@@ -1,6 +1,6 @@
 import vault from '../../../modules/expo-vault';
 import { DocumentCategory } from '../../types';
-import { documentService } from '../DocumentService';
+import { documentService, shareFileName } from '../DocumentService';
 
 const vaultMock = vault as unknown as { reset(): void };
 
@@ -52,5 +52,47 @@ describe('DocumentService', () => {
     expect((await documentService.searchDocuments('rent')).map((d) => d.title)).toEqual(['Lease']);
     expect((await documentService.searchDocuments('home')).map((d) => d.title)).toEqual(['Lease']);
     expect(await documentService.searchDocuments('nothing')).toHaveLength(0);
+  });
+
+  it('names shared copies after the document and strips unsafe characters', () => {
+    expect(shareFileName('Passport: Jane/Doe?')).toBe('Passport Jane Doe');
+    expect(shareFileName('   ')).toBe('document');
+    expect(shareFileName('x'.repeat(100))).toHaveLength(80);
+  });
+
+  it('rasterises pdf pages instead of returning the pdf itself', async () => {
+    const doc = await documentService.addDocument(
+      { uri: '/tmp/lease.pdf', name: 'lease.pdf', type: 'application/pdf', size: 4096 },
+      { title: 'Lease' },
+    );
+    expect(doc.fileType).toBe('pdf');
+    const pages = await documentService.getDocumentPages(doc.id);
+    expect(pages).toHaveLength(1);
+    expect(pages[0]).toMatch(/pages_.*page_1\.jpg$/);
+  });
+
+  it('deletes with a snapshot that can restore the document under the same id', async () => {
+    const doc = await documentService.addDocument(picked, {
+      title: 'Passport',
+      category: DocumentCategory.ID,
+      tags: ['travel'],
+    });
+    await documentService.setFields(doc.id, [
+      { key: 'expires', value: '2030-01-01', kind: 'date' },
+    ]);
+
+    const deleted = await documentService.deleteDocumentWithUndo(doc.id);
+    expect(deleted?.document.id).toBe(doc.id);
+    expect(deleted?.files[0]?.uri).toContain(`undo_${doc.id}`);
+    expect(await documentService.getDocument(doc.id)).toBeNull();
+
+    const restored = await documentService.restoreDocument(deleted!);
+    expect(restored.id).toBe(doc.id);
+    expect(restored.title).toBe('Passport');
+    expect(restored.createdAt).toBe(doc.createdAt);
+    expect(await documentService.getFields(doc.id)).toEqual([
+      { key: 'expires', value: '2030-01-01', kind: 'date' },
+    ]);
+    expect(await documentService.getAllDocuments()).toHaveLength(1);
   });
 });

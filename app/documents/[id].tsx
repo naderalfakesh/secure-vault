@@ -1,9 +1,10 @@
 import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Share, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import {
   Button,
@@ -14,31 +15,46 @@ import {
   IconButton,
   ListRow,
   Screen,
+  Sheet,
   Skeleton,
   Text,
   useToast,
 } from '@/components/ui';
-import { categoryIcons, categoryLabel } from '@/features/documents/categories';
+import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { useSession } from '@/features/session/SessionProvider';
-import { documentService } from '@/services/DocumentService';
+import { PageViewer } from '@/features/viewer/PageViewer';
+import { documentService, UNDO_WINDOW_MS } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import type { ExtractedField } from '@/data/DocumentRepository';
-import type { Document } from '@/types';
+import { type Document, DocumentCategory } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/format';
+
+const fieldTitles: Record<string, string> = {
+  expires: 'Expires',
+  issued: 'Issued',
+  number: 'Number',
+};
+
+function maskNumber(value: string): string {
+  return `${'•'.repeat(Math.max(0, value.length - 3))}${value.slice(-3)}`;
+}
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
-  const { settings, stepUp } = useSession();
+  const { theme } = useUnistyles();
+  const { settings, stepUp, withoutAutoLock } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fileUri, setFileUri] = useState<string | null>(null);
+  const [pages, setPages] = useState<string[]>([]);
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [revealNumber, setRevealNumber] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [showText, setShowText] = useState(false);
-  const [busy, setBusy] = useState<'ocr' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'ocr' | 'delete' | 'share' | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ title: '', category: DocumentCategory.OTHER, tags: '' });
 
   useEffect(() => {
     if (!id) return;
@@ -51,13 +67,13 @@ export default function DocumentDetailScreen() {
           if (active) setError('This document is no longer in the vault.');
           return;
         }
-        const [uri, extracted] = await Promise.all([
-          documentService.getDocumentFile(id),
+        const [pageUris, extracted] = await Promise.all([
+          documentService.getDocumentPages(id),
           documentService.getFields(id),
         ]);
         if (active) {
           setDocument(doc);
-          setFileUri(uri);
+          setPages(pageUris);
           setFields(extracted);
         }
       })
@@ -73,17 +89,34 @@ export default function DocumentDetailScreen() {
   }, [id]);
 
   const share = useCallback(async () => {
-    if (!document || !fileUri) return;
+    if (!document) return;
     if (settings.biometricsForShare && !(await stepUp())) {
       toast.show({ message: 'Confirm with biometrics to share.' });
       return;
     }
-    try {
-      await Share.share({ title: document.title, url: `file://${fileUri}` });
-    } catch {
-      // Share sheet dismissed.
+    setBusy('share');
+    const copy = await documentService.prepareShareFile(document.id).catch(() => null);
+    if (!copy) {
+      setBusy(null);
+      toast.show({ message: 'Could not prepare the file.', tone: 'danger' });
+      return;
     }
-  }, [document, fileUri, settings.biometricsForShare, stepUp, toast]);
+    try {
+      // The share sheet is system UI; the vault must not lock behind it.
+      await withoutAutoLock(() =>
+        Sharing.shareAsync(copy.uri, {
+          dialogTitle: document.title,
+          mimeType: document.fileType === 'pdf' ? 'application/pdf' : 'image/jpeg',
+          UTI: document.fileType === 'pdf' ? 'com.adobe.pdf' : 'public.jpeg',
+        }),
+      );
+    } catch {
+      // Sheet dismissed or sharing unavailable; the copy is discarded either way.
+    } finally {
+      copy.discard();
+      setBusy(null);
+    }
+  }, [document, settings.biometricsForShare, stepUp, toast, withoutAutoLock]);
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
@@ -92,10 +125,11 @@ export default function DocumentDetailScreen() {
   }, [document, toast]);
 
   const runOcr = useCallback(async () => {
-    if (!document || !fileUri || document.fileType !== 'image') return;
+    const source = pages[0];
+    if (!document || !source) return;
     setBusy('ocr');
     try {
-      const result = await ocrService.extractText(fileUri);
+      const result = await ocrService.extractText(source);
       if (result.text && ocrService.isTextMeaningful(result.text)) {
         const ocrText = ocrService.cleanText(result.text);
         await documentService.updateDocument(document.id, { ocrText });
@@ -103,7 +137,7 @@ export default function DocumentDetailScreen() {
         setShowText(true);
         toast.show({ message: 'Text extracted', tone: 'success' });
       } else {
-        toast.show({ message: 'No readable text found in this image.' });
+        toast.show({ message: 'No readable text found on the first page.' });
       }
     } catch (e) {
       toast.show({
@@ -113,36 +147,78 @@ export default function DocumentDetailScreen() {
     } finally {
       setBusy(null);
     }
-  }, [document, fileUri, toast]);
+  }, [document, pages, toast]);
 
-  const remove = useCallback(() => {
+  const openEditor = useCallback(() => {
     if (!document) return;
-    // Destructive and irreversible until Phase 7 adds undo, so a native confirmation stays.
-    Alert.alert(
-      'Delete this document?',
-      `"${document.title}" is removed from the vault permanently.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setBusy('delete');
-            try {
-              await documentService.deleteDocument(document.id);
-              router.back();
-              toast.show({ message: 'Document deleted' });
-            } catch (e) {
-              setBusy(null);
-              toast.show({
-                message: e instanceof Error ? e.message : 'Could not delete the document.',
-                tone: 'danger',
-              });
-            }
+    setDraft({
+      title: document.title,
+      category: document.category,
+      tags: document.tags.join(', '),
+    });
+    setEditing(true);
+  }, [document]);
+
+  const saveEdits = useCallback(async () => {
+    if (!document) return;
+    const title = draft.title.trim();
+    if (!title) {
+      toast.show({ message: 'Give the document a title.' });
+      return;
+    }
+    const tags = draft.tags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    try {
+      const updated = await documentService.updateDocument(document.id, {
+        title,
+        category: draft.category,
+        tags,
+      });
+      if (updated) setDocument(updated);
+      setEditing(false);
+      toast.show({ message: 'Details updated', tone: 'success' });
+    } catch (e) {
+      toast.show({
+        message: e instanceof Error ? e.message : 'Could not update the document.',
+        tone: 'danger',
+      });
+    }
+  }, [document, draft, toast]);
+
+  // Delete leaves immediately and offers undo from the list screen. The
+  // encrypted copy is gone at once; the service keeps a decrypted copy in
+  // the cache for the undo window and discards it after.
+  const remove = useCallback(async () => {
+    if (!document) return;
+    setBusy('delete');
+    try {
+      const deleted = await documentService.deleteDocumentWithUndo(document.id);
+      router.back();
+      if (!deleted) return;
+      toast.show({
+        message: `Deleted "${deleted.document.title}"`,
+        durationMs: UNDO_WINDOW_MS,
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            documentService
+              .restoreDocument(deleted)
+              .then(() => toast.show({ message: 'Document restored', tone: 'success' }))
+              .catch(() =>
+                toast.show({ message: 'Could not restore the document.', tone: 'danger' }),
+              );
           },
         },
-      ],
-    );
+      });
+    } catch (e) {
+      setBusy(null);
+      toast.show({
+        message: e instanceof Error ? e.message : 'Could not delete the document.',
+        tone: 'danger',
+      });
+    }
   }, [document, toast]);
 
   if (loading) {
@@ -150,7 +226,7 @@ export default function DocumentDetailScreen() {
       <Screen edges={['bottom']} padded>
         <Stack.Screen options={{ title: '' }} />
         <View style={styles.loading}>
-          <Skeleton height={280} borderRadius={16} />
+          <Skeleton height={320} borderRadius={16} />
           <Skeleton width="60%" height={24} />
           <Skeleton width="40%" height={16} />
         </View>
@@ -175,6 +251,7 @@ export default function DocumentDetailScreen() {
 
   const created = formatDate(document.createdAt);
   const updated = formatDate(document.updatedAt);
+  const multiPage = pages.length > 1;
 
   return (
     <Screen edges={['bottom']}>
@@ -183,11 +260,12 @@ export default function DocumentDetailScreen() {
           title: '',
           headerRight: () => (
             <View style={styles.headerActions}>
+              <IconButton icon="edit" accessibilityLabel="Edit details" onPress={openEditor} />
               <IconButton
                 icon="share"
                 accessibilityLabel="Share"
                 onPress={share}
-                disabled={!fileUri}
+                disabled={pages.length === 0 || busy === 'share'}
               />
               <IconButton
                 icon="trash"
@@ -204,13 +282,13 @@ export default function DocumentDetailScreen() {
         <Pressable
           accessibilityRole="imagebutton"
           accessibilityLabel={`Preview of ${document.title}`}
-          accessibilityHint="Opens full screen"
-          onPress={() => fileUri && setFullscreen(true)}
+          accessibilityHint="Opens the page viewer"
+          onPress={() => pages.length > 0 && setViewerIndex(0)}
           style={styles.preview}
         >
-          {fileUri && document.fileType === 'image' ? (
+          {pages[0] ? (
             <Image
-              source={{ uri: `file://${fileUri}` }}
+              source={{ uri: pages[0] }}
               style={styles.previewImage}
               contentFit="contain"
               transition={150}
@@ -219,11 +297,42 @@ export default function DocumentDetailScreen() {
             <View style={styles.previewPlaceholder}>
               <Icon name="pdf" size={40} tone="tertiary" />
               <Text variant="footnote" tone="secondary">
-                PDF preview arrives with the viewer rework
+                Preview unavailable
               </Text>
             </View>
           )}
+          {multiPage ? (
+            <View style={styles.pageBadge}>
+              <Icon name="document" size={12} tone="inverse" />
+              <Text variant="caption" tone="inverse">
+                {pages.length} pages
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
+
+        {multiPage ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pageStrip}
+          >
+            {pages.map((uri, index) => (
+              <Pressable
+                key={uri}
+                accessibilityRole="button"
+                accessibilityLabel={`Open page ${index + 1}`}
+                onPress={() => setViewerIndex(index)}
+                style={styles.pageThumb}
+              >
+                <Image source={{ uri }} style={styles.pageThumbImage} contentFit="cover" />
+                <Text variant="caption" tone="secondary">
+                  {index + 1}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.titleBlock}>
           <Text variant="title1" accessibilityRole="header">
@@ -258,15 +367,13 @@ export default function DocumentDetailScreen() {
                 key={field.key}
                 icon={field.kind === 'date' ? 'calendar' : 'tag'}
                 iconTone={field.key === 'expires' ? 'warning' : 'accent'}
-                title={
-                  { expires: 'Expires', issued: 'Issued', number: 'Number' }[field.key] ?? field.key
-                }
+                title={fieldTitles[field.key] ?? field.key}
                 subtitle={
                   field.kind === 'date'
                     ? formatDate(field.value)
                     : revealNumber
                       ? field.value
-                      : `${'•'.repeat(Math.max(0, field.value.length - 3))}${field.value.slice(-3)}`
+                      : maskNumber(field.value)
                 }
                 onPress={
                   field.kind === 'text' ? () => setRevealNumber((value) => !value) : undefined
@@ -315,58 +422,86 @@ export default function DocumentDetailScreen() {
                       onPress={copyText}
                       leading={<Icon name="copy" size={16} tone="accent" />}
                     />
-                    {document.fileType === 'image' ? (
-                      <Button
-                        label="Read again"
-                        variant="ghost"
-                        size="md"
-                        onPress={runOcr}
-                        loading={busy === 'ocr'}
-                      />
-                    ) : null}
+                    <Button
+                      label="Read again"
+                      variant="ghost"
+                      size="md"
+                      onPress={runOcr}
+                      loading={busy === 'ocr'}
+                    />
                   </View>
                 </View>
               ) : null}
             </>
-          ) : document.fileType === 'image' ? (
+          ) : (
             <ListRow
               icon="sparkles"
               title={busy === 'ocr' ? 'Reading the text' : 'Read the text'}
               subtitle="Makes this document searchable. Runs on this device."
               onPress={runOcr}
-              disabled={busy === 'ocr'}
-              divider={false}
-            />
-          ) : (
-            <ListRow
-              icon="text"
-              title="No text extracted"
-              subtitle="PDF text extraction is coming"
+              disabled={busy === 'ocr' || pages.length === 0}
               divider={false}
             />
           )}
         </Card>
       </ScrollView>
 
-      <Modal visible={fullscreen} animationType="fade" onRequestClose={() => setFullscreen(false)}>
-        <View style={styles.fullscreen}>
-          {fileUri ? (
-            <Image
-              source={{ uri: `file://${fileUri}` }}
-              style={styles.fullscreenImage}
-              contentFit="contain"
-            />
-          ) : null}
-          <View style={styles.fullscreenClose}>
-            <IconButton
-              icon="close"
-              accessibilityLabel="Close"
-              variant="tinted"
-              onPress={() => setFullscreen(false)}
+      <PageViewer
+        visible={viewerIndex !== null}
+        pages={pages}
+        title={document.title}
+        initialIndex={viewerIndex ?? 0}
+        onClose={() => setViewerIndex(null)}
+      />
+
+      <Sheet visible={editing} onClose={() => setEditing(false)} title="Edit details">
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <Text variant="label" tone="tertiary">
+              Title
+            </Text>
+            <TextInput
+              value={draft.title}
+              onChangeText={(title) => setDraft((value) => ({ ...value, title }))}
+              style={styles.input}
+              placeholderTextColor={theme.colors.textTertiary}
+              accessibilityLabel="Title"
+              returnKeyType="done"
             />
           </View>
+          <View style={styles.field}>
+            <Text variant="label" tone="tertiary">
+              Category
+            </Text>
+            <View style={styles.chips}>
+              {allCategories.map((category) => (
+                <Chip
+                  key={category}
+                  label={categoryLabel(category)}
+                  icon={categoryIcons[category]}
+                  selected={draft.category === category}
+                  onPress={() => setDraft((value) => ({ ...value, category }))}
+                />
+              ))}
+            </View>
+          </View>
+          <View style={styles.field}>
+            <Text variant="label" tone="tertiary">
+              Tags
+            </Text>
+            <TextInput
+              value={draft.tags}
+              onChangeText={(tags) => setDraft((value) => ({ ...value, tags }))}
+              style={styles.input}
+              placeholder="Separate with commas"
+              placeholderTextColor={theme.colors.textTertiary}
+              accessibilityLabel="Tags"
+              autoCapitalize="none"
+            />
+          </View>
+          <Button label="Save" onPress={saveEdits} />
         </View>
-      </Modal>
+      </Sheet>
     </Screen>
   );
 }
@@ -385,7 +520,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.xxl,
   },
   preview: {
-    height: 300,
+    height: 320,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surfaceMuted,
     overflow: 'hidden',
@@ -398,6 +533,32 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.xs,
+  },
+  pageBadge: {
+    position: 'absolute',
+    right: theme.spacing.sm,
+    bottom: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 4,
+    borderRadius: theme.radii.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  pageStrip: {
+    gap: theme.spacing.xs,
+  },
+  pageThumb: {
+    width: 64,
+    alignItems: 'center',
+    gap: 2,
+  },
+  pageThumbImage: {
+    width: 64,
+    height: 84,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surfaceMuted,
   },
   titleBlock: {
     gap: theme.spacing.xs,
@@ -426,16 +587,25 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     gap: theme.spacing.xs,
   },
-  fullscreen: {
-    flex: 1,
-    backgroundColor: '#000000',
+  form: {
+    gap: theme.spacing.md,
   },
-  fullscreenImage: {
-    flex: 1,
+  field: {
+    gap: theme.spacing.xs,
   },
-  fullscreenClose: {
-    position: 'absolute',
-    top: 56,
-    right: theme.spacing.md,
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+  },
+  input: {
+    minHeight: theme.touchTarget,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.textPrimary,
+    fontSize: 17,
   },
 }));

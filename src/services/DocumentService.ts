@@ -12,8 +12,20 @@ const THUMB_PREFIX = 'thumb_';
 const PAGE_PREFIX = 'page_';
 // Two-column grid cells are about 180 pt wide, so 512 px covers 3x screens.
 const THUMBNAIL_MAX_PIXELS = 512;
+// Full-screen pages on a 3x phone; larger only costs memory in the viewer.
+const PAGE_MAX_PIXELS = 2048;
+// How long an undo stays possible after a delete.
+export const UNDO_WINDOW_MS = 6000;
 
 type ChangeListener = () => void;
+
+/** Everything needed to put a deleted document back, kept until the undo window closes. */
+export interface DeletedDocument {
+  document: Document;
+  fields: ExtractedField[];
+  /** Decrypted copies in the cache: main file first, then extra pages. */
+  files: PickedFile[];
+}
 
 /**
  * Coordinates the two stores a document lives in: encrypted bytes in the vault
@@ -23,6 +35,7 @@ type ChangeListener = () => void;
  */
 class DocumentService {
   private listeners = new Set<ChangeListener>();
+  private undoTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private cacheUri = Paths.cache.uri;
 
   private toPath(uriOrPath: string): string {
@@ -85,7 +98,7 @@ class DocumentService {
     const file = files[0];
     if (!file) throw new Error('A document needs at least one file.');
     const repository = await this.repository();
-    const id = Crypto.randomUUID();
+    const id = metadata.id ?? Crypto.randomUUID();
     const fileKey = `${FILE_PREFIX}${id}`;
     const thumbnailKey = `${THUMB_PREFIX}${id}`;
     const now = new Date().toISOString();
@@ -93,12 +106,14 @@ class DocumentService {
 
     const sourcePath = await this.getLocalFilePath(file.uri);
     await ExpoVaultModule.putFile(fileKey, sourcePath);
-    if (fileType === 'image') {
-      try {
-        await ExpoVaultModule.putThumbnail(thumbnailKey, sourcePath, THUMBNAIL_MAX_PIXELS);
-      } catch {
-        // A missing thumbnail only costs a placeholder in the list.
+    try {
+      const thumbnailSource =
+        fileType === 'pdf' ? await this.renderPdfCover(sourcePath, id) : sourcePath;
+      if (thumbnailSource) {
+        await ExpoVaultModule.putThumbnail(thumbnailKey, thumbnailSource, THUMBNAIL_MAX_PIXELS);
       }
+    } catch {
+      // A missing thumbnail only costs a placeholder in the list.
     }
 
     this.discardTemp(sourcePath, file.uri);
@@ -122,7 +137,7 @@ class DocumentService {
       fileKey,
       fileType,
       fileSize: file.size || 0,
-      createdAt: now,
+      createdAt: metadata.createdAt ?? now,
     });
     if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
     this.notify();
@@ -139,19 +154,61 @@ class DocumentService {
     }
   }
 
-  /** Decrypts every page (main file first) into the cache and returns their URIs. */
+  /** First page of a PDF as a JPEG in the cache, or null when it cannot be rendered. */
+  private async renderPdfCover(pdfPath: string, id: string): Promise<string | null> {
+    const { path } = this.getCacheLocation(`pages_${id}_cover`);
+    const [cover] = await ExpoVaultModule.renderPdfPages(pdfPath, THUMBNAIL_MAX_PIXELS, path);
+    return cover ? this.toPath(cover.uri) : null;
+  }
+
+  /**
+   * Every page of a document as image URIs in the cache, main file first.
+   * PDFs are rasterised natively so the viewer never needs a PDF renderer.
+   */
   async getDocumentPages(id: string): Promise<string[]> {
     const doc = await this.getDocument(id);
     if (!doc) return [];
     const main = await this.getDocumentFile(id);
+    if (!main) return [];
+    if (doc.fileType === 'pdf') {
+      const { path } = this.getCacheLocation(`pages_${id}`);
+      const pages = await ExpoVaultModule.renderPdfPages(this.toPath(main), PAGE_MAX_PIXELS, path);
+      return pages.map((page) => this.toUri(page.uri));
+    }
     const pageKeys = await (await this.repository()).getPages(id);
-    const uris = main ? [main] : [];
+    const uris = [main];
     for (const [index, key] of pageKeys.entries()) {
       const { uri, path } = this.getCacheLocation(`decrypted_${id}_p${index + 1}.jpg`);
       await ExpoVaultModule.getFile(key, path);
       uris.push(uri);
     }
     return uris;
+  }
+
+  /**
+   * A decrypted copy named after the document, ready for the share sheet.
+   * Call `discard` once the sheet closes; `clearCache` sweeps it too.
+   */
+  async prepareShareFile(id: string): Promise<{ uri: string; discard: () => void } | null> {
+    const doc = await this.getDocument(id);
+    const source = await this.getDocumentFile(id);
+    if (!doc || !source) return null;
+    const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
+    const directory = new Directory(Paths.cache, 'share');
+    if (!directory.exists) directory.create();
+    const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
+    if (target.exists) target.delete();
+    new File(this.toUri(source)).copy(target);
+    return {
+      uri: target.uri,
+      discard: () => {
+        try {
+          if (target.exists) target.delete();
+        } catch {
+          // Swept by clearCache.
+        }
+      },
+    };
   }
 
   async getDocument(id: string): Promise<Document | null> {
@@ -202,6 +259,67 @@ class DocumentService {
     return (await this.repository()).getFields(id);
   }
 
+  /**
+   * Removes the document but keeps decrypted copies in the cache so
+   * `restoreDocument` can put it back during the undo window.
+   */
+  async deleteDocumentWithUndo(id: string): Promise<DeletedDocument | null> {
+    const document = await this.getDocument(id);
+    if (!document) return null;
+    const fields = await this.getFields(id);
+    const extension = document.fileType === 'pdf' ? 'pdf' : 'jpg';
+    const files: PickedFile[] = [];
+    const main = this.getCacheLocation(`undo_${id}.${extension}`);
+    await ExpoVaultModule.getFile(document.fileKey, main.path);
+    files.push({
+      uri: main.uri,
+      name: `${document.title}.${extension}`,
+      type: document.fileType === 'pdf' ? 'application/pdf' : 'image/jpeg',
+      size: document.fileSize,
+    });
+    const pageKeys = await (await this.repository()).getPages(id);
+    for (const [index, key] of pageKeys.entries()) {
+      const page = this.getCacheLocation(`undo_${id}_p${index + 1}.jpg`);
+      await ExpoVaultModule.getFile(key, page.path);
+      files.push({ uri: page.uri, name: `page-${index + 1}.jpg`, type: 'image/jpeg' });
+    }
+    await this.deleteDocument(id);
+    const deleted = { document, fields, files };
+    // The decrypted copies outlive the row only for the undo window.
+    this.undoTimers.set(
+      id,
+      setTimeout(() => {
+        this.undoTimers.delete(id);
+        this.discardDeleted(deleted);
+      }, UNDO_WINDOW_MS),
+    );
+    return deleted;
+  }
+
+  /** Puts a deleted document back under its original id and dates. */
+  async restoreDocument(deleted: DeletedDocument): Promise<Document> {
+    const { document, fields, files } = deleted;
+    const timer = this.undoTimers.get(document.id);
+    if (timer) clearTimeout(timer);
+    this.undoTimers.delete(document.id);
+    const restored = await this.addDocument(files, {
+      id: document.id,
+      title: document.title,
+      category: document.category,
+      tags: document.tags,
+      ocrText: document.ocrText,
+      createdAt: document.createdAt,
+    });
+    if (fields.length > 0) await this.setFields(document.id, fields);
+    this.discardDeleted(deleted);
+    return restored;
+  }
+
+  /** Drops the decrypted copies once undo is no longer possible. */
+  private discardDeleted(deleted: DeletedDocument): void {
+    for (const file of deleted.files) this.discardTemp(this.toPath(file.uri), '');
+  }
+
   async deleteDocument(id: string): Promise<boolean> {
     const repository = await this.repository();
     const doc = await repository.get(id);
@@ -247,7 +365,10 @@ class DocumentService {
         if (
           name.startsWith('decrypted_') ||
           name.startsWith('thumb_') ||
-          name.startsWith('temp_')
+          name.startsWith('temp_') ||
+          name.startsWith('pages_') ||
+          name.startsWith('undo_') ||
+          name === 'share'
         ) {
           try {
             entry.delete();
@@ -278,6 +399,16 @@ class DocumentService {
       clearTimeout(timeout);
     }
   }
+}
+
+/** File-system safe name for a shared copy, e.g. "Passport (2026)" stays readable. */
+export function shareFileName(title: string): string {
+  const cleaned = title
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  return cleaned || 'document';
 }
 
 export const documentService = new DocumentService();
