@@ -108,7 +108,7 @@ describe('SessionProvider', () => {
     await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
     const original = vaultMock.unlockWithBiometrics;
     vaultMock.unlockWithBiometrics = async () => {
-      throw new Error('Biometric authentication failed.');
+      throw Object.assign(new Error('Face Not Recognized'), { code: 'BIOMETRIC_AUTH_FAILED' });
     };
 
     const view = await renderProbe();
@@ -117,7 +117,9 @@ describe('SessionProvider', () => {
       await fireEvent.press(view.getByText('run unlock'));
     });
     expect(view.getByTestId('status')).toHaveTextContent('locked');
-    expect(view.getByTestId('error')).toHaveTextContent('Biometric authentication failed.');
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'That did not match. Try again or enter your PIN.',
+    );
 
     vaultMock.unlockWithBiometrics = original;
   });

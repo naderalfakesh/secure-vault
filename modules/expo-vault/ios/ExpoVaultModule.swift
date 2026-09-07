@@ -89,6 +89,10 @@ public class ExpoVaultModule: Module {
             } catch {
               promise.reject("KEY_RETRIEVAL_FAILED", error.localizedDescription)
             }
+          } else if let laError = authenticationError as? LAError, Self.isUserDismissal(laError.code) {
+            // Cancelling the prompt is a choice, not a failure: the caller
+            // falls back to the PIN without showing an error.
+            promise.resolve(false)
           } else {
             promise.reject("BIOMETRIC_AUTH_FAILED", authenticationError?.localizedDescription ?? "Biometric authentication failed.")
           }
@@ -264,6 +268,15 @@ public class ExpoVaultModule: Module {
         } catch {
             promise.reject("GET_FILE_SIZE_FAILED", error.localizedDescription)
         }
+    }
+  }
+
+  private static func isUserDismissal(_ code: LAError.Code) -> Bool {
+    switch code {
+    case .userCancel, .systemCancel, .appCancel, .userFallback:
+      return true
+    default:
+      return false
     }
   }
 

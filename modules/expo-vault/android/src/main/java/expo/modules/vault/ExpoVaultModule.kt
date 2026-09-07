@@ -125,7 +125,14 @@ class ExpoVaultModule : Module() {
 
                             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                                 super.onAuthenticationError(errorCode, errString)
-                                promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
+                                when (errorCode) {
+                                    // Dismissing the prompt is a choice, not a failure: the
+                                    // caller falls back to the PIN without showing an error.
+                                    BiometricPrompt.ERROR_USER_CANCELED,
+                                    BiometricPrompt.ERROR_NEGATIVE_BUTTON,
+                                    BiometricPrompt.ERROR_CANCELED -> promise.resolve(false)
+                                    else -> promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
+                                }
                             }
 
                             override fun onAuthenticationFailed() {

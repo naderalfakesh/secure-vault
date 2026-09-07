@@ -50,7 +50,17 @@ export type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+/** Native error codes that deserve a plain sentence instead of the OS text. */
+const friendlyMessages: Record<string, string> = {
+  BIOMETRIC_AUTH_FAILED: 'That did not match. Try again or enter your PIN.',
+  BIOMETRIC_NOT_AVAILABLE: 'Biometrics are not available right now. Enter your PIN.',
+  NO_AUTH_ENROLLED: 'Set up a screen lock in your device settings first.',
+  KEY_RETRIEVAL_FAILED: 'The vault key could not be read. Restart the app and try again.',
+};
+
 function describeError(e: unknown, fallback: string): string {
+  const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
+  if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
   if (e instanceof Error && e.message) return e.message;
   return fallback;
 }
