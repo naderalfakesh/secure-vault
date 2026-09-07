@@ -3,6 +3,7 @@
 A React Native (Expo) app demonstrating secure document storage with biometric authentication, native encryption, camera scanning, and OCR.
 
 ## Tech Stack
+
 - **Framework**: React Native with Expo (bare workflow)
 - **Navigation**: Expo Router
 - **Native Module**: Custom Expo module for encryption (Android Keystore + iOS Keychain)
@@ -14,9 +15,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 1: Project Restructure & Foundation ✅
+
 > Rename project, clean up existing code, establish proper architecture
 
 ### Tasks
+
 - [x] Rename project from `cryptoNoteVault` to `SecureVault`
   - [x] Update `app.json` (name, slug, scheme)
   - [x] Update `package.json` (name)
@@ -59,16 +62,18 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
     LEGAL = 'legal',
     INSURANCE = 'insurance',
     RECEIPTS = 'receipts',
-    OTHER = 'other'
+    OTHER = 'other',
   }
   ```
 
 ---
 
 ## Milestone 2: Native Module Enhancement (Binary File Support) ✅
+
 > Add native methods to encrypt/decrypt binary files efficiently
 
 ### Tasks
+
 - [x] **Android: Add `putFile` method**
   - [x] Read file from provided path as bytes
   - [x] Encrypt bytes using existing AES-GCM cipher
@@ -107,6 +112,7 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
   - [x] Delete encrypted file
 
 - [x] **Update TypeScript types**
+
   ```typescript
   interface SecureVault {
     // Existing
@@ -133,20 +139,23 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 3: Document Service Layer ✅
+
 > Create service to manage document CRUD operations
 
 ### Tasks
+
 - [x] Create `DocumentService` class/module
+
   ```typescript
   class DocumentService {
-    async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document>
-    async getDocument(id: string): Promise<Document>
-    async getDocumentFile(id: string): Promise<string> // Returns decrypted file path
-    async getAllDocuments(): Promise<Document[]>
-    async updateDocument(id: string, updates: Partial<Document>): Promise<Document>
-    async deleteDocument(id: string): Promise<void>
-    async searchDocuments(query: string): Promise<Document[]>
-    async getDocumentsByCategory(category: DocumentCategory): Promise<Document[]>
+    async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document>;
+    async getDocument(id: string): Promise<Document>;
+    async getDocumentFile(id: string): Promise<string>; // Returns decrypted file path
+    async getAllDocuments(): Promise<Document[]>;
+    async updateDocument(id: string, updates: Partial<Document>): Promise<Document>;
+    async deleteDocument(id: string): Promise<void>;
+    async searchDocuments(query: string): Promise<Document[]>;
+    async getDocumentsByCategory(category: DocumentCategory): Promise<Document[]>;
   }
   ```
 
@@ -170,7 +179,7 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
     const [loading, setLoading] = useState(true);
 
     // Methods
-    addDocument, deleteDocument, updateDocument, refreshDocuments
+    (addDocument, deleteDocument, updateDocument, refreshDocuments);
 
     return { documents, loading, ...methods };
   }
@@ -179,9 +188,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 4: Core UI - Document List & Viewer ✅
+
 > Build the main screens for viewing and managing documents
 
 ### Tasks
+
 - [x] **Lock Screen (update existing)**
   - [x] Update branding/text for SecureVault
   - [x] Add app icon/logo
@@ -235,10 +246,13 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 5: File Picking & Basic Import
+
 > Implement document import from gallery and files (works in emulator)
 
 ### Tasks
+
 - [ ] Install dependencies
+
   ```bash
   npx expo install expo-image-picker expo-document-picker
   ```
@@ -255,6 +269,7 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
   - [ ] Pass to document service
 
 - [ ] **File Processing Pipeline**
+
   ```
   Pick File → Copy to temp → Generate thumbnail → Run OCR → Encrypt & Store → Save metadata
   ```
@@ -271,10 +286,13 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 6: Camera Scanning
+
 > Implement document scanning with camera
 
 ### Tasks
+
 - [ ] Install camera dependency
+
   ```bash
   npx expo install expo-camera
   # OR for better quality:
@@ -309,17 +327,21 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 7: OCR Integration ✅
+
 > Extract text from documents for searchability
 
 ### Tasks
+
 - [x] Install ML Kit
+
   ```bash
   yarn add @react-native-ml-kit/text-recognition
   ```
 
 - [x] **OCR Service**
+
   ```typescript
-  async function extractText(imagePath: string): Promise<string>
+  async function extractText(imagePath: string): Promise<string>;
   ```
 
 - [x] **Integrate OCR into import flow**
@@ -339,9 +361,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 8: Search & Filtering
+
 > Implement full-text search across documents
 
 ### Tasks
+
 - [ ] **Search Implementation**
   - [ ] Search bar component
   - [ ] Search across:
@@ -370,9 +394,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 9: Polish & Production Ready ✅
+
 > Final touches, error handling, and performance
 
 ### Tasks
+
 - [x] **Error Handling**
   - [x] Graceful error messages
   - [x] Retry mechanisms
@@ -412,9 +438,11 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 ---
 
 ## Milestone 10: Stretch Goals (Optional)
+
 > Extra features if time permits
 
 ### Tasks
+
 - [ ] **Cloud Backup**
   - [ ] Encrypted export to cloud (Google Drive / iCloud)
   - [ ] Import from cloud backup
@@ -439,18 +467,18 @@ A React Native (Expo) app demonstrating secure document storage with biometric a
 
 ## Progress Tracking
 
-| Milestone | Status | Completion |
-|-----------|--------|------------|
-| 1. Project Restructure | ✅ Complete | 100% |
-| 2. Native Module Enhancement | ✅ Complete | 100% |
-| 3. Document Service Layer | ✅ Complete | 100% |
-| 4. Core UI | ✅ Complete | 100% |
-| 5. File Picking | ✅ Complete | 100% |
-| 6. Camera Scanning | ✅ Complete | 100% |
-| 7. OCR Integration | ✅ Complete | 100% |
-| 8. Search & Filtering | ✅ Complete | 100% |
-| 9. Polish | ✅ Complete | 100% |
-| 10. Stretch Goals | Not Started | 0% |
+| Milestone                    | Status      | Completion |
+| ---------------------------- | ----------- | ---------- |
+| 1. Project Restructure       | ✅ Complete | 100%       |
+| 2. Native Module Enhancement | ✅ Complete | 100%       |
+| 3. Document Service Layer    | ✅ Complete | 100%       |
+| 4. Core UI                   | ✅ Complete | 100%       |
+| 5. File Picking              | ✅ Complete | 100%       |
+| 6. Camera Scanning           | ✅ Complete | 100%       |
+| 7. OCR Integration           | ✅ Complete | 100%       |
+| 8. Search & Filtering        | ✅ Complete | 100%       |
+| 9. Polish                    | ✅ Complete | 100%       |
+| 10. Stretch Goals            | Not Started | 0%         |
 
 ---
 

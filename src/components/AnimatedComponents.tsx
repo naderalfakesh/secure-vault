@@ -8,12 +8,7 @@ interface FadeInViewProps {
   style?: ViewStyle;
 }
 
-export function FadeInView({
-  children,
-  duration = 300,
-  delay = 0,
-  style,
-}: FadeInViewProps) {
+export function FadeInView({ children, duration = 300, delay = 0, style }: FadeInViewProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -25,11 +20,7 @@ export function FadeInView({
     }).start();
   }, [fadeAnim, duration, delay]);
 
-  return (
-    <Animated.View style={[style, { opacity: fadeAnim }]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={[style, { opacity: fadeAnim }]}>{children}</Animated.View>;
 }
 
 interface SlideInViewProps {
@@ -104,12 +95,7 @@ interface ScaleInViewProps {
   style?: ViewStyle;
 }
 
-export function ScaleInView({
-  children,
-  duration = 300,
-  delay = 0,
-  style,
-}: ScaleInViewProps) {
+export function ScaleInView({ children, duration = 300, delay = 0, style }: ScaleInViewProps) {
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -153,12 +139,7 @@ interface PressableScaleProps {
   disabled?: boolean;
 }
 
-export function PressableScale({
-  children,
-  onPress,
-  style,
-  disabled,
-}: PressableScaleProps) {
+export function PressableScale({ children, onPress, style, disabled }: PressableScaleProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {

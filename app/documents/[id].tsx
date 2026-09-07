@@ -89,7 +89,7 @@ export default function DocumentDetailScreen() {
             }
           },
         },
-      ]
+      ],
     );
   }, [id]);
 
@@ -219,12 +219,8 @@ export default function DocumentDetailScreen() {
 
           <View style={styles.categoryRow}>
             <View style={styles.categoryBadge}>
-              <Text style={styles.categoryIcon}>
-                {DocumentCategoryIcons[document.category]}
-              </Text>
-              <Text style={styles.categoryText}>
-                {DocumentCategoryLabels[document.category]}
-              </Text>
+              <Text style={styles.categoryIcon}>{DocumentCategoryIcons[document.category]}</Text>
+              <Text style={styles.categoryText}>{DocumentCategoryLabels[document.category]}</Text>
             </View>
             <Text style={styles.fileSize}>{formatFileSize(document.fileSize)}</Text>
           </View>
@@ -270,14 +266,9 @@ export default function DocumentDetailScreen() {
                 <>
                   <Text style={styles.ocrText}>{document.ocrText}</Text>
                   <View style={styles.ocrActions}>
-                    <TouchableOpacity
-                      style={styles.copyButton}
-                      onPress={handleCopyOcrText}
-                    >
+                    <TouchableOpacity style={styles.copyButton} onPress={handleCopyOcrText}>
                       <Text style={styles.copyButtonIcon}>{copied ? '✓' : '📋'}</Text>
-                      <Text style={styles.copyButtonText}>
-                        {copied ? 'Copied!' : 'Copy Text'}
-                      </Text>
+                      <Text style={styles.copyButtonText}>{copied ? 'Copied!' : 'Copy Text'}</Text>
                     </TouchableOpacity>
                     {document.fileType === 'image' && (
                       <TouchableOpacity
@@ -297,34 +288,33 @@ export default function DocumentDetailScreen() {
                 </>
               )}
             </View>
-          ) : document.fileType === 'image' && (
-            <TouchableOpacity
-              style={[styles.ocrSection, styles.ocrExtractButton]}
-              onPress={handleRunOcr}
-              disabled={runningOcr}
-            >
-              {runningOcr ? (
-                <View style={styles.ocrExtractContent}>
-                  <ActivityIndicator size="small" color="#4361ee" />
-                  <Text style={styles.ocrExtractText}>Extracting text...</Text>
-                </View>
-              ) : (
-                <View style={styles.ocrExtractContent}>
-                  <Text style={styles.ocrExtractIcon}>📝</Text>
-                  <Text style={styles.ocrExtractText}>Extract Text (OCR)</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+          ) : (
+            document.fileType === 'image' && (
+              <TouchableOpacity
+                style={[styles.ocrSection, styles.ocrExtractButton]}
+                onPress={handleRunOcr}
+                disabled={runningOcr}
+              >
+                {runningOcr ? (
+                  <View style={styles.ocrExtractContent}>
+                    <ActivityIndicator size="small" color="#4361ee" />
+                    <Text style={styles.ocrExtractText}>Extracting text...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.ocrExtractContent}>
+                    <Text style={styles.ocrExtractIcon}>📝</Text>
+                    <Text style={styles.ocrExtractText}>Extract Text (OCR)</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )
           )}
         </View>
       </ScrollView>
 
       {/* Action Buttons */}
       <View style={styles.actionBar}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={handleShare}
-        >
+        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
           <Text style={styles.actionIcon}>📤</Text>
           <Text style={styles.actionText}>Share</Text>
         </TouchableOpacity>
@@ -352,10 +342,7 @@ export default function DocumentDetailScreen() {
         onRequestClose={() => setShowFullScreen(false)}
       >
         <View style={styles.fullScreenContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowFullScreen(false)}
-          >
+          <TouchableOpacity style={styles.closeButton} onPress={() => setShowFullScreen(false)}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
           {fileUri && (

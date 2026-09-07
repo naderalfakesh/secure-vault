@@ -27,33 +27,29 @@ export default function SettingsScreen() {
       setExporting(true);
       const exportedData = await vault.exportEncrypted();
 
-      Alert.alert(
-        'Export Successful',
-        'Your vault has been exported. Choose how to save it.',
-        [
-          {
-            text: 'Copy to Clipboard',
-            onPress: () => {
-              Clipboard.setString(exportedData);
-              Alert.alert('Copied', 'Vault data copied to clipboard.');
-            },
+      Alert.alert('Export Successful', 'Your vault has been exported. Choose how to save it.', [
+        {
+          text: 'Copy to Clipboard',
+          onPress: () => {
+            Clipboard.setString(exportedData);
+            Alert.alert('Copied', 'Vault data copied to clipboard.');
           },
-          {
-            text: 'Share',
-            onPress: async () => {
-              try {
-                await Share.share({
-                  title: 'SecureVault Backup',
-                  message: exportedData,
-                });
-              } catch {
-                // User cancelled
-              }
-            },
+        },
+        {
+          text: 'Share',
+          onPress: async () => {
+            try {
+              await Share.share({
+                title: 'SecureVault Backup',
+                message: exportedData,
+              });
+            } catch {
+              // User cancelled
+            }
           },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } catch (e: any) {
       Alert.alert('Export Failed', e.message || 'Could not export vault data.');
     } finally {
@@ -84,7 +80,7 @@ export default function SettingsScreen() {
           },
         },
       ],
-      'plain-text'
+      'plain-text',
     );
   }, [vault]);
 
@@ -125,7 +121,7 @@ export default function SettingsScreen() {
             }
           },
         },
-      ]
+      ],
     );
   }, [vault]);
 
@@ -140,11 +136,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Backup & Restore</Text>
 
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleExport}
-            disabled={exporting}
-          >
+          <TouchableOpacity style={styles.settingItem} onPress={handleExport} disabled={exporting}>
             <View style={styles.settingIcon}>
               <Text style={styles.settingEmoji}>📤</Text>
             </View>
@@ -157,18 +149,13 @@ export default function SettingsScreen() {
             {exporting && <ActivityIndicator size="small" color="#4361ee" />}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleImport}
-          >
+          <TouchableOpacity style={styles.settingItem} onPress={handleImport}>
             <View style={styles.settingIcon}>
               <Text style={styles.settingEmoji}>📥</Text>
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingTitle}>Import Vault</Text>
-              <Text style={styles.settingDescription}>
-                Restore from an encrypted backup
-              </Text>
+              <Text style={styles.settingDescription}>Restore from an encrypted backup</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -177,18 +164,13 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
 
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={handleLockVault}
-          >
+          <TouchableOpacity style={styles.settingItem} onPress={handleLockVault}>
             <View style={styles.settingIcon}>
               <Text style={styles.settingEmoji}>🔐</Text>
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingTitle}>Lock Vault</Text>
-              <Text style={styles.settingDescription}>
-                Lock the app and require authentication
-              </Text>
+              <Text style={styles.settingDescription}>Lock the app and require authentication</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -206,9 +188,7 @@ export default function SettingsScreen() {
               <Text style={styles.settingEmoji}>🗑️</Text>
             </View>
             <View style={styles.settingContent}>
-              <Text style={[styles.settingTitle, styles.dangerText]}>
-                Clear All Data
-              </Text>
+              <Text style={[styles.settingTitle, styles.dangerText]}>Clear All Data</Text>
               <Text style={styles.settingDescription}>
                 Permanently delete all documents and vault data
               </Text>
@@ -225,9 +205,9 @@ export default function SettingsScreen() {
             <Text style={styles.appName}>SecureVault</Text>
             <Text style={styles.appVersion}>Version {APP_VERSION}</Text>
             <Text style={styles.appDescription}>
-              A secure document scanner and vault with native encryption.
-              Your documents are encrypted using your device's secure hardware
-              and protected with biometric authentication.
+              A secure document scanner and vault with native encryption. Your documents are
+              encrypted using your device's secure hardware and protected with biometric
+              authentication.
             </Text>
           </View>
 

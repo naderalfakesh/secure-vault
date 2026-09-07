@@ -16,13 +16,13 @@ The tag points at the cleaned-up prototype, not the raw working tree that was
 found on 2026-09-07. Seven uncommitted files and one untracked hook were
 reviewed first:
 
-| Change | Decision |
-| --- | --- |
-| Device integrity checks (`src/security`, `useSecurityStatus`) | Kept as an advisory banner. The config-hash check and the rule that treated `__DEV__` as tampering were dropped, because they blocked development builds and any config edit. |
-| Lock screen blocked unlock when checks failed | Dropped. Rooted or modified devices get a warning, never a locked door. |
-| iOS unlock accepts the device passcode (`.deviceOwnerAuthentication`, `.userPresence`) | Kept. It matches the Android `DEVICE_CREDENTIAL` fallback and makes the simulator usable. Biometric-bound key access returns in the vault module rework. |
-| Import timeout for `content://` URIs, trimmed error logging | Kept. |
-| "Test Authentication" row in Settings | Dropped. The plan lists it as one of the exposed scary parts. |
+| Change                                                                                 | Decision                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Device integrity checks (`src/security`, `useSecurityStatus`)                          | Kept as an advisory banner. The config-hash check and the rule that treated `__DEV__` as tampering were dropped, because they blocked development builds and any config edit. |
+| Lock screen blocked unlock when checks failed                                          | Dropped. Rooted or modified devices get a warning, never a locked door.                                                                                                       |
+| iOS unlock accepts the device passcode (`.deviceOwnerAuthentication`, `.userPresence`) | Kept. It matches the Android `DEVICE_CREDENTIAL` fallback and makes the simulator usable. Biometric-bound key access returns in the vault module rework.                      |
+| Import timeout for `content://` URIs, trimmed error logging                            | Kept.                                                                                                                                                                         |
+| "Test Authentication" row in Settings                                                  | Dropped. The plan lists it as one of the exposed scary parts.                                                                                                                 |
 
 Identity was unified in one commit: display name **SecureVault**, slug
 `secure-vault`, scheme `securevault`, bundle id and package

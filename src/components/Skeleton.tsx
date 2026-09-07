@@ -8,12 +8,7 @@ interface SkeletonProps {
   style?: ViewStyle;
 }
 
-export function Skeleton({
-  width = '100%',
-  height = 20,
-  borderRadius = 4,
-  style,
-}: SkeletonProps) {
+export function Skeleton({ width = '100%', height = 20, borderRadius = 4, style }: SkeletonProps) {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -29,7 +24,7 @@ export function Skeleton({
           duration: 1000,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
     animation.start();

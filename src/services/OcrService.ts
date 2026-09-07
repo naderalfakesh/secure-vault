@@ -25,9 +25,7 @@ class OcrService {
   async extractText(imagePath: string): Promise<OcrResult> {
     try {
       // Ensure the path is properly formatted
-      const uri = imagePath.startsWith('file://')
-        ? imagePath
-        : `file://${imagePath}`;
+      const uri = imagePath.startsWith('file://') ? imagePath : `file://${imagePath}`;
 
       const result = await TextRecognition.recognize(uri);
 
@@ -35,18 +33,18 @@ class OcrService {
       const blocks: OcrBlock[] = result.blocks.map((block) => ({
         text: block.text,
         lines: block.lines.map((line) => line.text),
-        boundingBox: block.frame ? {
-          left: block.frame.left,
-          top: block.frame.top,
-          right: block.frame.left + block.frame.width,
-          bottom: block.frame.top + block.frame.height,
-        } : undefined,
+        boundingBox: block.frame
+          ? {
+              left: block.frame.left,
+              top: block.frame.top,
+              right: block.frame.left + block.frame.width,
+              bottom: block.frame.top + block.frame.height,
+            }
+          : undefined,
       }));
 
       // Combine all text with proper spacing
-      const fullText = result.blocks
-        .map((block) => block.text)
-        .join('\n\n');
+      const fullText = result.blocks.map((block) => block.text).join('\n\n');
 
       return {
         text: fullText.trim(),
@@ -80,18 +78,20 @@ class OcrService {
    * Clean up extracted text for better readability
    */
   cleanText(text: string): string {
-    return text
-      // Normalize whitespace
-      .replace(/\s+/g, ' ')
-      // Fix common OCR mistakes
-      .replace(/\|/g, 'I')
-      .replace(/0(?=[a-zA-Z])/g, 'O')
-      .replace(/1(?=[a-zA-Z])/g, 'l')
-      // Remove isolated single characters (noise)
-      .replace(/\s[a-zA-Z]\s/g, ' ')
-      // Normalize line breaks
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return (
+      text
+        // Normalize whitespace
+        .replace(/\s+/g, ' ')
+        // Fix common OCR mistakes
+        .replace(/\|/g, 'I')
+        .replace(/0(?=[a-zA-Z])/g, 'O')
+        .replace(/1(?=[a-zA-Z])/g, 'l')
+        // Remove isolated single characters (noise)
+        .replace(/\s[a-zA-Z]\s/g, ' ')
+        // Normalize line breaks
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    );
   }
 }
 

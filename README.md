@@ -16,16 +16,16 @@ A secure document scanner and vault app built with React Native and Expo. Store 
 
 ## Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| React Native | Cross-platform mobile framework |
-| Expo (Bare Workflow) | Development tooling and native modules |
-| Expo Router | File-based navigation |
-| TypeScript | Type safety |
-| Custom Native Module | AES-GCM encryption with hardware-backed key storage |
-| ML Kit Text Recognition | On-device OCR |
-| expo-image-picker | Image/document selection |
-| expo-camera | Document scanning |
+| Technology              | Purpose                                             |
+| ----------------------- | --------------------------------------------------- |
+| React Native            | Cross-platform mobile framework                     |
+| Expo (Bare Workflow)    | Development tooling and native modules              |
+| Expo Router             | File-based navigation                               |
+| TypeScript              | Type safety                                         |
+| Custom Native Module    | AES-GCM encryption with hardware-backed key storage |
+| ML Kit Text Recognition | On-device OCR                                       |
+| expo-image-picker       | Image/document selection                            |
+| expo-camera             | Document scanning                                   |
 
 ## Architecture
 
@@ -67,6 +67,7 @@ modules/expo-vault/          # Custom native module
 ## Security Model
 
 ### Encryption
+
 - **Algorithm**: AES-256-GCM (authenticated encryption)
 - **Key Storage**:
   - Android: Keystore with hardware backing when available
@@ -75,11 +76,13 @@ modules/expo-vault/          # Custom native module
 - **IV Handling**: Unique IV per encryption, stored alongside ciphertext
 
 ### Authentication
+
 - Biometric prompt required on app launch
 - Falls back to device PIN/password if biometrics unavailable
 - Session persists while app is in foreground
 
 ### Data Storage
+
 - Encrypted files stored in app's private directory
 - Metadata stored as encrypted JSON
 - Thumbnails encrypted separately for fast list loading
@@ -88,6 +91,7 @@ modules/expo-vault/          # Custom native module
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - Yarn
 - Xcode 15+ (iOS development)
@@ -162,39 +166,43 @@ await vault.importVault(backup);
 
 ## Project Status
 
-| Feature | Status |
-|---------|--------|
+| Feature                  | Status   |
+| ------------------------ | -------- |
 | Biometric Authentication | Complete |
 | Native Encryption Module | Complete |
-| Document CRUD | Complete |
-| Camera Scanning | Complete |
-| Gallery/File Import | Complete |
-| OCR Integration | Complete |
-| Search & Filtering | Complete |
-| Skeleton Loaders | Complete |
-| Optimistic Updates | Complete |
-| Thumbnail Caching | Complete |
-| Error Boundaries | Complete |
-| Accessibility | Complete |
+| Document CRUD            | Complete |
+| Camera Scanning          | Complete |
+| Gallery/File Import      | Complete |
+| OCR Integration          | Complete |
+| Search & Filtering       | Complete |
+| Skeleton Loaders         | Complete |
+| Optimistic Updates       | Complete |
+| Thumbnail Caching        | Complete |
+| Error Boundaries         | Complete |
+| Accessibility            | Complete |
 
 ## Technical Details
 
 ### Native Module Implementation
 
 #### iOS
+
 - **Key Management**: Uses `SecRandomCopyBytes` to generate a 32-byte symmetric key stored in the iOS Keychain with `SecAccessControl` requiring `biometryCurrentSet`
 - **Biometric Authentication**: `LAContext` from `LocalAuthentication.framework` for Face ID/Touch ID
 - **Cryptography**: `CryptoKit`'s `AES.GCM` for authenticated encryption
 - **File Storage**: `FileManager` for encrypted file operations
 
 #### Android
+
 - **Key Management**: `KeyGenerator` with Android Keystore and `KeyGenParameterSpec` requiring user authentication
 - **Biometric Authentication**: `androidx.biometric.BiometricPrompt` with `DEVICE_CREDENTIAL` fallback
 - **Cryptography**: `javax.crypto.Cipher` with `AES/GCM/NoPadding`
 - **File Storage**: App's internal storage (`Context.filesDir`)
 
 ### Expo Config Plugin
+
 Custom plugin (`plugins/withSecureVault.js`) automates native setup:
+
 - **iOS**: Injects `NSFaceIDUsageDescription` into `Info.plist`
 - **Android**: Adds `USE_BIOMETRIC` permission and Proguard rules
 

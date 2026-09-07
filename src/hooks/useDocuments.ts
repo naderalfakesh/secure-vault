@@ -61,7 +61,7 @@ export function useDocuments(): UseDocumentsReturn {
       await refreshDocuments();
       return doc;
     },
-    [refreshDocuments]
+    [refreshDocuments],
   );
 
   const updateDocument = useCallback(
@@ -70,9 +70,7 @@ export function useDocuments(): UseDocumentsReturn {
       const previousDocs = [...documents];
       previousDocumentsRef.current = previousDocs;
 
-      setDocuments((prev) =>
-        prev.map((doc) => (doc.id === id ? { ...doc, ...updates } : doc))
-      );
+      setDocuments((prev) => prev.map((doc) => (doc.id === id ? { ...doc, ...updates } : doc)));
 
       try {
         const doc = await documentService.updateDocument(id, updates);
@@ -87,7 +85,7 @@ export function useDocuments(): UseDocumentsReturn {
         throw e;
       }
     },
-    [documents]
+    [documents],
   );
 
   const deleteDocument = useCallback(
@@ -114,7 +112,7 @@ export function useDocuments(): UseDocumentsReturn {
         throw e;
       }
     },
-    [documents]
+    [documents],
   );
 
   const getDocumentFile = useCallback(async (id: string): Promise<string | null> => {
@@ -147,12 +145,15 @@ export function useDocuments(): UseDocumentsReturn {
     thumbnailCache.clear();
   }, []);
 
-  const searchDocuments = useCallback(async (query: string): Promise<Document[]> => {
-    if (!query.trim()) {
-      return documents;
-    }
-    return documentService.searchDocuments(query);
-  }, [documents]);
+  const searchDocuments = useCallback(
+    async (query: string): Promise<Document[]> => {
+      if (!query.trim()) {
+        return documents;
+      }
+      return documentService.searchDocuments(query);
+    },
+    [documents],
+  );
 
   const filterByCategory = useCallback((category: DocumentCategory | null) => {
     setSelectedCategory(category);

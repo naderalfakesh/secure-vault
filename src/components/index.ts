@@ -7,10 +7,5 @@ export {
   DocumentListSkeleton,
   DocumentDetailSkeleton,
 } from './Skeleton';
-export {
-  FadeInView,
-  SlideInView,
-  ScaleInView,
-  PressableScale,
-} from './AnimatedComponents';
+export { FadeInView, SlideInView, ScaleInView, PressableScale } from './AnimatedComponents';
 export { ErrorBoundary } from './ErrorBoundary';

@@ -207,48 +207,31 @@ export default function AddDocumentScreen() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.content}>
           <Text style={styles.heading}>Add a Document</Text>
-          <Text style={styles.subheading}>
-            Choose how you want to add your document
-          </Text>
+          <Text style={styles.subheading}>Choose how you want to add your document</Text>
 
           <View style={styles.optionsContainer}>
-            <TouchableOpacity
-              style={styles.option}
-              onPress={handleTakePhoto}
-            >
+            <TouchableOpacity style={styles.option} onPress={handleTakePhoto}>
               <View style={styles.optionIcon}>
                 <Text style={styles.optionEmoji}>📷</Text>
               </View>
               <Text style={styles.optionTitle}>Scan with Camera</Text>
-              <Text style={styles.optionDescription}>
-                Take a photo of a document
-              </Text>
+              <Text style={styles.optionDescription}>Take a photo of a document</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.option}
-              onPress={handlePickImage}
-            >
+            <TouchableOpacity style={styles.option} onPress={handlePickImage}>
               <View style={styles.optionIcon}>
                 <Text style={styles.optionEmoji}>🖼️</Text>
               </View>
               <Text style={styles.optionTitle}>Choose from Gallery</Text>
-              <Text style={styles.optionDescription}>
-                Select an existing photo
-              </Text>
+              <Text style={styles.optionDescription}>Select an existing photo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.option}
-              onPress={handlePickDocument}
-            >
+            <TouchableOpacity style={styles.option} onPress={handlePickDocument}>
               <View style={styles.optionIcon}>
                 <Text style={styles.optionEmoji}>📄</Text>
               </View>
               <Text style={styles.optionTitle}>Pick a File</Text>
-              <Text style={styles.optionDescription}>
-                Import a PDF or image file
-              </Text>
+              <Text style={styles.optionDescription}>Import a PDF or image file</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -274,11 +257,7 @@ export default function AddDocumentScreen() {
           {/* Preview */}
           <View style={styles.previewContainer}>
             {previewUri ? (
-              <Image
-                source={{ uri: previewUri }}
-                style={styles.preview}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: previewUri }} style={styles.preview} resizeMode="contain" />
             ) : (
               <View style={styles.previewPlaceholder}>
                 <Text style={styles.previewPlaceholderIcon}>📄</Text>
@@ -312,15 +291,10 @@ export default function AddDocumentScreen() {
                 {Object.values(DocumentCategory).map((cat) => (
                   <TouchableOpacity
                     key={cat}
-                    style={[
-                      styles.categoryChip,
-                      category === cat && styles.categoryChipSelected,
-                    ]}
+                    style={[styles.categoryChip, category === cat && styles.categoryChipSelected]}
                     onPress={() => setCategory(cat)}
                   >
-                    <Text style={styles.categoryChipIcon}>
-                      {DocumentCategoryIcons[cat]}
-                    </Text>
+                    <Text style={styles.categoryChipIcon}>{DocumentCategoryIcons[cat]}</Text>
                     <Text
                       style={[
                         styles.categoryChipText,
@@ -350,11 +324,7 @@ export default function AddDocumentScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionBar}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            disabled={saving}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={saving}>
             <Text style={styles.backButtonText}>Back</Text>
           </TouchableOpacity>
 

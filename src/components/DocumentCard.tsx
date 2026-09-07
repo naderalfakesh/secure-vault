@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Document, DocumentCategoryIcons, DocumentCategoryLabels } from '../types';
 
 interface DocumentCardProps {
@@ -84,15 +77,11 @@ export function DocumentCard({ document, onPress, getThumbnail }: DocumentCardPr
           />
         ) : (
           <View style={styles.thumbnailPlaceholder}>
-            <Text style={styles.placeholderIcon}>
-              {document.fileType === 'pdf' ? '📄' : '🖼️'}
-            </Text>
+            <Text style={styles.placeholderIcon}>{document.fileType === 'pdf' ? '📄' : '🖼️'}</Text>
           </View>
         )}
         <View style={styles.categoryBadge}>
-          <Text style={styles.categoryIcon}>
-            {DocumentCategoryIcons[document.category]}
-          </Text>
+          <Text style={styles.categoryIcon}>{DocumentCategoryIcons[document.category]}</Text>
         </View>
       </View>
 
@@ -100,9 +89,7 @@ export function DocumentCard({ document, onPress, getThumbnail }: DocumentCardPr
         <Text style={styles.title} numberOfLines={2}>
           {document.title}
         </Text>
-        <Text style={styles.categoryLabel}>
-          {DocumentCategoryLabels[document.category]}
-        </Text>
+        <Text style={styles.categoryLabel}>{DocumentCategoryLabels[document.category]}</Text>
         <View style={styles.meta}>
           <Text style={styles.metaText}>{formatDate(document.createdAt)}</Text>
           <Text style={styles.metaDot}>•</Text>

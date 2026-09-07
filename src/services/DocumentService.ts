@@ -53,10 +53,7 @@ class DocumentService {
   /**
    * Add a new document to the vault
    */
-  async addDocument(
-    file: PickedFile,
-    metadata: Partial<Document>
-  ): Promise<Document> {
+  async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document> {
     if (!this.metadata) await this.initialize();
 
     const id = Crypto.randomUUID();
@@ -128,7 +125,7 @@ class DocumentService {
   async getAllDocuments(): Promise<Document[]> {
     if (!this.metadata) await this.initialize();
     return Object.values(this.metadata!.documents).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }
 
@@ -149,9 +146,7 @@ class DocumentService {
 
     return all.filter((doc) => {
       const titleMatch = doc.title.toLowerCase().includes(lowerQuery);
-      const tagMatch = doc.tags.some((tag) =>
-        tag.toLowerCase().includes(lowerQuery)
-      );
+      const tagMatch = doc.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
       const ocrMatch = doc.ocrText?.toLowerCase().includes(lowerQuery);
       return titleMatch || tagMatch || ocrMatch;
     });
@@ -162,7 +157,7 @@ class DocumentService {
    */
   async updateDocument(
     id: string,
-    updates: Partial<Omit<Document, 'id' | 'fileKey' | 'thumbnailKey' | 'createdAt'>>
+    updates: Partial<Omit<Document, 'id' | 'fileKey' | 'thumbnailKey' | 'createdAt'>>,
   ): Promise<Document | null> {
     if (!this.metadata) await this.initialize();
 
@@ -250,7 +245,11 @@ class DocumentService {
       const entries = new Directory(this.cacheUri).list();
       for (const entry of entries) {
         const { name } = entry;
-        if (name.startsWith('decrypted_') || name.startsWith('thumb_') || name.startsWith('temp_')) {
+        if (
+          name.startsWith('decrypted_') ||
+          name.startsWith('thumb_') ||
+          name.startsWith('temp_')
+        ) {
           try {
             entry.delete();
           } catch {

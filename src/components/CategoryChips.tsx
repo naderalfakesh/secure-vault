@@ -1,26 +1,13 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import {
-  DocumentCategory,
-  DocumentCategoryLabels,
-  DocumentCategoryIcons,
-} from '../types';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { DocumentCategory, DocumentCategoryLabels, DocumentCategoryIcons } from '../types';
 
 interface CategoryChipsProps {
   selectedCategory: DocumentCategory | null;
   onSelectCategory: (category: DocumentCategory | null) => void;
 }
 
-export function CategoryChips({
-  selectedCategory,
-  onSelectCategory,
-}: CategoryChipsProps) {
+export function CategoryChips({ selectedCategory, onSelectCategory }: CategoryChipsProps) {
   const categories = Object.values(DocumentCategory);
 
   return (
@@ -31,19 +18,11 @@ export function CategoryChips({
         contentContainerStyle={styles.scrollContent}
       >
         <TouchableOpacity
-          style={[
-            styles.chip,
-            selectedCategory === null && styles.chipSelected,
-          ]}
+          style={[styles.chip, selectedCategory === null && styles.chipSelected]}
           onPress={() => onSelectCategory(null)}
         >
           <Text style={styles.chipIcon}>📁</Text>
-          <Text
-            style={[
-              styles.chipText,
-              selectedCategory === null && styles.chipTextSelected,
-            ]}
-          >
+          <Text style={[styles.chipText, selectedCategory === null && styles.chipTextSelected]}>
             All
           </Text>
         </TouchableOpacity>
@@ -51,20 +30,12 @@ export function CategoryChips({
         {categories.map((category) => (
           <TouchableOpacity
             key={category}
-            style={[
-              styles.chip,
-              selectedCategory === category && styles.chipSelected,
-            ]}
+            style={[styles.chip, selectedCategory === category && styles.chipSelected]}
             onPress={() => onSelectCategory(category)}
           >
-            <Text style={styles.chipIcon}>
-              {DocumentCategoryIcons[category]}
-            </Text>
+            <Text style={styles.chipIcon}>{DocumentCategoryIcons[category]}</Text>
             <Text
-              style={[
-                styles.chipText,
-                selectedCategory === category && styles.chipTextSelected,
-              ]}
+              style={[styles.chipText, selectedCategory === category && styles.chipTextSelected]}
             >
               {DocumentCategoryLabels[category]}
             </Text>

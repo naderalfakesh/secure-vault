@@ -13,7 +13,12 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDocuments } from '../../src/hooks';
-import { DocumentCard, CategoryChips, EmptyState, DocumentListSkeleton } from '../../src/components';
+import {
+  DocumentCard,
+  CategoryChips,
+  EmptyState,
+  DocumentListSkeleton,
+} from '../../src/components';
 import { Document } from '../../src/types';
 
 const { width } = Dimensions.get('window');
@@ -54,7 +59,7 @@ export default function DocumentsListScreen() {
         setSearchResults(null);
       }
     },
-    [searchDocuments]
+    [searchDocuments],
   );
 
   const handleDocumentPress = useCallback((document: Document) => {
@@ -77,7 +82,7 @@ export default function DocumentsListScreen() {
         />
       </View>
     ),
-    [handleDocumentPress, getDocumentThumbnail]
+    [handleDocumentPress, getDocumentThumbnail],
   );
 
   const renderHeader = () => (
@@ -112,16 +117,10 @@ export default function DocumentsListScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => setShowSearch(true)}
-            >
+            <TouchableOpacity style={styles.headerButton} onPress={() => setShowSearch(true)}>
               <Text style={styles.headerButtonIcon}>🔍</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => router.push('/settings')}
-            >
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/settings')}>
               <Text style={styles.headerButtonIcon}>⚙️</Text>
             </TouchableOpacity>
           </View>
@@ -134,10 +133,7 @@ export default function DocumentsListScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {renderHeader()}
-        <CategoryChips
-          selectedCategory={selectedCategory}
-          onSelectCategory={filterByCategory}
-        />
+        <CategoryChips selectedCategory={selectedCategory} onSelectCategory={filterByCategory} />
         <DocumentListSkeleton count={6} />
       </SafeAreaView>
     );
@@ -147,11 +143,7 @@ export default function DocumentsListScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         {renderHeader()}
-        <EmptyState
-          icon="⚠️"
-          title="Something went wrong"
-          subtitle={error}
-        />
+        <EmptyState icon="⚠️" title="Something went wrong" subtitle={error} />
         <TouchableOpacity style={styles.retryButton} onPress={refreshDocuments}>
           <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
@@ -164,10 +156,7 @@ export default function DocumentsListScreen() {
       {renderHeader()}
 
       {!showSearch && (
-        <CategoryChips
-          selectedCategory={selectedCategory}
-          onSelectCategory={filterByCategory}
-        />
+        <CategoryChips selectedCategory={selectedCategory} onSelectCategory={filterByCategory} />
       )}
 
       {displayDocuments.length === 0 ? (
@@ -200,11 +189,7 @@ export default function DocumentsListScreen() {
         />
       )}
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={handleAddDocument}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.fab} onPress={handleAddDocument} activeOpacity={0.8}>
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
     </SafeAreaView>
