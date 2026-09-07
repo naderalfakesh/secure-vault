@@ -339,9 +339,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("getAllKeys") { promise: Promise ->
             try {
-                val filesDir = appContext.reactContext!!.filesDir
-                val keys = filesDir.listFiles()?.map { it.name }?.filter { it != "ExpoVault_IVs.xml" }
-                promise.resolve(keys)
+                promise.resolve(vaultEntryFiles().map { it.name })
             } catch (e: Exception) {
                 promise.reject("GET_ALL_KEYS_FAILED", e.message, e)
             }
@@ -453,10 +451,20 @@ class ExpoVaultModule : Module() {
         return fallback
     }
 
-    /** Regular files in the vault directory; the IV preferences file and directories are not entries. */
+    /**
+     * Vault entries share the app's files directory with other libraries'
+     * files (the dev client's bundle, profile markers), so only names the
+     * vault itself writes count: document files, thumbnails, pages, and the
+     * underscore-prefixed metadata entries.
+     */
+    private fun isVaultEntryName(name: String): Boolean =
+        name.startsWith("file_") || name.startsWith("thumb_") || name.startsWith("page_") ||
+            (name.startsWith("_") && name != "ExpoVault_IVs.xml")
+
+    /** Regular files that are vault entries, in a stable order. */
     private fun vaultEntryFiles(): List<File> =
         appContext.reactContext!!.filesDir.listFiles()
-            ?.filter { it.isFile && it.name != "ExpoVault_IVs.xml" && !it.name.startsWith(".") }
+            ?.filter { it.isFile && isVaultEntryName(it.name) }
             ?.sortedBy { it.name }
             ?: emptyList()
 

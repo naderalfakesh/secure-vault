@@ -279,11 +279,7 @@ public class ExpoVaultModule: Module {
 
     AsyncFunction("getAllKeys") { (promise: Promise) in
         do {
-            let fileManager = FileManager.default
-            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            let fileURLs = try fileManager.contentsOfDirectory(at: documentsURL, includingPropertiesForKeys: nil)
-            let keys = fileURLs.map { $0.lastPathComponent }
-            promise.resolve(keys)
+            promise.resolve(try self.vaultEntryURLs().map { $0.lastPathComponent })
         } catch {
             promise.reject("GET_ALL_KEYS_FAILED", error.localizedDescription)
         }
@@ -403,14 +399,21 @@ public class ExpoVaultModule: Module {
     return SymmetricKey(data: keyData)
   }
 
-  /// Regular files in the vault directory; directories and hidden files are not entries.
+  /// Only names the vault itself writes count as entries: document files,
+  /// thumbnails, pages, and the underscore-prefixed metadata entries. The
+  /// Documents directory also holds the SQLite folder.
+  private static func isVaultEntryName(_ name: String) -> Bool {
+    name.hasPrefix("file_") || name.hasPrefix("thumb_") || name.hasPrefix("page_") || name.hasPrefix("_")
+  }
+
+  /// Regular files that are vault entries, in a stable order.
   private func vaultEntryURLs() throws -> [URL] {
     let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     return try FileManager.default
       .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
       .filter { url in
         (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
-          && !url.lastPathComponent.hasPrefix(".")
+          && Self.isVaultEntryName(url.lastPathComponent)
       }
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
   }
