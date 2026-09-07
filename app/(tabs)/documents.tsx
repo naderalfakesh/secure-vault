@@ -163,21 +163,23 @@ export default function DocumentsScreen() {
           onAction={query ? undefined : openAdd}
         />
       ) : (
-        <FlashList
-          data={shown}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          numColumns={COLUMNS}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.listWrap}>
+          <FlashList
+            data={shown}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            numColumns={COLUMNS}
+            contentContainerStyle={styles.list}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={theme.colors.primary}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
       )}
     </Screen>
   );
@@ -212,6 +214,9 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.typography.body,
     color: theme.colors.textPrimary,
     paddingVertical: theme.spacing.xs,
+  },
+  listWrap: {
+    flex: 1,
   },
   list: {
     padding: theme.spacing.sm,

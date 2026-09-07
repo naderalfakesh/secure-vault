@@ -6,6 +6,9 @@ import type { DocumentCategory } from '@/types';
 
 import { allCategories, categoryIcons, categoryLabel } from './categories';
 
+// Plain object on purpose: a horizontal ScrollView must not take flex height.
+const scrollStyle = { flexGrow: 0, height: 52 } as const;
+
 export type CategoryChipsProps = {
   selected: DocumentCategory | null;
   onSelect: (category: DocumentCategory | null) => void;
@@ -17,6 +20,7 @@ export function CategoryChips({ selected, onSelect, counts }: CategoryChipsProps
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={scrollStyle}
       contentContainerStyle={styles.content}
       accessibilityRole="tablist"
     >
@@ -37,6 +41,7 @@ export function CategoryChips({ selected, onSelect, counts }: CategoryChipsProps
 
 const styles = StyleSheet.create((theme) => ({
   content: {
+    alignItems: 'center',
     gap: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
