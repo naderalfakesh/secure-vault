@@ -1,6 +1,7 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
+import { hashPasscode } from '../auth/passcode';
 import vault from '../../../modules/expo-vault';
 import { SessionProvider, useSession } from './SessionProvider';
 
@@ -86,6 +87,7 @@ describe('SessionProvider', () => {
 
   it('starts locked when a vault exists and surfaces biometric failures', async () => {
     await vault.createVault();
+    await vault.put('_pin_record', hashPasscode('123456', { iterations: 64 }));
     const original = vaultMock.unlockWithBiometrics;
     vaultMock.unlockWithBiometrics = async () => {
       throw new Error('Biometric authentication failed.');

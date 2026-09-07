@@ -67,13 +67,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [exists, type] = await Promise.all([
+      const [exists, type, keys] = await Promise.all([
         vault.hasVault().catch(() => false),
         vault.biometryType().catch(() => 'none' as const),
+        vault.getAllKeys().catch(() => [] as string[]),
       ]);
       if (!active) return;
       setBiometry(type);
-      setStatus(exists ? 'locked' : 'setup');
+      // A key without a PIN record means setup was interrupted; start over so
+      // the user is never locked out of a vault that holds nothing yet.
+      setStatus(exists && sessionStorage.hasPinRecord(keys) ? 'locked' : 'setup');
     })();
     return () => {
       active = false;

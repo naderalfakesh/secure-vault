@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Icon, type IconName, Screen, Text } from '@/components/ui';
+import { Button, Icon, type IconName, Screen, Text } from '@/components/ui';
 import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
 import { PinDots, PinKeypad } from '@/features/auth/PinPad';
 import { usePinEntry } from '@/features/auth/usePinEntry';
@@ -105,6 +105,17 @@ export default function LockScreen() {
           </View>
         )}
       </View>
+      {hasBiometrics ? null : (
+        <View style={styles.passcodeRow}>
+          <Button
+            label="Use device passcode"
+            variant="ghost"
+            size="md"
+            onPress={() => unlock()}
+            leading={<Icon name="unlock" size={16} tone="accent" />}
+          />
+        </View>
+      )}
       <View style={[styles.pad, lockedOut && styles.dimmed]}>
         <PinKeypad
           onKey={(key) => {
@@ -154,6 +165,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   bannerText: {
     flex: 1,
+  },
+  passcodeRow: {
+    alignItems: 'center',
+    paddingBottom: theme.spacing.xs,
   },
   pad: {
     paddingBottom: theme.spacing.lg,

@@ -75,4 +75,6 @@ export const sessionStorage = {
     }
   },
   savePinRecord: (record: string) => vault.put(PIN_ENTRY, record),
+  /** Cheap existence check from the entry list; no decryption involved. */
+  hasPinRecord: (keys: string[]) => keys.includes(PIN_ENTRY),
 };
