@@ -2,75 +2,119 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, Screen, Text } from '@/components/ui';
+import { Icon, type IconName, Screen, Text } from '@/components/ui';
+import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
+import { PinDots, PinKeypad } from '@/features/auth/PinPad';
+import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
 
+const biometryIcon: Record<string, IconName> = {
+  faceId: 'faceId',
+  touchId: 'fingerprint',
+  biometrics: 'fingerprint',
+};
+
+const biometryLabel: Record<string, string> = {
+  faceId: 'Face ID',
+  touchId: 'Touch ID',
+  biometrics: 'biometrics',
+};
+
 export default function LockScreen() {
-  const { status, unlock, setUp, error } = useSession();
+  const { status, biometry, lockout, unlock, unlockWithPin, error } = useSession();
   const security = useSecurityStatus();
-  const [busy, setBusy] = useState(false);
   const promptedRef = useRef(false);
-  const isSetup = status === 'setup';
+  const [checking, setChecking] = useState(false);
+  const [lockLeft, setLockLeft] = useState(0);
+  const [wrong, setWrong] = useState(false);
+  const hasBiometrics = biometry !== 'none';
 
   // Returning users get the biometric prompt as soon as the screen appears.
   useEffect(() => {
-    if (status !== 'locked' || promptedRef.current) return;
+    if (status !== 'locked' || promptedRef.current || !hasBiometrics) return;
     promptedRef.current = true;
-    setBusy(true);
-    unlock().finally(() => setBusy(false));
-  }, [status, unlock]);
+    unlock().catch(() => {});
+  }, [status, hasBiometrics, unlock]);
 
-  const handlePress = async () => {
-    setBusy(true);
-    try {
-      await (isSetup ? setUp() : unlock());
-    } finally {
-      setBusy(false);
-    }
-  };
+  // Tick the lockout countdown while locked out.
+  useEffect(() => {
+    const update = () => setLockLeft(Math.ceil(lockRemainingMs(lockout, Date.now()) / 1000));
+    update();
+    if (lockRemainingMs(lockout, Date.now()) <= 0) return;
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [lockout]);
+
+  const {
+    pin,
+    error: flash,
+    shake,
+    press,
+  } = usePinEntry({
+    onComplete: (entered, { fail }) => {
+      setChecking(true);
+      unlockWithPin(entered)
+        .then((ok) => {
+          if (!ok) {
+            setWrong(true);
+            fail();
+          }
+        })
+        .finally(() => setChecking(false));
+    },
+  });
+
+  const lockedOut = lockLeft > 0;
+  const message = lockedOut
+    ? `Too many attempts. Try again in ${lockLeft}s.`
+    : wrong
+      ? `Wrong PIN. ${attemptsLeft(lockout)} attempts left before a pause.`
+      : error
+        ? error
+        : hasBiometrics
+          ? `Use ${biometryLabel[biometry] ?? 'biometrics'} or enter your PIN`
+          : 'Enter your PIN';
 
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']} padded>
+    <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.hero}>
         <View style={styles.badge}>
-          <Icon name={isSetup ? 'shield' : 'lock'} size={40} tone="accent" />
+          <Icon name="lock" size={32} tone="accent" />
         </View>
-        <Text variant="largeTitle" align="center" accessibilityRole="header">
+        <Text variant="title1" align="center" accessibilityRole="header">
           SecureVault
         </Text>
-        <Text variant="body" tone="secondary" align="center" style={styles.lede}>
-          {isSetup
-            ? 'Your IDs, cards, and papers, encrypted with a key that never leaves this device.'
-            : 'Your documents stay encrypted until you unlock.'}
+        <Text
+          variant="subheadline"
+          tone={lockedOut || wrong || error ? 'danger' : 'secondary'}
+          align="center"
+          accessibilityLiveRegion="polite"
+        >
+          {message}
         </Text>
-      </View>
-
-      <View style={styles.footer}>
+        <View style={[styles.dots, lockedOut && styles.dimmed]}>
+          <PinDots filled={pin.length} error={flash} shake={shake} />
+        </View>
         {security.isSecure ? null : (
           <View style={styles.banner} accessibilityRole="alert">
-            <Icon name="warning" size={18} tone="warning" />
-            <Text variant="footnote" tone="secondary" style={styles.bannerText}>
+            <Icon name="warning" size={16} tone="warning" />
+            <Text variant="caption" tone="secondary" style={styles.bannerText}>
               This device looks rooted or modified. Your vault still works, but be careful.
             </Text>
           </View>
         )}
-        {error ? (
-          <Text variant="footnote" tone="danger" align="center" accessibilityLiveRegion="polite">
-            {error}
-          </Text>
-        ) : null}
-        <Button
-          label={isSetup ? 'Set up SecureVault' : 'Unlock'}
-          onPress={handlePress}
-          loading={busy}
-          leading={<Icon name={isSetup ? 'check' : 'unlock'} size={18} tone="inverse" />}
+      </View>
+      <View style={[styles.pad, lockedOut && styles.dimmed]}>
+        <PinKeypad
+          onKey={(key) => {
+            setWrong(false);
+            press(key);
+          }}
+          onBiometric={hasBiometrics ? () => unlock() : undefined}
+          biometricIcon={biometryIcon[biometry]}
+          disabled={lockedOut || checking}
         />
-        <Text variant="caption" tone="tertiary" align="center">
-          {isSetup
-            ? 'Unlock uses Face ID, Touch ID, or your device passcode.'
-            : 'Nothing is uploaded. Nothing is shared.'}
-        </Text>
       </View>
     </Screen>
   );
@@ -81,33 +125,37 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.xs,
   },
   badge: {
-    width: 88,
-    height: 88,
+    width: 72,
+    height: 72,
     borderRadius: theme.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.primaryMuted,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
   },
-  lede: {
-    maxWidth: 320,
+  dots: {
+    marginTop: theme.spacing.md,
   },
-  footer: {
-    gap: theme.spacing.sm,
-    paddingBottom: theme.spacing.md,
+  dimmed: {
+    opacity: 0.4,
   },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
+    marginTop: theme.spacing.md,
     padding: theme.spacing.sm,
     borderRadius: theme.radii.md,
     backgroundColor: theme.colors.warningMuted,
   },
   bannerText: {
     flex: 1,
+  },
+  pad: {
+    paddingBottom: theme.spacing.lg,
   },
 }));

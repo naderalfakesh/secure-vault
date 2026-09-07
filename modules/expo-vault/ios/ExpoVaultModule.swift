@@ -61,6 +61,20 @@ public class ExpoVaultModule: Module {
       promise.resolve(status != errSecItemNotFound)
     }
 
+    AsyncFunction("biometryType") { (promise: Promise) in
+      let context = LAContext()
+      var error: NSError?
+      guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+        promise.resolve("none")
+        return
+      }
+      switch context.biometryType {
+      case .faceID: promise.resolve("faceId")
+      case .touchID: promise.resolve("touchId")
+      default: promise.resolve("biometrics")
+      }
+    }
+
     AsyncFunction("unlockWithBiometrics") { (promise: Promise) in
       let context = LAContext()
       var error: NSError?

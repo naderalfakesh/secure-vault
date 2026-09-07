@@ -4,10 +4,14 @@ import { requireNativeModule } from 'expo';
 // the bridge module (from NativeModulesProxy) if the remote debugger is on.
 const ExpoVaultModule = requireNativeModule('ExpoVault');
 
+export type BiometryType = 'faceId' | 'touchId' | 'biometrics' | 'none';
+
 export interface SecureVault {
   // Vault management
   /** True once a device key exists, even while it is still locked. */
   hasVault(): Promise<boolean>;
+  /** Which biometric the device offers, so copy can say Face ID rather than "biometrics". */
+  biometryType(): Promise<BiometryType>;
   createVault(): Promise<void>;
   unlockWithBiometrics(): Promise<boolean>;
 

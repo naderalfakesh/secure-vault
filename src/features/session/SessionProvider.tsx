@@ -5,20 +5,35 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
-import vault from '../../../modules/expo-vault';
+import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
+import { EMPTY_LOCKOUT, isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
+
+import vault, { type BiometryType } from '../../../modules/expo-vault';
+import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
 
 export type SessionStatus = 'loading' | 'setup' | 'locked' | 'unlocked';
 
 export type SessionContextValue = {
   status: SessionStatus;
+  biometry: BiometryType;
+  settings: SecuritySettings;
+  lockout: LockoutState;
   /** Prompts for biometrics or the device passcode; resolves false when cancelled or failed. */
   unlock: () => Promise<boolean>;
-  /** Generates the device key, then unlocks. */
-  setUp: () => Promise<boolean>;
+  /** Checks a PIN, records failures for the lockout policy, and unlocks on success. */
+  unlockWithPin: (pin: string) => Promise<boolean>;
+  /** First run: creates the device key and stores the hashed PIN, then unlocks. */
+  setUp: (pin: string) => Promise<boolean>;
+  changePin: (currentPin: string, nextPin: string) => Promise<boolean>;
+  updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
+  /** Ask for biometrics again for a sensitive action such as sharing. */
+  stepUp: () => Promise<boolean>;
   /** Last unlock or setup failure, cleared on the next attempt. */
   error: string | null;
 };
@@ -32,58 +47,195 @@ function describeError(e: unknown, fallback: string): string {
 
 /**
  * Owns the lock state for the whole app. The root layout reads `status` to
- * decide which routes exist, so no screen can be reached while locked.
+ * decide which routes exist, so no screen can be reached while locked. The
+ * device key gate (biometrics or passcode) and the app PIN are two doors to
+ * the same room: both end in `unlocked`, and either can be used to get there.
  */
 export function SessionProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<SessionStatus>('loading');
+  const [biometry, setBiometry] = useState<BiometryType>('none');
+  const [settings, setSettings] = useState<SecuritySettings>(DEFAULT_SETTINGS);
+  const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
+  const backgroundedAt = useRef<number | null>(null);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   useEffect(() => {
     let active = true;
-    vault
-      .hasVault()
-      .then((exists) => {
-        if (active) setStatus(exists ? 'locked' : 'setup');
-      })
-      .catch(() => {
-        if (active) setStatus('setup');
-      });
+    (async () => {
+      const [exists, type] = await Promise.all([
+        vault.hasVault().catch(() => false),
+        vault.biometryType().catch(() => 'none' as const),
+      ]);
+      if (!active) return;
+      setBiometry(type);
+      setStatus(exists ? 'locked' : 'setup');
+    })();
     return () => {
       active = false;
     };
+  }, []);
+
+  const loadProtectedState = useCallback(async () => {
+    const [nextSettings, nextLockout] = await Promise.all([
+      sessionStorage.loadSettings(),
+      sessionStorage.loadLockout(),
+    ]);
+    setSettings(nextSettings);
+    setLockout(nextLockout);
   }, []);
 
   const unlock = useCallback(async () => {
     setError(null);
     try {
       const ok = await vault.unlockWithBiometrics();
-      if (ok) setStatus('unlocked');
+      if (ok) {
+        await loadProtectedState();
+        setLockout(EMPTY_LOCKOUT);
+        await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+        setStatus('unlocked');
+      }
       return ok;
     } catch (e) {
       setError(describeError(e, 'Could not unlock the vault.'));
       return false;
     }
-  }, []);
+  }, [loadProtectedState]);
 
-  const setUp = useCallback(async () => {
+  const unlockWithPin = useCallback(
+    async (pin: string) => {
+      setError(null);
+      const now = Date.now();
+      if (isLocked(lockout, now)) return false;
+      try {
+        // Reading the PIN record needs the device key, which the OS may gate
+        // with its own prompt; that is the same gate biometrics use.
+        const record = await sessionStorage.loadPinRecord();
+        const ok = record ? await verifyPasscodeAsync(pin, record) : false;
+        if (ok) {
+          await loadProtectedState();
+          setLockout(EMPTY_LOCKOUT);
+          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+          setStatus('unlocked');
+          return true;
+        }
+        const next = recordFailure(lockout, now);
+        setLockout(next);
+        await sessionStorage.saveLockout(next).catch(() => {});
+        return false;
+      } catch (e) {
+        setError(describeError(e, 'Could not check the PIN.'));
+        return false;
+      }
+    },
+    [lockout, loadProtectedState],
+  );
+
+  const setUp = useCallback(async (pin: string) => {
     setError(null);
     try {
       await vault.createVault();
+      const ok = await vault.unlockWithBiometrics();
+      if (!ok) return false;
+      await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
+      await sessionStorage.saveSettings(DEFAULT_SETTINGS);
+      setSettings(DEFAULT_SETTINGS);
+      setLockout(EMPTY_LOCKOUT);
+      setStatus('unlocked');
+      return true;
     } catch (e) {
-      setError(describeError(e, 'Could not create the vault.'));
+      setError(describeError(e, 'Could not set up the vault.'));
       return false;
     }
-    return unlock();
-  }, [unlock]);
+  }, []);
+
+  const changePin = useCallback(async (currentPin: string, nextPin: string) => {
+    setError(null);
+    try {
+      const record = await sessionStorage.loadPinRecord();
+      if (!record || !(await verifyPasscodeAsync(currentPin, record))) return false;
+      await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
+      return true;
+    } catch (e) {
+      setError(describeError(e, 'Could not change the PIN.'));
+      return false;
+    }
+  }, []);
+
+  const updateSettings = useCallback(
+    async (changes: Partial<SecuritySettings>) => {
+      const next = { ...settings, ...changes };
+      setSettings(next);
+      await sessionStorage.saveSettings(next).catch(() => {});
+    },
+    [settings],
+  );
 
   const lock = useCallback(() => {
     setError(null);
     setStatus('locked');
   }, []);
 
+  const stepUp = useCallback(async () => {
+    try {
+      return await vault.unlockWithBiometrics();
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Auto-lock: remember when the app left the foreground and compare on return.
+  useEffect(() => {
+    const onChange = (next: AppStateStatus) => {
+      if (statusRef.current !== 'unlocked') return;
+      if (next === 'background' || next === 'inactive') {
+        backgroundedAt.current ??= Date.now();
+        return;
+      }
+      if (next === 'active' && backgroundedAt.current !== null) {
+        const idleMs = Date.now() - backgroundedAt.current;
+        backgroundedAt.current = null;
+        const limit = settings.autoLockSeconds;
+        if (limit >= 0 && idleMs >= limit * 1000) setStatus('locked');
+      }
+    };
+    const subscription = AppState.addEventListener('change', onChange);
+    return () => subscription.remove();
+  }, [settings.autoLockSeconds]);
+
   const value = useMemo(
-    () => ({ status, unlock, setUp, lock, error }),
-    [status, unlock, setUp, lock, error],
+    () => ({
+      status,
+      biometry,
+      settings,
+      lockout,
+      unlock,
+      unlockWithPin,
+      setUp,
+      changePin,
+      updateSettings,
+      lock,
+      stepUp,
+      error,
+    }),
+    [
+      status,
+      biometry,
+      settings,
+      lockout,
+      unlock,
+      unlockWithPin,
+      setUp,
+      changePin,
+      updateSettings,
+      lock,
+      stepUp,
+      error,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

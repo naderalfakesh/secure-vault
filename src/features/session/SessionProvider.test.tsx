@@ -15,10 +15,25 @@ function Probe() {
     <>
       <Text testID="status">{session.status}</Text>
       <Text testID="error">{session.error ?? ''}</Text>
-      <Text onPress={() => void session.setUp()}>run setup</Text>
+      <Text testID="failures">{String(session.lockout.failures)}</Text>
+      <Text testID="autolock">{String(session.settings.autoLockSeconds)}</Text>
+      <Text onPress={() => void session.setUp('123456')}>run setup</Text>
       <Text onPress={() => void session.unlock()}>run unlock</Text>
+      <Text onPress={() => void session.unlockWithPin('123456')}>run pin ok</Text>
+      <Text onPress={() => void session.unlockWithPin('000000')}>run pin bad</Text>
+      <Text onPress={() => void session.updateSettings({ autoLockSeconds: 900 })}>
+        run settings
+      </Text>
       <Text onPress={session.lock}>run lock</Text>
     </>
+  );
+}
+
+function renderProbe() {
+  return render(
+    <SessionProvider>
+      <Probe />
+    </SessionProvider>,
   );
 }
 
@@ -27,12 +42,8 @@ describe('SessionProvider', () => {
     vaultMock.reset();
   });
 
-  it('starts in setup when no vault exists and unlocks after setup', async () => {
-    const view = await render(
-      <SessionProvider>
-        <Probe />
-      </SessionProvider>,
-    );
+  it('starts in setup when no vault exists, unlocks after PIN setup, and locks on demand', async () => {
+    const view = await renderProbe();
 
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
     await fireEvent.press(view.getByText('run setup'));
@@ -42,19 +53,45 @@ describe('SessionProvider', () => {
     expect(view.getByTestId('status')).toHaveTextContent('locked');
   });
 
-  it('starts locked when a vault exists and surfaces unlock failures', async () => {
+  it('unlocks with the right PIN and counts failures for the wrong one', async () => {
+    const setup = await renderProbe();
+    await waitFor(() => expect(setup.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(setup.getByText('run setup'));
+    await waitFor(() => expect(setup.getByTestId('status')).toHaveTextContent('unlocked'));
+    await fireEvent.press(setup.getByText('run lock'));
+
+    await fireEvent.press(setup.getByText('run pin bad'));
+    await waitFor(() => expect(setup.getByTestId('failures')).toHaveTextContent('1'));
+    expect(setup.getByTestId('status')).toHaveTextContent('locked');
+
+    await fireEvent.press(setup.getByText('run pin ok'));
+    await waitFor(() => expect(setup.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(setup.getByTestId('failures')).toHaveTextContent('0');
+  });
+
+  it('persists settings across unlocks', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+
+    await fireEvent.press(view.getByText('run settings'));
+    await waitFor(() => expect(view.getByTestId('autolock')).toHaveTextContent('900'));
+
+    await fireEvent.press(view.getByText('run lock'));
+    await fireEvent.press(view.getByText('run unlock'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(view.getByTestId('autolock')).toHaveTextContent('900');
+  });
+
+  it('starts locked when a vault exists and surfaces biometric failures', async () => {
     await vault.createVault();
     const original = vaultMock.unlockWithBiometrics;
     vaultMock.unlockWithBiometrics = async () => {
       throw new Error('Biometric authentication failed.');
     };
 
-    const view = await render(
-      <SessionProvider>
-        <Probe />
-      </SessionProvider>,
-    );
-
+    const view = await renderProbe();
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
     await act(async () => {
       await fireEvent.press(view.getByText('run unlock'));

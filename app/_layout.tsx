@@ -7,6 +7,7 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IconButton, ToastProvider } from '@/components/ui';
+import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -50,8 +51,11 @@ function RootNavigator() {
         />
         <Stack.Screen name="documents/add" options={{ presentation: 'modal' }} />
       </Stack.Protected>
-      <Stack.Protected guard={!unlocked}>
+      <Stack.Protected guard={status === 'locked'}>
         <Stack.Screen name="index" />
+      </Stack.Protected>
+      <Stack.Protected guard={status === 'setup'}>
+        <Stack.Screen name="setup" />
       </Stack.Protected>
     </Stack>
   );
@@ -65,6 +69,7 @@ export default function RootLayout() {
           <ToastProvider>
             <StatusBar style="auto" />
             <RootNavigator />
+            <SecurityOverlay />
           </ToastProvider>
         </SessionProvider>
       </SafeAreaProvider>

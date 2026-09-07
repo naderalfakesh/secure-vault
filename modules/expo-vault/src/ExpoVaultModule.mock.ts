@@ -13,6 +13,9 @@ export function createVaultMock(): SecureVault & { reset(): void } {
     async hasVault() {
       return created;
     },
+    async biometryType() {
+      return 'faceId' as const;
+    },
     async createVault() {
       created = true;
     },

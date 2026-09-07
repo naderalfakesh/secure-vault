@@ -94,6 +94,18 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        AsyncFunction("biometryType") { promise: Promise ->
+            val context = appContext.reactContext
+            if (context == null) {
+                promise.resolve("none")
+                return@AsyncFunction
+            }
+            val available = BiometricManager.from(context)
+                .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
+            // Android does not expose which biometric is enrolled; "biometrics" keeps the copy honest.
+            promise.resolve(if (available) "biometrics" else "none")
+        }
+
         AsyncFunction("unlockWithBiometrics") { promise: Promise ->
             val activity = appContext.activityProvider?.currentActivity as? FragmentActivity
             if (activity == null) {
