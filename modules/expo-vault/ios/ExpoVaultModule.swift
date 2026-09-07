@@ -194,41 +194,32 @@ public class ExpoVaultModule: Module {
     AsyncFunction("putFile") { (key: String, sourcePath: String, promise: Promise) in
         do {
             let encryptionKey = try self.getEncryptionKey()
-
-            // Read source file
             let sourceURL = URL(fileURLWithPath: sourcePath)
-            let fileData = try Data(contentsOf: sourceURL)
-
-            // Encrypt
-            let sealedBox = try AES.GCM.seal(fileData, using: encryptionKey)
-
-            // Save encrypted data
             let destURL = try self.getFileURL(for: key)
-            try sealedBox.combined?.write(to: destURL)
-
+            try VaultCrypto.encryptFile(from: sourceURL, to: destURL, key: encryptionKey)
             promise.resolve(nil)
         } catch {
             promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: \(error.localizedDescription)")
         }
     }
 
+    AsyncFunction("putThumbnail") { (key: String, sourcePath: String, maxPixelSize: Int, promise: Promise) in
+        do {
+            let encryptionKey = try self.getEncryptionKey()
+            let jpeg = try VaultCrypto.thumbnailJPEG(from: URL(fileURLWithPath: sourcePath), maxPixelSize: maxPixelSize)
+            try VaultCrypto.encryptData(jpeg, to: self.getFileURL(for: key), key: encryptionKey)
+            promise.resolve(nil)
+        } catch {
+            promise.reject("PUT_THUMBNAIL_FAILED", "Failed to create thumbnail: \(error.localizedDescription)")
+        }
+    }
+
     AsyncFunction("getFile") { (key: String, destPath: String, promise: Promise) in
         do {
             let encryptionKey = try self.getEncryptionKey()
-
-            // Read encrypted file
             let encryptedURL = try self.getFileURL(for: key)
-            let sealedBoxData = try Data(contentsOf: encryptedURL)
-
-            // Decrypt
-            let sealedBox = try AES.GCM.SealedBox(combined: sealedBoxData)
-            let decryptedData = try AES.GCM.open(sealedBox, using: encryptionKey)
-
-            // Write to destination
             let destURL = URL(fileURLWithPath: destPath)
-            try FileManager.default.createDirectory(at: destURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try decryptedData.write(to: destURL)
-
+            try VaultCrypto.decryptFile(from: encryptedURL, to: destURL, key: encryptionKey)
             promise.resolve(destPath)
         } catch {
             promise.reject("GET_FILE_FAILED", "Failed to decrypt file: \(error.localizedDescription)")

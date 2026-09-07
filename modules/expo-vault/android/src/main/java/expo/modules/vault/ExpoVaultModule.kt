@@ -250,60 +250,44 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("putFile") { key: String, sourcePath: String, promise: Promise ->
             try {
-                val secretKey = getSecretKey()
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-
-                val iv = cipher.iv
-                ivPreferences.edit().putString(key, android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)).apply()
-
-                // Read source file
                 val sourceFile = File(sourcePath)
                 if (!sourceFile.exists()) {
                     promise.reject("PUT_FILE_FAILED", "Source file not found: $sourcePath", null)
                     return@AsyncFunction
                 }
-                val fileData = sourceFile.readBytes()
-
-                // Encrypt and save
-                val encryptedData = cipher.doFinal(fileData)
                 val destFile = File(appContext.reactContext!!.filesDir, key)
-                destFile.writeBytes(encryptedData)
-
+                VaultCrypto.encryptFile(sourceFile, destFile, getSecretKey())
+                // Chunked files carry their own nonces; drop any legacy IV for this key.
+                ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {
                 promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: ${e.message}", e)
             }
         }
 
+        AsyncFunction("putThumbnail") { key: String, sourcePath: String, maxPixelSize: Int, promise: Promise ->
+            try {
+                val jpeg = VaultCrypto.thumbnailJpeg(File(sourcePath), maxPixelSize)
+                val destFile = File(appContext.reactContext!!.filesDir, key)
+                VaultCrypto.encryptBytes(jpeg, destFile, getSecretKey())
+                ivPreferences.edit().remove(key).apply()
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("PUT_THUMBNAIL_FAILED", "Failed to create thumbnail: ${e.message}", e)
+            }
+        }
+
         AsyncFunction("getFile") { key: String, destPath: String, promise: Promise ->
             try {
-                val secretKey = getSecretKey()
-                val ivString = ivPreferences.getString(key, null)
-                if (ivString == null) {
-                    promise.reject("GET_FILE_FAILED", "IV not found for key: $key", null)
-                    return@AsyncFunction
-                }
-                val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
-
                 val encryptedFile = File(appContext.reactContext!!.filesDir, key)
                 if (!encryptedFile.exists()) {
                     promise.reject("GET_FILE_FAILED", "Encrypted file not found for key: $key", null)
                     return@AsyncFunction
                 }
-                val encryptedData = encryptedFile.readBytes()
-
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                val spec = GCMParameterSpec(128, iv)
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-
-                val decryptedData = cipher.doFinal(encryptedData)
-
-                // Write to destination
-                val destFile = File(destPath)
-                destFile.parentFile?.mkdirs()
-                destFile.writeBytes(decryptedData)
-
+                val legacyIv = ivPreferences.getString(key, null)?.let {
+                    android.util.Base64.decode(it, android.util.Base64.DEFAULT)
+                }
+                VaultCrypto.decryptFile(encryptedFile, File(destPath), getSecretKey(), legacyIv)
                 promise.resolve(destPath)
             } catch (e: Exception) {
                 promise.reject("GET_FILE_FAILED", "Failed to decrypt file: ${e.message}", e)

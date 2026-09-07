@@ -19,6 +19,8 @@ export interface SecureVault {
 
   // File-based storage (for images, PDFs, binary data)
   putFile(key: string, sourcePath: string): Promise<void>;
+  /** Downsamples an image to `maxPixelSize` on its longest side and stores it encrypted. */
+  putThumbnail(key: string, sourcePath: string, maxPixelSize: number): Promise<void>;
   getFile(key: string, destPath: string): Promise<string>;
   deleteFile(key: string): Promise<void>;
   getFileSize(key: string): Promise<number>;

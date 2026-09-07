@@ -36,6 +36,9 @@ export function createVaultMock(): SecureVault & { reset(): void } {
     async putFile(key, sourcePath) {
       files.set(key, sourcePath);
     },
+    async putThumbnail(key, sourcePath) {
+      files.set(key, sourcePath);
+    },
     async getFile(key, destPath) {
       if (!files.has(key)) throw new Error(`GET_FILE_FAILED: ${key}`);
       return destPath;

@@ -9,6 +9,8 @@ import ExpoVaultModule from '../../modules/expo-vault';
 
 const FILE_PREFIX = 'file_';
 const THUMB_PREFIX = 'thumb_';
+// Two-column grid cells are about 180 pt wide, so 512 px covers 3x screens.
+const THUMBNAIL_MAX_PIXELS = 512;
 
 type ChangeListener = () => void;
 
@@ -82,7 +84,7 @@ class DocumentService {
     await ExpoVaultModule.putFile(fileKey, sourcePath);
     if (fileType === 'image') {
       try {
-        await ExpoVaultModule.putFile(thumbnailKey, sourcePath);
+        await ExpoVaultModule.putThumbnail(thumbnailKey, sourcePath, THUMBNAIL_MAX_PIXELS);
       } catch {
         // A missing thumbnail only costs a placeholder in the list.
       }
