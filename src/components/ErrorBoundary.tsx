@@ -1,96 +1,58 @@
-import type { ErrorInfo, ReactNode } from 'react';
-import React, { Component } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { View } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
+import { Button, EmptyState } from './ui';
 
-interface State {
-  hasError: boolean;
-  error: Error | null;
-}
+type Props = { children: ReactNode; fallback?: ReactNode };
+type State = { error: Error | null };
 
+/**
+ * Last line of defense above every provider. It never logs the error object
+ * itself, because a document title or OCR text could be inside it.
+ */
 export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+  override state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error?.message, {
-      componentStack: errorInfo.componentStack,
-    });
+  override componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Unhandled error:', error.name, { componentStack: info.componentStack });
   }
 
-  handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+  private reset = () => {
+    this.setState({ error: null });
   };
 
-  render() {
-    if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      return (
-        <View style={styles.container}>
-          <Text style={styles.icon}>⚠️</Text>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>
-            {this.state.error?.message || 'An unexpected error occurred'}
-          </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={this.handleRetry}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      );
+  override render() {
+    if (!this.state.error) {
+      return this.props.children;
     }
-
-    return this.props.children;
+    if (this.props.fallback) {
+      return this.props.fallback;
+    }
+    return (
+      <View style={styles.root}>
+        <EmptyState
+          icon="warning"
+          title="Something went wrong"
+          description="Your documents are still encrypted and safe. Try again, or relaunch the app."
+        />
+        <Button label="Try again" onPress={this.reset} size="md" variant="secondary" />
+      </View>
+    );
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
+const styles = StyleSheet.create((theme) => ({
+  root: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.background,
   },
-  icon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  message: {
-    fontSize: 14,
-    color: '#6c757d',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#4361ee',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});
-
-export default ErrorBoundary;
+}));

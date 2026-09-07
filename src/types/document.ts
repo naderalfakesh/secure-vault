@@ -18,16 +18,6 @@ export const DocumentCategoryLabels: Record<DocumentCategory, string> = {
   [DocumentCategory.OTHER]: 'Other',
 };
 
-export const DocumentCategoryIcons: Record<DocumentCategory, string> = {
-  [DocumentCategory.ID]: '🪪',
-  [DocumentCategory.MEDICAL]: '🏥',
-  [DocumentCategory.FINANCE]: '💰',
-  [DocumentCategory.LEGAL]: '⚖️',
-  [DocumentCategory.INSURANCE]: '🛡️',
-  [DocumentCategory.RECEIPTS]: '🧾',
-  [DocumentCategory.OTHER]: '📄',
-};
-
 export type FileType = 'image' | 'pdf';
 
 export interface Document {
