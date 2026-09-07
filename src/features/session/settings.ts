@@ -1,7 +1,7 @@
 import type { LockoutState } from '@/features/auth/lockout';
 import { EMPTY_LOCKOUT, sanitizeLockout } from '@/features/auth/lockout';
 
-import vault from '../../../modules/expo-vault';
+import * as SecureStore from 'expo-secure-store';
 
 export const AUTO_LOCK_OPTIONS = [0, 60, 300, 900, -1] as const;
 export type AutoLockSeconds = (typeof AUTO_LOCK_OPTIONS)[number];
@@ -45,10 +45,17 @@ export function sanitizeSettings(value: unknown): SecuritySettings {
   };
 }
 
-// Vault entries (encrypted by the device key) that hold session state.
-const SETTINGS_ENTRY = '_security_settings';
-const PIN_ENTRY = '_pin_record';
-const LOCKOUT_ENTRY = '_pin_lockout';
+// Session state lives in the OS secure store (Keychain, Keystore-backed
+// SharedPreferences) rather than behind the vault's device key: the PIN record
+// and lockout must be readable before that key has been authenticated, and the
+// record is only a stretched hash.
+const SETTINGS_ENTRY = 'securevault.settings';
+const PIN_ENTRY = 'securevault.pin';
+const LOCKOUT_ENTRY = 'securevault.lockout';
+
+const options: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
 
 async function readJson<T>(
   entry: string,
@@ -56,7 +63,8 @@ async function readJson<T>(
   fallback: T,
 ): Promise<T> {
   try {
-    return sanitize(JSON.parse(await vault.get(entry)));
+    const raw = await SecureStore.getItemAsync(entry, options);
+    return raw ? sanitize(JSON.parse(raw)) : fallback;
   } catch {
     return fallback;
   }
@@ -64,17 +72,25 @@ async function readJson<T>(
 
 export const sessionStorage = {
   loadSettings: () => readJson(SETTINGS_ENTRY, sanitizeSettings, DEFAULT_SETTINGS),
-  saveSettings: (settings: SecuritySettings) => vault.put(SETTINGS_ENTRY, JSON.stringify(settings)),
+  saveSettings: (settings: SecuritySettings) =>
+    SecureStore.setItemAsync(SETTINGS_ENTRY, JSON.stringify(settings), options),
   loadLockout: (): Promise<LockoutState> => readJson(LOCKOUT_ENTRY, sanitizeLockout, EMPTY_LOCKOUT),
-  saveLockout: (state: LockoutState) => vault.put(LOCKOUT_ENTRY, JSON.stringify(state)),
+  saveLockout: (state: LockoutState) =>
+    SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options),
   async loadPinRecord(): Promise<string | null> {
     try {
-      return await vault.get(PIN_ENTRY);
+      return await SecureStore.getItemAsync(PIN_ENTRY, options);
     } catch {
       return null;
     }
   },
-  savePinRecord: (record: string) => vault.put(PIN_ENTRY, record),
-  /** Cheap existence check from the entry list; no decryption involved. */
-  hasPinRecord: (keys: string[]) => keys.includes(PIN_ENTRY),
+  savePinRecord: (record: string) => SecureStore.setItemAsync(PIN_ENTRY, record, options),
+  hasPinRecord: async () => (await sessionStorage.loadPinRecord()) !== null,
+  clear: async () => {
+    await Promise.all(
+      [SETTINGS_ENTRY, PIN_ENTRY, LOCKOUT_ENTRY].map((entry) =>
+        SecureStore.deleteItemAsync(entry, options),
+      ),
+    );
+  },
 };

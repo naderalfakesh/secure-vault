@@ -43,7 +43,8 @@
           "useSQLCipher": true,
           "enableFTS": true
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "reactCompiler": true,

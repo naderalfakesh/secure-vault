@@ -18,6 +18,9 @@ import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './setti
 
 export type SessionStatus = 'loading' | 'setup' | 'locked' | 'unlocked';
 
+// A tiny vault entry whose read proves the device key is currently usable.
+const KEY_PROBE_ENTRY = '_key_probe';
+
 export type SessionContextValue = {
   status: SessionStatus;
   biometry: BiometryType;
@@ -34,6 +37,11 @@ export type SessionContextValue = {
   lock: () => void;
   /** Ask for biometrics again for a sensitive action such as sharing. */
   stepUp: () => Promise<boolean>;
+  /**
+   * Runs `work` with auto-lock paused. System pickers, the camera, the scanner,
+   * and share sheets send the app to the background without the user leaving it.
+   */
+  withoutAutoLock: <T>(work: () => Promise<T>) => Promise<T>;
   /** Last unlock or setup failure, cleared on the next attempt. */
   error: string | null;
 };
@@ -58,6 +66,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
   const backgroundedAt = useRef<number | null>(null);
+  const suspendedRef = useRef(0);
   const statusRef = useRef(status);
 
   useEffect(() => {
@@ -67,16 +76,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [exists, type, keys] = await Promise.all([
+      const [exists, type, hasPin] = await Promise.all([
         vault.hasVault().catch(() => false),
         vault.biometryType().catch(() => 'none' as const),
-        vault.getAllKeys().catch(() => [] as string[]),
+        sessionStorage.hasPinRecord(),
       ]);
       if (!active) return;
       setBiometry(type);
       // A key without a PIN record means setup was interrupted; start over so
       // the user is never locked out of a vault that holds nothing yet.
-      setStatus(exists && sessionStorage.hasPinRecord(keys) ? 'locked' : 'setup');
+      setStatus(exists && hasPin ? 'locked' : 'setup');
     })();
     return () => {
       active = false;
@@ -90,6 +99,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
     ]);
     setSettings(nextSettings);
     setLockout(nextLockout);
+  }, []);
+
+  const ensureKeyAccess = useCallback(async () => {
+    try {
+      await vault.get(KEY_PROBE_ENTRY);
+      return true;
+    } catch {
+      try {
+        return await vault.unlockWithBiometrics();
+      } catch (e) {
+        setError(describeError(e, 'Could not unlock the vault key.'));
+        return false;
+      }
+    }
   }, []);
 
   const unlock = useCallback(async () => {
@@ -120,6 +143,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         const record = await sessionStorage.loadPinRecord();
         const ok = record ? await verifyPasscodeAsync(pin, record) : false;
         if (ok) {
+          // The PIN opens the app; the device key still needs the OS gate if its
+          // authentication window has lapsed. iOS prompts on first Keychain read,
+          // Android needs an explicit prompt, so probe and re-arm when required.
+          if (!(await ensureKeyAccess())) return false;
           await loadProtectedState();
           setLockout(EMPTY_LOCKOUT);
           await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
@@ -135,7 +162,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [lockout, loadProtectedState],
+    [lockout, loadProtectedState, ensureKeyAccess],
   );
 
   const setUp = useCallback(async (pin: string) => {
@@ -183,18 +210,32 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setStatus('locked');
   }, []);
 
-  const stepUp = useCallback(async () => {
+  const withoutAutoLock = useCallback(async <T,>(work: () => Promise<T>) => {
+    suspendedRef.current += 1;
     try {
-      return await vault.unlockWithBiometrics();
-    } catch {
-      return false;
+      return await work();
+    } finally {
+      suspendedRef.current -= 1;
+      backgroundedAt.current = null;
     }
   }, []);
+
+  const stepUp = useCallback(
+    () =>
+      withoutAutoLock(async () => {
+        try {
+          return await vault.unlockWithBiometrics();
+        } catch {
+          return false;
+        }
+      }),
+    [withoutAutoLock],
+  );
 
   // Auto-lock: remember when the app left the foreground and compare on return.
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      if (statusRef.current !== 'unlocked') return;
+      if (statusRef.current !== 'unlocked' || suspendedRef.current > 0) return;
       if (next === 'background' || next === 'inactive') {
         backgroundedAt.current ??= Date.now();
         return;
@@ -223,6 +264,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       updateSettings,
       lock,
       stepUp,
+      withoutAutoLock,
       error,
     }),
     [
@@ -237,6 +279,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       updateSettings,
       lock,
       stepUp,
+      withoutAutoLock,
       error,
     ],
   );

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { documentService } from '@/services/DocumentService';
+import { useSession } from '@/features/session/SessionProvider';
 import { ocrService } from '@/services/OcrService';
 import { DocumentCategory, type PickedFile } from '@/types';
 
@@ -73,6 +74,7 @@ function stripExtension(name: string): string {
 
 export default function AddDocumentScreen() {
   const toast = useToast();
+  const { withoutAutoLock } = useSession();
   const { theme } = useUnistyles();
   const [files, setFiles] = useState<PickedFile[]>([]);
   const file = files[0] ?? null;
@@ -91,7 +93,7 @@ export default function AddDocumentScreen() {
     [],
   );
 
-  const pick = useCallback(
+  const pickFrom = useCallback(
     async (source: Source) => {
       try {
         if (source === 'scan') {
@@ -159,6 +161,11 @@ export default function AddDocumentScreen() {
       }
     },
     [accept, toast],
+  );
+
+  const pick = useCallback(
+    (source: Source) => withoutAutoLock(() => pickFrom(source)),
+    [withoutAutoLock, pickFrom],
   );
 
   const reset = useCallback(() => {

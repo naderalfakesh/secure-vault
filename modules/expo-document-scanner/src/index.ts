@@ -1,4 +1,4 @@
-import { requireNativeModule } from 'expo';
+import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 export interface ScannedPage {
@@ -19,8 +19,17 @@ interface NativeScanner {
   scanDocuments(options: ScanOptions): Promise<ScannedPage[]>;
 }
 
-const native =
-  Platform.OS === 'web' ? null : requireNativeModule<NativeScanner>('ExpoDocumentScanner');
+// Optional so a build that predates the module still runs; the add flow then hides the scanner.
+function loadNative(): NativeScanner | null {
+  if (Platform.OS === 'web') return null;
+  try {
+    return requireOptionalNativeModule<NativeScanner>('ExpoDocumentScanner');
+  } catch {
+    return null;
+  }
+}
+
+const native = loadNative();
 
 /** True when the platform scanner (VisionKit or ML Kit Document Scanner) can run here. */
 export function isScannerSupported(): boolean {

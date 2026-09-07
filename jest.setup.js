@@ -13,6 +13,21 @@ jest.mock('./modules/expo-vault', () => require('./modules/expo-vault/src/ExpoVa
 
 jest.mock('expo-device', () => ({ isDevice: true }));
 
+jest.mock('expo-secure-store', () => {
+  const store = new Map();
+  return {
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'whenUnlockedThisDeviceOnly',
+    getItemAsync: async (key) => store.get(key) ?? null,
+    setItemAsync: async (key, value) => {
+      store.set(key, value);
+    },
+    deleteItemAsync: async (key) => {
+      store.delete(key);
+    },
+    __reset: () => store.clear(),
+  };
+});
+
 jest.mock('./modules/expo-document-scanner', () =>
   require('./modules/expo-document-scanner/src/index.mock'),
 );
