@@ -296,6 +296,14 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        AsyncFunction("renderPdfPages") { sourcePath: String, maxPixelSize: Int, destDir: String, promise: Promise ->
+            try {
+                promise.resolve(PdfPages.render(File(sourcePath), maxPixelSize, File(destDir)))
+            } catch (e: Exception) {
+                promise.reject("RENDER_PDF_FAILED", "Failed to render the PDF: ${e.message}", e)
+            }
+        }
+
         AsyncFunction("getFile") { key: String, destPath: String, promise: Promise ->
             try {
                 val encryptedFile = File(appContext.reactContext!!.filesDir, key)

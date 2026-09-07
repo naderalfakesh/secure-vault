@@ -232,6 +232,19 @@ public class ExpoVaultModule: Module {
         }
     }
 
+    AsyncFunction("renderPdfPages") { (sourcePath: String, maxPixelSize: Int, destDir: String, promise: Promise) in
+        do {
+            let pages = try PdfPages.render(
+                from: URL(fileURLWithPath: sourcePath),
+                maxPixelSize: maxPixelSize,
+                into: URL(fileURLWithPath: destDir, isDirectory: true)
+            )
+            promise.resolve(pages)
+        } catch {
+            promise.reject("RENDER_PDF_FAILED", "Failed to render the PDF: \(error.localizedDescription)")
+        }
+    }
+
     AsyncFunction("getFile") { (key: String, destPath: String, promise: Promise) in
         do {
             let encryptionKey = try self.getEncryptionKey()

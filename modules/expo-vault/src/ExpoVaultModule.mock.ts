@@ -46,6 +46,9 @@ export function createVaultMock(): SecureVault & { reset(): void } {
       if (!files.has(key)) throw new Error(`GET_FILE_FAILED: ${key}`);
       return destPath;
     },
+    async renderPdfPages(sourcePath, _maxPixelSize, destDir) {
+      return [{ uri: `${destDir}/page_1.jpg`, width: 1240, height: 1754 }];
+    },
     async deleteFile(key) {
       files.delete(key);
     },

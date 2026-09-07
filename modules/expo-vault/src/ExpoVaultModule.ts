@@ -6,6 +6,12 @@ const ExpoVaultModule = requireNativeModule('ExpoVault');
 
 export type BiometryType = 'faceId' | 'touchId' | 'biometrics' | 'none';
 
+export interface RenderedPage {
+  uri: string;
+  width: number;
+  height: number;
+}
+
 export interface SecureVault {
   // Vault management
   /** True once a device key exists, even while it is still locked. */
@@ -26,6 +32,15 @@ export interface SecureVault {
   /** Downsamples an image to `maxPixelSize` on its longest side and stores it encrypted. */
   putThumbnail(key: string, sourcePath: string, maxPixelSize: number): Promise<void>;
   getFile(key: string, destPath: string): Promise<string>;
+  /**
+   * Rasterises every page of a PDF at `sourcePath` into JPEGs inside `destDir`,
+   * longest side `maxPixelSize`. The viewer and thumbnails only handle images.
+   */
+  renderPdfPages(
+    sourcePath: string,
+    maxPixelSize: number,
+    destDir: string,
+  ): Promise<RenderedPage[]>;
   deleteFile(key: string): Promise<void>;
   getFileSize(key: string): Promise<number>;
 
