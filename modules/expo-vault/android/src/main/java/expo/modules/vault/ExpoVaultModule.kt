@@ -23,6 +23,7 @@ import javax.crypto.spec.GCMParameterSpec
 class ExpoVaultModule : Module() {
 
     private val keyAlias = "encryptionKey"
+    private val AUTH_VALIDITY_SECONDS = 300
     private val keystoreProvider = "AndroidKeyStore"
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
@@ -59,12 +60,18 @@ class ExpoVaultModule : Module() {
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                     .setUserAuthenticationRequired(true)
 
-                // Allow device credentials (PIN/pattern/password) as fallback on Android 11+
+                // A timeout-based key: any successful biometric or device-credential
+                // prompt unlocks it for the window below. Per-use keys (timeout 0)
+                // would need a CryptoObject on every cipher call, which this module
+                // does not do yet; that is the Phase 3 vault rework.
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     parameterSpecBuilder.setUserAuthenticationParameters(
-                        0, // 0 = require auth for every use
+                        AUTH_VALIDITY_SECONDS,
                         KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
                     )
+                } else {
+                    @Suppress("DEPRECATION")
+                    parameterSpecBuilder.setUserAuthenticationValidityDurationSeconds(AUTH_VALIDITY_SECONDS)
                 }
 
                 val parameterSpec = parameterSpecBuilder.build()
@@ -323,6 +330,7 @@ class ExpoVaultModule : Module() {
     private fun getSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(keystoreProvider)
         keyStore.load(null)
-        return keyStore.getKey(keyAlias, null) as SecretKey
+        return keyStore.getKey(keyAlias, null) as? SecretKey
+            ?: throw IllegalStateException("Vault key not found. Create the vault first.")
     }
 }
