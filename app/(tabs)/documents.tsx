@@ -110,7 +110,6 @@ export default function DocumentsScreen() {
             value={query}
             onChangeText={onSearch}
             returnKeyType="search"
-            clearButtonMode="while-editing"
             accessibilityLabel="Search documents"
           />
           {query ? (
