@@ -18,18 +18,22 @@ the nine phases with their scope. Verification notes for finished phases live in
 | Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` |
 
 Local toolchain quirks: CocoaPods needs a UTF-8 locale (`LANG=en_US.UTF-8`),
-Gradle needs `JAVA_HOME` pointing at the Android Studio JBR, and `expo run:ios`
+Gradle needs `JAVA_HOME` pointing at the Android Studio JBR and must run with `--max-workers=4` while no emulator is booted, and `expo run:ios`
 only sees Apple Silicon simulators because `plugins/withMlkitSimulatorFix.js`
 strips Google ML Kit's `EXCLUDED_ARCHS = arm64`. Do not remove that plugin.
 
 ## Structure
 
 - `app/` Expo Router routes. The root layout owns the lock gate.
-- `src/components`, `src/hooks`, `src/services`, `src/security`, `src/types` app code.
+- `src/theme` Unistyles tokens (configured from `index.js` before the router loads).
+- `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons.
+- `src/data` SQLCipher index: `schema.ts` migrations, `DocumentRepository`, adapters (`expoSqlite.ts`, `testing/betterSqlite.ts`), `database.ts` (key from the vault, legacy import) with a `database.jest.ts` double.
+- `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService`.
+- `src/features` session provider, document feature pieces; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   Keychain or Keystore key, string and file storage, export and import.
 - `plugins/` config plugins (Face ID string, biometric permission, ML Kit fix).
-- `docs/` plan, ADRs (`docs/adr/`), verification notes, archived 2025 plan.
+- `docs/` plan, ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 
 ## Rules
 
