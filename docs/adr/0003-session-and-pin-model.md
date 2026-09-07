@@ -31,18 +31,23 @@ passcode on iOS; biometrics or the device credential on Android). The app PIN
 is a second door:
 
 - `unlock()` runs the OS prompt through the vault module.
-- `unlockWithPin(pin)` verifies the PIN against a stored record, then relies
-  on the same OS-gated key to read that record. On a device without enrolled
-  biometrics the OS falls back to the passcode prompt, so the PIN path never
-  bypasses the hardware key; it is a fallback for the biometric prompt, not
-  for the Keychain or Keystore.
+- `unlockWithPin(pin)` verifies the PIN against a stored record and then
+  probes the device key with a tiny vault read. iOS satisfies that read with
+  its own Keychain prompt when needed; on Android the Keystore key has a
+  five-minute authentication window, so when the probe fails the provider
+  runs the system credential prompt before declaring the session unlocked.
+  The PIN therefore never bypasses the hardware key; it is the app-level gate
+  in front of it.
 
 ### PIN storage
 
 The PIN is stretched with PBKDF2-SHA256 (4096 iterations, 16-byte random
 salt, 32-byte output) into a self-describing record
 `pbkdf2-sha256$iterations$salt$hash`, ported from Nadir Wallet's
-`crypto-core`, and stored as a vault entry encrypted by the device key. A
+`crypto-core`, and stored with `expo-secure-store` (Keychain on iOS, the
+Keystore-backed encrypted preferences on Android) so it can be read before
+the vault's device key has been authenticated. The salt comes from
+`expo-crypto`, because Hermes has no `crypto.getRandomValues`. A
 6-digit PIN is a tiny keyspace, so this is defense in depth against a leaked
 record, not a substitute for the OS gate. The plan suggested hashing in
 native code; the JavaScript implementation was chosen because it is already
@@ -80,8 +85,14 @@ Auto-lock bounds how long an unlocked session can exercise the key.
   gate; there is no second code path to keep secure.
 - Setup is three onboarding slides, a PIN, and one OS prompt. There is no
   "create vault" button.
-- The PIN record, lockout state, and settings live inside the vault, so they
-  are covered by the same key and by backups.
+- The PIN record, lockout state, and settings live in the OS secure store,
+  outside the vault, so the lock screen can read them before any prompt. A
+  vault whose device key exists but has no PIN record is treated as an
+  interrupted setup and starts over, which cannot lose data because nothing
+  was stored yet.
+- Auto-lock pauses while a system picker, the camera, the scanner, or a
+  step-up prompt is on screen; those send the app to the background without
+  the user leaving it.
 - Jest covers the provider's state machine, the lockout policy, PIN hashing,
   and settings sanitisation. The OS prompts themselves are verified by hand on
   simulators and recorded in the phase notes.
