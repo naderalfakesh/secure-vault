@@ -31,16 +31,27 @@ import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import { DocumentCategory, type PickedFile } from '@/types';
 
-type Source = 'camera' | 'library' | 'files';
+import { isScannerSupported, scanDocuments } from '../../modules/expo-document-scanner';
+
+type Source = 'scan' | 'camera' | 'library' | 'files';
 type SaveStep = 'ocr' | 'encrypt' | 'index';
 
+const scannerAvailable = isScannerSupported();
+
 const sources: { key: Source; icon: IconName; title: string; subtitle: string }[] = [
-  {
-    key: 'camera',
-    icon: 'camera',
-    title: 'Take a photo',
-    subtitle: 'Best for cards, passports, and single pages',
-  },
+  scannerAvailable
+    ? {
+        key: 'scan',
+        icon: 'scan',
+        title: 'Scan with the camera',
+        subtitle: 'Finds the edges, straightens the page, and captures several pages',
+      }
+    : {
+        key: 'camera',
+        icon: 'camera',
+        title: 'Take a photo',
+        subtitle: 'Best for cards, passports, and single pages',
+      },
   {
     key: 'library',
     icon: 'photos',
@@ -63,7 +74,8 @@ function stripExtension(name: string): string {
 export default function AddDocumentScreen() {
   const toast = useToast();
   const { theme } = useUnistyles();
-  const [file, setFile] = useState<PickedFile | null>(null);
+  const [files, setFiles] = useState<PickedFile[]>([]);
+  const file = files[0] ?? null;
   const [preview, setPreview] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<DocumentCategory>(DocumentCategory.OTHER);
@@ -71,8 +83,8 @@ export default function AddDocumentScreen() {
   const [step, setStep] = useState<SaveStep | null>(null);
 
   const accept = useCallback(
-    (picked: PickedFile, previewUri: string | null, suggestedTitle: string) => {
-      setFile(picked);
+    (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
+      setFiles(picked);
       setPreview(previewUri);
       setTitle(suggestedTitle);
     },
@@ -82,6 +94,20 @@ export default function AddDocumentScreen() {
   const pick = useCallback(
     async (source: Source) => {
       try {
+        if (source === 'scan') {
+          const pages = await scanDocuments();
+          if (pages.length === 0) return;
+          accept(
+            pages.map((page, index) => ({
+              uri: page.uri,
+              name: `scan-${Date.now()}-${index + 1}.jpg`,
+              type: 'image/jpeg',
+            })),
+            pages[0]?.uri ?? null,
+            'Scanned document',
+          );
+          return;
+        }
         if (source === 'files') {
           const result = await DocumentPicker.getDocumentAsync({
             type: ['application/pdf', 'image/*'],
@@ -91,7 +117,7 @@ export default function AddDocumentScreen() {
           if (!asset) return;
           const type = asset.mimeType ?? 'application/pdf';
           accept(
-            { uri: asset.uri, name: asset.name, type, size: asset.size },
+            [{ uri: asset.uri, name: asset.name, type, size: asset.size }],
             type.startsWith('image') ? asset.uri : null,
             stripExtension(asset.name),
           );
@@ -121,7 +147,7 @@ export default function AddDocumentScreen() {
         if (!asset) return;
         const name = asset.fileName ?? `scan-${Date.now()}.jpg`;
         accept(
-          { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize },
+          [{ uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize }],
           asset.uri,
           source === 'camera' ? 'Scanned document' : stripExtension(name),
         );
@@ -136,7 +162,7 @@ export default function AddDocumentScreen() {
   );
 
   const reset = useCallback(() => {
-    setFile(null);
+    setFiles([]);
     setPreview(null);
     setTitle('');
     setTags('');
@@ -168,7 +194,7 @@ export default function AddDocumentScreen() {
       }
 
       setStep('encrypt');
-      const saved = await documentService.addDocument(file, {
+      const saved = await documentService.addDocument(files, {
         title: cleanTitle,
         category,
         tags: tags
@@ -192,7 +218,7 @@ export default function AddDocumentScreen() {
         tone: 'danger',
       });
     }
-  }, [file, title, preview, category, tags, toast]);
+  }, [file, files, title, preview, category, tags, toast]);
 
   const header = (
     <View style={styles.header}>
@@ -203,7 +229,11 @@ export default function AddDocumentScreen() {
         onPress={file ? reset : () => router.back()}
       />
       <Text variant="headline" style={styles.headerTitle}>
-        {file ? 'Details' : 'Add a document'}
+        {file
+          ? files.length > 1
+            ? `Details · ${files.length} pages`
+            : 'Details'
+          : 'Add a document'}
       </Text>
       <View style={styles.headerSpacer} />
     </View>

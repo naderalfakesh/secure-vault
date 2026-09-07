@@ -9,6 +9,7 @@ import ExpoVaultModule from '../../modules/expo-vault';
 
 const FILE_PREFIX = 'file_';
 const THUMB_PREFIX = 'thumb_';
+const PAGE_PREFIX = 'page_';
 // Two-column grid cells are about 180 pt wide, so 512 px covers 3x screens.
 const THUMBNAIL_MAX_PIXELS = 512;
 
@@ -72,7 +73,17 @@ class DocumentService {
     for (const listener of this.listeners) listener();
   }
 
-  async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document> {
+  /**
+   * Stores one document from one or more source files. The first file is the
+   * document's main file and thumbnail source; further files become pages.
+   */
+  async addDocument(
+    input: PickedFile | PickedFile[],
+    metadata: Partial<Document>,
+  ): Promise<Document> {
+    const files = Array.isArray(input) ? input : [input];
+    const file = files[0];
+    if (!file) throw new Error('A document needs at least one file.');
     const repository = await this.repository();
     const id = Crypto.randomUUID();
     const fileKey = `${FILE_PREFIX}${id}`;
@@ -90,13 +101,15 @@ class DocumentService {
       }
     }
 
-    if (sourcePath !== this.toPath(file.uri) && this.isCachePath(sourcePath)) {
-      try {
-        const tempFile = new File(this.toUri(sourcePath));
-        if (tempFile.exists) tempFile.delete();
-      } catch {
-        // Cache files are also swept by clearCache.
-      }
+    this.discardTemp(sourcePath, file.uri);
+
+    const pageKeys: string[] = [];
+    for (const [index, page] of files.slice(1).entries()) {
+      const pageKey = `${PAGE_PREFIX}${id}_${index + 1}`;
+      const pagePath = await this.getLocalFilePath(page.uri);
+      await ExpoVaultModule.putFile(pageKey, pagePath);
+      this.discardTemp(pagePath, page.uri);
+      pageKeys.push(pageKey);
     }
 
     const document = await repository.insert({
@@ -111,8 +124,34 @@ class DocumentService {
       fileSize: file.size || 0,
       createdAt: now,
     });
+    if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
     this.notify();
     return document;
+  }
+
+  private discardTemp(sourcePath: string, originalUri: string) {
+    if (sourcePath === this.toPath(originalUri) || !this.isCachePath(sourcePath)) return;
+    try {
+      const tempFile = new File(this.toUri(sourcePath));
+      if (tempFile.exists) tempFile.delete();
+    } catch {
+      // Cache files are also swept by clearCache.
+    }
+  }
+
+  /** Decrypts every page (main file first) into the cache and returns their URIs. */
+  async getDocumentPages(id: string): Promise<string[]> {
+    const doc = await this.getDocument(id);
+    if (!doc) return [];
+    const main = await this.getDocumentFile(id);
+    const pageKeys = await (await this.repository()).getPages(id);
+    const uris = main ? [main] : [];
+    for (const [index, key] of pageKeys.entries()) {
+      const { uri, path } = this.getCacheLocation(`decrypted_${id}_p${index + 1}.jpg`);
+      await ExpoVaultModule.getFile(key, path);
+      uris.push(uri);
+    }
+    return uris;
   }
 
   async getDocument(id: string): Promise<Document | null> {
@@ -164,6 +203,9 @@ class DocumentService {
 
     await ExpoVaultModule.deleteFile(doc.fileKey).catch(() => {});
     await ExpoVaultModule.deleteFile(doc.thumbnailKey).catch(() => {});
+    for (const key of await repository.getPages(id)) {
+      await ExpoVaultModule.deleteFile(key).catch(() => {});
+    }
     const removed = await repository.remove(id);
     if (removed) this.notify();
     return removed;

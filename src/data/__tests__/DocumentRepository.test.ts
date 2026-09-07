@@ -158,3 +158,17 @@ describe('migrateLegacyIndex', () => {
     await db.close();
   });
 });
+
+describe('pages', () => {
+  it('stores extra pages in order and drops them with the document', async () => {
+    const db = openTestDatabase();
+    await applyMigrations(db);
+    const repo = new DocumentRepository(db);
+    await repo.insert(doc('1'));
+    await repo.setPages('1', ['page_1_1', 'page_1_2']);
+    expect(await repo.getPages('1')).toEqual(['page_1_1', 'page_1_2']);
+    await repo.remove('1');
+    expect(await db.first('SELECT * FROM pages')).toBeNull();
+    await db.close();
+  });
+});

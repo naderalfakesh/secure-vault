@@ -168,6 +168,28 @@ export class DocumentRepository {
     });
   }
 
+  /** Extra pages beyond the main file, in order. Page 0 is the document's own file key. */
+  async setPages(id: string, fileKeys: string[]): Promise<void> {
+    await this.db.transaction(async () => {
+      await this.db.run('DELETE FROM pages WHERE document_id = ?', [id]);
+      for (const [index, fileKey] of fileKeys.entries()) {
+        await this.db.run('INSERT INTO pages (document_id, position, file_key) VALUES (?, ?, ?)', [
+          id,
+          index + 1,
+          fileKey,
+        ]);
+      }
+    });
+  }
+
+  async getPages(id: string): Promise<string[]> {
+    const rows = await this.db.all<{ file_key: string }>(
+      'SELECT file_key FROM pages WHERE document_id = ? ORDER BY position',
+      [id],
+    );
+    return rows.map((row) => row.file_key);
+  }
+
   async setFields(id: string, fields: ExtractedField[]): Promise<void> {
     await this.db.transaction(async () => {
       await this.db.run('DELETE FROM fields WHERE document_id = ?', [id]);

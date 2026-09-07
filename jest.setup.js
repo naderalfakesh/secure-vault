@@ -13,6 +13,10 @@ jest.mock('./modules/expo-vault', () => require('./modules/expo-vault/src/ExpoVa
 
 jest.mock('expo-device', () => ({ isDevice: true }));
 
+jest.mock('./modules/expo-document-scanner', () =>
+  require('./modules/expo-document-scanner/src/index.mock'),
+);
+
 // jest-expo's expo-crypto mock returns one constant UUID; documents need unique ids.
 jest.mock('expo-crypto', () => {
   let counter = 0;
