@@ -104,7 +104,7 @@ export default function AddDocumentScreen() {
       setFields([]);
       setEngine(null);
       const first = picked[0];
-      if (!first || !first.type.startsWith('image') || !previewUri) return;
+      if (!first || !previewUri) return;
       // Read the text and suggest details before the form appears, so the
       // user corrects instead of types. Both steps stay best effort.
       setStep('ocr');
@@ -158,9 +158,12 @@ export default function AddDocumentScreen() {
           const asset = result.canceled ? null : result.assets[0];
           if (!asset) return;
           const type = asset.mimeType ?? 'application/pdf';
+          // A PDF's first page is rendered so it can be previewed and read
+          // like a photo.
+          const preview = await documentService.previewForFile(asset.uri, type);
           accept(
             [{ uri: asset.uri, name: asset.name, type, size: asset.size }],
-            type.startsWith('image') ? asset.uri : null,
+            preview,
             stripExtension(asset.name),
           );
           return;

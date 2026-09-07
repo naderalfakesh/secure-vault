@@ -162,6 +162,22 @@ class DocumentService {
   }
 
   /**
+   * An image to show and read before a picked file is saved: the file itself
+   * for photos, the rendered first page for PDFs, null when neither works.
+   */
+  async previewForFile(uri: string, mimeType: string): Promise<string | null> {
+    if (!mimeType.includes('pdf')) return uri;
+    try {
+      const path = await this.getLocalFilePath(uri);
+      const { path: directory } = this.getCacheLocation(`pages_preview_${Date.now()}`);
+      const [page] = await ExpoVaultModule.renderPdfPages(path, PAGE_MAX_PIXELS, directory);
+      return page ? this.toUri(page.uri) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Every page of a document as image URIs in the cache, main file first.
    * PDFs are rasterised natively so the viewer never needs a PDF renderer.
    */

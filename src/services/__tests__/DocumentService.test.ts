@@ -95,4 +95,13 @@ describe('DocumentService', () => {
     ]);
     expect(await documentService.getAllDocuments()).toHaveLength(1);
   });
+
+  it('previews photos as they are and pdfs through their rendered first page', async () => {
+    expect(await documentService.previewForFile('/tmp/passport.jpg', 'image/jpeg')).toBe(
+      '/tmp/passport.jpg',
+    );
+    expect(await documentService.previewForFile('/tmp/lease.pdf', 'application/pdf')).toMatch(
+      /pages_preview_.*page_1\.jpg$/,
+    );
+  });
 });
