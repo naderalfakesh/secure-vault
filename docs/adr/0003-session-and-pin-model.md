@@ -79,6 +79,14 @@ window rather than per-use authentication, because per-use keys require a
 `CryptoObject` on every cipher call and the module encrypts files in chunks.
 Auto-lock bounds how long an unlocked session can exercise the key.
 
+Auto-lock can be set to never, and a long session can outlive the window
+while the app stays in the foreground. When that happens the Keystore
+rejects the next cipher call with `UserNotAuthenticatedException`; the
+module reports it under the `KEY_LOCKED` code and the JavaScript wrapper
+around the native module (`withKeyRecovery`) shows the system credential
+prompt once and retries the call. Screens never see the raw error, and iOS,
+where the Keychain prompts on its own, is unaffected.
+
 ## Consequences
 
 - Cold starts, deep links, and background returns all pass through the same
