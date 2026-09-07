@@ -36,7 +36,14 @@
         }
       ],
       "expo-status-bar",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true,
+          "enableFTS": true
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true,
