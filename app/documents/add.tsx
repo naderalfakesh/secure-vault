@@ -22,7 +22,6 @@ import {
   type IconName,
   ListRow,
   Screen,
-  Sheet,
   Text,
   useToast,
 } from '@/components/ui';
@@ -400,39 +399,48 @@ export default function AddDocumentScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <Sheet
-        visible={step !== null}
-        onClose={() => {}}
-        dismissable={false}
-        title={step === 'ocr' || step === 'suggest' ? 'Reading the document' : 'Saving'}
-      >
-        <View style={styles.progress}>
-          {stepOrder.map((item) => {
-            const done = step ? stepOrder.indexOf(item) < stepOrder.indexOf(step) : false;
-            const active = item === step;
-            return (
-              <View
-                key={item}
-                style={styles.progressRow}
-                accessibilityLabel={`${stepLabel[item]}${done ? ', done' : active ? ', in progress' : ''}`}
-              >
-                {active ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                ) : (
-                  <Icon
-                    name={done ? 'check' : 'clock'}
-                    size={18}
-                    tone={done ? 'success' : 'tertiary'}
-                  />
-                )}
-                <Text variant="body" tone={active || done ? 'primary' : 'tertiary'}>
-                  {stepLabel[item]}
-                </Text>
-              </View>
-            );
-          })}
+      {step !== null ? (
+        // Rendered inside the screen rather than as a native modal: a modal
+        // presented while the system picker is still dismissing is never
+        // torn down on iOS and keeps swallowing touches afterwards.
+        <View
+          style={styles.progressBackdrop}
+          accessibilityViewIsModal
+          accessibilityLiveRegion="polite"
+        >
+          <Card padded style={styles.progressCard}>
+            <Text variant="title3">
+              {step === 'ocr' || step === 'suggest' ? 'Reading the document' : 'Saving'}
+            </Text>
+            <View style={styles.progress}>
+              {stepOrder.map((item) => {
+                const done = stepOrder.indexOf(item) < stepOrder.indexOf(step);
+                const active = item === step;
+                return (
+                  <View
+                    key={item}
+                    style={styles.progressRow}
+                    accessibilityLabel={`${stepLabel[item]}${done ? ', done' : active ? ', in progress' : ''}`}
+                  >
+                    {active ? (
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                    ) : (
+                      <Icon
+                        name={done ? 'check' : 'clock'}
+                        size={18}
+                        tone={done ? 'success' : 'tertiary'}
+                      />
+                    )}
+                    <Text variant="body" tone={active || done ? 'primary' : 'tertiary'}>
+                      {stepLabel[item]}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
         </View>
-      </Sheet>
+      ) : null}
     </Screen>
   );
 }
@@ -522,6 +530,18 @@ const styles = StyleSheet.create((theme) => ({
   actions: {
     padding: theme.spacing.md,
     paddingTop: theme.spacing.xs,
+  },
+  progressBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: theme.colors.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+  },
+  progressCard: {
+    width: '100%',
+    maxWidth: 360,
+    gap: theme.spacing.md,
   },
   progress: {
     gap: theme.spacing.sm,
