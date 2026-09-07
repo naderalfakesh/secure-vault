@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
-    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && expo-doctor"
+    "validate": "npm run format:check && npm run lint && npm run typecheck && npm test && expo-doctor",
+    "start:go": "expo start --go"
   },
   "dependencies": {
     "@react-native-ml-kit/text-recognition": "^2.0.0",
@@ -24,6 +25,7 @@
     "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.17",
     "expo-crypto": "~57.0.2",
+    "expo-dev-client": "~57.0.18",
     "expo-device": "~57.0.1",
     "expo-document-picker": "~57.0.1",
     "expo-file-system": "~57.0.6",
