@@ -363,6 +363,8 @@ export default function SettingsScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           editable={busy !== 'export'}
+          returnKeyType="go"
+          onSubmitEditing={exportVault}
         />
         {sheetError ? (
           <Text variant="footnote" tone="danger" accessibilityRole="alert">
@@ -405,6 +407,8 @@ export default function SettingsScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               editable={busy !== 'import'}
+              returnKeyType="go"
+              onSubmitEditing={importVault}
             />
             {sheetError ? (
               <Text variant="footnote" tone="danger" accessibilityRole="alert">
