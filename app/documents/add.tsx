@@ -1,541 +1,439 @@
-import React, { useState, useCallback } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Image,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  TextInput,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import { documentService } from '../../src/services/DocumentService';
-import { ocrService } from '../../src/services/OcrService';
-import type { PickedFile } from '../../src/types';
-import { DocumentCategory, DocumentCategoryLabels, DocumentCategoryIcons } from '../../src/types';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
-type SaveStep = 'idle' | 'ocr' | 'encrypting' | 'saving';
+import {
+  Button,
+  Card,
+  Chip,
+  Icon,
+  IconButton,
+  type IconName,
+  ListRow,
+  Screen,
+  Sheet,
+  Text,
+  useToast,
+} from '@/components/ui';
+import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
+import { documentService } from '@/services/DocumentService';
+import { ocrService } from '@/services/OcrService';
+import { DocumentCategory, type PickedFile } from '@/types';
+
+type Source = 'camera' | 'library' | 'files';
+type SaveStep = 'ocr' | 'encrypt' | 'index';
+
+const sources: { key: Source; icon: IconName; title: string; subtitle: string }[] = [
+  {
+    key: 'camera',
+    icon: 'camera',
+    title: 'Take a photo',
+    subtitle: 'Best for cards, passports, and single pages',
+  },
+  {
+    key: 'library',
+    icon: 'photos',
+    title: 'Choose from Photos',
+    subtitle: 'A photo you already took',
+  },
+  { key: 'files', icon: 'files', title: 'Import a file', subtitle: 'PDF or image from Files' },
+];
+
+const stepLabel: Record<SaveStep, string> = {
+  ocr: 'Reading the text',
+  encrypt: 'Encrypting',
+  index: 'Saving to your vault',
+};
+
+function stripExtension(name: string): string {
+  return name.replace(/\.[^/.]+$/, '');
+}
 
 export default function AddDocumentScreen() {
-  const [step, setStep] = useState<'select' | 'preview'>('select');
-  const [selectedFile, setSelectedFile] = useState<PickedFile | null>(null);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const toast = useToast();
+  const { theme } = useUnistyles();
+  const [file, setFile] = useState<PickedFile | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<DocumentCategory>(DocumentCategory.OTHER);
   const [tags, setTags] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveStep, setSaveStep] = useState<SaveStep>('idle');
+  const [step, setStep] = useState<SaveStep | null>(null);
 
-  const handlePickImage = useCallback(async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please allow access to your photo library.');
-        return;
+  const accept = useCallback(
+    (picked: PickedFile, previewUri: string | null, suggestedTitle: string) => {
+      setFile(picked);
+      setPreview(previewUri);
+      setTitle(suggestedTitle);
+    },
+    [],
+  );
+
+  const pick = useCallback(
+    async (source: Source) => {
+      try {
+        if (source === 'files') {
+          const result = await DocumentPicker.getDocumentAsync({
+            type: ['application/pdf', 'image/*'],
+            copyToCacheDirectory: true,
+          });
+          const asset = result.canceled ? null : result.assets[0];
+          if (!asset) return;
+          const type = asset.mimeType ?? 'application/pdf';
+          accept(
+            { uri: asset.uri, name: asset.name, type, size: asset.size },
+            type.startsWith('image') ? asset.uri : null,
+            stripExtension(asset.name),
+          );
+          return;
+        }
+
+        const permission =
+          source === 'camera'
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          toast.show({
+            message:
+              source === 'camera'
+                ? 'Camera access is off. Enable it in Settings to scan.'
+                : 'Photos access is off. Enable it in Settings to import.',
+            tone: 'danger',
+          });
+          return;
+        }
+
+        const result =
+          source === 'camera'
+            ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
+            : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
+        const asset = result.canceled ? null : result.assets[0];
+        if (!asset) return;
+        const name = asset.fileName ?? `scan-${Date.now()}.jpg`;
+        accept(
+          { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize },
+          asset.uri,
+          source === 'camera' ? 'Scanned document' : stripExtension(name),
+        );
+      } catch (e) {
+        toast.show({
+          message: e instanceof Error ? e.message : 'Could not open that source.',
+          tone: 'danger',
+        });
       }
+    },
+    [accept, toast],
+  );
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-        allowsEditing: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const file: PickedFile = {
-          uri: asset.uri,
-          name: asset.fileName || `image_${Date.now()}.jpg`,
-          type: asset.mimeType || 'image/jpeg',
-          size: asset.fileSize,
-        };
-        setSelectedFile(file);
-        setPreviewUri(asset.uri);
-        setTitle(file.name.replace(/\.[^/.]+$/, ''));
-        setStep('preview');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to pick image');
-    }
+  const reset = useCallback(() => {
+    setFile(null);
+    setPreview(null);
+    setTitle('');
+    setTags('');
+    setCategory(DocumentCategory.OTHER);
   }, []);
 
-  const handleTakePhoto = useCallback(async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please allow access to your camera.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        quality: 0.8,
-        allowsEditing: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const file: PickedFile = {
-          uri: asset.uri,
-          name: `scan_${Date.now()}.jpg`,
-          type: asset.mimeType || 'image/jpeg',
-          size: asset.fileSize,
-        };
-        setSelectedFile(file);
-        setPreviewUri(asset.uri);
-        setTitle('Scanned Document');
-        setStep('preview');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to take photo');
-    }
-  }, []);
-
-  const handlePickDocument = useCallback(async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        const file: PickedFile = {
-          uri: asset.uri,
-          name: asset.name,
-          type: asset.mimeType || 'application/pdf',
-          size: asset.size,
-        };
-        setSelectedFile(file);
-        setPreviewUri(asset.mimeType?.startsWith('image') ? asset.uri : null);
-        setTitle(asset.name.replace(/\.[^/.]+$/, ''));
-        setStep('preview');
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to pick document');
-    }
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (!selectedFile) return;
-
-    if (!title.trim()) {
-      Alert.alert('Required', 'Please enter a title for the document.');
+  const save = useCallback(async () => {
+    if (!file) return;
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      toast.show({ message: 'Give the document a title first.' });
       return;
     }
 
     try {
-      setSaving(true);
       await documentService.initialize();
 
-      const tagList = tags
-        .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-      // Run OCR on images
       let ocrText: string | undefined;
-      const isImage = selectedFile.type?.startsWith('image');
-
-      if (isImage && previewUri) {
-        setSaveStep('ocr');
+      if (file.type.startsWith('image') && preview) {
+        setStep('ocr');
         try {
-          const ocrResult = await ocrService.extractText(previewUri);
-          if (ocrResult.text && ocrService.isTextMeaningful(ocrResult.text)) {
-            ocrText = ocrService.cleanText(ocrResult.text);
+          const result = await ocrService.extractText(preview);
+          if (result.text && ocrService.isTextMeaningful(result.text)) {
+            ocrText = ocrService.cleanText(result.text);
           }
-        } catch (e) {
-          // OCR failed, continue without it
-          console.warn('OCR failed:', e);
+        } catch {
+          // OCR is best effort; the document is still saved.
         }
       }
 
-      setSaveStep('encrypting');
-
-      await documentService.addDocument(selectedFile, {
-        title: title.trim(),
+      setStep('encrypt');
+      const saved = await documentService.addDocument(file, {
+        title: cleanTitle,
         category,
-        tags: tagList,
+        tags: tags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         ocrText,
       });
 
-      setSaveStep('saving');
+      setStep('index');
       router.back();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save document');
-      setSaving(false);
-      setSaveStep('idle');
+      toast.show({
+        message: ocrText ? 'Saved with searchable text' : 'Saved to your vault',
+        tone: 'success',
+        action: { label: 'View', onPress: () => router.push(`/documents/${saved.id}`) },
+      });
+    } catch (e) {
+      setStep(null);
+      toast.show({
+        message: e instanceof Error ? e.message : 'Could not save the document.',
+        tone: 'danger',
+      });
     }
-  }, [selectedFile, title, category, tags, previewUri]);
+  }, [file, title, preview, category, tags, toast]);
 
-  const getSaveButtonText = () => {
-    switch (saveStep) {
-      case 'ocr':
-        return 'Extracting text...';
-      case 'encrypting':
-        return 'Encrypting...';
-      case 'saving':
-        return 'Saving...';
-      default:
-        return 'Save Document';
-    }
-  };
+  const header = (
+    <View style={styles.header}>
+      <IconButton
+        icon={file ? 'back' : 'close'}
+        accessibilityLabel={file ? 'Back to sources' : 'Cancel'}
+        variant="tinted"
+        onPress={file ? reset : () => router.back()}
+      />
+      <Text variant="headline" style={styles.headerTitle}>
+        {file ? 'Details' : 'Add a document'}
+      </Text>
+      <View style={styles.headerSpacer} />
+    </View>
+  );
 
-  const handleBack = useCallback(() => {
-    if (step === 'preview') {
-      setStep('select');
-      setSelectedFile(null);
-      setPreviewUri(null);
-      setTitle('');
-      setTags('');
-    } else {
-      router.back();
-    }
-  }, [step]);
-
-  if (step === 'select') {
+  if (!file) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.content}>
-          <Text style={styles.heading}>Add a Document</Text>
-          <Text style={styles.subheading}>Choose how you want to add your document</Text>
-
-          <View style={styles.optionsContainer}>
-            <TouchableOpacity style={styles.option} onPress={handleTakePhoto}>
-              <View style={styles.optionIcon}>
-                <Text style={styles.optionEmoji}>📷</Text>
-              </View>
-              <Text style={styles.optionTitle}>Scan with Camera</Text>
-              <Text style={styles.optionDescription}>Take a photo of a document</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.option} onPress={handlePickImage}>
-              <View style={styles.optionIcon}>
-                <Text style={styles.optionEmoji}>🖼️</Text>
-              </View>
-              <Text style={styles.optionTitle}>Choose from Gallery</Text>
-              <Text style={styles.optionDescription}>Select an existing photo</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.option} onPress={handlePickDocument}>
-              <View style={styles.optionIcon}>
-                <Text style={styles.optionEmoji}>📄</Text>
-              </View>
-              <Text style={styles.optionTitle}>Pick a File</Text>
-              <Text style={styles.optionDescription}>Import a PDF or image file</Text>
-            </TouchableOpacity>
-          </View>
+      <Screen edges={['top', 'bottom', 'left', 'right']}>
+        {header}
+        <View style={styles.sources}>
+          <Text variant="subheadline" tone="secondary">
+            The file is encrypted the moment it is saved. Text is read on this device only.
+          </Text>
+          <Card>
+            {sources.map((source, index) => (
+              <ListRow
+                key={source.key}
+                icon={source.icon}
+                title={source.title}
+                subtitle={source.subtitle}
+                onPress={() => pick(source.key)}
+                divider={index < sources.length - 1}
+              />
+            ))}
+          </Card>
         </View>
-
-        <TouchableOpacity style={styles.cancelButton} onPress={handleBack}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen edges={['top', 'bottom', 'left', 'right']}>
+      {header}
       <KeyboardAvoidingView
-        style={styles.keyboardView}
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Preview */}
-          <View style={styles.previewContainer}>
-            {previewUri ? (
-              <Image source={{ uri: previewUri }} style={styles.preview} resizeMode="contain" />
+        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          <View style={styles.preview}>
+            {preview ? (
+              <Image
+                source={{ uri: preview }}
+                style={styles.previewImage}
+                contentFit="contain"
+                accessibilityLabel="Preview"
+              />
             ) : (
               <View style={styles.previewPlaceholder}>
-                <Text style={styles.previewPlaceholderIcon}>📄</Text>
-                <Text style={styles.previewPlaceholderText}>
-                  {selectedFile?.name || 'PDF Document'}
+                <Icon name="pdf" size={36} tone="tertiary" />
+                <Text variant="footnote" tone="secondary" numberOfLines={1}>
+                  {file.name}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Title</Text>
-              <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Document title"
-                placeholderTextColor="#adb5bd"
-              />
-            </View>
+          <Field label="Title">
+            <TextInput
+              style={styles.input}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Passport, lease, receipt"
+              placeholderTextColor={theme.colors.textTertiary}
+              accessibilityLabel="Title"
+              returnKeyType="done"
+            />
+          </Field>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Category</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}
-              >
-                {Object.values(DocumentCategory).map((cat) => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.categoryChip, category === cat && styles.categoryChipSelected]}
-                    onPress={() => setCategory(cat)}
-                  >
-                    <Text style={styles.categoryChipIcon}>{DocumentCategoryIcons[cat]}</Text>
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        category === cat && styles.categoryChipTextSelected,
-                      ]}
-                    >
-                      {DocumentCategoryLabels[cat]}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          <Field label="Category">
+            <View style={styles.chips}>
+              {allCategories.map((item) => (
+                <Chip
+                  key={item}
+                  label={categoryLabel(item)}
+                  icon={categoryIcons[item]}
+                  selected={category === item}
+                  onPress={() => setCategory(item)}
+                />
+              ))}
             </View>
+          </Field>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Tags (optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={tags}
-                onChangeText={setTags}
-                placeholder="e.g., important, 2024, work"
-                placeholderTextColor="#adb5bd"
-              />
-              <Text style={styles.hint}>Separate tags with commas</Text>
-            </View>
-          </View>
+          <Field label="Tags" hint="Separate with commas">
+            <TextInput
+              style={styles.input}
+              value={tags}
+              onChangeText={setTags}
+              placeholder="travel, 2026"
+              placeholderTextColor={theme.colors.textTertiary}
+              accessibilityLabel="Tags"
+              autoCapitalize="none"
+            />
+          </Field>
         </ScrollView>
-
-        {/* Action Buttons */}
-        <View style={styles.actionBar}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={saving}>
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <View style={styles.savingContainer}>
-                <ActivityIndicator size="small" color="#ffffff" />
-                <Text style={styles.saveButtonText}>{getSaveButtonText()}</Text>
-              </View>
-            ) : (
-              <Text style={styles.saveButtonText}>Save Document</Text>
-            )}
-          </TouchableOpacity>
+        <View style={styles.actions}>
+          <Button
+            label="Save to vault"
+            onPress={save}
+            leading={<Icon name="lock" size={18} tone="inverse" />}
+          />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      <Sheet visible={step !== null} onClose={() => {}} dismissable={false} title="Saving">
+        <View style={styles.progress}>
+          {(['ocr', 'encrypt', 'index'] as const).map((item) => {
+            const order = ['ocr', 'encrypt', 'index'];
+            const done = step ? order.indexOf(item) < order.indexOf(step) : false;
+            const active = item === step;
+            return (
+              <View
+                key={item}
+                style={styles.progressRow}
+                accessibilityLabel={`${stepLabel[item]}${done ? ', done' : active ? ', in progress' : ''}`}
+              >
+                {active ? (
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                ) : (
+                  <Icon
+                    name={done ? 'check' : 'clock'}
+                    size={18}
+                    tone={done ? 'success' : 'tertiary'}
+                  />
+                )}
+                <Text variant="body" tone={active || done ? 'primary' : 'tertiary'}>
+                  {stepLabel[item]}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </Sheet>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text variant="label" tone="tertiary">
+        {label}
+      </Text>
+      {children}
+      {hint ? (
+        <Text variant="caption" tone="tertiary">
+          {hint}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create((theme) => ({
+  flex: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
   },
-  keyboardView: {
+  headerTitle: {
     flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginBottom: 8,
     textAlign: 'center',
   },
-  subheading: {
-    fontSize: 16,
-    color: '#6c757d',
-    marginBottom: 32,
-    textAlign: 'center',
+  headerSpacer: {
+    width: theme.touchTarget,
   },
-  optionsContainer: {
-    gap: 16,
-  },
-  option: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  optionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#e7f1ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  optionEmoji: {
-    fontSize: 28,
-  },
-  optionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a2e',
-    marginBottom: 4,
-  },
-  optionDescription: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
-  cancelButton: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    color: '#6c757d',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  previewContainer: {
-    height: 200,
-    backgroundColor: '#1a1a2e',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  preview: {
-    width: '100%',
-    height: '100%',
-  },
-  previewPlaceholder: {
-    alignItems: 'center',
-  },
-  previewPlaceholderIcon: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  previewPlaceholderText: {
-    color: '#ffffff',
-    fontSize: 14,
-    textAlign: 'center',
-    paddingHorizontal: 20,
+  sources: {
+    padding: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   form: {
-    padding: 20,
+    padding: theme.spacing.md,
+    gap: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
   },
-  formGroup: {
-    marginBottom: 20,
+  preview: {
+    height: 220,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surfaceMuted,
+    overflow: 'hidden',
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#495057',
-    marginBottom: 8,
+  previewImage: {
+    flex: 1,
+  },
+  previewPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    padding: theme.spacing.md,
+  },
+  field: {
+    gap: theme.spacing.xs,
   },
   input: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#1a1a2e',
+    minHeight: theme.touchTarget + 4,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.textPrimary,
+    ...theme.typography.body,
   },
-  hint: {
-    fontSize: 12,
-    color: '#6c757d',
-    marginTop: 4,
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
   },
-  categoryScroll: {
-    gap: 8,
+  actions: {
+    padding: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
   },
-  categoryChip: {
+  progress: {
+    gap: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
+  progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-    marginRight: 8,
+    gap: theme.spacing.sm,
+    minHeight: 28,
   },
-  categoryChipSelected: {
-    backgroundColor: '#4361ee',
-    borderColor: '#4361ee',
-  },
-  categoryChipIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  categoryChipText: {
-    fontSize: 14,
-    color: '#495057',
-    fontWeight: '500',
-  },
-  categoryChipTextSelected: {
-    color: '#ffffff',
-  },
-  actionBar: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    gap: 12,
-  },
-  backButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  backButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#495057',
-  },
-  saveButton: {
-    flex: 2,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    backgroundColor: '#4361ee',
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  savingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-});
+}));

@@ -1,38 +1,39 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Modal,
-  Share,
-} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { documentService } from '../../src/services/DocumentService';
-import { ocrService } from '../../src/services/OcrService';
-import type { Document } from '../../src/types';
-import { DocumentCategoryLabels, DocumentCategoryIcons } from '../../src/types';
+import { Image } from 'expo-image';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, Share, View } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
-const { width, height } = Dimensions.get('window');
+import {
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Icon,
+  IconButton,
+  ListRow,
+  Screen,
+  Skeleton,
+  Text,
+  useToast,
+} from '@/components/ui';
+import { categoryIcons, categoryLabel } from '@/features/documents/categories';
+import { documentService } from '@/services/DocumentService';
+import { ocrService } from '@/services/OcrService';
+import type { Document } from '@/types';
+import { formatDate, formatFileSize } from '@/utils/format';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const toast = useToast();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fileUri, setFileUri] = useState<string | null>(null);
-  const [showFullScreen, setShowFullScreen] = useState(false);
-  const [showOcrText, setShowOcrText] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [runningOcr, setRunningOcr] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [showText, setShowText] = useState(false);
+  const [busy, setBusy] = useState<'ocr' | 'delete' | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -42,7 +43,7 @@ export default function DocumentDetailScreen() {
       .then(() => documentService.getDocument(id))
       .then(async (doc) => {
         if (!doc) {
-          if (active) setError('Document not found');
+          if (active) setError('This document is no longer in the vault.');
           return;
         }
         const uri = await documentService.getDocumentFile(id);
@@ -52,7 +53,7 @@ export default function DocumentDetailScreen() {
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load document');
+        if (active) setError(e instanceof Error ? e.message : 'Could not open the document.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -62,603 +63,333 @@ export default function DocumentDetailScreen() {
     };
   }, [id]);
 
-  const handleDelete = useCallback(() => {
+  const share = useCallback(async () => {
+    if (!document || !fileUri) return;
+    try {
+      await Share.share({ title: document.title, url: `file://${fileUri}` });
+    } catch {
+      // Share sheet dismissed.
+    }
+  }, [document, fileUri]);
+
+  const copyText = useCallback(async () => {
+    if (!document?.ocrText) return;
+    await Clipboard.setStringAsync(document.ocrText);
+    toast.show({ message: 'Text copied', tone: 'success' });
+  }, [document, toast]);
+
+  const runOcr = useCallback(async () => {
+    if (!document || !fileUri || document.fileType !== 'image') return;
+    setBusy('ocr');
+    try {
+      const result = await ocrService.extractText(fileUri);
+      if (result.text && ocrService.isTextMeaningful(result.text)) {
+        const ocrText = ocrService.cleanText(result.text);
+        await documentService.updateDocument(document.id, { ocrText });
+        setDocument({ ...document, ocrText });
+        setShowText(true);
+        toast.show({ message: 'Text extracted', tone: 'success' });
+      } else {
+        toast.show({ message: 'No readable text found in this image.' });
+      }
+    } catch (e) {
+      toast.show({
+        message: e instanceof Error ? e.message : 'Could not read the text.',
+        tone: 'danger',
+      });
+    } finally {
+      setBusy(null);
+    }
+  }, [document, fileUri, toast]);
+
+  const remove = useCallback(() => {
+    if (!document) return;
+    // Destructive and irreversible until Phase 7 adds undo, so a native confirmation stays.
     Alert.alert(
-      'Delete Document',
-      'Are you sure you want to delete this document? This action cannot be undone.',
+      'Delete this document?',
+      `"${document.title}" is removed from the vault permanently.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            setBusy('delete');
             try {
-              setDeleting(true);
-              await documentService.deleteDocument(id!);
+              await documentService.deleteDocument(document.id);
               router.back();
-            } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to delete document');
-              setDeleting(false);
+              toast.show({ message: 'Document deleted' });
+            } catch (e) {
+              setBusy(null);
+              toast.show({
+                message: e instanceof Error ? e.message : 'Could not delete the document.',
+                tone: 'danger',
+              });
             }
           },
         },
       ],
     );
-  }, [id]);
-
-  const handleShare = useCallback(async () => {
-    if (!document || !fileUri) return;
-
-    try {
-      await Share.share({
-        title: document.title,
-        message: `Document: ${document.title}`,
-        url: `file://${fileUri}`,
-      });
-    } catch (e: any) {
-      if (e.message !== 'User did not share') {
-        Alert.alert('Error', 'Failed to share document');
-      }
-    }
-  }, [document, fileUri]);
-
-  const handleCopyOcrText = useCallback(async () => {
-    if (!document?.ocrText) return;
-
-    try {
-      await Clipboard.setStringAsync(document.ocrText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      Alert.alert('Error', 'Failed to copy text');
-    }
-  }, [document]);
-
-  const handleRunOcr = useCallback(async () => {
-    if (!document || !fileUri || document.fileType !== 'image') return;
-
-    try {
-      setRunningOcr(true);
-      const ocrResult = await ocrService.extractText(fileUri);
-
-      if (ocrResult.text && ocrService.isTextMeaningful(ocrResult.text)) {
-        const cleanedText = ocrService.cleanText(ocrResult.text);
-        await documentService.updateDocument(document.id, { ocrText: cleanedText });
-        setDocument({ ...document, ocrText: cleanedText });
-        setShowOcrText(true);
-        Alert.alert('Success', 'Text extracted successfully!');
-      } else {
-        Alert.alert('No Text Found', 'Could not extract meaningful text from this image.');
-      }
-    } catch (e: any) {
-      Alert.alert('OCR Failed', e.message || 'Failed to extract text from image');
-    } finally {
-      setRunningOcr(false);
-    }
-  }, [document, fileUri]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
+  }, [document, toast]);
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4361ee" />
-          <Text style={styles.loadingText}>Loading document...</Text>
+      <Screen edges={['bottom']} padded>
+        <Stack.Screen options={{ title: '' }} />
+        <View style={styles.loading}>
+          <Skeleton height={280} borderRadius={16} />
+          <Skeleton width="60%" height={24} />
+          <Skeleton width="40%" height={16} />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (error || !document) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={styles.errorText}>{error || 'Document not found'}</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <Screen edges={['bottom']}>
+        <Stack.Screen options={{ title: '' }} />
+        <EmptyState
+          icon="warning"
+          title="Not available"
+          description={error ?? 'This document is no longer in the vault.'}
+          actionLabel="Go back"
+          onAction={() => router.back()}
+        />
+      </Screen>
     );
   }
 
+  const created = formatDate(document.createdAt);
+  const updated = formatDate(document.updatedAt);
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Image Preview */}
-        <TouchableOpacity
-          style={styles.imageContainer}
-          onPress={() => setShowFullScreen(true)}
-          activeOpacity={0.9}
+    <Screen edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          title: '',
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <IconButton
+                icon="share"
+                accessibilityLabel="Share"
+                onPress={share}
+                disabled={!fileUri}
+              />
+              <IconButton
+                icon="trash"
+                accessibilityLabel="Delete"
+                tone="danger"
+                onPress={remove}
+                disabled={busy === 'delete'}
+              />
+            </View>
+          ),
+        }}
+      />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Pressable
+          accessibilityRole="imagebutton"
+          accessibilityLabel={`Preview of ${document.title}`}
+          accessibilityHint="Opens full screen"
+          onPress={() => fileUri && setFullscreen(true)}
+          style={styles.preview}
         >
-          {fileUri ? (
+          {fileUri && document.fileType === 'image' ? (
             <Image
               source={{ uri: `file://${fileUri}` }}
-              style={styles.image}
-              resizeMode="contain"
+              style={styles.previewImage}
+              contentFit="contain"
+              transition={150}
             />
           ) : (
-            <View style={styles.imagePlaceholder}>
-              <Text style={styles.placeholderIcon}>
-                {document.fileType === 'pdf' ? '📄' : '🖼️'}
+            <View style={styles.previewPlaceholder}>
+              <Icon name="pdf" size={40} tone="tertiary" />
+              <Text variant="footnote" tone="secondary">
+                PDF preview arrives with the viewer rework
               </Text>
-              <Text style={styles.placeholderText}>Tap to view</Text>
             </View>
           )}
-          <View style={styles.expandHint}>
-            <Text style={styles.expandHintText}>Tap to expand</Text>
+        </Pressable>
+
+        <View style={styles.titleBlock}>
+          <Text variant="title1" accessibilityRole="header">
+            {document.title}
+          </Text>
+          <View style={styles.meta}>
+            <Chip
+              label={categoryLabel(document.category)}
+              icon={categoryIcons[document.category]}
+            />
+            <Text variant="footnote" tone="tertiary">
+              {formatFileSize(document.fileSize)}
+            </Text>
           </View>
-        </TouchableOpacity>
-
-        {/* Document Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.title}>{document.title}</Text>
-
-          <View style={styles.categoryRow}>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryIcon}>{DocumentCategoryIcons[document.category]}</Text>
-              <Text style={styles.categoryText}>{DocumentCategoryLabels[document.category]}</Text>
-            </View>
-            <Text style={styles.fileSize}>{formatFileSize(document.fileSize)}</Text>
-          </View>
-
-          {/* Tags */}
-          {document.tags.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {document.tags.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+          {document.tags.length > 0 ? (
+            <View style={styles.tags} accessibilityLabel={`Tags: ${document.tags.join(', ')}`}>
+              {document.tags.map((tag) => (
+                <View key={tag} style={styles.tag}>
+                  <Text variant="caption" tone="secondary">
+                    {tag}
+                  </Text>
                 </View>
               ))}
             </View>
-          )}
-
-          {/* Dates */}
-          <View style={styles.dateSection}>
-            <View style={styles.dateRow}>
-              <Text style={styles.dateLabel}>Created</Text>
-              <Text style={styles.dateValue}>{formatDate(document.createdAt)}</Text>
-            </View>
-            {document.updatedAt !== document.createdAt && (
-              <View style={styles.dateRow}>
-                <Text style={styles.dateLabel}>Updated</Text>
-                <Text style={styles.dateValue}>{formatDate(document.updatedAt)}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* OCR Text */}
-          {document.ocrText ? (
-            <View style={styles.ocrSection}>
-              <TouchableOpacity
-                style={styles.ocrHeader}
-                onPress={() => setShowOcrText(!showOcrText)}
-              >
-                <View style={styles.ocrTitleRow}>
-                  <Text style={styles.ocrTitle}>Extracted Text</Text>
-                  <Text style={styles.ocrToggle}>{showOcrText ? '▼' : '▶'}</Text>
-                </View>
-              </TouchableOpacity>
-              {showOcrText && (
-                <>
-                  <Text style={styles.ocrText}>{document.ocrText}</Text>
-                  <View style={styles.ocrActions}>
-                    <TouchableOpacity style={styles.copyButton} onPress={handleCopyOcrText}>
-                      <Text style={styles.copyButtonIcon}>{copied ? '✓' : '📋'}</Text>
-                      <Text style={styles.copyButtonText}>{copied ? 'Copied!' : 'Copy Text'}</Text>
-                    </TouchableOpacity>
-                    {document.fileType === 'image' && (
-                      <TouchableOpacity
-                        style={[styles.ocrRetryButton, runningOcr && styles.ocrRetryButtonDisabled]}
-                        onPress={handleRunOcr}
-                        disabled={runningOcr}
-                      >
-                        {runningOcr ? (
-                          <ActivityIndicator size="small" color="#6c757d" />
-                        ) : (
-                          <Text style={styles.ocrRetryIcon}>🔄</Text>
-                        )}
-                        <Text style={styles.ocrRetryText}>Re-run OCR</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </>
-              )}
-            </View>
-          ) : (
-            document.fileType === 'image' && (
-              <TouchableOpacity
-                style={[styles.ocrSection, styles.ocrExtractButton]}
-                onPress={handleRunOcr}
-                disabled={runningOcr}
-              >
-                {runningOcr ? (
-                  <View style={styles.ocrExtractContent}>
-                    <ActivityIndicator size="small" color="#4361ee" />
-                    <Text style={styles.ocrExtractText}>Extracting text...</Text>
-                  </View>
-                ) : (
-                  <View style={styles.ocrExtractContent}>
-                    <Text style={styles.ocrExtractIcon}>📝</Text>
-                    <Text style={styles.ocrExtractText}>Extract Text (OCR)</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            )
-          )}
+          ) : null}
         </View>
-      </ScrollView>
 
-      {/* Action Buttons */}
-      <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-          <Text style={styles.actionIcon}>📤</Text>
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
+        <Card>
+          <ListRow icon="calendar" title="Added" subtitle={created} divider={updated !== created} />
+          {updated !== created ? (
+            <ListRow icon="clock" title="Updated" subtitle={updated} divider={false} />
+          ) : null}
+        </Card>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={handleDelete}
-          disabled={deleting}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color="#dc3545" />
-          ) : (
+        <Card>
+          {document.ocrText ? (
             <>
-              <Text style={styles.actionIcon}>🗑️</Text>
-              <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+              <ListRow
+                icon="text"
+                title="Extracted text"
+                subtitle={showText ? 'Read on this device' : 'Tap to show'}
+                onPress={() => setShowText((value) => !value)}
+                trailing={<Icon name={showText ? 'eyeOff' : 'eye'} size={18} tone="tertiary" />}
+                divider={showText}
+              />
+              {showText ? (
+                <View style={styles.textBlock}>
+                  <Text variant="callout" selectable>
+                    {document.ocrText}
+                  </Text>
+                  <View style={styles.textActions}>
+                    <Button
+                      label="Copy"
+                      variant="secondary"
+                      size="md"
+                      onPress={copyText}
+                      leading={<Icon name="copy" size={16} tone="accent" />}
+                    />
+                    {document.fileType === 'image' ? (
+                      <Button
+                        label="Read again"
+                        variant="ghost"
+                        size="md"
+                        onPress={runOcr}
+                        loading={busy === 'ocr'}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
             </>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Full Screen Modal */}
-      <Modal
-        visible={showFullScreen}
-        animationType="fade"
-        onRequestClose={() => setShowFullScreen(false)}
-      >
-        <View style={styles.fullScreenContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowFullScreen(false)}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-          {fileUri && (
-            <Image
-              source={{ uri: `file://${fileUri}` }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
+          ) : document.fileType === 'image' ? (
+            <ListRow
+              icon="sparkles"
+              title={busy === 'ocr' ? 'Reading the text' : 'Read the text'}
+              subtitle="Makes this document searchable. Runs on this device."
+              onPress={runOcr}
+              disabled={busy === 'ocr'}
+              divider={false}
+            />
+          ) : (
+            <ListRow
+              icon="text"
+              title="No text extracted"
+              subtitle="PDF text extraction is coming"
+              divider={false}
             />
           )}
+        </Card>
+      </ScrollView>
+
+      <Modal visible={fullscreen} animationType="fade" onRequestClose={() => setFullscreen(false)}>
+        <View style={styles.fullscreen}>
+          {fileUri ? (
+            <Image
+              source={{ uri: `file://${fileUri}` }}
+              style={styles.fullscreenImage}
+              contentFit="contain"
+            />
+          ) : null}
+          <View style={styles.fullscreenClose}>
+            <IconButton
+              icon="close"
+              accessibilityLabel="Close"
+              variant="tinted"
+              onPress={() => setFullscreen(false)}
+            />
+          </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
+const styles = StyleSheet.create((theme) => ({
+  loading: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.md,
   },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6c757d',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#dc3545',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  backButton: {
-    backgroundColor: '#4361ee',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  imageContainer: {
-    width: width,
-    height: width * 0.75,
-    backgroundColor: '#1a1a2e',
-    position: 'relative',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderIcon: {
-    fontSize: 64,
-    marginBottom: 8,
-  },
-  placeholderText: {
-    color: '#ffffff',
-    fontSize: 14,
-  },
-  expandHint: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  expandHintText: {
-    color: '#ffffff',
-    fontSize: 12,
-  },
-  infoSection: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginBottom: 12,
-  },
-  categoryRow: {
+  headerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
   },
-  categoryBadge: {
+  content: {
+    padding: theme.spacing.md,
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.xxl,
+  },
+  preview: {
+    height: 300,
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surfaceMuted,
+    overflow: 'hidden',
+  },
+  previewImage: {
+    flex: 1,
+  },
+  previewPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+  },
+  titleBlock: {
+    gap: theme.spacing.xs,
+  },
+  meta: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e7f1ff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    gap: theme.spacing.sm,
   },
-  categoryIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#4361ee',
-    fontWeight: '500',
-  },
-  fileSize: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
-  tagsContainer: {
+  tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+    gap: theme.spacing.xxs,
   },
   tag: {
-    backgroundColor: '#f8f9fa',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: theme.radii.sm,
+    backgroundColor: theme.colors.surfaceMuted,
   },
-  tagText: {
-    fontSize: 12,
-    color: '#495057',
+  textBlock: {
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
-  dateSection: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  dateRow: {
+  textActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: theme.spacing.xs,
   },
-  dateLabel: {
-    fontSize: 14,
-    color: '#6c757d',
-  },
-  dateValue: {
-    fontSize: 14,
-    color: '#1a1a2e',
-    fontWeight: '500',
-  },
-  ocrSection: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-  },
-  ocrHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  ocrTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flex: 1,
-  },
-  ocrTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a2e',
-  },
-  ocrToggle: {
-    fontSize: 12,
-    color: '#6c757d',
-  },
-  ocrText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#495057',
-    lineHeight: 22,
-  },
-  copyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#e7f1ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    gap: 6,
-  },
-  copyButtonIcon: {
-    fontSize: 14,
-  },
-  copyButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4361ee',
-  },
-  ocrActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  ocrRetryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8f9fa',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 6,
-  },
-  ocrRetryButtonDisabled: {
-    opacity: 0.6,
-  },
-  ocrRetryIcon: {
-    fontSize: 14,
-  },
-  ocrRetryText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6c757d',
-  },
-  ocrExtractButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#4361ee',
-    borderStyle: 'dashed',
-  },
-  ocrExtractContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  ocrExtractIcon: {
-    fontSize: 18,
-  },
-  ocrExtractText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#4361ee',
-  },
-  actionBar: {
-    flexDirection: 'row',
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8f9fa',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  deleteButton: {
-    backgroundColor: '#fff5f5',
-  },
-  actionIcon: {
-    fontSize: 18,
-  },
-  actionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#495057',
-  },
-  deleteText: {
-    color: '#dc3545',
-  },
-  fullScreenContainer: {
+  fullscreen: {
     flex: 1,
     backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  closeButton: {
+  fullscreenImage: {
+    flex: 1,
+  },
+  fullscreenClose: {
     position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    top: 56,
+    right: theme.spacing.md,
   },
-  closeButtonText: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  fullScreenImage: {
-    width: width,
-    height: height,
-  },
-});
+}));
