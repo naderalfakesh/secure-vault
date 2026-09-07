@@ -44,7 +44,8 @@
           "enableFTS": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sharing"
     ],
     "experiments": {
       "reactCompiler": true,

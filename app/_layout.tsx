@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -73,18 +74,22 @@ function RootNavigator() {
   );
 }
 
+const rootStyle = { flex: 1 };
+
 export default function RootLayout() {
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <SessionProvider>
-          <ToastProvider>
-            <StatusBar style="auto" />
-            <RootNavigator />
-            <SecurityOverlay />
-          </ToastProvider>
-        </SessionProvider>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={rootStyle}>
+        <SafeAreaProvider>
+          <SessionProvider>
+            <ToastProvider>
+              <StatusBar style="auto" />
+              <RootNavigator />
+              <SecurityOverlay />
+            </ToastProvider>
+          </SessionProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </ErrorBoundary>
   );
 }
