@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IconButton, ToastProvider } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
+import { documentService } from '@/services/DocumentService';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden during a fast refresh; nothing to do.
@@ -26,6 +27,12 @@ function RootNavigator() {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [ready]);
+
+  useEffect(() => {
+    // Every decrypted preview, rendered page, and share copy goes when the
+    // vault locks, whichever path locked it.
+    if (status === 'locked') documentService.clearCache().catch(() => {});
+  }, [status]);
 
   if (!ready) {
     return null;
