@@ -192,6 +192,12 @@ class DocumentService {
     this.notify();
   }
 
+  /** Documents whose extracted expiry date falls within `days` from today, soonest first. */
+  async getExpiring(days: number): Promise<{ document: Document; date: string }[]> {
+    const before = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+    return (await this.repository()).expiring('expires', before);
+  }
+
   async getFields(id: string): Promise<ExtractedField[]> {
     return (await this.repository()).getFields(id);
   }

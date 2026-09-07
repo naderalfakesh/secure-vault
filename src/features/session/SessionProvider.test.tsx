@@ -88,6 +88,21 @@ describe('SessionProvider', () => {
     expect(view.getByTestId('autolock')).toHaveTextContent('900');
   });
 
+  it('keeps an existing key when adding a PIN to a vault without one', async () => {
+    await vault.createVault();
+    await vault.put('file_legacy', 'ciphertext');
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await vault.get('file_legacy')).toBe('ciphertext');
+    createVault.mockRestore();
+  });
+
   it('starts locked when a vault exists and surfaces biometric failures', async () => {
     await vault.createVault();
     await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));

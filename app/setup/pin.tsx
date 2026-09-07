@@ -11,7 +11,7 @@ import { useSession } from '@/features/session/SessionProvider';
 type Stage = 'create' | 'confirm' | 'saving';
 
 export default function CreatePinScreen() {
-  const { setUp, error } = useSession();
+  const { setUp, error, vaultExists } = useSession();
   const [stage, setStage] = useState<Stage>('create');
   const [first, setFirst] = useState('');
   const [mismatch, setMismatch] = useState(false);
@@ -50,14 +50,21 @@ export default function CreatePinScreen() {
     },
   });
 
-  const title = stage === 'confirm' ? 'Enter it again' : 'Choose a 6-digit PIN';
+  const title =
+    stage === 'confirm'
+      ? 'Enter it again'
+      : vaultExists
+        ? 'Add a PIN to your vault'
+        : 'Choose a 6-digit PIN';
   const hint = mismatch
     ? 'The PINs did not match. Start again.'
     : stage === 'confirm'
       ? 'Same PIN, once more.'
       : stage === 'saving'
         ? 'Creating your vault key'
-        : 'Your fallback when biometrics are unavailable.';
+        : vaultExists
+          ? 'Your documents stay where they are. The PIN is a second way in.'
+          : 'Your fallback when biometrics are unavailable.';
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>

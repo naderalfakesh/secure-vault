@@ -28,14 +28,17 @@ import {
 } from '@/components/ui';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { documentService } from '@/services/DocumentService';
+import { suggestForText } from '@/features/intelligence';
 import { useSession } from '@/features/session/SessionProvider';
 import { ocrService } from '@/services/OcrService';
+import type { ExtractedField } from '@/data/DocumentRepository';
 import { DocumentCategory, type PickedFile } from '@/types';
+import { formatDate } from '@/utils/format';
 
 import { isScannerSupported, scanDocuments } from '../../modules/expo-document-scanner';
 
 type Source = 'scan' | 'camera' | 'library' | 'files';
-type SaveStep = 'ocr' | 'encrypt' | 'index';
+type SaveStep = 'ocr' | 'suggest' | 'encrypt' | 'index';
 
 const scannerAvailable = isScannerSupported();
 
@@ -64,9 +67,15 @@ const sources: { key: Source; icon: IconName; title: string; subtitle: string }[
 
 const stepLabel: Record<SaveStep, string> = {
   ocr: 'Reading the text',
+  suggest: 'Suggesting details',
   encrypt: 'Encrypting',
   index: 'Saving to your vault',
 };
+const stepOrder: SaveStep[] = ['ocr', 'suggest', 'encrypt', 'index'];
+
+function fieldLabel(key: string): string {
+  return { expires: 'Expires', issued: 'Issued', number: 'Number' }[key] ?? key;
+}
 
 function stripExtension(name: string): string {
   return name.replace(/\.[^/.]+$/, '');
@@ -83,12 +92,44 @@ export default function AddDocumentScreen() {
   const [category, setCategory] = useState<DocumentCategory>(DocumentCategory.OTHER);
   const [tags, setTags] = useState('');
   const [step, setStep] = useState<SaveStep | null>(null);
+  const [ocrText, setOcrText] = useState<string | undefined>(undefined);
+  const [fields, setFields] = useState<ExtractedField[]>([]);
+  const [engine, setEngine] = useState<string | null>(null);
 
   const accept = useCallback(
-    (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
+    async (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
       setFiles(picked);
       setPreview(previewUri);
       setTitle(suggestedTitle);
+      setOcrText(undefined);
+      setFields([]);
+      setEngine(null);
+      const first = picked[0];
+      if (!first || !first.type.startsWith('image') || !previewUri) return;
+      // Read the text and suggest details before the form appears, so the
+      // user corrects instead of types. Both steps stay best effort.
+      setStep('ocr');
+      try {
+        const result = await ocrService.extractText(previewUri);
+        const text =
+          result.text && ocrService.isTextMeaningful(result.text)
+            ? ocrService.cleanText(result.text)
+            : undefined;
+        setOcrText(text);
+        if (text) {
+          setStep('suggest');
+          const suggestion = await suggestForText(text);
+          if (suggestion.title) setTitle(suggestion.title);
+          if (suggestion.category) setCategory(suggestion.category);
+          if (suggestion.tags.length) setTags(suggestion.tags.join(', '));
+          setFields(suggestion.fields);
+          setEngine(suggestion.engine);
+        }
+      } catch {
+        // The form still works without suggestions.
+      } finally {
+        setStep(null);
+      }
     },
     [],
   );
@@ -171,6 +212,9 @@ export default function AddDocumentScreen() {
   const reset = useCallback(() => {
     setFiles([]);
     setPreview(null);
+    setOcrText(undefined);
+    setFields([]);
+    setEngine(null);
     setTitle('');
     setTags('');
     setCategory(DocumentCategory.OTHER);
@@ -187,19 +231,6 @@ export default function AddDocumentScreen() {
     try {
       await documentService.initialize();
 
-      let ocrText: string | undefined;
-      if (file.type.startsWith('image') && preview) {
-        setStep('ocr');
-        try {
-          const result = await ocrService.extractText(preview);
-          if (result.text && ocrService.isTextMeaningful(result.text)) {
-            ocrText = ocrService.cleanText(result.text);
-          }
-        } catch {
-          // OCR is best effort; the document is still saved.
-        }
-      }
-
       setStep('encrypt');
       const saved = await documentService.addDocument(files, {
         title: cleanTitle,
@@ -212,6 +243,7 @@ export default function AddDocumentScreen() {
       });
 
       setStep('index');
+      if (fields.length > 0) await documentService.setFields(saved.id, fields);
       router.back();
       toast.show({
         message: ocrText ? 'Saved with searchable text' : 'Saved to your vault',
@@ -225,7 +257,7 @@ export default function AddDocumentScreen() {
         tone: 'danger',
       });
     }
-  }, [file, files, title, preview, category, tags, toast]);
+  }, [file, files, title, ocrText, fields, category, tags, toast]);
 
   const header = (
     <View style={styles.header}>
@@ -323,6 +355,30 @@ export default function AddDocumentScreen() {
             </View>
           </Field>
 
+          {fields.length > 0 ? (
+            <Field
+              label="Found in the text"
+              hint={
+                engine === 'heuristic'
+                  ? 'Guessed on this device from the text. Tap a value to remove it.'
+                  : undefined
+              }
+            >
+              <View style={styles.chips}>
+                {fields.map((field) => (
+                  <Chip
+                    key={field.key}
+                    label={`${fieldLabel(field.key)}: ${field.kind === 'date' ? formatDate(field.value) : field.value}`}
+                    icon={field.kind === 'date' ? 'calendar' : 'tag'}
+                    onPress={() =>
+                      setFields((current) => current.filter((f) => f.key !== field.key))
+                    }
+                  />
+                ))}
+              </View>
+            </Field>
+          ) : null}
+
           <Field label="Tags" hint="Separate with commas">
             <TextInput
               style={styles.input}
@@ -344,11 +400,15 @@ export default function AddDocumentScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <Sheet visible={step !== null} onClose={() => {}} dismissable={false} title="Saving">
+      <Sheet
+        visible={step !== null}
+        onClose={() => {}}
+        dismissable={false}
+        title={step === 'ocr' || step === 'suggest' ? 'Reading the document' : 'Saving'}
+      >
         <View style={styles.progress}>
-          {(['ocr', 'encrypt', 'index'] as const).map((item) => {
-            const order = ['ocr', 'encrypt', 'index'];
-            const done = step ? order.indexOf(item) < order.indexOf(step) : false;
+          {stepOrder.map((item) => {
+            const done = step ? stepOrder.indexOf(item) < stepOrder.indexOf(step) : false;
             const active = item === step;
             return (
               <View

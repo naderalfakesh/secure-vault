@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { Alert, ScrollView, Share, Switch, TextInput, View } from 'react-native';
 import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
@@ -7,6 +7,7 @@ import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockLabel } from '@/features/session/settings';
+import { selectIntelligence } from '@/features/intelligence';
 import { useVault } from '@/hooks/useVault';
 import { documentService } from '@/services/DocumentService';
 
@@ -19,6 +20,17 @@ export default function SettingsScreen() {
   const toast = useToast();
   const { lock, settings, updateSettings, biometry } = useSession();
   const [autoLockSheet, setAutoLockSheet] = useState(false);
+  const [engine, setEngine] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+    selectIntelligence().then((selected) => {
+      if (active) setEngine(selected.engine);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [appearance, setAppearanceState] = useState<Appearance>(() =>
     UnistylesRuntime.hasAdaptiveThemes
       ? 'system'
@@ -217,6 +229,17 @@ export default function SettingsScreen() {
             icon="shield"
             title="How your data is protected"
             subtitle="AES-256-GCM with a key in the Secure Enclave or Android Keystore"
+          />
+          <ListRow
+            icon="sparkles"
+            title="Suggestions"
+            subtitle={
+              engine === 'heuristic'
+                ? 'On-device rules read dates, numbers, and keywords. No model, nothing uploaded.'
+                : engine
+                  ? `On-device model: ${engine}`
+                  : 'Checking'
+            }
           />
           <ListRow icon="info" title="Version" subtitle={APP_VERSION} divider={false} />
         </Section>

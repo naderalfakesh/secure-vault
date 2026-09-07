@@ -1,5 +1,5 @@
 import { heuristicIntelligence } from './heuristic';
-import type { DocumentIntelligence, DocumentSuggestion, IntelligenceEngine } from './types';
+import type { DocumentIntelligence, DocumentSuggestion } from './types';
 
 export type { DocumentIntelligence, DocumentSuggestion, IntelligenceEngine } from './types';
 export { EXPIRY_FIELD } from './types';

@@ -22,6 +22,7 @@ import { categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
+import type { ExtractedField } from '@/data/DocumentRepository';
 import type { Document } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/format';
 
@@ -33,6 +34,8 @@ export default function DocumentDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fileUri, setFileUri] = useState<string | null>(null);
+  const [fields, setFields] = useState<ExtractedField[]>([]);
+  const [revealNumber, setRevealNumber] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [showText, setShowText] = useState(false);
   const [busy, setBusy] = useState<'ocr' | 'delete' | null>(null);
@@ -48,10 +51,14 @@ export default function DocumentDetailScreen() {
           if (active) setError('This document is no longer in the vault.');
           return;
         }
-        const uri = await documentService.getDocumentFile(id);
+        const [uri, extracted] = await Promise.all([
+          documentService.getDocumentFile(id),
+          documentService.getFields(id),
+        ]);
         if (active) {
           setDocument(doc);
           setFileUri(uri);
+          setFields(extracted);
         }
       })
       .catch((e: unknown) => {
@@ -243,6 +250,39 @@ export default function DocumentDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {fields.length > 0 ? (
+          <Card>
+            {fields.map((field, index) => (
+              <ListRow
+                key={field.key}
+                icon={field.kind === 'date' ? 'calendar' : 'tag'}
+                iconTone={field.key === 'expires' ? 'warning' : 'accent'}
+                title={
+                  { expires: 'Expires', issued: 'Issued', number: 'Number' }[field.key] ?? field.key
+                }
+                subtitle={
+                  field.kind === 'date'
+                    ? formatDate(field.value)
+                    : revealNumber
+                      ? field.value
+                      : `${'•'.repeat(Math.max(0, field.value.length - 3))}${field.value.slice(-3)}`
+                }
+                onPress={
+                  field.kind === 'text' ? () => setRevealNumber((value) => !value) : undefined
+                }
+                trailing={
+                  field.kind === 'text' ? (
+                    <Icon name={revealNumber ? 'eyeOff' : 'eye'} size={18} tone="tertiary" />
+                  ) : (
+                    <View />
+                  )
+                }
+                divider={index < fields.length - 1}
+              />
+            ))}
+          </Card>
+        ) : null}
 
         <Card>
           <ListRow icon="calendar" title="Added" subtitle={created} divider={updated !== created} />

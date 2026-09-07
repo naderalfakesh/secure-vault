@@ -1,19 +1,36 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Card, EmptyState, Icon, Screen, Text } from '@/components/ui';
+import { Button, Card, EmptyState, Icon, ListRow, Screen, Text } from '@/components/ui';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentCard } from '@/features/documents/DocumentCard';
 import { useDocuments } from '@/hooks/useDocuments';
+import { documentService } from '@/services/DocumentService';
 import type { Document, DocumentCategory } from '@/types';
-import { pluralize } from '@/utils/format';
+import { formatDate, pluralize } from '@/utils/format';
 
 const RECENT_LIMIT = 6;
+const EXPIRING_WINDOW_DAYS = 90;
 
 export default function HomeScreen() {
   const { documents, loading, getDocumentThumbnail } = useDocuments();
+  const [expiring, setExpiring] = useState<{ document: Document; date: string }[]>([]);
+
+  // Re-query whenever the list changes; fields are written right after a save.
+  useEffect(() => {
+    let active = true;
+    documentService
+      .getExpiring(EXPIRING_WINDOW_DAYS)
+      .then((rows) => {
+        if (active) setExpiring(rows);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [documents]);
 
   const recent = useMemo(
     () =>
@@ -28,6 +45,7 @@ export default function HomeScreen() {
     return result;
   }, [documents]);
 
+  const today = new Date().toISOString().slice(0, 10);
   const openDocument = (document: Document) => router.push(`/documents/${document.id}`);
   const openAdd = () => router.push('/documents/add');
 
@@ -78,6 +96,29 @@ export default function HomeScreen() {
             leading={<Icon name="scan" size={18} tone="inverse" />}
           />
         )}
+
+        {expiring.length > 0 ? (
+          <View style={styles.section}>
+            <Text variant="title3" accessibilityRole="header">
+              Expiring soon
+            </Text>
+            <Card>
+              {expiring.map(({ document, date }, index) => (
+                <ListRow
+                  key={document.id}
+                  icon={categoryIcons[document.category]}
+                  iconTone={date < today ? 'danger' : 'warning'}
+                  title={document.title}
+                  subtitle={
+                    date < today ? `Expired ${formatDate(date)}` : `Expires ${formatDate(date)}`
+                  }
+                  onPress={() => openDocument(document)}
+                  divider={index < expiring.length - 1}
+                />
+              ))}
+            </Card>
+          </View>
+        ) : null}
 
         {recent.length > 0 ? (
           <View style={styles.section}>

@@ -23,6 +23,8 @@ const KEY_PROBE_ENTRY = '_key_probe';
 
 export type SessionContextValue = {
   status: SessionStatus;
+  /** True during setup when a device key already exists (upgrade from the prototype, or an interrupted setup). */
+  vaultExists: boolean;
   biometry: BiometryType;
   settings: SecuritySettings;
   lockout: LockoutState;
@@ -62,6 +64,7 @@ function describeError(e: unknown, fallback: string): string {
 export function SessionProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [biometry, setBiometry] = useState<BiometryType>('none');
+  const [vaultExists, setVaultExists] = useState(false);
   const [settings, setSettings] = useState<SecuritySettings>(DEFAULT_SETTINGS);
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +86,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
       ]);
       if (!active) return;
       setBiometry(type);
-      // A key without a PIN record means setup was interrupted; start over so
-      // the user is never locked out of a vault that holds nothing yet.
+      setVaultExists(exists);
+      // A key without a PIN record is either the 2025 prototype's vault or an
+      // interrupted setup. Both go through setup again, and setUp keeps the
+      // existing key so nothing already encrypted is lost.
       setStatus(exists && hasPin ? 'locked' : 'setup');
     })();
     return () => {
@@ -165,23 +170,29 @@ export function SessionProvider({ children }: PropsWithChildren) {
     [lockout, loadProtectedState, ensureKeyAccess],
   );
 
-  const setUp = useCallback(async (pin: string) => {
-    setError(null);
-    try {
-      await vault.createVault();
-      const ok = await vault.unlockWithBiometrics();
-      if (!ok) return false;
-      await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
-      await sessionStorage.saveSettings(DEFAULT_SETTINGS);
-      setSettings(DEFAULT_SETTINGS);
-      setLockout(EMPTY_LOCKOUT);
-      setStatus('unlocked');
-      return true;
-    } catch (e) {
-      setError(describeError(e, 'Could not set up the vault.'));
-      return false;
-    }
-  }, []);
+  const setUp = useCallback(
+    async (pin: string) => {
+      setError(null);
+      try {
+        // Only a brand-new vault gets a key; an existing one keeps what it has.
+        if (!vaultExists) await vault.createVault();
+        const ok = await vault.unlockWithBiometrics();
+        if (!ok) return false;
+        await vault.put(KEY_PROBE_ENTRY, 'ok');
+        await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
+        await sessionStorage.saveSettings(DEFAULT_SETTINGS);
+        setSettings(DEFAULT_SETTINGS);
+        setLockout(EMPTY_LOCKOUT);
+        setVaultExists(true);
+        setStatus('unlocked');
+        return true;
+      } catch (e) {
+        setError(describeError(e, 'Could not set up the vault.'));
+        return false;
+      }
+    },
+    [vaultExists],
+  );
 
   const changePin = useCallback(async (currentPin: string, nextPin: string) => {
     setError(null);
@@ -254,6 +265,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const value = useMemo(
     () => ({
       status,
+      vaultExists,
       biometry,
       settings,
       lockout,
@@ -269,6 +281,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }),
     [
       status,
+      vaultExists,
       biometry,
       settings,
       lockout,
