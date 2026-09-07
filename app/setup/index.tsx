@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   ScrollView,
   useWindowDimensions,
   View,
@@ -26,7 +27,11 @@ const slides: { icon: IconName; title: string; body: string }[] = [
   {
     icon: 'faceId',
     title: 'Unlock the way you already do',
-    body: 'Face ID, Touch ID, or your device passcode opens the vault. A 6-digit PIN is always there as a fallback.',
+    body: Platform.select({
+      ios: 'Face ID, Touch ID, or your device passcode opens the vault. A 6-digit PIN is always there as a fallback.',
+      default:
+        'Your fingerprint, face unlock, or screen lock opens the vault. A 6-digit PIN is always there as a fallback.',
+    }),
   },
 ];
 

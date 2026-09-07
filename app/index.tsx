@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, type IconName, Screen, Text } from '@/components/ui';
@@ -108,7 +108,7 @@ export default function LockScreen() {
       {hasBiometrics ? null : (
         <View style={styles.passcodeRow}>
           <Button
-            label="Use device passcode"
+            label={Platform.OS === 'ios' ? 'Use device passcode' : 'Use screen lock'}
             variant="ghost"
             size="md"
             onPress={() => unlock()}
