@@ -24,3 +24,8 @@ export async function closeDocumentStore(): Promise<void> {
   opening = null;
   if (current) await (await current).db.close();
 }
+
+/** Test double for "Delete everything": the in-memory index simply closes. */
+export async function deleteDocumentStore(): Promise<void> {
+  await closeDocumentStore();
+}

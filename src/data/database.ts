@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 
 import vault from '../../modules/expo-vault';
 import { DocumentRepository } from './DocumentRepository';
-import { openEncryptedDatabase } from './expoSqlite';
+import { deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
 import { applyMigrations } from './schema';
 import type { SqlDatabase } from './sql';
@@ -82,4 +82,10 @@ export async function closeDocumentStore(): Promise<void> {
     const { db } = await current.catch(() => ({ db: null }));
     await db?.close();
   }
+}
+
+/** Close the index and remove its file, for "Delete everything". */
+export async function deleteDocumentStore(): Promise<void> {
+  await closeDocumentStore();
+  await deleteEncryptedDatabase(DATABASE_NAME);
 }

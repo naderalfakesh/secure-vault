@@ -44,6 +44,8 @@ export type SessionContextValue = {
    * and share sheets send the app to the background without the user leaving it.
    */
   withoutAutoLock: <T>(work: () => Promise<T>) => Promise<T>;
+  /** Forget the PIN, settings, and lockout after the vault was emptied; returns to setup. */
+  eraseVault: () => Promise<void>;
   /** Last unlock or setup failure, cleared on the next attempt. */
   error: string | null;
 };
@@ -231,6 +233,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setStatus('locked');
   }, []);
 
+  const eraseVault = useCallback(async () => {
+    await sessionStorage.clear().catch(() => {});
+    setSettings(DEFAULT_SETTINGS);
+    setLockout(EMPTY_LOCKOUT);
+    setError(null);
+    setStatus('setup');
+  }, []);
+
   const withoutAutoLock = useCallback(async <T,>(work: () => Promise<T>) => {
     suspendedRef.current += 1;
     try {
@@ -287,6 +297,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       lock,
       stepUp,
       withoutAutoLock,
+      eraseVault,
       error,
     }),
     [
@@ -303,6 +314,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       lock,
       stepUp,
       withoutAutoLock,
+      eraseVault,
       error,
     ],
   );

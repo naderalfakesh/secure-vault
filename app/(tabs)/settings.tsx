@@ -18,7 +18,7 @@ const APP_VERSION = '2.0.0';
 export default function SettingsScreen() {
   const vault = useVault();
   const toast = useToast();
-  const { lock, settings, updateSettings, biometry } = useSession();
+  const { lock, settings, updateSettings, biometry, eraseVault } = useSession();
   const [autoLockSheet, setAutoLockSheet] = useState(false);
   const [engine, setEngine] = useState<string>('');
 
@@ -118,12 +118,9 @@ export default function SettingsScreen() {
           onPress: async () => {
             setBusy('clear');
             try {
-              for (const key of await vault.getAllKeys()) {
-                await vault.delete(key).catch(() => {});
-              }
-              await documentService.clearCache();
+              await documentService.eraseEverything();
+              await eraseVault();
               toast.show({ message: 'Vault emptied' });
-              lock();
             } catch (e) {
               toast.show({
                 message: e instanceof Error ? e.message : 'Could not clear the vault.',
@@ -136,7 +133,7 @@ export default function SettingsScreen() {
         },
       ],
     );
-  }, [vault, toast, lock]);
+  }, [toast, eraseVault]);
 
   return (
     <Screen>

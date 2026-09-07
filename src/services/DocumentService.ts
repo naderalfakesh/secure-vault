@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { closeDocumentStore, openDocumentStore } from '@/data/database';
+import { closeDocumentStore, deleteDocumentStore, openDocumentStore } from '@/data/database';
 import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 
@@ -355,6 +355,22 @@ class DocumentService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Wipes every document, the index, and the vault's entries. The device key
+   * itself stays so the next setup can reuse it.
+   */
+  async eraseEverything(): Promise<void> {
+    for (const timer of this.undoTimers.values()) clearTimeout(timer);
+    this.undoTimers.clear();
+    await deleteDocumentStore();
+    for (const key of await ExpoVaultModule.getAllKeys()) {
+      await ExpoVaultModule.delete(key).catch(() => {});
+      await ExpoVaultModule.deleteFile(key).catch(() => {});
+    }
+    await this.clearCache();
+    this.notify();
   }
 
   /** Remove every decrypted file from the cache directory. */

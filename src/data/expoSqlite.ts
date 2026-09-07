@@ -1,4 +1,4 @@
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import { deleteDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 import type { SqlDatabase, SqlValue } from './sql';
 
@@ -52,4 +52,12 @@ export async function openEncryptedDatabase(name: string, hexKey: string): Promi
   // Any query fails with "file is not a database" when the key is wrong.
   await db.getFirstAsync('SELECT count(*) FROM sqlite_master');
   return new ExpoSqlDatabase(db);
+}
+
+export async function deleteEncryptedDatabase(name: string): Promise<void> {
+  try {
+    await deleteDatabaseAsync(name);
+  } catch {
+    // Nothing to delete on a device that never opened the index.
+  }
 }
