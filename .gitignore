@@ -41,3 +41,7 @@ yarn-error.*
 /android
 # local scan reports
 reports/
+
+# Local Expo modules
+modules/*/android/build/
+modules/*/android/.cxx/
