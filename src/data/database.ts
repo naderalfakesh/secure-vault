@@ -1,8 +1,9 @@
 import * as Crypto from 'expo-crypto';
+import { Directory, File } from 'expo-file-system';
 
 import vault from '../../modules/expo-vault';
 import { DocumentRepository } from './DocumentRepository';
-import { deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
+import { databaseFilePath, deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
 import { applyMigrations } from './schema';
 import type { SqlDatabase } from './sql';
@@ -88,4 +89,30 @@ export async function closeDocumentStore(): Promise<void> {
 export async function deleteDocumentStore(): Promise<void> {
   await closeDocumentStore();
   await deleteEncryptedDatabase(DATABASE_NAME);
+}
+
+/**
+ * A consistent copy of the (still encrypted) database file for a backup. The
+ * WAL is folded into the main file first so the copy stands on its own.
+ */
+export async function exportDatabaseFile(destPath: string): Promise<void> {
+  const { db } = await openDocumentStore();
+  await db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+  const source = new File(`file://${databaseFilePath(DATABASE_NAME)}`);
+  const target = new File(`file://${destPath}`);
+  if (target.exists) target.delete();
+  source.copy(target);
+}
+
+/** Replaces the database file with one restored from a backup; the caller reopens the store. */
+export async function replaceDatabaseFile(sourcePath: string): Promise<void> {
+  await closeDocumentStore();
+  const path = databaseFilePath(DATABASE_NAME);
+  const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
+  if (!directory.exists) directory.create({ intermediates: true });
+  for (const suffix of ['', '-wal', '-shm', '-journal']) {
+    const stale = new File(`file://${path}${suffix}`);
+    if (stale.exists) stale.delete();
+  }
+  new File(`file://${sourcePath}`).move(new File(`file://${path}`));
 }

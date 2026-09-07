@@ -29,3 +29,10 @@ export async function closeDocumentStore(): Promise<void> {
 export async function deleteDocumentStore(): Promise<void> {
   await closeDocumentStore();
 }
+
+/** Test doubles: the in-memory index has no file to copy or replace. */
+export async function exportDatabaseFile(_destPath: string): Promise<void> {}
+
+export async function replaceDatabaseFile(_sourcePath: string): Promise<void> {
+  await closeDocumentStore();
+}

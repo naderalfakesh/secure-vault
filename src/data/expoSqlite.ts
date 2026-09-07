@@ -1,4 +1,9 @@
-import { deleteDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import {
+  defaultDatabaseDirectory,
+  deleteDatabaseAsync,
+  openDatabaseAsync,
+  type SQLiteDatabase,
+} from 'expo-sqlite';
 
 import type { SqlDatabase, SqlValue } from './sql';
 
@@ -60,4 +65,12 @@ export async function deleteEncryptedDatabase(name: string): Promise<void> {
   } catch {
     // Nothing to delete on a device that never opened the index.
   }
+}
+
+/** Where expo-sqlite keeps the database file, as a plain path. */
+export function databaseFilePath(name: string): string {
+  const directory = String(defaultDatabaseDirectory)
+    .replace(/^file:\/\//, '')
+    .replace(/\/$/, '');
+  return `${directory}/${name}`;
 }
