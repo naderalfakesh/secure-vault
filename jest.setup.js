@@ -25,6 +25,11 @@ jest.mock('expo-crypto', () => {
       counter += 1;
       return `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`;
     },
+    getRandomBytes: (length) => {
+      const bytes = new Uint8Array(length);
+      for (let i = 0; i < length; i += 1) bytes[i] = (i * 7 + counter) % 256;
+      return bytes;
+    },
   };
 });
 

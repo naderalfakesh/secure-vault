@@ -1,6 +1,7 @@
 import { pbkdf2, pbkdf2Async } from '@noble/hashes/pbkdf2.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from '@noble/hashes/utils.js';
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js';
+import * as Crypto from 'expo-crypto';
 
 // The PIN is never stored in the clear. It is stretched with PBKDF2-SHA256 and
 // a per-device random salt, and only the resulting record is written to the
@@ -56,7 +57,8 @@ function newRecord(opts: HashPasscodeOptions): Omit<PasscodeRecord, 'hash'> {
   return {
     scheme: SCHEME,
     iterations: opts.iterations ?? DEFAULT_ITERATIONS,
-    salt: opts.salt ?? randomBytes(SALT_BYTES),
+    // Hermes has no crypto.getRandomValues; expo-crypto reads the OS generator.
+    salt: opts.salt ?? Crypto.getRandomBytes(SALT_BYTES),
   };
 }
 
