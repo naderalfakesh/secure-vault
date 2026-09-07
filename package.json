@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@noble/hashes": "^2.4.0",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@shopify/flash-list": "2.0.2",
     "babel-preset-expo": "~57.0.0",
