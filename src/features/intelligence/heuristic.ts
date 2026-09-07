@@ -132,6 +132,10 @@ export function suggestTitle(text: string): string | undefined {
   const candidate = lines.find((line) => /[A-Za-z]{3,}/.test(line) && !/^\d/.test(line));
   if (!candidate) return undefined;
   const words = candidate.split(/\s+/).slice(0, 6).join(' ');
+  // Headings on official documents are usually set in capitals.
+  if (words === words.toUpperCase()) {
+    return words.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+  }
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 

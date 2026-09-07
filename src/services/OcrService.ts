@@ -78,20 +78,14 @@ class OcrService {
    * Clean up extracted text for better readability
    */
   cleanText(text: string): string {
-    return (
-      text
-        // Normalize whitespace
-        .replace(/\s+/g, ' ')
-        // Fix common OCR mistakes
-        .replace(/\|/g, 'I')
-        .replace(/0(?=[a-zA-Z])/g, 'O')
-        .replace(/1(?=[a-zA-Z])/g, 'l')
-        // Remove isolated single characters (noise)
-        .replace(/\s[a-zA-Z]\s/g, ' ')
-        // Normalize line breaks
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-    );
+    // Keep line breaks: the title and field heuristics read the text line by
+    // line, and document numbers must survive untouched.
+    return text
+      .replace(/\r\n?/g, '\n')
+      .replace(/[^\S\n]+/g, ' ')
+      .replace(/ ?\n ?/g, '\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
   }
 }
 
