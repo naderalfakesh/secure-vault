@@ -90,6 +90,9 @@ export default function SettingsScreen() {
       setExportSheet(false);
       setPassphrase('');
       setConfirmation('');
+      // Let the sheet's modal finish dismissing; presenting the share sheet
+      // over a dismissing modal leaves iOS with neither on screen.
+      await new Promise((resolve) => setTimeout(resolve, 450));
       await withoutAutoLock(() =>
         Sharing.shareAsync(backup.uri, {
           dialogTitle: backup.name,
