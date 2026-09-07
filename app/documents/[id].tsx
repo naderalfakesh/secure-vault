@@ -19,6 +19,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { categoryIcons, categoryLabel } from '@/features/documents/categories';
+import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import type { Document } from '@/types';
@@ -27,6 +28,7 @@ import { formatDate, formatFileSize } from '@/utils/format';
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
+  const { settings, stepUp } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +67,16 @@ export default function DocumentDetailScreen() {
 
   const share = useCallback(async () => {
     if (!document || !fileUri) return;
+    if (settings.biometricsForShare && !(await stepUp())) {
+      toast.show({ message: 'Confirm with biometrics to share.' });
+      return;
+    }
     try {
       await Share.share({ title: document.title, url: `file://${fileUri}` });
     } catch {
       // Share sheet dismissed.
     }
-  }, [document, fileUri]);
+  }, [document, fileUri, settings.biometricsForShare, stepUp, toast]);
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;

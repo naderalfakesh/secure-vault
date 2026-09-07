@@ -50,6 +50,18 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen name="documents/add" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="settings/change-pin"
+          options={{
+            headerShown: true,
+            headerStyle: { backgroundColor: theme.colors.background },
+            headerTintColor: theme.colors.primary,
+            headerShadowVisible: false,
+            headerLeft: () => (
+              <IconButton icon="back" accessibilityLabel="Back" onPress={() => router.back()} />
+            ),
+          }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={status === 'locked'}>
         <Stack.Screen name="index" />

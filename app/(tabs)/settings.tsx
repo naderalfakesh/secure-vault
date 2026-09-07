@@ -1,10 +1,12 @@
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Share, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
+import { Alert, ScrollView, Share, Switch, TextInput, View } from 'react-native';
 import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 
-import { Button, Card, Chip, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
+import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
+import { AUTO_LOCK_OPTIONS, autoLockLabel } from '@/features/session/settings';
 import { useVault } from '@/hooks/useVault';
 import { documentService } from '@/services/DocumentService';
 
@@ -15,7 +17,8 @@ const APP_VERSION = '2.0.0';
 export default function SettingsScreen() {
   const vault = useVault();
   const toast = useToast();
-  const { lock } = useSession();
+  const { lock, settings, updateSettings, biometry } = useSession();
+  const [autoLockSheet, setAutoLockSheet] = useState(false);
   const [appearance, setAppearanceState] = useState<Appearance>(() =>
     UnistylesRuntime.hasAdaptiveThemes
       ? 'system'
@@ -134,8 +137,46 @@ export default function SettingsScreen() {
           <ListRow
             icon="lock"
             title="Lock now"
-            subtitle="Requires Face ID, Touch ID, or your passcode to reopen"
+            subtitle="Requires biometrics or your PIN to reopen"
             onPress={lock}
+          />
+          <ListRow
+            icon="clock"
+            title="Auto-lock"
+            subtitle={`After ${autoLockLabel(settings.autoLockSeconds).toLowerCase()} in the background`}
+            onPress={() => setAutoLockSheet(true)}
+          />
+          <ListRow
+            icon="eyeOff"
+            title="Privacy screen"
+            subtitle="Blur in the app switcher and block screenshots"
+            trailing={
+              <Switch
+                value={settings.privacyScreen}
+                onValueChange={(value) => updateSettings({ privacyScreen: value })}
+                accessibilityLabel="Privacy screen"
+              />
+            }
+          />
+          {biometry !== 'none' ? (
+            <ListRow
+              icon="shield"
+              title="Confirm before sharing"
+              subtitle="Ask for biometrics again before a file leaves the vault"
+              trailing={
+                <Switch
+                  value={settings.biometricsForShare}
+                  onValueChange={(value) => updateSettings({ biometricsForShare: value })}
+                  accessibilityLabel="Confirm before sharing"
+                />
+              }
+            />
+          ) : null}
+          <ListRow
+            icon="edit"
+            title="Change PIN"
+            onPress={() => router.push('/settings/change-pin')}
+            divider={false}
           />
         </Section>
 
@@ -192,6 +233,32 @@ export default function SettingsScreen() {
           />
         </Section>
       </ScrollView>
+
+      <Sheet visible={autoLockSheet} onClose={() => setAutoLockSheet(false)} title="Auto-lock">
+        <Text variant="subheadline" tone="secondary">
+          How long the vault stays open after you leave the app.
+        </Text>
+        <Card>
+          {AUTO_LOCK_OPTIONS.map((option, index) => (
+            <ListRow
+              key={option}
+              title={autoLockLabel(option)}
+              onPress={() => {
+                void updateSettings({ autoLockSeconds: option });
+                setAutoLockSheet(false);
+              }}
+              trailing={
+                settings.autoLockSeconds === option ? (
+                  <Icon name="check" size={18} tone="accent" />
+                ) : (
+                  <View />
+                )
+              }
+              divider={index < AUTO_LOCK_OPTIONS.length - 1}
+            />
+          ))}
+        </Card>
+      </Sheet>
 
       <Sheet
         visible={exportSheet !== null}

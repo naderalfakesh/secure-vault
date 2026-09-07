@@ -1,83 +1,91 @@
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Icon, IconButton, Screen, Text } from '@/components/ui';
+import { Icon, Screen, Text, useToast } from '@/components/ui';
 import { PinDots, PinKeypad } from '@/features/auth/PinPad';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 
-type Stage = 'create' | 'confirm' | 'saving';
+type Stage = 'current' | 'next' | 'confirm' | 'saving';
 
-export default function CreatePinScreen() {
-  const { setUp, error } = useSession();
-  const [stage, setStage] = useState<Stage>('create');
-  const [first, setFirst] = useState('');
-  const [mismatch, setMismatch] = useState(false);
+const titles: Record<Stage, string> = {
+  current: 'Enter your current PIN',
+  next: 'Choose a new PIN',
+  confirm: 'Enter the new PIN again',
+  saving: 'Saving',
+};
+
+export default function ChangePinScreen() {
+  const { changePin, error } = useSession();
+  const toast = useToast();
+  const [stage, setStage] = useState<Stage>('current');
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
 
   const {
     pin,
     error: flash,
     shake,
     press,
-    clear,
   } = usePinEntry({
     onComplete: (entered, helpers) => {
-      if (stage === 'create') {
-        setFirst(entered);
-        setMismatch(false);
+      setMessage(null);
+      if (stage === 'current') {
+        setCurrent(entered);
+        setStage('next');
+        helpers.clear();
+        return;
+      }
+      if (stage === 'next') {
+        if (entered === current) {
+          setMessage('Choose a PIN different from the current one.');
+          helpers.fail();
+          return;
+        }
+        setNext(entered);
         setStage('confirm');
         helpers.clear();
         return;
       }
-      if (entered !== first) {
-        setMismatch(true);
-        helpers.fail(() => {
-          setStage('create');
-          setFirst('');
-        });
+      if (entered !== next) {
+        setMessage('The PINs did not match. Start again.');
+        helpers.fail(() => setStage('next'));
         return;
       }
       setStage('saving');
-      setUp(entered).then((ok) => {
-        if (!ok) {
-          setStage('create');
-          setFirst('');
-          clear();
+      changePin(current, entered).then((ok) => {
+        if (ok) {
+          toast.show({ message: 'PIN changed', tone: 'success' });
+          router.back();
+          return;
         }
+        setMessage('The current PIN was wrong.');
+        setStage('current');
+        helpers.clear();
       });
     },
   });
 
-  const title = stage === 'confirm' ? 'Enter it again' : 'Choose a 6-digit PIN';
-  const hint = mismatch
-    ? 'The PINs did not match. Start again.'
-    : stage === 'confirm'
-      ? 'Same PIN, once more.'
-      : stage === 'saving'
-        ? 'Creating your vault key'
-        : 'Your fallback when biometrics are unavailable.';
-
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Back" onPress={() => router.back()} />
-      </View>
+    <Screen edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: true, title: 'Change PIN' }} />
       <View style={styles.body}>
         <View style={styles.badge}>
           <Icon name="lock" size={28} tone="accent" />
         </View>
         <Text variant="title2" align="center" accessibilityRole="header">
-          {title}
+          {titles[stage]}
         </Text>
         <Text
           variant="subheadline"
-          tone={mismatch || error ? 'danger' : 'secondary'}
+          tone={message || error ? 'danger' : 'secondary'}
           align="center"
           accessibilityLiveRegion="polite"
         >
-          {error ?? hint}
+          {message ?? error ?? 'Six digits.'}
         </Text>
         <View style={styles.dots}>
           <PinDots filled={pin.length} error={flash} shake={shake} />
@@ -91,10 +99,6 @@ export default function CreatePinScreen() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  header: {
-    flexDirection: 'row',
-    paddingHorizontal: theme.spacing.sm,
-  },
   body: {
     flex: 1,
     alignItems: 'center',

@@ -1,0 +1,32 @@
+# Fresh install to first document. Run with a development build installed and
+# Metro running: `maestro test .maestro/first-document.yaml`.
+# On the iOS simulator, enroll Face ID first (Features > Face ID > Enrolled).
+appId: com.naderalfakesh.securevault
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'One place for the papers that matter'
+- tapOn: 'Continue'
+- assertVisible: 'Nothing leaves your phone'
+- tapOn: 'Continue'
+- tapOn: 'Set up your vault'
+- assertVisible: 'Choose a 6-digit PIN'
+- repeat:
+    times: 6
+    commands:
+      - tapOn: '1'
+- assertVisible: 'Enter it again'
+- repeat:
+    times: 6
+    commands:
+      - tapOn: '1'
+# The OS biometric or passcode prompt appears here; Maestro passes it on the
+# simulator with a matching Face ID (Features > Face ID > Matching Face).
+- assertVisible: 'Scan your first document'
+- tapOn: 'Add a document'
+- tapOn: 'Choose from Photos'
+- tapOn:
+    point: '20%,40%'
+- assertVisible: 'Save to vault'
+- tapOn: 'Save to vault'
+- assertVisible: '1 document, all on this device'
