@@ -74,6 +74,7 @@ export default function SettingsScreen() {
     setBusy('import');
     try {
       await vault.importEncrypted(text);
+      await documentService.reload();
       setImportSheet(false);
       setImportText('');
       toast.show({ message: 'Vault restored', tone: 'success' });

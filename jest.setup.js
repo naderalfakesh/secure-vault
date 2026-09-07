@@ -13,6 +13,17 @@ jest.mock('./modules/expo-vault', () => require('./modules/expo-vault/src/ExpoVa
 
 jest.mock('expo-device', () => ({ isDevice: true }));
 
+// jest-expo's expo-crypto mock returns one constant UUID; documents need unique ids.
+jest.mock('expo-crypto', () => {
+  let counter = 0;
+  return {
+    randomUUID: () => {
+      counter += 1;
+      return `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`;
+    },
+  };
+});
+
 // Hooks that need a SafeAreaProvider get fixed zero insets in tests; the
 // SafeAreaView component itself renders fine without a provider.
 jest.mock('react-native-safe-area-context', () => {

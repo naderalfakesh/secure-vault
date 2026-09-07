@@ -8,8 +8,11 @@ const METADATA_KEY = '_documents_metadata';
 const FILE_PREFIX = 'file_';
 const THUMB_PREFIX = 'thumb_';
 
+type ChangeListener = () => void;
+
 class DocumentService {
   private metadata: DocumentMetadata | null = null;
+  private listeners = new Set<ChangeListener>();
   private cacheUri = Paths.cache.uri;
 
   private toPath(uriOrPath: string): string {
@@ -49,6 +52,29 @@ class DocumentService {
   private async saveMetadata(): Promise<void> {
     if (!this.metadata) return;
     await ExpoVaultModule.put(METADATA_KEY, JSON.stringify(this.metadata));
+    this.notify();
+  }
+
+  /**
+   * Subscribe to index changes so every mounted list refreshes after an add,
+   * update, delete, or restore without polling. Returns the unsubscribe.
+   */
+  subscribe(listener: ChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** Drop the cached index, e.g. after a backup restore replaced it. */
+  async reload(): Promise<void> {
+    this.metadata = null;
+    await this.initialize();
+    this.notify();
+  }
+
+  private notify() {
+    for (const listener of this.listeners) listener();
   }
 
   /**

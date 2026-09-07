@@ -28,6 +28,10 @@ export function useDocuments(): UseDocumentsReturn {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | null>(null);
   const previousDocumentsRef = useRef<Document[]>([]);
+  // Bumped by the service after any write, so the list below reloads silently.
+  const [version, setVersion] = useState(0);
+
+  useEffect(() => documentService.subscribe(() => setVersion((v) => v + 1)), []);
 
   const refreshDocuments = useCallback(async () => {
     try {
@@ -75,7 +79,7 @@ export function useDocuments(): UseDocumentsReturn {
     return () => {
       active = false;
     };
-  }, [selectedCategory]);
+  }, [selectedCategory, version]);
 
   const addDocument = useCallback(
     async (file: PickedFile, metadata: Partial<Document>): Promise<Document> => {
