@@ -1,5 +1,8 @@
-// Reexport the native module. On web, it will be resolved to ExpoVaultModule.web.ts
-// and on native platforms to ExpoVaultModule.ts
-export { default } from './src/ExpoVaultModule';
+// The native module, wrapped so a lapsed Android key window re-prompts and
+// retries instead of surfacing "User not authenticated" to a screen.
+import ExpoVaultModule from './src/ExpoVaultModule';
+import { withKeyRecovery } from './src/withKeyRecovery';
+
+export default withKeyRecovery(ExpoVaultModule);
 export type { BiometryType, RenderedPage, SecureVault } from './src/ExpoVaultModule';
-export * from './src/ExpoVault.types';
+export { isKeyLocked, withKeyRecovery } from './src/withKeyRecovery';

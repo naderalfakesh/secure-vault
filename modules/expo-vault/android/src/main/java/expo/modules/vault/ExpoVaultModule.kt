@@ -171,7 +171,7 @@ class ExpoVaultModule : Module() {
                 file.writeBytes(encryptedData)
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("PUT_FAILED", e.message, e)
+                promise.reject(failureCode(e, "PUT_FAILED"), e.message, e)
             }
         }
 
@@ -199,7 +199,7 @@ class ExpoVaultModule : Module() {
                 val decryptedData = cipher.doFinal(encryptedData)
                 promise.resolve(String(decryptedData))
             } catch (e: Exception) {
-                promise.reject("GET_FAILED", e.message, e)
+                promise.reject(failureCode(e, "GET_FAILED"), e.message, e)
             }
         }
 
@@ -216,7 +216,7 @@ class ExpoVaultModule : Module() {
                 }
                 promise.resolve(exportedData.toString())
             } catch (e: Exception) {
-                promise.reject("EXPORT_FAILED", e.message, e)
+                promise.reject(failureCode(e, "EXPORT_FAILED"), e.message, e)
             }
         }
 
@@ -238,7 +238,7 @@ class ExpoVaultModule : Module() {
                 }
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("IMPORT_FAILED", e.message, e)
+                promise.reject(failureCode(e, "IMPORT_FAILED"), e.message, e)
             }
         }
 
@@ -280,7 +280,7 @@ class ExpoVaultModule : Module() {
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: ${e.message}", e)
+                promise.reject(failureCode(e, "PUT_FILE_FAILED"), "Failed to encrypt file: ${e.message}", e)
             }
         }
 
@@ -292,7 +292,7 @@ class ExpoVaultModule : Module() {
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {
-                promise.reject("PUT_THUMBNAIL_FAILED", "Failed to create thumbnail: ${e.message}", e)
+                promise.reject(failureCode(e, "PUT_THUMBNAIL_FAILED"), "Failed to create thumbnail: ${e.message}", e)
             }
         }
 
@@ -300,7 +300,7 @@ class ExpoVaultModule : Module() {
             try {
                 promise.resolve(PdfPages.render(File(sourcePath), maxPixelSize, File(destDir)))
             } catch (e: Exception) {
-                promise.reject("RENDER_PDF_FAILED", "Failed to render the PDF: ${e.message}", e)
+                promise.reject(failureCode(e, "RENDER_PDF_FAILED"), "Failed to render the PDF: ${e.message}", e)
             }
         }
 
@@ -317,7 +317,7 @@ class ExpoVaultModule : Module() {
                 VaultCrypto.decryptFile(encryptedFile, File(destPath), getSecretKey(), legacyIv)
                 promise.resolve(destPath)
             } catch (e: Exception) {
-                promise.reject("GET_FILE_FAILED", "Failed to decrypt file: ${e.message}", e)
+                promise.reject(failureCode(e, "GET_FILE_FAILED"), "Failed to decrypt file: ${e.message}", e)
             }
         }
 
@@ -346,6 +346,16 @@ class ExpoVaultModule : Module() {
                 promise.reject("GET_FILE_SIZE_FAILED", e.message, e)
             }
         }
+    }
+
+    /** A lapsed authentication window gets its own code so the caller can re-prompt and retry. */
+    private fun failureCode(e: Exception, fallback: String): String {
+        var cause: Throwable? = e
+        while (cause != null) {
+            if (cause is android.security.keystore.UserNotAuthenticatedException) return "KEY_LOCKED"
+            cause = cause.cause
+        }
+        return fallback
     }
 
     private fun getSecretKey(): SecretKey {
