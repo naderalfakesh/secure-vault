@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { detectDeviceCompromise, SecurityCheckResult } from '../security/securityChecks';
+import type { SecurityCheckResult } from '../security/securityChecks';
+import { detectDeviceCompromise } from '../security/securityChecks';
 
 interface SecurityStatus extends SecurityCheckResult {
   loading: boolean;
@@ -23,8 +24,14 @@ export const useSecurityStatus = () => {
   }, []);
 
   useEffect(() => {
-    runChecks();
-  }, [runChecks]);
+    let active = true;
+    detectDeviceCompromise().then((result) => {
+      if (active) setStatus({ ...result, loading: false });
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return {
     ...status,

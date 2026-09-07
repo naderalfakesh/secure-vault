@@ -18,12 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { documentService } from '../../src/services/DocumentService';
 import { ocrService } from '../../src/services/OcrService';
-import {
-  DocumentCategory,
-  DocumentCategoryLabels,
-  DocumentCategoryIcons,
-  PickedFile,
-} from '../../src/types';
+import type { PickedFile } from '../../src/types';
+import { DocumentCategory, DocumentCategoryLabels, DocumentCategoryIcons } from '../../src/types';
 
 type SaveStep = 'idle' | 'ocr' | 'encrypting' | 'saving';
 

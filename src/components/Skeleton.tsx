@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, ViewStyle, DimensionValue } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import type { ViewStyle, DimensionValue } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 
 interface SkeletonProps {
   width?: DimensionValue;
@@ -9,7 +10,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ width = '100%', height = 20, borderRadius = 4, style }: SkeletonProps) {
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const animatedValue = useState(() => new Animated.Value(0))[0];
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -84,9 +85,7 @@ export function DocumentListSkeleton({ count = 4 }: DocumentListSkeletonProps) {
   );
 }
 
-interface DocumentDetailSkeletonProps {}
-
-export function DocumentDetailSkeleton({}: DocumentDetailSkeletonProps) {
+export function DocumentDetailSkeleton() {
   return (
     <View style={styles.detailContainer}>
       <Skeleton height={250} borderRadius={0} />

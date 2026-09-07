@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import type { ViewStyle } from 'react-native';
+import { Animated } from 'react-native';
 
 interface FadeInViewProps {
   children: React.ReactNode;
@@ -9,7 +10,7 @@ interface FadeInViewProps {
 }
 
 export function FadeInView({ children, duration = 300, delay = 0, style }: FadeInViewProps) {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useState(() => new Animated.Value(0))[0];
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -40,8 +41,8 @@ export function SlideInView({
   distance = 20,
   style,
 }: SlideInViewProps) {
-  const slideAnim = useRef(new Animated.Value(distance)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useState(() => new Animated.Value(distance))[0];
+  const fadeAnim = useState(() => new Animated.Value(0))[0];
 
   useEffect(() => {
     Animated.parallel([
@@ -96,8 +97,8 @@ interface ScaleInViewProps {
 }
 
 export function ScaleInView({ children, duration = 300, delay = 0, style }: ScaleInViewProps) {
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useState(() => new Animated.Value(0.9))[0];
+  const fadeAnim = useState(() => new Animated.Value(0))[0];
 
   useEffect(() => {
     Animated.parallel([
@@ -140,7 +141,7 @@ interface PressableScaleProps {
 }
 
 export function PressableScale({ children, onPress, style, disabled }: PressableScaleProps) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useState(() => new Animated.Value(1))[0];
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

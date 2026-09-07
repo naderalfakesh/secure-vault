@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import ExpoVaultModule from '../../modules/expo-vault';
-import { Document, DocumentCategory, DocumentMetadata, PickedFile } from '../types';
+import type { Document, DocumentMetadata, PickedFile } from '../types';
+import { DocumentCategory } from '../types';
 
 const METADATA_KEY = '_documents_metadata';
 const FILE_PREFIX = 'file_';

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { documentService } from '../services/DocumentService';
-import { Document, DocumentCategory, PickedFile } from '../types';
+import type { Document, DocumentCategory, PickedFile } from '../types';
 
 // In-memory thumbnail cache for performance
 const thumbnailCache = new Map<string, string>();
@@ -52,8 +52,30 @@ export function useDocuments(): UseDocumentsReturn {
   }, [selectedCategory]);
 
   useEffect(() => {
-    refreshDocuments();
-  }, [refreshDocuments]);
+    let active = true;
+    documentService
+      .initialize()
+      .then(() =>
+        selectedCategory
+          ? documentService.getDocumentsByCategory(selectedCategory)
+          : documentService.getAllDocuments(),
+      )
+      .then((docs) => {
+        if (active) {
+          setDocuments(docs);
+          setError(null);
+        }
+      })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedCategory]);
 
   const addDocument = useCallback(
     async (file: PickedFile, metadata: Partial<Document>): Promise<Document> => {
@@ -156,6 +178,7 @@ export function useDocuments(): UseDocumentsReturn {
   );
 
   const filterByCategory = useCallback((category: DocumentCategory | null) => {
+    setLoading(true);
     setSelectedCategory(category);
   }, []);
 

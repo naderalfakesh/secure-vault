@@ -206,7 +206,7 @@ export default function SettingsScreen() {
             <Text style={styles.appVersion}>Version {APP_VERSION}</Text>
             <Text style={styles.appDescription}>
               A secure document scanner and vault with native encryption. Your documents are
-              encrypted using your device's secure hardware and protected with biometric
+              encrypted using your device&apos;s secure hardware and protected with biometric
               authentication.
             </Text>
           </View>

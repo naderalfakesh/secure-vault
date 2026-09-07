@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { Document, DocumentCategoryIcons, DocumentCategoryLabels } from '../types';
+import type { Document } from '../types';
+import { DocumentCategoryIcons, DocumentCategoryLabels } from '../types';
 
 interface DocumentCardProps {
   document: Document;

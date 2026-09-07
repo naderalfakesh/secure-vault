@@ -17,12 +17,8 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { documentService } from '../../src/services/DocumentService';
 import { ocrService } from '../../src/services/OcrService';
-import {
-  Document,
-  DocumentCategory,
-  DocumentCategoryLabels,
-  DocumentCategoryIcons,
-} from '../../src/types';
+import type { Document } from '../../src/types';
+import { DocumentCategoryLabels, DocumentCategoryIcons } from '../../src/types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,35 +35,32 @@ export default function DocumentDetailScreen() {
   const [runningOcr, setRunningOcr] = useState(false);
 
   useEffect(() => {
-    loadDocument();
-  }, [id]);
-
-  const loadDocument = async () => {
     if (!id) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      await documentService.initialize();
-      const doc = await documentService.getDocument(id);
-
-      if (!doc) {
-        setError('Document not found');
-        return;
-      }
-
-      setDocument(doc);
-
-      // Load the decrypted file
-      const uri = await documentService.getDocumentFile(id);
-      setFileUri(uri);
-    } catch (e: any) {
-      setError(e.message || 'Failed to load document');
-    } finally {
-      setLoading(false);
-    }
-  };
+    let active = true;
+    documentService
+      .initialize()
+      .then(() => documentService.getDocument(id))
+      .then(async (doc) => {
+        if (!doc) {
+          if (active) setError('Document not found');
+          return;
+        }
+        const uri = await documentService.getDocumentFile(id);
+        if (active) {
+          setDocument(doc);
+          setFileUri(uri);
+        }
+      })
+      .catch((e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : 'Failed to load document');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   const handleDelete = useCallback(() => {
     Alert.alert(
@@ -116,10 +109,10 @@ export default function DocumentDetailScreen() {
       await Clipboard.setStringAsync(document.ocrText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to copy text');
     }
-  }, [document?.ocrText]);
+  }, [document]);
 
   const handleRunOcr = useCallback(async () => {
     if (!document || !fileUri || document.fileType !== 'image') return;

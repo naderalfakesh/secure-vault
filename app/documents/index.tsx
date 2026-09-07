@@ -6,7 +6,6 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
   Dimensions,
 } from 'react-native';
@@ -19,7 +18,7 @@ import {
   EmptyState,
   DocumentListSkeleton,
 } from '../../src/components';
-import { Document } from '../../src/types';
+import type { Document } from '../../src/types';
 
 const { width } = Dimensions.get('window');
 const NUM_COLUMNS = 2;
