@@ -33,7 +33,7 @@ strips Google ML Kit's `EXCLUDED_ARCHS = arm64`. Do not remove that plugin.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   Keychain or Keystore key, string and file storage, export and import.
 - `plugins/` config plugins (Face ID string, biometric permission, ML Kit fix).
-- `docs/` plan, ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
+- `docs/` plan, security model (`docs/SECURITY.md`), ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 
 ## Rules
 
