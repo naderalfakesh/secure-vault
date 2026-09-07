@@ -11,7 +11,11 @@ export type ScreenProps = PropsWithChildren<
   }
 >;
 
-/** Themed page container; every route renders inside one. */
+/**
+ * Themed page container; every route renders inside one. The background sits
+ * on a core View so Unistyles can repaint it on theme changes; SafeAreaView is
+ * a third-party view and only handles the insets.
+ */
 export function Screen({
   children,
   edges = ['top', 'left', 'right'],
@@ -20,11 +24,13 @@ export function Screen({
   ...props
 }: ScreenProps) {
   return (
-    <SafeAreaView edges={edges} style={styles.root}>
-      <View {...props} style={[styles.content, padded && styles.padded, style]}>
-        {children}
-      </View>
-    </SafeAreaView>
+    <View style={styles.root}>
+      <SafeAreaView edges={edges} style={styles.safe}>
+        <View {...props} style={[styles.content, padded && styles.padded, style]}>
+          {children}
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -32,6 +38,9 @@ const styles = StyleSheet.create((theme) => ({
   root: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  safe: {
+    flex: 1,
   },
   content: {
     flex: 1,

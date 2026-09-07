@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Share, TextInput, View } from 'react-native';
-import { StyleSheet, UnistylesRuntime, useUnistyles } from 'react-native-unistyles';
+import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 
 import { Button, Card, Chip, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
@@ -16,12 +16,13 @@ export default function SettingsScreen() {
   const vault = useVault();
   const toast = useToast();
   const { lock } = useSession();
-  const { rt } = useUnistyles();
-  const appearance: Appearance = rt.hasAdaptiveThemes
-    ? 'system'
-    : rt.themeName === 'dark'
-      ? 'dark'
-      : 'light';
+  const [appearance, setAppearanceState] = useState<Appearance>(() =>
+    UnistylesRuntime.hasAdaptiveThemes
+      ? 'system'
+      : UnistylesRuntime.themeName === 'dark'
+        ? 'dark'
+        : 'light',
+  );
 
   const [exportSheet, setExportSheet] = useState<string | null>(null);
   const [importSheet, setImportSheet] = useState(false);
@@ -29,6 +30,7 @@ export default function SettingsScreen() {
   const [busy, setBusy] = useState<'export' | 'import' | 'clear' | null>(null);
 
   const setAppearance = useCallback((next: Appearance) => {
+    setAppearanceState(next);
     if (next === 'system') {
       UnistylesRuntime.setAdaptiveThemes(true);
       return;
