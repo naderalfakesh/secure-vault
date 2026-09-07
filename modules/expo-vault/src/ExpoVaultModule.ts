@@ -6,6 +6,8 @@ const ExpoVaultModule = requireNativeModule('ExpoVault');
 
 export interface SecureVault {
   // Vault management
+  /** True once a device key exists, even while it is still locked. */
+  hasVault(): Promise<boolean>;
   createVault(): Promise<void>;
   unlockWithBiometrics(): Promise<boolean>;
 

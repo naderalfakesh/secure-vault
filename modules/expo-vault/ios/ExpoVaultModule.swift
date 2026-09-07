@@ -47,6 +47,20 @@ public class ExpoVaultModule: Module {
       promise.resolve(nil)
     }
 
+    AsyncFunction("hasVault") { (promise: Promise) in
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrAccount as String: "encryptionKey",
+        kSecAttrService as String: self.keychainService,
+        kSecReturnData as String: false,
+        kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
+      ]
+      let status = SecItemCopyMatching(query as CFDictionary, nil)
+      // The item is access-controlled, so an interaction-required status still
+      // means the key exists; only "not found" means there is no vault yet.
+      promise.resolve(status != errSecItemNotFound)
+    }
+
     AsyncFunction("unlockWithBiometrics") { (promise: Promise) in
       let context = LAContext()
       var error: NSError?

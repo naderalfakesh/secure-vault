@@ -1,13 +1,33 @@
-import { render } from '@testing-library/react-native';
+import { render, waitFor } from '@testing-library/react-native';
 
-import VaultLockedScreen from '../../app/index';
+import LockScreen from '../../app/index';
+import vault from '../../modules/expo-vault';
+import { SessionProvider } from '../features/session/SessionProvider';
 
-describe('VaultLockedScreen', () => {
-  it('offers unlock and vault creation without blocking on device checks', async () => {
-    const view = await render(<VaultLockedScreen />);
+const vaultMock = vault as unknown as { reset(): void };
 
-    expect(await view.findByText('Unlock Vault')).toBeOnTheScreen();
-    expect(view.getByText('Create New Vault')).toBeOnTheScreen();
+describe('LockScreen', () => {
+  beforeEach(() => vaultMock.reset());
+
+  it('offers setup when no vault exists and never shows the device warning on trusted hardware', async () => {
+    const view = await render(
+      <SessionProvider>
+        <LockScreen />
+      </SessionProvider>,
+    );
+
+    expect(await view.findByRole('button', { name: 'Set up SecureVault' })).toBeOnTheScreen();
     expect(view.queryByText(/rooted or modified/)).toBeNull();
+  });
+
+  it('prompts to unlock when a vault exists', async () => {
+    await vault.createVault();
+    const view = await render(
+      <SessionProvider>
+        <LockScreen />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => expect(view.getByRole('button', { name: 'Unlock' })).toBeOnTheScreen());
   });
 });

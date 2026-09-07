@@ -7,9 +7,15 @@ import type { SecureVault } from './ExpoVaultModule';
 export function createVaultMock(): SecureVault & { reset(): void } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
+  let created = false;
 
   return {
-    async createVault() {},
+    async hasVault() {
+      return created;
+    },
+    async createVault() {
+      created = true;
+    },
     async unlockWithBiometrics() {
       return true;
     },
@@ -51,6 +57,7 @@ export function createVaultMock(): SecureVault & { reset(): void } {
     reset() {
       strings = new Map();
       files = new Map();
+      created = false;
     },
   };
 }

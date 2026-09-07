@@ -1,140 +1,113 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
-import { useVault } from '../src/hooks/useVault';
-import { useSecurityStatus } from '../src/hooks/useSecurityStatus';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
-const VaultLockedScreen = () => {
-  const vault = useVault();
+import { Button, Icon, Screen, Text } from '@/components/ui';
+import { useSession } from '@/features/session/SessionProvider';
+import { useSecurityStatus } from '@/hooks/useSecurityStatus';
+
+export default function LockScreen() {
+  const { status, unlock, setUp, error } = useSession();
   const security = useSecurityStatus();
+  const [busy, setBusy] = useState(false);
+  const promptedRef = useRef(false);
+  const isSetup = status === 'setup';
 
-  const handleUnlock = async () => {
-    try {
-      const success = await vault.unlockWithBiometrics();
-      if (success) {
-        router.replace('/documents');
-      }
-    } catch (e: any) {
-      Alert.alert('Unlock failed', e.message);
-    }
-  };
+  // Returning users get the biometric prompt as soon as the screen appears.
+  useEffect(() => {
+    if (status !== 'locked' || promptedRef.current) return;
+    promptedRef.current = true;
+    setBusy(true);
+    unlock().finally(() => setBusy(false));
+  }, [status, unlock]);
 
-  const handleCreateVault = async () => {
+  const handlePress = async () => {
+    setBusy(true);
     try {
-      await vault.createVault();
-      Alert.alert('Vault created', 'You can now unlock your vault with biometrics.');
-    } catch (e: any) {
-      Alert.alert('Vault creation failed', e.message);
+      await (isSetup ? setUp() : unlock());
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {!security.loading && !security.isSecure && (
-        <View style={[styles.banner, styles.bannerWarning]}>
-          <Text style={[styles.bannerText, styles.bannerWarningText]}>
-            This device looks rooted or modified. Your vault still works, but be careful.
-          </Text>
+    <Screen edges={['top', 'bottom', 'left', 'right']} padded>
+      <View style={styles.hero}>
+        <View style={styles.badge}>
+          <Icon name={isSetup ? 'shield' : 'lock'} size={40} tone="accent" />
         </View>
-      )}
-      <View style={styles.iconContainer}>
-        <Text style={styles.icon}>🔐</Text>
+        <Text variant="largeTitle" align="center" accessibilityRole="header">
+          SecureVault
+        </Text>
+        <Text variant="body" tone="secondary" align="center" style={styles.lede}>
+          {isSetup
+            ? 'Your IDs, cards, and papers, encrypted with a key that never leaves this device.'
+            : 'Your documents stay encrypted until you unlock.'}
+        </Text>
       </View>
-      <Text style={styles.title}>SecureVault</Text>
-      <Text style={styles.subtitle}>Your documents, encrypted & protected</Text>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.primaryButton} onPress={handleUnlock}>
-          <Text style={styles.primaryButtonText}>Unlock Vault</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateVault}>
-          <Text style={styles.secondaryButtonText}>Create New Vault</Text>
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        {security.isSecure ? null : (
+          <View style={styles.banner} accessibilityRole="alert">
+            <Icon name="warning" size={18} tone="warning" />
+            <Text variant="footnote" tone="secondary" style={styles.bannerText}>
+              This device looks rooted or modified. Your vault still works, but be careful.
+            </Text>
+          </View>
+        )}
+        {error ? (
+          <Text variant="footnote" tone="danger" align="center" accessibilityLiveRegion="polite">
+            {error}
+          </Text>
+        ) : null}
+        <Button
+          label={isSetup ? 'Set up SecureVault' : 'Unlock'}
+          onPress={handlePress}
+          loading={busy}
+          leading={<Icon name={isSetup ? 'check' : 'unlock'} size={18} tone="inverse" />}
+        />
+        <Text variant="caption" tone="tertiary" align="center">
+          {isSetup
+            ? 'Unlock uses Face ID, Touch ID, or your device passcode.'
+            : 'Nothing is uploaded. Nothing is shared.'}
+        </Text>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
-};
+}
 
-const styles = StyleSheet.create({
-  container: {
+const styles = StyleSheet.create((theme) => ({
+  hero: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
+  badge: {
+    width: 88,
+    height: 88,
+    borderRadius: theme.radii.pill,
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primaryMuted,
+    marginBottom: theme.spacing.sm,
   },
-  iconContainer: {
-    marginBottom: 20,
+  lede: {
+    maxWidth: 320,
   },
-  icon: {
-    fontSize: 64,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#6c757d',
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  primaryButton: {
-    backgroundColor: '#4361ee',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#4361ee',
-  },
-  secondaryButtonText: {
-    color: '#4361ee',
-    fontSize: 18,
-    fontWeight: '600',
+  footer: {
+    gap: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
   },
   banner: {
-    width: '100%',
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#e7f1ff',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  bannerWarning: {
-    backgroundColor: '#ffe5e5',
+    gap: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    borderRadius: theme.radii.md,
+    backgroundColor: theme.colors.warningMuted,
   },
   bannerText: {
-    color: '#1a1a2e',
-    fontSize: 14,
-    fontWeight: '600',
+    flex: 1,
   },
-  bannerWarningText: {
-    color: '#c1121f',
-  },
-});
-
-export default VaultLockedScreen;
+}));

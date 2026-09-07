@@ -84,6 +84,16 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        AsyncFunction("hasVault") { promise: Promise ->
+            try {
+                val keyStore = KeyStore.getInstance(keystoreProvider)
+                keyStore.load(null)
+                promise.resolve(keyStore.containsAlias(keyAlias))
+            } catch (e: Exception) {
+                promise.reject("HAS_VAULT_FAILED", e.message, e)
+            }
+        }
+
         AsyncFunction("unlockWithBiometrics") { promise: Promise ->
             val activity = appContext.activityProvider?.currentActivity as? FragmentActivity
             if (activity == null) {
