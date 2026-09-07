@@ -152,7 +152,7 @@ camera instead. On the Android emulator, set a screen lock first
 
 The prototype's plan and its state before the rebuild are kept in
 [`docs/legacy-project-plan.md`](docs/legacy-project-plan.md) and the
-[legacy baseline](docs/verification/legacy-baseline-verification.md). The
+[legacy baseline](docs/verification/legacy-baseline.md). The
 current interface, screenshots, and native code are new work.
 
 ## Contributing and license
