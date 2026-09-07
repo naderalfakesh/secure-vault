@@ -6,7 +6,7 @@ import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 
 import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
-import { AUTO_LOCK_OPTIONS, autoLockLabel } from '@/features/session/settings';
+import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
 import { useVault } from '@/hooks/useVault';
 import { documentService } from '@/services/DocumentService';
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
           <ListRow
             icon="clock"
             title="Auto-lock"
-            subtitle={`After ${autoLockLabel(settings.autoLockSeconds).toLowerCase()} in the background`}
+            subtitle={autoLockDescription(settings.autoLockSeconds)}
             onPress={() => setAutoLockSheet(true)}
           />
           <ListRow

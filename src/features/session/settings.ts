@@ -29,6 +29,13 @@ export function autoLockLabel(seconds: AutoLockSeconds): string {
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
+/** Sentence for the Settings row, e.g. "After 1 minute in the background". */
+export function autoLockDescription(seconds: AutoLockSeconds): string {
+  if (seconds === 0) return 'As soon as you leave the app';
+  if (seconds === -1) return 'Stays open until you lock it';
+  return `After ${autoLockLabel(seconds)} in the background`;
+}
+
 /** Coerces whatever was persisted into valid settings. */
 export function sanitizeSettings(value: unknown): SecuritySettings {
   if (!value || typeof value !== 'object') return DEFAULT_SETTINGS;
