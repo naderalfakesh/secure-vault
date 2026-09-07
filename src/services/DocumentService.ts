@@ -1,17 +1,24 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
-import ExpoVaultModule from '../../modules/expo-vault';
-import type { Document, DocumentMetadata, PickedFile } from '../types';
-import { DocumentCategory } from '../types';
 
-const METADATA_KEY = '_documents_metadata';
+import { closeDocumentStore, openDocumentStore } from '@/data/database';
+import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
+import { type Document, DocumentCategory, type PickedFile } from '@/types';
+
+import ExpoVaultModule from '../../modules/expo-vault';
+
 const FILE_PREFIX = 'file_';
 const THUMB_PREFIX = 'thumb_';
 
 type ChangeListener = () => void;
 
+/**
+ * Coordinates the two stores a document lives in: encrypted bytes in the vault
+ * module (files and thumbnails) and the encrypted SQLite index (everything
+ * searchable). Screens talk to this service through hooks, never to either
+ * store directly.
+ */
 class DocumentService {
-  private metadata: DocumentMetadata | null = null;
   private listeners = new Set<ChangeListener>();
   private cacheUri = Paths.cache.uri;
 
@@ -32,27 +39,13 @@ class DocumentService {
     return path.startsWith(this.toPath(this.cacheUri));
   }
 
-  /**
-   * Initialize the service by loading metadata from vault
-   */
-  async initialize(): Promise<void> {
-    try {
-      const metadataJson = await ExpoVaultModule.get(METADATA_KEY);
-      this.metadata = JSON.parse(metadataJson);
-    } catch {
-      // No metadata exists yet, create empty structure
-      this.metadata = { documents: {}, version: 1 };
-      await this.saveMetadata();
-    }
+  private async repository(): Promise<DocumentRepository> {
+    return (await openDocumentStore()).repository;
   }
 
-  /**
-   * Save metadata to vault
-   */
-  private async saveMetadata(): Promise<void> {
-    if (!this.metadata) return;
-    await ExpoVaultModule.put(METADATA_KEY, JSON.stringify(this.metadata));
-    this.notify();
+  /** Opens the index; safe to call repeatedly. */
+  async initialize(): Promise<void> {
+    await openDocumentStore();
   }
 
   /**
@@ -66,10 +59,10 @@ class DocumentService {
     };
   }
 
-  /** Drop the cached index, e.g. after a backup restore replaced it. */
+  /** Reopen the index, e.g. after a backup restore replaced the vault. */
   async reload(): Promise<void> {
-    this.metadata = null;
-    await this.initialize();
+    await closeDocumentStore();
+    await openDocumentStore();
     this.notify();
   }
 
@@ -77,49 +70,36 @@ class DocumentService {
     for (const listener of this.listeners) listener();
   }
 
-  /**
-   * Add a new document to the vault
-   */
   async addDocument(file: PickedFile, metadata: Partial<Document>): Promise<Document> {
-    if (!this.metadata) await this.initialize();
-
+    const repository = await this.repository();
     const id = Crypto.randomUUID();
     const fileKey = `${FILE_PREFIX}${id}`;
     const thumbnailKey = `${THUMB_PREFIX}${id}`;
     const now = new Date().toISOString();
+    const fileType: Document['fileType'] = file.type?.includes('pdf') ? 'pdf' : 'image';
 
-    // Determine file type
-    const fileType: 'image' | 'pdf' = file.type?.includes('pdf') ? 'pdf' : 'image';
-
-    // Get the actual file path (handle content:// URIs on Android)
     const sourcePath = await this.getLocalFilePath(file.uri);
-
-    // Store the encrypted file
     await ExpoVaultModule.putFile(fileKey, sourcePath);
-
-    // Store thumbnail for images (reuse source for now)
     if (fileType === 'image') {
       try {
         await ExpoVaultModule.putFile(thumbnailKey, sourcePath);
-      } catch (e) {
-        console.warn('Failed to generate thumbnail:', e);
+      } catch {
+        // A missing thumbnail only costs a placeholder in the list.
       }
     }
 
-    // Clean up temp file if we copied it
     if (sourcePath !== this.toPath(file.uri) && this.isCachePath(sourcePath)) {
       try {
         const tempFile = new File(this.toUri(sourcePath));
         if (tempFile.exists) tempFile.delete();
-      } catch (cleanupError) {
-        console.warn('Failed to cleanup temp file:', cleanupError);
+      } catch {
+        // Cache files are also swept by clearCache.
       }
     }
 
-    // Create document record
-    const document: Document = {
+    const document = await repository.insert({
       id,
-      title: metadata.title || file.name || 'Untitled Document',
+      title: metadata.title || file.name || 'Untitled document',
       category: metadata.category || DocumentCategory.OTHER,
       tags: metadata.tags || [],
       ocrText: metadata.ocrText,
@@ -128,149 +108,91 @@ class DocumentService {
       fileType,
       fileSize: file.size || 0,
       createdAt: now,
-      updatedAt: now,
-    };
-
-    // Save to metadata
-    this.metadata!.documents[id] = document;
-    await this.saveMetadata();
-
+    });
+    this.notify();
     return document;
   }
 
-  /**
-   * Get a document by ID
-   */
   async getDocument(id: string): Promise<Document | null> {
-    if (!this.metadata) await this.initialize();
-    return this.metadata!.documents[id] || null;
+    return (await this.repository()).get(id);
   }
 
-  /**
-   * Get all documents
-   */
   async getAllDocuments(): Promise<Document[]> {
-    if (!this.metadata) await this.initialize();
-    return Object.values(this.metadata!.documents).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    return (await this.repository()).list();
   }
 
-  /**
-   * Get documents by category
-   */
   async getDocumentsByCategory(category: DocumentCategory): Promise<Document[]> {
-    const all = await this.getAllDocuments();
-    return all.filter((doc) => doc.category === category);
+    return (await this.repository()).list(category);
   }
 
-  /**
-   * Search documents by title, tags, or OCR text
-   */
+  async getRecentDocuments(limit: number): Promise<Document[]> {
+    return (await this.repository()).recent(limit);
+  }
+
+  async countByCategory(): Promise<Partial<Record<DocumentCategory, number>>> {
+    return (await this.repository()).countByCategory();
+  }
+
   async searchDocuments(query: string): Promise<Document[]> {
-    const all = await this.getAllDocuments();
-    const lowerQuery = query.toLowerCase();
-
-    return all.filter((doc) => {
-      const titleMatch = doc.title.toLowerCase().includes(lowerQuery);
-      const tagMatch = doc.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
-      const ocrMatch = doc.ocrText?.toLowerCase().includes(lowerQuery);
-      return titleMatch || tagMatch || ocrMatch;
-    });
+    return (await this.repository()).search(query);
   }
 
-  /**
-   * Update a document's metadata
-   */
   async updateDocument(
     id: string,
-    updates: Partial<Omit<Document, 'id' | 'fileKey' | 'thumbnailKey' | 'createdAt'>>,
+    updates: Partial<Pick<Document, 'title' | 'category' | 'tags' | 'ocrText'>>,
   ): Promise<Document | null> {
-    if (!this.metadata) await this.initialize();
-
-    const doc = this.metadata!.documents[id];
-    if (!doc) return null;
-
-    const updatedDoc: Document = {
-      ...doc,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.metadata!.documents[id] = updatedDoc;
-    await this.saveMetadata();
-
-    return updatedDoc;
+    const document = await (await this.repository()).update(id, updates);
+    if (document) this.notify();
+    return document;
   }
 
-  /**
-   * Delete a document
-   */
-  async deleteDocument(id: string): Promise<boolean> {
-    if (!this.metadata) await this.initialize();
+  async setFields(id: string, fields: ExtractedField[]): Promise<void> {
+    await (await this.repository()).setFields(id, fields);
+    this.notify();
+  }
 
-    const doc = this.metadata!.documents[id];
+  async getFields(id: string): Promise<ExtractedField[]> {
+    return (await this.repository()).getFields(id);
+  }
+
+  async deleteDocument(id: string): Promise<boolean> {
+    const repository = await this.repository();
+    const doc = await repository.get(id);
     if (!doc) return false;
 
-    // Delete encrypted files
-    try {
-      await ExpoVaultModule.deleteFile(doc.fileKey);
-    } catch (e) {
-      console.warn('Failed to delete file:', e);
-    }
-
-    try {
-      await ExpoVaultModule.deleteFile(doc.thumbnailKey);
-    } catch (e) {
-      console.warn('Failed to delete thumbnail:', e);
-    }
-
-    // Remove from metadata
-    delete this.metadata!.documents[id];
-    await this.saveMetadata();
-
-    return true;
+    await ExpoVaultModule.deleteFile(doc.fileKey).catch(() => {});
+    await ExpoVaultModule.deleteFile(doc.thumbnailKey).catch(() => {});
+    const removed = await repository.remove(id);
+    if (removed) this.notify();
+    return removed;
   }
 
-  /**
-   * Get the decrypted file path for a document
-   */
+  /** Decrypts the document into the cache and returns its file URI. */
   async getDocumentFile(id: string): Promise<string | null> {
     const doc = await this.getDocument(id);
     if (!doc) return null;
-
     const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
     const { uri, path } = this.getCacheLocation(`decrypted_${id}.${extension}`);
-
     await ExpoVaultModule.getFile(doc.fileKey, path);
     return uri;
   }
 
-  /**
-   * Get the decrypted thumbnail path for a document
-   */
   async getDocumentThumbnail(id: string): Promise<string | null> {
     const doc = await this.getDocument(id);
     if (!doc) return null;
-
     const { uri, path } = this.getCacheLocation(`thumb_${id}.jpg`);
-
     try {
       await ExpoVaultModule.getFile(doc.thumbnailKey, path);
       return uri;
     } catch {
-      // Thumbnail might not exist for PDFs or if generation failed
       return null;
     }
   }
 
-  /**
-   * Clear all decrypted cache files
-   */
+  /** Remove every decrypted file from the cache directory. */
   async clearCache(): Promise<void> {
     try {
-      const entries = new Directory(this.cacheUri).list();
-      for (const entry of entries) {
+      for (const entry of new Directory(this.cacheUri).list()) {
         const { name } = entry;
         if (
           name.startsWith('decrypted_') ||
@@ -280,29 +202,23 @@ class DocumentService {
           try {
             entry.delete();
           } catch {
-            // Ignore individual file deletion errors
+            // Best effort; the OS also purges the cache directory.
           }
         }
       }
-    } catch (e) {
-      console.warn('Failed to clear cache:', e);
+    } catch {
+      // The cache directory may not exist yet.
     }
   }
 
-  /**
-   * Get local file path from URI (handles content:// URIs)
-   */
+  /** Copies content:// sources (Android pickers) into the cache so the native module can read a path. */
   private async getLocalFilePath(uri: string): Promise<string> {
-    // If it's already a file path, return as-is
     if (uri.startsWith('/') || uri.startsWith('file://')) {
       return this.toPath(uri);
     }
-
-    // For content:// URIs, copy to a temp location using fetch
     const tempFile = new File(Paths.cache, `temp_import_${Date.now()}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-
     try {
       const response = await fetch(uri, { signal: controller.signal });
       const bytes = await response.arrayBuffer();
@@ -312,16 +228,7 @@ class DocumentService {
       clearTimeout(timeout);
     }
   }
-
-  /**
-   * Get document count
-   */
-  async getDocumentCount(): Promise<number> {
-    if (!this.metadata) await this.initialize();
-    return Object.keys(this.metadata!.documents).length;
-  }
 }
 
-// Export singleton instance
 export const documentService = new DocumentService();
 export default documentService;

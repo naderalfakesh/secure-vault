@@ -9,6 +9,7 @@ const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jp
 describe('DocumentService', () => {
   beforeEach(async () => {
     vaultMock.reset();
+    // reload closes the in-memory index and opens a fresh, empty one.
     await documentService.reload();
   });
 
