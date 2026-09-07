@@ -23,7 +23,7 @@ import {
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { useSession } from '@/features/session/SessionProvider';
 import { PageViewer } from '@/features/viewer/PageViewer';
-import { documentService, UNDO_WINDOW_MS } from '@/services/DocumentService';
+import { documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory } from '@/types';
@@ -199,7 +199,7 @@ export default function DocumentDetailScreen() {
       if (!deleted) return;
       toast.show({
         message: `Deleted "${deleted.document.title}"`,
-        durationMs: UNDO_WINDOW_MS,
+        durationMs: UNDO_TOAST_MS,
         action: {
           label: 'Undo',
           onPress: () => {

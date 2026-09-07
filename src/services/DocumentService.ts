@@ -14,8 +14,10 @@ const PAGE_PREFIX = 'page_';
 const THUMBNAIL_MAX_PIXELS = 512;
 // Full-screen pages on a 3x phone; larger only costs memory in the viewer.
 const PAGE_MAX_PIXELS = 2048;
-// How long an undo stays possible after a delete.
-export const UNDO_WINDOW_MS = 6000;
+// How long the undo toast stays up, and how much longer the decrypted copies
+// survive so a tap on a visible Undo always finds them.
+export const UNDO_TOAST_MS = 5000;
+export const UNDO_WINDOW_MS = 8000;
 
 type ChangeListener = () => void;
 
