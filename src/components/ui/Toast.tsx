@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { Pressable, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeOutDown, useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -73,13 +73,14 @@ export function ToastProvider({ children }: PropsWithChildren) {
 
 function ToastView({ toast, onHide }: { toast: ToastState; onHide: () => void }) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const tone = toast.tone ?? 'neutral';
 
   return (
     <View pointerEvents="box-none" style={[styles.host, { bottom: insets.bottom + 72 }]}>
       <Animated.View
-        entering={FadeInDown.duration(220)}
-        exiting={FadeOutDown.duration(180)}
+        entering={reduceMotion ? undefined : FadeInDown.duration(220)}
+        exiting={reduceMotion ? undefined : FadeOutDown.duration(180)}
         style={styles.toast(tone)}
       >
         <Icon name={toneIcon[tone]} size={18} tone="inverse" />
