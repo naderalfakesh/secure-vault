@@ -28,8 +28,11 @@ type AppThemes = {
 type AppBreakpoints = typeof breakpoints;
 
 declare module 'react-native-unistyles' {
+  // Module augmentation requires interfaces; the empty bodies are the pattern Unistyles documents.
+  /* eslint-disable @typescript-eslint/no-empty-object-type */
   export interface UnistylesThemes extends AppThemes {}
   export interface UnistylesBreakpoints extends AppBreakpoints {}
+  /* eslint-enable @typescript-eslint/no-empty-object-type */
 }
 
 StyleSheet.configure({
