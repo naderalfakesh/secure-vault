@@ -84,7 +84,7 @@ Android, Medium Phone emulator, API 36.1, fresh install of the rebuilt APK:
 ## Quality gate
 
 `npm run validate` passes: Prettier, ESLint, TypeScript 6 strict, Jest
-(14 suites, 53 tests), Expo Doctor. New tests cover share file naming, PDF
+(13 suites, 53 tests), Expo Doctor. New tests cover share file naming, PDF
 page rasterisation through the mock, delete with a restorable snapshot, the
 PDF preview helper, and the key-window recovery wrapper.
 
