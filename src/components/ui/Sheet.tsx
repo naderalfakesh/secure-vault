@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
-import { useEffect } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Keyboard, Modal, Platform, Pressable, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -41,6 +41,7 @@ export function Sheet({
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
+  const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => {
     const target = visible ? 1 : 0;
@@ -67,7 +68,7 @@ export function Sheet({
       onRequestClose={dismissable ? onClose : undefined}
       testID={testID}
     >
-      <View style={styles.root}>
+      <View style={[styles.root, { paddingBottom: keyboardHeight }]}>
         <Animated.View style={[styles.backdrop, backdropStyle]}>
           <Pressable
             accessibilityRole="button"
@@ -106,6 +107,25 @@ export function Sheet({
       </View>
     </Modal>
   );
+}
+
+/**
+ * Height of the software keyboard. A modal's window does not resize for the
+ * keyboard on Android, so the sheet lifts itself above it instead.
+ */
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (event) => setHeight(event.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvent, () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
 }
 
 const styles = StyleSheet.create((theme) => ({
