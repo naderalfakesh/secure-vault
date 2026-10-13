@@ -62,6 +62,7 @@ enum BackupContainer {
   typealias Progress = (Int, Int) -> Void
 
   static func deriveKey(passphrase: String, salt: Data, iterations: Int) throws -> SymmetricKey {
+    guard let rounds = UInt32(exactly: iterations), rounds > 0 else { throw BackupError.corrupt("header") }
     var derived = [UInt8](repeating: 0, count: 32)
     let passwordBytes = Array(passphrase.utf8)
     let status = salt.withUnsafeBytes { saltPointer -> Int32 in
@@ -69,7 +70,7 @@ enum BackupContainer {
         CCPBKDFAlgorithm(kCCPBKDF2),
         passwordBytes.map { CChar(bitPattern: $0) }, passwordBytes.count,
         saltPointer.bindMemory(to: UInt8.self).baseAddress, salt.count,
-        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), UInt32(iterations),
+        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256), rounds,
         &derived, derived.count
       )
     }
@@ -127,15 +128,25 @@ enum BackupContainer {
     return try readHeader(input)
   }
 
+  /// Expects `input` at the start of the file. The header length is checked
+  /// against the bytes left in the file, and the entry count and iterations
+  /// must fit the types they are used as, before anything is allocated or
+  /// derived.
   private static func readHeader(_ input: FileHandle) throws -> Header {
-    guard input.readData(ofLength: magic.count) == magic else { throw BackupError.corrupt("not a SecureVault backup") }
-    let lengthData = input.readData(ofLength: 4)
+    guard try VaultCrypto.read(input, count: magic.count) == magic else {
+      throw BackupError.corrupt("not a SecureVault backup")
+    }
+    let lengthData = try VaultCrypto.read(input, count: 4)
     guard lengthData.count == 4 else { throw BackupError.corrupt("header") }
-    let headerData = input.readData(ofLength: Int(readBe32(lengthData)))
-    guard let header = try? JSONDecoder().decode(Header.self, from: headerData) else {
+    let length = Int(readBe32(lengthData))
+    guard length <= (try remaining(input)) else { throw BackupError.corrupt("truncated") }
+    guard let header = try? JSONDecoder().decode(Header.self, from: VaultCrypto.read(input, count: length)) else {
       throw BackupError.corrupt("header")
     }
     guard header.version <= version else { throw BackupError.unsupported(header.version) }
+    guard header.entries >= 0, let rounds = UInt32(exactly: header.kdf.iterations), rounds > 0 else {
+      throw BackupError.corrupt("header")
+    }
     return header
   }
 
@@ -145,28 +156,39 @@ enum BackupContainer {
   static func readMetas(from source: URL) throws -> [Meta] {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
-    let end = try input.seekToEnd()
-    try input.seek(toOffset: 0)
     let header = try readHeader(input)
-    guard header.entries >= 0 else { throw BackupError.corrupt("header") }
     var metas: [Meta] = []
     for index in 0..<header.entries {
-      let metaLength = input.readData(ofLength: 4)
-      guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
-      let metaSize = UInt64(readBe32(metaLength))
-      guard metaSize <= end - (try input.offset()) else { throw BackupError.corrupt("truncated") }
-      guard let meta = try? JSONDecoder().decode(Meta.self, from: input.readData(ofLength: Int(metaSize))) else {
-        throw BackupError.corrupt("entry \(index)")
-      }
-      let sizeData = input.readData(ofLength: 8)
-      guard sizeData.count == 8 else { throw BackupError.corrupt("entry \(index)") }
-      let size = readBe64(sizeData)
-      let payloadStart = try input.offset()
-      guard size <= end - payloadStart else { throw BackupError.corrupt("truncated") }
-      try input.seek(toOffset: payloadStart + size)
+      let (meta, size) = try readEntryHead(input, index: index)
+      try input.seek(toOffset: try input.offset() + size)
       metas.append(meta)
     }
     return metas
+  }
+
+  /// Reads one entry's metadata and payload length, leaving `input` at the
+  /// payload. Both lengths are checked against the bytes left in the file.
+  private static func readEntryHead(_ input: FileHandle, index: Int) throws -> (Meta, UInt64) {
+    let metaLength = try VaultCrypto.read(input, count: 4)
+    guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
+    let metaSize = Int(readBe32(metaLength))
+    guard metaSize <= (try remaining(input)) else { throw BackupError.corrupt("truncated") }
+    guard let meta = try? JSONDecoder().decode(Meta.self, from: VaultCrypto.read(input, count: metaSize)) else {
+      throw BackupError.corrupt("entry \(index)")
+    }
+    let sizeData = try VaultCrypto.read(input, count: 8)
+    guard sizeData.count == 8 else { throw BackupError.corrupt("entry \(index)") }
+    let size = readBe64(sizeData)
+    guard size <= UInt64(try remaining(input)) else { throw BackupError.corrupt("truncated") }
+    return (meta, size)
+  }
+
+  /// Bytes between the current offset and the end of the file, as it is now.
+  private static func remaining(_ input: FileHandle) throws -> Int {
+    let offset = try input.offset()
+    let end = try input.seekToEnd()
+    try input.seek(toOffset: offset)
+    return offset < end ? Int(end - offset) : 0
   }
 
   /// Which pass of a restore a progress event belongs to; the raw value is
@@ -236,17 +258,12 @@ enum BackupContainer {
     defer { try? input.close() }
     let header = try readHeader(input)
     for index in 0..<header.entries {
-      let metaLength = input.readData(ofLength: 4)
-      guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
-      let metaData = input.readData(ofLength: Int(readBe32(metaLength)))
-      guard let meta = try? JSONDecoder().decode(Meta.self, from: metaData) else { throw BackupError.corrupt("entry \(index)") }
-      // Checked again in case the file changed since the pre-pass.
+      // Lengths and metadata are checked again in case the file changed since the pre-pass.
+      let (meta, size) = try readEntryHead(input, index: index)
       try validate(meta)
-      let sizeData = input.readData(ofLength: 8)
-      guard sizeData.count == 8 else { throw BackupError.corrupt("entry \(index)") }
       let payload = temporaryFile()
       defer { try? FileManager.default.removeItem(at: payload) }
-      try copy(from: input, bytes: readBe64(sizeData), to: payload)
+      try copy(from: input, bytes: size, to: payload)
       try visit(meta, payload)
       progress(index + 1, header.entries)
     }
@@ -272,9 +289,9 @@ enum BackupContainer {
     defer { try? output.close() }
     var remaining = bytes
     while remaining > 0 {
-      let chunk = input.readData(ofLength: Int(min(remaining, 1_048_576)))
+      let chunk = try VaultCrypto.read(input, count: Int(min(remaining, 1_048_576)))
       guard !chunk.isEmpty else { throw BackupError.corrupt("truncated") }
-      output.write(chunk)
+      try output.write(contentsOf: chunk)
       remaining -= UInt64(chunk.count)
     }
   }

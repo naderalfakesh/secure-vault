@@ -30,6 +30,8 @@ object VaultCrypto {
     private const val NONCE_SIZE = 12
     private const val TAG_BITS = 128
 
+    class CorruptException(reason: String) : Exception("Vault file is corrupt: $reason")
+
     fun encryptFile(source: File, destination: File, key: SecretKey) {
         FileInputStream(source).use { input ->
             DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
@@ -75,21 +77,23 @@ object VaultCrypto {
         }
     }
 
+    /** A failed decryption leaves no partial plaintext at [destination]. */
     fun decryptFile(source: File, destination: File, key: SecretKey, legacyIv: ByteArray?) {
         if (!isChunked(source)) {
             val iv = legacyIv ?: throw IllegalStateException("Legacy file without IV")
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
+            val plain = cipher.doFinal(source.readBytes())
             destination.parentFile?.mkdirs()
-            destination.writeBytes(cipher.doFinal(source.readBytes()))
+            removingOnFailure(destination) { destination.writeBytes(plain) }
             return
         }
         destination.parentFile?.mkdirs()
-        DataInputStream(FileInputStream(source).buffered()).use { input ->
-            input.skipBytes(MAGIC.size)
-            input.readInt() // chunk size, informational
-            FileOutputStream(destination).buffered().use { output ->
-                openChunks(input, key) { output.write(it) }
+        removingOnFailure(destination) {
+            DataInputStream(FileInputStream(source).buffered()).use { input ->
+                FileOutputStream(destination).buffered().use { output ->
+                    openChunks(input, source.length(), key) { output.write(it) }
+                }
             }
         }
     }
@@ -102,17 +106,36 @@ object VaultCrypto {
     fun verifyFile(source: File, key: SecretKey) {
         if (!isChunked(source)) throw IllegalStateException("Legacy file without IV")
         DataInputStream(FileInputStream(source).buffered()).use { input ->
-            input.skipBytes(MAGIC.size)
-            input.readInt() // chunk size, informational
-            openChunks(input, key) { }
+            openChunks(input, source.length(), key) { }
         }
     }
 
-    /** Opens the chunks after the header in order, each bound to its index, and passes every plaintext to [sink]. */
-    private fun openChunks(input: DataInputStream, key: SecretKey, sink: (ByteArray) -> Unit) {
+    private fun removingOnFailure(destination: File, write: () -> Unit) {
+        try {
+            write()
+        } catch (e: Throwable) {
+            destination.delete()
+            throw e
+        }
+    }
+
+    /**
+     * Reads the header, then opens the chunks in order, each bound to its index,
+     * and passes every plaintext to [sink]. Every length is checked against the
+     * bytes left in the [size]-byte file before anything is allocated.
+     */
+    private fun openChunks(input: DataInputStream, size: Long, key: SecretKey, sink: (ByteArray) -> Unit) {
+        var remaining = size - MAGIC.size - Int.SIZE_BYTES
+        if (remaining < 0) throw CorruptException("header")
+        input.skipBytes(MAGIC.size)
+        input.readInt() // chunk size, informational
         var index = 0
-        while (input.available() > 0) {
+        while (remaining > 0) {
+            if (remaining < Int.SIZE_BYTES) throw CorruptException("length")
             val length = input.readInt()
+            remaining -= Int.SIZE_BYTES
+            if (length < NONCE_SIZE + TAG_BITS / 8 || length > remaining) throw CorruptException("chunk $index")
+            remaining -= length
             val iv = ByteArray(NONCE_SIZE)
             input.readFully(iv)
             val sealed = ByteArray(length - NONCE_SIZE)

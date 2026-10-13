@@ -1,8 +1,6 @@
 package expo.modules.vault
 
 import org.json.JSONObject
-import java.io.DataInput
-import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
 import java.io.File
@@ -103,9 +101,15 @@ object BackupContainer {
     }
 
     fun readHeader(source: File): Header =
-        DataInputStream(FileInputStream(source).buffered()).use { readHeader(it) }
+        RandomAccessFile(source, "r").use { readHeader(it) }
 
-    private fun readHeader(input: DataInput): Header {
+    /**
+     * Expects [input] at the start of the file. The header length is checked
+     * against the bytes left in the file, and the entry count and iterations
+     * must fit the types they are used as, before anything is allocated or
+     * derived.
+     */
+    private fun readHeader(input: RandomAccessFile): Header {
         val magic = ByteArray(MAGIC.size)
         try {
             input.readFully(magic)
@@ -113,8 +117,13 @@ object BackupContainer {
             throw CorruptException("not a SecureVault backup")
         }
         if (!magic.contentEquals(MAGIC)) throw CorruptException("not a SecureVault backup")
-        val headerBytes = ByteArray(input.readInt())
-        input.readFully(headerBytes)
+        val headerBytes = try {
+            val headerLength = input.readInt()
+            if (headerLength < 0 || headerLength > input.length() - input.filePointer) throw CorruptException("truncated")
+            ByteArray(headerLength).also { input.readFully(it) }
+        } catch (e: EOFException) {
+            throw CorruptException("truncated")
+        }
         val json = try {
             JSONObject(String(headerBytes, Charsets.UTF_8))
         } catch (e: Exception) {
@@ -123,13 +132,23 @@ object BackupContainer {
         val version = json.optInt("version", 0)
         if (version > VERSION) throw UnsupportedException(version)
         val kdf = json.optJSONObject("kdf") ?: throw CorruptException("header")
+        val iterations = kdf.optLong("iterations", ITERATIONS.toLong())
+        if (iterations < 1 || iterations > Int.MAX_VALUE) throw CorruptException("header")
+        val entries = json.optLong("entries", 0)
+        if (entries < 0 || entries > Int.MAX_VALUE) throw CorruptException("header")
+        val salt = try {
+            android.util.Base64.decode(kdf.optString("salt", ""), android.util.Base64.DEFAULT)
+        } catch (e: IllegalArgumentException) {
+            throw CorruptException("salt")
+        }
+        if (salt.isEmpty()) throw CorruptException("salt")
         return Header(
             version = version,
             app = json.optString("app", ""),
             created = json.optString("created", ""),
-            iterations = kdf.optInt("iterations", ITERATIONS),
-            salt = android.util.Base64.decode(kdf.optString("salt", ""), android.util.Base64.DEFAULT),
-            entries = json.optInt("entries", 0),
+            iterations = iterations.toInt(),
+            salt = salt,
+            entries = entries.toInt(),
         )
     }
 
@@ -152,28 +171,34 @@ object BackupContainer {
      */
     fun readMetas(source: File): List<Meta> =
         RandomAccessFile(source, "r").use { input ->
-            try {
-                val end = input.length()
-                val header = readHeader(input)
-                if (header.entries < 0) throw CorruptException("header")
-                // The count is untrusted: grow the list as entries are read, so a
-                // short file fails on its first missing byte instead of allocating.
-                val metas = ArrayList<Meta>()
-                repeat(header.entries) { index ->
-                    val metaLength = input.readInt()
-                    if (metaLength < 0 || metaLength > end - input.filePointer) throw CorruptException("truncated")
-                    val metaBytes = ByteArray(metaLength)
-                    input.readFully(metaBytes)
-                    val meta = parseMeta(metaBytes, index)
-                    val size = input.readLong()
-                    if (size < 0 || size > end - input.filePointer) throw CorruptException("truncated")
-                    input.seek(input.filePointer + size)
-                    metas.add(meta)
-                }
-                metas
-            } catch (e: EOFException) {
-                throw CorruptException("truncated")
+            val header = readHeader(input)
+            // The count is untrusted: grow the list as entries are read, so a
+            // short file fails on its first missing byte instead of allocating.
+            val metas = ArrayList<Meta>()
+            repeat(header.entries) { index ->
+                val (meta, size) = readEntryHead(input, index)
+                input.seek(input.filePointer + size)
+                metas.add(meta)
             }
+            metas
+        }
+
+    /**
+     * Reads one entry's metadata and payload length, leaving [input] at the
+     * payload. Both lengths are checked against the bytes left in the file.
+     */
+    private fun readEntryHead(input: RandomAccessFile, index: Int): Pair<Meta, Long> =
+        try {
+            val metaLength = input.readInt()
+            if (metaLength < 0 || metaLength > input.length() - input.filePointer) throw CorruptException("truncated")
+            val metaBytes = ByteArray(metaLength)
+            input.readFully(metaBytes)
+            val meta = parseMeta(metaBytes, index)
+            val size = input.readLong()
+            if (size < 0 || size > input.length() - input.filePointer) throw CorruptException("truncated")
+            Pair(meta, size)
+        } catch (e: EOFException) {
+            throw CorruptException("truncated")
         }
 
     /** Which pass of a restore a progress event belongs to; [wireName] is the phase name sent to JavaScript. */
@@ -248,15 +273,12 @@ object BackupContainer {
         source: File, scratch: File, validate: (Meta) -> Unit,
         progress: (Int, Int) -> Unit, visit: (Meta, File) -> Unit
     ) {
-        DataInputStream(FileInputStream(source).buffered()).use { input ->
+        RandomAccessFile(source, "r").use { input ->
             val header = readHeader(input)
             for (index in 0 until header.entries) {
-                val metaBytes = ByteArray(input.readInt())
-                input.readFully(metaBytes)
-                val meta = parseMeta(metaBytes, index)
-                // Checked again in case the file changed since the pre-pass.
+                // Lengths and metadata are checked again in case the file changed since the pre-pass.
+                val (meta, size) = readEntryHead(input, index)
                 validate(meta)
-                val size = input.readLong()
                 val payload = temporaryFile(scratch)
                 try {
                     FileOutputStream(payload).buffered().use { output ->
