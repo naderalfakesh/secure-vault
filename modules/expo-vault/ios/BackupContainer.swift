@@ -55,11 +55,31 @@ enum BackupContainer {
   struct Entry {
     var key: String
     var kind: String
-    /// Plaintext on disk (for export) or encrypted source (for import).
-    var url: URL
+    var source: Source
+
+    /// Where an entry's plaintext comes from while the container is written.
+    enum Source {
+      /// A file that is safe to leave where it is: the caller's extra files,
+      /// which their owner already encrypts (the SQLCipher index).
+      case file(URL)
+      /// Plaintext produced on demand into a file inside the staging
+      /// directory. `write` removes it as soon as the entry is encrypted, so
+      /// at most one entry is in plaintext at any time.
+      case staged((URL) throws -> Void)
+    }
   }
 
   typealias Progress = (Int, Int) -> Void
+
+  /// Empties the staging directory, creating it if needed. Export plaintext
+  /// only ever lives here, so one sweep is the whole cleanup after a crash.
+  static func sweep(_ staging: URL) throws {
+    let fileManager = FileManager.default
+    try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+    for item in try fileManager.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil) {
+      try fileManager.removeItem(at: item)
+    }
+  }
 
   static func deriveKey(passphrase: String, salt: Data, iterations: Int) throws -> SymmetricKey {
     guard let rounds = UInt32(exactly: iterations), rounds > 0 else { throw BackupError.corrupt("header") }
@@ -78,10 +98,14 @@ enum BackupContainer {
     return SymmetricKey(data: Data(derived))
   }
 
-  /// Writes the container. `entries` hold plaintext files; the caller removes them.
+  /// Writes the container. Plaintext is staged one entry at a time inside
+  /// `staging`, which is swept first (an earlier export may have been killed
+  /// mid-entry) and left empty whether the write succeeds or fails.
   static func write(
-    to destination: URL, passphrase: String, entries: [Entry], progress: Progress
+    to destination: URL, passphrase: String, staging: URL, entries: [Entry], progress: Progress
   ) throws -> (entries: Int, bytes: Int) {
+    try sweep(staging)
+    defer { try? sweep(staging) }
     var salt = Data(count: 16)
     let result = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
     guard result == errSecSuccess else { throw BackupError.corrupt("random") }
@@ -102,14 +126,26 @@ enum BackupContainer {
     output.write(be32(UInt32(headerData.count)))
     output.write(headerData)
 
-    let checkFile = temporaryFile()
-    try checkValue.write(to: checkFile)
-    defer { try? FileManager.default.removeItem(at: checkFile) }
-    let all = [Entry(key: checkKey, kind: "c", url: checkFile)] + entries
+    let check = Entry(key: checkKey, kind: "c", source: .staged { try checkValue.write(to: $0) })
+    let all = [check] + entries
     for (index, entry) in all.enumerated() {
-      let payload = temporaryFile()
-      defer { try? FileManager.default.removeItem(at: payload) }
-      try VaultCrypto.encryptFile(from: entry.url, to: payload, key: key)
+      let plain = staging.appendingPathComponent("plain-\(UUID().uuidString)")
+      let payload = staging.appendingPathComponent("payload-\(UUID().uuidString)")
+      defer {
+        try? FileManager.default.removeItem(at: plain)
+        try? FileManager.default.removeItem(at: payload)
+      }
+      let source: URL
+      switch entry.source {
+      case .file(let url):
+        source = url
+      case .staged(let produce):
+        try produce(plain)
+        source = plain
+      }
+      try VaultCrypto.encryptFile(from: source, to: payload, key: key)
+      // The plaintext has been consumed; drop it before the payload is copied out.
+      try? FileManager.default.removeItem(at: plain)
       let meta = try JSONEncoder().encode(Meta(key: entry.key, kind: entry.kind))
       output.write(be32(UInt32(meta.count)))
       output.write(meta)

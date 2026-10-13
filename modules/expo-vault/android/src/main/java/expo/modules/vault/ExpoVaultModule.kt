@@ -209,30 +209,28 @@ class ExpoVaultModule : Module() {
 
         // Passphrase-protected backups (see BackupContainer.kt)
 
-        AsyncFunction("exportBackup") { destPath: String, passphrase: String, extraFiles: List<Map<String, String>>, promise: Promise ->
-            val plaintexts = mutableListOf<File>()
+        AsyncFunction("exportBackup") { destPath: String, passphrase: String, extraFiles: List<Map<String, String>>, stagingDir: String, promise: Promise ->
             try {
                 val secretKey = getSecretKey()
                 val entries = mutableListOf<BackupContainer.Entry>()
                 for (file in vaultEntryFiles()) {
-                    val plain = BackupContainer.temporaryFile(appContext.reactContext!!.cacheDir)
-                    plaintexts.add(plain)
-                    val kind = decryptEntry(file, plain, secretKey)
-                    entries.add(BackupContainer.Entry(file.name, kind, plain))
+                    // Only the kind is read here; the container decrypts each entry into the
+                    // staging directory when its turn comes.
+                    val kind = if (VaultCrypto.isChunked(file)) "f" else "s"
+                    val source = BackupContainer.Source.Staged { plain -> decryptEntry(file, plain, secretKey) }
+                    entries.add(BackupContainer.Entry(file.name, kind, source))
                 }
                 for (extra in extraFiles) {
                     val key = extra["key"] ?: continue
                     val path = extra["path"] ?: continue
-                    entries.add(BackupContainer.Entry(key, "x", File(path)))
+                    entries.add(BackupContainer.Entry(key, "x", BackupContainer.Source.Ready(File(path))))
                 }
-                val result = BackupContainer.write(File(destPath), passphrase, entries) { done, total ->
+                val result = BackupContainer.write(File(destPath), passphrase, File(stagingDir), entries) { done, total ->
                     sendEvent("backupProgress", mapOf("phase" to "export", "done" to done, "total" to total))
                 }
                 promise.resolve(mapOf("entries" to result.first, "bytes" to result.second))
             } catch (e: Exception) {
                 promise.reject(failureCode(e, "BACKUP_EXPORT_FAILED"), e.message, e)
-            } finally {
-                plaintexts.forEach { it.delete() }
             }
         }
 
@@ -510,17 +508,16 @@ class ExpoVaultModule : Module() {
             ?.sortedBy { it.name }
             ?: emptyList()
 
-    /** Decrypts one entry with the device key: "f" for the chunked container, "s" for a single GCM box. */
-    private fun decryptEntry(source: File, plain: File, key: SecretKey): String {
+    /** Decrypts one entry with the device key into [plain]; a legacy single GCM box keeps its IV in preferences. */
+    private fun decryptEntry(source: File, plain: File, key: SecretKey) {
         if (VaultCrypto.isChunked(source)) {
             VaultCrypto.decryptFile(source, plain, key, null)
-            return "f"
+            return
         }
         val iv = ivPreferences.getString(source.name, null)?.let {
             android.util.Base64.decode(it, android.util.Base64.DEFAULT)
         }
         VaultCrypto.decryptFile(source, plain, key, iv)
-        return "s"
     }
 
     private fun getSecretKey(): SecretKey {

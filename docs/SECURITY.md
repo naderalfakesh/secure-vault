@@ -94,6 +94,11 @@ while unlocked. Sharing can require a second biometric check.
   in the app's cache directory while a screen needs them. The cache is swept
   when the vault locks, when the app is deleted, and on the share sheet's and
   the undo window's own timers.
+- While a backup is written, the vault module decrypts one entry at a time
+  into a staging folder in the cache and removes it as soon as that entry is
+  encrypted under the backup key. The folder is emptied before and after every
+  export and by the lock and launch sweep, so an export killed mid-entry leaves
+  at most one entry behind, and only until the next launch or lock.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.

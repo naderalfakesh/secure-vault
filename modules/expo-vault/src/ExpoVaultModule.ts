@@ -76,12 +76,15 @@ export interface SecureVault {
   // Backup & restore
   /**
    * Writes every vault entry plus `extraFiles` into a passphrase-protected
-   * container at `destPath`. Emits `backupProgress` while it works.
+   * container at `destPath`. Entries are decrypted one at a time into
+   * `stagingDir`, which is emptied before and after; the caller sweeps it on
+   * lock and launch as well. Emits `backupProgress` while it works.
    */
   exportBackup(
     destPath: string,
     passphrase: string,
     extraFiles: BackupFile[],
+    stagingDir: string,
   ): Promise<BackupSummary>;
   /**
    * Reads the container header without a passphrase. Rejects with

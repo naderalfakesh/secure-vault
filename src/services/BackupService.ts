@@ -7,6 +7,13 @@ import { documentService } from './DocumentService';
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 const DATABASE_ENTRY = 'database';
+/**
+ * Cache folder where the vault module decrypts one entry at a time while it
+ * writes a backup. It is emptied before and after every export and by the
+ * lock and launch sweep in `DocumentService.clearCache`, so an export that is
+ * killed mid-entry leaves at most one entry behind, and only until then.
+ */
+export const BACKUP_STAGING_DIRECTORY = 'backup-staging';
 
 export interface BackupResult {
   uri: string;
@@ -82,6 +89,14 @@ class BackupService {
     return directory;
   }
 
+  /** An empty staging folder; whatever an interrupted export left there goes first. */
+  private staging() {
+    const directory = new Directory(Paths.cache, BACKUP_STAGING_DIRECTORY);
+    if (directory.exists) directory.delete();
+    directory.create({ intermediates: true });
+    return directory;
+  }
+
   private subscribe(listener?: ProgressListener) {
     if (!listener) return () => {};
     const subscription = vault.addListener('backupProgress', listener);
@@ -97,16 +112,21 @@ class BackupService {
     const target = new File(directory, name);
     if (target.exists) target.delete();
     const databaseCopy = new File(directory, 'index.db');
+    const staging = this.staging();
     const unsubscribe = this.subscribe(onProgress);
     try {
       await exportDatabaseFile(toPath(databaseCopy.uri));
-      const summary = await vault.exportBackup(toPath(target.uri), passphrase, [
-        { key: DATABASE_ENTRY, path: toPath(databaseCopy.uri) },
-      ]);
+      const summary = await vault.exportBackup(
+        toPath(target.uri),
+        passphrase,
+        [{ key: DATABASE_ENTRY, path: toPath(databaseCopy.uri) }],
+        toPath(staging.uri),
+      );
       return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
     } finally {
       unsubscribe();
       if (databaseCopy.exists) databaseCopy.delete();
+      if (staging.exists) staging.delete();
     }
   }
 

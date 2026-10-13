@@ -1,9 +1,17 @@
+import { Directory, File, Paths } from 'expo-file-system';
+
 import vault from '../../../modules/expo-vault';
+import type { VaultMockExport } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import { DocumentCategory } from '../../types';
-import { backupService, describeBackupError, passphraseProblem } from '../BackupService';
+import {
+  BACKUP_STAGING_DIRECTORY,
+  backupService,
+  describeBackupError,
+  passphraseProblem,
+} from '../BackupService';
 import { documentService } from '../DocumentService';
 
-const vaultMock = vault as unknown as { reset(): void };
+const vaultMock = vault as unknown as { reset(): void; lastExport: VaultMockExport | null };
 
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
@@ -93,5 +101,70 @@ describe('BackupService', () => {
       code: 'BACKUP_PASSPHRASE',
     });
     expect(await vault.get('_database_key')).toBe('ef'.repeat(32));
+  });
+
+  describe('export staging', () => {
+    const staging = () => new Directory(Paths.cache, BACKUP_STAGING_DIRECTORY);
+
+    // What an export killed mid-entry would leave behind.
+    const plantResidue = () => {
+      const directory = staging();
+      if (!directory.exists) directory.create({ intermediates: true });
+      new File(directory, 'plain-left-behind').write('plaintext');
+    };
+
+    it('hands the module an empty staging folder in the cache and removes it afterwards', async () => {
+      plantResidue();
+      let seen: { exists: boolean; entries: number } | null = null;
+      const spy = jest
+        .spyOn(vault, 'exportBackup')
+        .mockImplementationOnce(async (destPath, passphrase, extraFiles, stagingDir) => {
+          const directory = staging();
+          seen = { exists: directory.exists, entries: directory.list().length };
+          vaultMock.lastExport = { destPath, stagingDir };
+          return { entries: extraFiles.length, bytes: 1 };
+        });
+      try {
+        await backupService.createBackup('correct horse battery');
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(seen).toEqual({ exists: true, entries: 0 });
+      const { destPath, stagingDir } = vaultMock.lastExport!;
+      expect(stagingDir).toBe(`/mock/cache/${BACKUP_STAGING_DIRECTORY}`);
+      expect(destPath.startsWith(`${stagingDir}/`)).toBe(false);
+      expect(staging().exists).toBe(false);
+    });
+
+    it('removes the staging folder when the module fails', async () => {
+      const spy = jest
+        .spyOn(vault, 'exportBackup')
+        .mockRejectedValueOnce(
+          Object.assign(new Error('disk full'), { code: 'BACKUP_EXPORT_FAILED' }),
+        );
+      try {
+        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow(
+          'disk full',
+        );
+      } finally {
+        spy.mockRestore();
+      }
+      expect(staging().exists).toBe(false);
+    });
+
+    it('is swept with the rest of the cache when the vault locks', async () => {
+      plantResidue();
+      const finished = new Directory(Paths.cache, 'backup');
+      if (!finished.exists) finished.create();
+      new File(finished, 'SecureVault backup 2026-10-13.svbackup').write('ciphertext');
+
+      await documentService.clearCache();
+
+      expect(staging().exists).toBe(false);
+      // Finished backups are ciphertext and stay until the share sheet hands them off.
+      expect(finished.exists).toBe(true);
+      finished.delete();
+    });
   });
 });

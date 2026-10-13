@@ -134,24 +134,25 @@ public class ExpoVaultModule: Module {
 
     // MARK: Passphrase-protected backups (see BackupContainer.swift)
 
-    AsyncFunction("exportBackup") { (destPath: String, passphrase: String, extraFiles: [[String: String]], promise: Promise) in
-        var plaintexts: [URL] = []
-        defer { plaintexts.forEach { try? FileManager.default.removeItem(at: $0) } }
+    AsyncFunction("exportBackup") { (destPath: String, passphrase: String, extraFiles: [[String: String]], stagingDir: String, promise: Promise) in
         do {
             let encryptionKey = try self.getEncryptionKey()
             var entries: [BackupContainer.Entry] = []
             for url in try self.vaultEntryURLs() {
-                let plain = BackupContainer.temporaryFile()
-                plaintexts.append(plain)
-                let kind = try self.decryptEntry(at: url, to: plain, key: encryptionKey)
-                entries.append(.init(key: url.lastPathComponent, kind: kind, url: plain))
+                // Only the kind is read here; the container decrypts each entry
+                // into the staging directory when its turn comes.
+                let kind = try Self.entryKind(at: url)
+                entries.append(.init(key: url.lastPathComponent, kind: kind, source: .staged { plain in
+                    try self.decryptEntry(at: url, to: plain, key: encryptionKey)
+                }))
             }
             for extra in extraFiles {
                 guard let key = extra["key"], let path = extra["path"] else { continue }
-                entries.append(.init(key: key, kind: "x", url: URL(fileURLWithPath: path)))
+                entries.append(.init(key: key, kind: "x", source: .file(URL(fileURLWithPath: path))))
             }
             let result = try BackupContainer.write(
-                to: URL(fileURLWithPath: destPath), passphrase: passphrase, entries: entries
+                to: URL(fileURLWithPath: destPath), passphrase: passphrase,
+                staging: URL(fileURLWithPath: stagingDir, isDirectory: true), entries: entries
             ) { done, total in
                 self.sendEvent("backupProgress", ["phase": "export", "done": done, "total": total])
             }
@@ -404,19 +405,22 @@ public class ExpoVaultModule: Module {
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
   }
 
-  /// Decrypts one vault entry with the device key and reports its kind:
-  /// "f" for the chunked file container, "s" for a single sealed box.
-  private func decryptEntry(at url: URL, to plain: URL, key: SymmetricKey) throws -> String {
+  /// An entry's kind from its first bytes, without decrypting it: "f" for the
+  /// chunked file container, "s" for a single sealed box.
+  private static func entryKind(at url: URL) throws -> String {
     let input = try FileHandle(forReadingFrom: url)
-    let header = input.readData(ofLength: 4)
-    try? input.close()
-    if header == Data("SVC1".utf8) {
+    defer { try? input.close() }
+    return input.readData(ofLength: 4) == Data("SVC1".utf8) ? "f" : "s"
+  }
+
+  /// Decrypts one vault entry with the device key into `plain`.
+  private func decryptEntry(at url: URL, to plain: URL, key: SymmetricKey) throws {
+    if try Self.entryKind(at: url) == "f" {
       try VaultCrypto.decryptFile(from: url, to: plain, key: key)
-      return "f"
+      return
     }
     let box = try AES.GCM.SealedBox(combined: Data(contentsOf: url))
     try AES.GCM.open(box, using: key).write(to: plain, options: .atomic)
-    return "s"
   }
 
   private func getFileURL(for key: String) throws -> URL {

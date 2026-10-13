@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
@@ -37,7 +38,19 @@ object BackupContainer {
 
     data class Header(val version: Int, val app: String, val created: String, val iterations: Int, val salt: ByteArray, val entries: Int)
     data class Meta(val key: String, val kind: String)
-    data class Entry(val key: String, val kind: String, val file: File)
+    data class Entry(val key: String, val kind: String, val source: Source)
+
+    /** Where an entry's plaintext comes from while the container is written. */
+    sealed class Source {
+        /** A file that is safe to leave where it is: the caller's extra files, which their owner already encrypts (the SQLCipher index). */
+        data class Ready(val file: File) : Source()
+
+        /**
+         * Plaintext produced on demand into a file inside the staging directory. [write] removes it as
+         * soon as the entry is encrypted, so at most one entry is in plaintext at any time.
+         */
+        class Staged(val produce: (File) -> Unit) : Source()
+    }
 
     private val MAGIC = "SVB1".toByteArray(Charsets.US_ASCII)
     private const val VERSION = 1
@@ -53,8 +66,30 @@ object BackupContainer {
 
     fun temporaryFile(directory: File): File = File.createTempFile("backup", null, directory)
 
-    /** Writes the container from plaintext entries. Returns (entries, bytes). */
-    fun write(destination: File, passphrase: String, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
+    /**
+     * Empties the staging directory, creating it if needed. Export plaintext only ever lives here,
+     * so one sweep is the whole cleanup after a crash.
+     */
+    fun sweep(staging: File) {
+        staging.mkdirs()
+        staging.listFiles()?.forEach { it.deleteRecursively() }
+    }
+
+    /**
+     * Writes the container. Plaintext is staged one entry at a time inside [staging], which is swept
+     * first (an earlier export may have been killed mid-entry) and left empty whether the write
+     * succeeds or fails. Returns (entries, bytes).
+     */
+    fun write(destination: File, passphrase: String, staging: File, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
+        sweep(staging)
+        try {
+            return writeEntries(destination, passphrase, staging, entries, progress)
+        } finally {
+            sweep(staging)
+        }
+    }
+
+    private fun writeEntries(destination: File, passphrase: String, staging: File, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         val key = deriveKey(passphrase, salt, ITERATIONS)
         val created = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
@@ -70,32 +105,35 @@ object BackupContainer {
             .put("entries", entries.size + 1)
             .toString().toByteArray(Charsets.UTF_8)
 
-        val check = temporaryFile(destination.parentFile ?: File("."))
-        try {
-            check.writeBytes(CHECK_VALUE)
-            val all = listOf(Entry(CHECK_KEY, "c", check)) + entries
-            DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
-                output.write(MAGIC)
-                output.writeInt(header.size)
-                output.write(header)
-                all.forEachIndexed { index, entry ->
-                    val payload = temporaryFile(destination.parentFile ?: File("."))
-                    try {
-                        VaultCrypto.encryptFile(entry.file, payload, key)
-                        val meta = JSONObject().put("key", entry.key).put("kind", entry.kind)
-                            .toString().toByteArray(Charsets.UTF_8)
-                        output.writeInt(meta.size)
-                        output.write(meta)
-                        output.writeLong(payload.length())
-                        FileInputStream(payload).use { it.copyTo(output) }
-                    } finally {
-                        payload.delete()
+        val check = Entry(CHECK_KEY, "c", Source.Staged { it.writeBytes(CHECK_VALUE) })
+        val all = listOf(check) + entries
+        DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
+            output.write(MAGIC)
+            output.writeInt(header.size)
+            output.write(header)
+            all.forEachIndexed { index, entry ->
+                val plain = File(staging, "plain-${UUID.randomUUID()}")
+                val payload = File(staging, "payload-${UUID.randomUUID()}")
+                try {
+                    val source = when (val entrySource = entry.source) {
+                        is Source.Ready -> entrySource.file
+                        is Source.Staged -> plain.also(entrySource.produce)
                     }
-                    progress(index + 1, all.size)
+                    VaultCrypto.encryptFile(source, payload, key)
+                    // The plaintext has been consumed; drop it before the payload is copied out.
+                    plain.delete()
+                    val meta = JSONObject().put("key", entry.key).put("kind", entry.kind)
+                        .toString().toByteArray(Charsets.UTF_8)
+                    output.writeInt(meta.size)
+                    output.write(meta)
+                    output.writeLong(payload.length())
+                    FileInputStream(payload).use { it.copyTo(output) }
+                } finally {
+                    plain.delete()
+                    payload.delete()
                 }
+                progress(index + 1, all.size)
             }
-        } finally {
-            check.delete()
         }
         return Pair(entries.size, destination.length())
     }

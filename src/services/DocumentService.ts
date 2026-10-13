@@ -402,7 +402,9 @@ class DocumentService {
           name.startsWith('temp_') ||
           name.startsWith('pages_') ||
           name.startsWith('undo_') ||
-          name === 'share'
+          name === 'share' ||
+          // BackupService's export staging: a killed export can leave one entry here.
+          name === 'backup-staging'
         ) {
           try {
             entry.delete();

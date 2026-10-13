@@ -4,7 +4,16 @@ import type { BackupFile, BackupProgress, SecureVault } from './ExpoVaultModule'
  * In-memory stand-in for the native vault, used by Jest. It keeps the same
  * promise-based surface so services and hooks run unchanged in tests.
  */
-export function createVaultMock(): SecureVault & { reset(): void } {
+export interface VaultMockExport {
+  destPath: string;
+  stagingDir: string;
+}
+
+export function createVaultMock(): SecureVault & {
+  reset(): void;
+  /** Paths the last `exportBackup` call was given, for tests of the staging contract. */
+  lastExport: VaultMockExport | null;
+} {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
   let created = false;
@@ -22,6 +31,7 @@ export function createVaultMock(): SecureVault & { reset(): void } {
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
 
   return {
+    lastExport: null,
     async hasVault() {
       return created;
     },
@@ -68,7 +78,8 @@ export function createVaultMock(): SecureVault & { reset(): void } {
       if (!files.has(key)) throw new Error(`FILE_NOT_FOUND: ${key}`);
       return 1024;
     },
-    async exportBackup(destPath, passphrase, extraFiles) {
+    async exportBackup(destPath, passphrase, extraFiles, stagingDir) {
+      this.lastExport = { destPath, stagingDir };
       backups.set(destPath, {
         passphrase,
         strings: new Map(strings),
