@@ -20,6 +20,7 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 class ExpoVaultModule : Module() {
+    class InvalidKeyException(key: String) : IllegalArgumentException("Invalid vault key: $key")
 
     private val keyAlias = "encryptionKey"
     private val AUTH_VALIDITY_SECONDS = 300
@@ -160,6 +161,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("put") { key: String, value: String, promise: Promise ->
             try {
+                val file = vaultFile(key)
                 val secretKey = getSecretKey()
                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey)
@@ -168,7 +170,6 @@ class ExpoVaultModule : Module() {
                 ivPreferences.edit().putString(key, android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)).apply()
 
                 val encryptedData = cipher.doFinal(value.toByteArray())
-                val file = File(appContext.reactContext!!.filesDir, key)
                 file.writeBytes(encryptedData)
                 promise.resolve(null)
             } catch (e: Exception) {
@@ -186,7 +187,7 @@ class ExpoVaultModule : Module() {
                 }
                 val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
 
-                val file = File(appContext.reactContext!!.filesDir, key)
+                val file = vaultFile(key)
                 if (!file.exists()) {
                     promise.reject("GET_FAILED", "File not found for key: $key", null)
                     return@AsyncFunction
@@ -248,14 +249,18 @@ class ExpoVaultModule : Module() {
         }
 
         AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, promise: Promise ->
+            var cleared = false
             try {
                 val secretKey = getSecretKey()
                 val extras = File(extraDir).apply { mkdirs() }
-                var cleared = false
                 val restored = mutableListOf<Map<String, String>>()
                 var count = 0
-                BackupContainer.read(File(sourcePath), passphrase, appContext.reactContext!!.cacheDir, { done, total ->
-                    sendEvent("backupProgress", mapOf("phase" to "import", "done" to done, "total" to total))
+                // Every key is checked and every entry decrypted once before the
+                // first entry is handled; the vault is only cleared after both.
+                BackupContainer.read(File(sourcePath), passphrase, appContext.reactContext!!.cacheDir, { meta ->
+                    if (!isRestoreKeyAllowed(meta)) throw BackupContainer.CorruptException("entry key ${meta.key}")
+                }, { phase, done, total ->
+                    sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }) { meta, plain ->
                     if (!cleared) {
                         vaultEntryFiles().forEach { it.delete() }
@@ -268,11 +273,11 @@ class ExpoVaultModule : Module() {
                                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
                                 cipher.init(Cipher.ENCRYPT_MODE, secretKey)
                                 ivPreferences.edit().putString(meta.key, android.util.Base64.encodeToString(cipher.iv, android.util.Base64.DEFAULT)).apply()
-                                File(appContext.reactContext!!.filesDir, meta.key).writeBytes(cipher.doFinal(plain.readBytes()))
+                                vaultFile(meta.key).writeBytes(cipher.doFinal(plain.readBytes()))
                             }
-                            "f" -> VaultCrypto.encryptFile(plain, File(appContext.reactContext!!.filesDir, meta.key), secretKey)
+                            "f" -> VaultCrypto.encryptFile(plain, vaultFile(meta.key), secretKey)
                             "x" -> {
-                                val target = File(extras, meta.key)
+                                val target = contained(File(extras, meta.key), extras)
                                 target.delete()
                                 if (!plain.renameTo(target)) {
                                     plain.copyTo(target, overwrite = true)
@@ -286,14 +291,24 @@ class ExpoVaultModule : Module() {
                     }
                 }
                 promise.resolve(mapOf("entries" to count, "extras" to restored))
-            } catch (e: BackupContainer.PassphraseException) {
-                promise.reject("BACKUP_PASSPHRASE", e.message, e)
-            } catch (e: BackupContainer.UnsupportedException) {
-                promise.reject("BACKUP_UNSUPPORTED", e.message, e)
-            } catch (e: BackupContainer.CorruptException) {
-                promise.reject("BACKUP_INVALID", e.message, e)
             } catch (e: Exception) {
-                promise.reject(failureCode(e, "BACKUP_IMPORT_FAILED"), e.message, e)
+                val code = failureCode(e, "BACKUP_IMPORT_FAILED")
+                // Every entry had already decrypted once, so a failure after the wipe is
+                // usually disk, I/O or the key, not the file; it is named either way,
+                // because the old vault is gone.
+                val partial = "The restore stopped after the previous vault was removed: ${e.message}"
+                when {
+                    // A lapsed key window keeps its code even after the wipe so the caller
+                    // re-authenticates and retries the whole restore; the message covers
+                    // the case where that prompt is cancelled.
+                    code == "KEY_LOCKED" -> promise.reject(code, if (cleared) partial else e.message, e)
+                    cleared -> promise.reject("BACKUP_PARTIAL", partial, e)
+                    e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
+                    e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
+                    e is BackupContainer.CorruptException -> promise.reject("BACKUP_INVALID", e.message, e)
+                    e is InvalidKeyException -> promise.reject("BACKUP_INVALID", e.message, e)
+                    else -> promise.reject(code, e.message, e)
+                }
             }
         }
 
@@ -307,7 +322,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("delete") { key: String, promise: Promise ->
             try {
-                val file = File(appContext.reactContext!!.filesDir, key)
+                val file = vaultFile(key)
                 if (file.exists()) {
                     file.delete()
                 }
@@ -327,7 +342,7 @@ class ExpoVaultModule : Module() {
                     promise.reject("PUT_FILE_FAILED", "Source file not found: $sourcePath", null)
                     return@AsyncFunction
                 }
-                val destFile = File(appContext.reactContext!!.filesDir, key)
+                val destFile = vaultFile(key)
                 VaultCrypto.encryptFile(sourceFile, destFile, getSecretKey())
                 // Chunked files carry their own nonces; drop any legacy IV for this key.
                 ivPreferences.edit().remove(key).apply()
@@ -340,7 +355,7 @@ class ExpoVaultModule : Module() {
         AsyncFunction("putThumbnail") { key: String, sourcePath: String, maxPixelSize: Int, promise: Promise ->
             try {
                 val jpeg = VaultCrypto.thumbnailJpeg(File(sourcePath), maxPixelSize)
-                val destFile = File(appContext.reactContext!!.filesDir, key)
+                val destFile = vaultFile(key)
                 VaultCrypto.encryptBytes(jpeg, destFile, getSecretKey())
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
@@ -359,7 +374,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("getFile") { key: String, destPath: String, promise: Promise ->
             try {
-                val encryptedFile = File(appContext.reactContext!!.filesDir, key)
+                val encryptedFile = vaultFile(key)
                 if (!encryptedFile.exists()) {
                     promise.reject("GET_FILE_FAILED", "Encrypted file not found for key: $key", null)
                     return@AsyncFunction
@@ -376,7 +391,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("deleteFile") { key: String, promise: Promise ->
             try {
-                val file = File(appContext.reactContext!!.filesDir, key)
+                val file = vaultFile(key)
                 if (file.exists()) {
                     file.delete()
                 }
@@ -389,7 +404,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("getFileSize") { key: String, promise: Promise ->
             try {
-                val file = File(appContext.reactContext!!.filesDir, key)
+                val file = vaultFile(key)
                 if (!file.exists()) {
                     promise.reject("FILE_NOT_FOUND", "File not found for key: $key", null)
                     return@AsyncFunction
@@ -420,6 +435,39 @@ class ExpoVaultModule : Module() {
     private fun isVaultEntryName(name: String): Boolean =
         name.startsWith("file_") || name.startsWith("thumb_") || name.startsWith("page_") ||
             (name.startsWith("_") && name != "ExpoVault_IVs.xml")
+
+    /**
+     * Approved key grammar: one path component, no separators or "..", with
+     * one of the vault's own prefixes. Checked before any path is built.
+     */
+    private fun isVaultKey(key: String): Boolean =
+        key.isNotEmpty() && !key.contains('/') && !key.contains('\\') && !key.contains("..") &&
+            isVaultEntryName(key)
+
+    /**
+     * Restore entries: the index extra is exactly "database"; string and file
+     * entries are vault keys. Other kinds are skipped by the importer and never
+     * reach the file system, so they are left as they are.
+     */
+    private fun isRestoreKeyAllowed(meta: BackupContainer.Meta): Boolean = when (meta.kind) {
+        "x" -> meta.key == "database"
+        "s", "f" -> isVaultKey(meta.key)
+        else -> true
+    }
+
+    /** The vault file for [key], after the grammar check and a containment check on the resolved path. */
+    private fun vaultFile(key: String): File {
+        if (!isVaultKey(key)) throw InvalidKeyException(key)
+        val filesDir = appContext.reactContext!!.filesDir
+        return contained(File(filesDir, key), filesDir)
+    }
+
+    /** Second line of defence after the grammar: the resolved path must stay inside [directory]. */
+    private fun contained(target: File, directory: File): File {
+        val base = directory.canonicalPath.trimEnd(File.separatorChar) + File.separator
+        if (!target.canonicalPath.startsWith(base)) throw InvalidKeyException(target.name)
+        return target
+    }
 
     /** Regular files that are vault entries, in a stable order. */
     private fun vaultEntryFiles(): List<File> =

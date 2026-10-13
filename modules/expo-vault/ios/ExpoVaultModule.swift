@@ -3,6 +3,15 @@ import Security
 import LocalAuthentication
 import CryptoKit
 
+enum VaultKeyError: LocalizedError {
+  case invalid(String)
+
+  var errorDescription: String? {
+    if case let .invalid(key) = self { return "Invalid vault key: \(key)" }
+    return nil
+  }
+}
+
 public class ExpoVaultModule: Module {
   private let keychainService = "com.naderalfakesh.securevault.vault"
 
@@ -174,19 +183,20 @@ public class ExpoVaultModule: Module {
     }
 
     AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, promise: Promise) in
+        var cleared = false
         do {
             let encryptionKey = try self.getEncryptionKey()
             let source = URL(fileURLWithPath: sourcePath)
             let extras = URL(fileURLWithPath: extraDir, isDirectory: true)
             try FileManager.default.createDirectory(at: extras, withIntermediateDirectories: true)
-            // The check entry comes first, so a wrong passphrase fails here
-            // before anything is removed.
-            _ = try BackupContainer.readHeader(from: source)
-            var cleared = false
+            // Every key is checked and every entry decrypted once before the
+            // first entry is handled; the vault is only cleared after both.
             var restored: [[String: String]] = []
             var count = 0
-            try BackupContainer.read(from: source, passphrase: passphrase, progress: { done, total in
-                self.sendEvent("backupProgress", ["phase": "import", "done": done, "total": total])
+            try BackupContainer.read(from: source, passphrase: passphrase, validate: { meta in
+                guard Self.isRestoreKeyAllowed(meta) else { throw BackupError.corrupt("entry key \(meta.key)") }
+            }, progress: { phase, done, total in
+                self.sendEvent("backupProgress", ["phase": phase.rawValue, "done": done, "total": total])
             }) { meta, plain in
                 if !cleared {
                     for url in try self.vaultEntryURLs() { try FileManager.default.removeItem(at: url) }
@@ -201,7 +211,7 @@ public class ExpoVaultModule: Module {
                 case "f":
                     try VaultCrypto.encryptFile(from: plain, to: self.getFileURL(for: meta.key), key: encryptionKey)
                 case "x":
-                    let target = extras.appendingPathComponent(meta.key)
+                    let target = try Self.contained(extras.appendingPathComponent(meta.key), in: extras)
                     try? FileManager.default.removeItem(at: target)
                     try FileManager.default.moveItem(at: plain, to: target)
                     restored.append(["key": meta.key, "path": target.path])
@@ -211,12 +221,19 @@ public class ExpoVaultModule: Module {
                 count += 1
             }
             promise.resolve(["entries": count, "extras": restored])
+        } catch let error where cleared {
+            // Every entry had already decrypted once, so a failure after the wipe
+            // is usually disk, I/O or the key, not the file; it is named either
+            // way, because the old vault is gone.
+            promise.reject("BACKUP_PARTIAL", "The restore stopped after the previous vault was removed: \(error.localizedDescription)")
         } catch let error as BackupError {
             switch error {
             case .passphrase: promise.reject("BACKUP_PASSPHRASE", error.localizedDescription)
             case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
             case .corrupt: promise.reject("BACKUP_INVALID", error.localizedDescription)
             }
+        } catch let error as VaultKeyError {
+            promise.reject("BACKUP_INVALID", error.localizedDescription)
         } catch {
             promise.reject("BACKUP_IMPORT_FAILED", error.localizedDescription)
         }
@@ -351,6 +368,35 @@ public class ExpoVaultModule: Module {
     name.hasPrefix("file_") || name.hasPrefix("thumb_") || name.hasPrefix("page_") || name.hasPrefix("_")
   }
 
+  /// Approved key grammar: one path component, no separators or "..", with
+  /// one of the vault's own prefixes. Checked before any path is built.
+  private static func isVaultKey(_ key: String) -> Bool {
+    !key.isEmpty && !key.contains("/") && !key.contains("\\") && !key.contains("..")
+      && isVaultEntryName(key)
+  }
+
+  /// Restore entries: the index extra is exactly "database"; string and file
+  /// entries are vault keys. Other kinds are skipped by the importer and never
+  /// reach the file system, so they are left as they are.
+  private static func isRestoreKeyAllowed(_ meta: BackupContainer.Meta) -> Bool {
+    switch meta.kind {
+    case "x": return meta.key == "database"
+    case "s", "f": return isVaultKey(meta.key)
+    default: return true
+    }
+  }
+
+  /// Second line of defence after the grammar: the resolved path must stay
+  /// inside `directory`.
+  private static func contained(_ target: URL, in directory: URL) throws -> URL {
+    var base = directory.resolvingSymlinksInPath().path
+    if !base.hasSuffix("/") { base += "/" }
+    guard target.resolvingSymlinksInPath().path.hasPrefix(base) else {
+      throw VaultKeyError.invalid(target.lastPathComponent)
+    }
+    return target
+  }
+
   /// Regular files that are vault entries, in a stable order.
   private func vaultEntryURLs() throws -> [URL] {
     let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -379,8 +425,9 @@ public class ExpoVaultModule: Module {
   }
 
   private func getFileURL(for key: String) throws -> URL {
-    try FileManager.default
+    guard Self.isVaultKey(key) else { throw VaultKeyError.invalid(key) }
+    let directory = try FileManager.default
         .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        .appendingPathComponent(key)
+    return try Self.contained(directory.appendingPathComponent(key), in: directory)
   }
 }

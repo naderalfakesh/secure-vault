@@ -68,7 +68,10 @@ passphrase the user types twice, with PBKDF2-HMAC-SHA256 at 600 000 iterations
 and a fresh 16-byte salt written into the file header. The key exists only
 while the module encrypts or decrypts the entries and is never written
 anywhere. A wrong passphrase fails on a check entry before the vault is
-touched.
+touched, and every entry is decrypted once, to nothing, before the first
+vault file is replaced, so a damaged backup is refused with the vault
+intact. Writing the entries back is not a transaction: a disk or key failure
+at that point is reported as a partial restore, and the user restores again.
 
 ## Session
 

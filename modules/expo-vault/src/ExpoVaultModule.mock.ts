@@ -99,13 +99,14 @@ export function createVaultMock(): SecureVault & { reset(): void } {
           code: 'BACKUP_PASSPHRASE',
         });
       }
+      const total = backup.strings.size + backup.files.size + backup.extras.length + 1;
+      emit({ phase: 'verify', done: total, total });
       strings = new Map(backup.strings);
       files = new Map(backup.files);
       const extras = backup.extras.map((file) => ({
         key: file.key,
         path: `${extraDir}/${file.key}`,
       }));
-      const total = strings.size + files.size + extras.length + 1;
       emit({ phase: 'import', done: total, total });
       return { entries: total - 1, extras };
     },

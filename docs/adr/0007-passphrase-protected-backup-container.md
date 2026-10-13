@@ -63,10 +63,13 @@ sheet closes.
 - A vault can move to a new phone, across platforms, with one file and one
   passphrase. Losing the passphrase loses the backup; there is no recovery
   by design.
-- Restore is all-or-nothing after the check: a damaged later entry stops
-  the restore with the vault partly rewritten. The check entry makes the
-  common failure, a wrong passphrase, safe; a corrupt file is rare and the
-  user still has the file.
+- Restore decrypts every entry twice: once to nothing, to prove the whole
+  file opens, then again to write it back. A wrong passphrase or a damaged
+  entry anywhere in the file is refused with the vault untouched, at the
+  cost of a second pass over the data. The write-back is not a transaction:
+  a disk or key failure there leaves the vault partly restored and is
+  reported as `BACKUP_PARTIAL`; staging the whole vault next to the old one
+  would need as much free space again and was not taken.
 - 600 000 PBKDF2 iterations cost well under a second natively and make
   offline guessing expensive. Argon2 would be stronger per second but has no
   system implementation on either platform.

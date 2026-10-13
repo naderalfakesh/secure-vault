@@ -64,7 +64,27 @@ enum VaultCrypto {
     FileManager.default.createFile(atPath: destination.path, contents: nil)
     let output = try FileHandle(forWritingTo: destination)
     defer { try? output.close() }
+    try openChunks(input, key: key) { output.write($0) }
+  }
 
+  /// Authenticates every chunk and keeps none of the plaintext, so a damaged
+  /// file is found without writing anything.
+  static func verifyFile(at source: URL, key: SymmetricKey) throws {
+    let input = try FileHandle(forReadingFrom: source)
+    defer { try? input.close() }
+    guard input.readData(ofLength: magic.count) == magic else {
+      // Legacy single sealed box.
+      let box = try AES.GCM.SealedBox(combined: try Data(contentsOf: source))
+      _ = try AES.GCM.open(box, using: key)
+      return
+    }
+    _ = input.readData(ofLength: 4) // chunk size, informational
+    try openChunks(input, key: key) { _ in }
+  }
+
+  /// Opens the chunks after the header in order, each bound to its index, and
+  /// passes every plaintext to `sink`.
+  private static func openChunks(_ input: FileHandle, key: SymmetricKey, sink: (Data) -> Void) throws {
     var index: UInt32 = 0
     while true {
       let lengthData = input.readData(ofLength: 4)
@@ -74,8 +94,7 @@ enum VaultCrypto {
       let combined = input.readData(ofLength: length)
       guard combined.count == length else { throw CryptoError.corrupt("chunk \(index)") }
       let box = try AES.GCM.SealedBox(combined: combined)
-      let plain = try AES.GCM.open(box, using: key, authenticating: be32(index))
-      output.write(plain)
+      sink(try AES.GCM.open(box, using: key, authenticating: be32(index)))
       index += 1
     }
   }

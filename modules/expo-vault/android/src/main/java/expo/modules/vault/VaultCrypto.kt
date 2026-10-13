@@ -89,20 +89,39 @@ object VaultCrypto {
             input.skipBytes(MAGIC.size)
             input.readInt() // chunk size, informational
             FileOutputStream(destination).buffered().use { output ->
-                var index = 0
-                while (input.available() > 0) {
-                    val length = input.readInt()
-                    val iv = ByteArray(NONCE_SIZE)
-                    input.readFully(iv)
-                    val sealed = ByteArray(length - NONCE_SIZE)
-                    input.readFully(sealed)
-                    val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                    cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
-                    cipher.updateAAD(be32(index))
-                    output.write(cipher.doFinal(sealed))
-                    index += 1
-                }
+                openChunks(input, key) { output.write(it) }
             }
+        }
+    }
+
+    /**
+     * Authenticates every chunk and keeps none of the plaintext, so a damaged
+     * file is found without writing anything. Legacy files need their IV and
+     * are not accepted here.
+     */
+    fun verifyFile(source: File, key: SecretKey) {
+        if (!isChunked(source)) throw IllegalStateException("Legacy file without IV")
+        DataInputStream(FileInputStream(source).buffered()).use { input ->
+            input.skipBytes(MAGIC.size)
+            input.readInt() // chunk size, informational
+            openChunks(input, key) { }
+        }
+    }
+
+    /** Opens the chunks after the header in order, each bound to its index, and passes every plaintext to [sink]. */
+    private fun openChunks(input: DataInputStream, key: SecretKey, sink: (ByteArray) -> Unit) {
+        var index = 0
+        while (input.available() > 0) {
+            val length = input.readInt()
+            val iv = ByteArray(NONCE_SIZE)
+            input.readFully(iv)
+            val sealed = ByteArray(length - NONCE_SIZE)
+            input.readFully(sealed)
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_BITS, iv))
+            cipher.updateAAD(be32(index))
+            sink(cipher.doFinal(sealed))
+            index += 1
         }
     }
 

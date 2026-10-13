@@ -34,8 +34,9 @@ export interface BackupImportResult {
   extras: BackupFile[];
 }
 
+/** A restore reports every entry twice: once while verifying, once while importing. */
 export interface BackupProgress {
-  phase: 'export' | 'import';
+  phase: 'export' | 'verify' | 'import';
   done: number;
   total: number;
 }
@@ -85,8 +86,10 @@ export interface SecureVault {
   /** Reads the container header without a passphrase; rejects with BACKUP_INVALID otherwise. */
   inspectBackup(sourcePath: string): Promise<BackupInfo>;
   /**
-   * Replaces the vault with the container's entries. Rejects with
-   * BACKUP_PASSPHRASE before touching anything when the passphrase is wrong.
+   * Replaces the vault with the container's entries. Every entry is decrypted
+   * once before anything is replaced, so a wrong passphrase (BACKUP_PASSPHRASE)
+   * or a damaged file (BACKUP_INVALID) leaves the vault untouched. A failure
+   * while the entries are being written back rejects with BACKUP_PARTIAL.
    * Extra files land in `extraDir` and are listed in the result.
    */
   importBackup(

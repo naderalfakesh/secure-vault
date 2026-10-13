@@ -1,11 +1,14 @@
 package expo.modules.vault
 
 import org.json.JSONObject
+import java.io.DataInput
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -102,7 +105,7 @@ object BackupContainer {
     fun readHeader(source: File): Header =
         DataInputStream(FileInputStream(source).buffered()).use { readHeader(it) }
 
-    private fun readHeader(input: DataInputStream): Header {
+    private fun readHeader(input: DataInput): Header {
         val magic = ByteArray(MAGIC.size)
         try {
             input.readFully(magic)
@@ -130,22 +133,131 @@ object BackupContainer {
         )
     }
 
+    /** Both fields must be JSON strings, as on iOS; `getString` would coerce numbers. */
+    private fun parseMeta(bytes: ByteArray, index: Int): Meta {
+        val json = try {
+            JSONObject(String(bytes, Charsets.UTF_8))
+        } catch (e: Exception) {
+            throw CorruptException("entry $index")
+        }
+        val key = json.opt("key") as? String ?: throw CorruptException("entry $index")
+        val kind = json.opt("kind") as? String ?: throw CorruptException("entry $index")
+        return Meta(key, kind)
+    }
+
     /**
-     * Streams every entry as a decrypted plaintext file. The check entry is
-     * verified first; `handle` receives the others and owns the plaintext file.
+     * Entry metadata only, read by seeking past each payload. No key is derived
+     * and nothing is decrypted, so a bad key or a truncated file is found before
+     * the vault is touched.
      */
-    fun read(source: File, passphrase: String, scratch: File, progress: (Int, Int) -> Unit, handle: (Meta, File) -> Unit) {
+    fun readMetas(source: File): List<Meta> =
+        RandomAccessFile(source, "r").use { input ->
+            try {
+                val end = input.length()
+                val header = readHeader(input)
+                if (header.entries < 0) throw CorruptException("header")
+                // The count is untrusted: grow the list as entries are read, so a
+                // short file fails on its first missing byte instead of allocating.
+                val metas = ArrayList<Meta>()
+                repeat(header.entries) { index ->
+                    val metaLength = input.readInt()
+                    if (metaLength < 0 || metaLength > end - input.filePointer) throw CorruptException("truncated")
+                    val metaBytes = ByteArray(metaLength)
+                    input.readFully(metaBytes)
+                    val meta = parseMeta(metaBytes, index)
+                    val size = input.readLong()
+                    if (size < 0 || size > end - input.filePointer) throw CorruptException("truncated")
+                    input.seek(input.filePointer + size)
+                    metas.add(meta)
+                }
+                metas
+            } catch (e: EOFException) {
+                throw CorruptException("truncated")
+            }
+        }
+
+    /** Which pass of a restore a progress event belongs to; [wireName] is the phase name sent to JavaScript. */
+    enum class ReadPhase(val wireName: String) { VERIFY("verify"), RESTORE("import") }
+
+    /**
+     * Decrypts every entry in two passes. The first checks the passphrase
+     * against the check entry, then decrypts every other payload to nothing,
+     * so a backup that is damaged anywhere, including its last entry, is
+     * refused before [handle] runs. The second decrypts again and hands each
+     * plaintext file to [handle], which owns it. The second pass is not a
+     * transaction: once [handle] has started replacing the vault, a disk, I/O
+     * or key failure still leaves it partly restored; the caller reports that
+     * case separately.
+     */
+    fun read(
+        source: File, passphrase: String, scratch: File, validate: (Meta) -> Unit,
+        progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
+    ) {
+        readMetas(source).forEach(validate)
+        val header = readHeader(source)
+        val key = deriveKey(passphrase, header.salt, header.iterations)
+
+        walk(source, scratch, validate, { done, total -> progress(ReadPhase.VERIFY, done, total) }) { meta, payload ->
+            if (meta.kind == "c") {
+                verifyCheck(payload, key, scratch)
+            } else {
+                try {
+                    VaultCrypto.verifyFile(payload, key)
+                } catch (e: Exception) {
+                    throw CorruptException("entry ${meta.key}")
+                }
+            }
+        }
+        walk(source, scratch, validate, { done, total -> progress(ReadPhase.RESTORE, done, total) }) { meta, payload ->
+            if (meta.kind == "c") {
+                verifyCheck(payload, key, scratch)
+                return@walk
+            }
+            val plain = temporaryFile(scratch)
+            try {
+                VaultCrypto.decryptFile(payload, plain, key, null)
+            } catch (e: Exception) {
+                plain.delete()
+                throw CorruptException("entry ${meta.key}")
+            }
+            handle(meta, plain)
+        }
+    }
+
+    /** The check entry must decrypt to the fixed value; anything else means the passphrase is wrong. */
+    private fun verifyCheck(payload: File, key: SecretKey, scratch: File) {
+        val plain = temporaryFile(scratch)
+        try {
+            try {
+                VaultCrypto.decryptFile(payload, plain, key, null)
+            } catch (e: Exception) {
+                throw PassphraseException()
+            }
+            if (!plain.readBytes().contentEquals(CHECK_VALUE)) throw PassphraseException()
+        } finally {
+            plain.delete()
+        }
+    }
+
+    /**
+     * One pass over the container: each entry's metadata is validated again,
+     * its payload is copied to a temporary file that [visit] may read but not
+     * keep, and progress is reported per entry.
+     */
+    private fun walk(
+        source: File, scratch: File, validate: (Meta) -> Unit,
+        progress: (Int, Int) -> Unit, visit: (Meta, File) -> Unit
+    ) {
         DataInputStream(FileInputStream(source).buffered()).use { input ->
             val header = readHeader(input)
-            val key = deriveKey(passphrase, header.salt, header.iterations)
             for (index in 0 until header.entries) {
                 val metaBytes = ByteArray(input.readInt())
                 input.readFully(metaBytes)
-                val metaJson = JSONObject(String(metaBytes, Charsets.UTF_8))
-                val meta = Meta(metaJson.getString("key"), metaJson.getString("kind"))
+                val meta = parseMeta(metaBytes, index)
+                // Checked again in case the file changed since the pre-pass.
+                validate(meta)
                 val size = input.readLong()
                 val payload = temporaryFile(scratch)
-                val plain = temporaryFile(scratch)
                 try {
                     FileOutputStream(payload).buffered().use { output ->
                         val buffer = ByteArray(1_048_576)
@@ -157,20 +269,9 @@ object BackupContainer {
                             remaining -= read
                         }
                     }
-                    try {
-                        VaultCrypto.decryptFile(payload, plain, key, null)
-                    } catch (e: Exception) {
-                        if (meta.kind == "c") throw PassphraseException()
-                        throw CorruptException("entry ${meta.key}")
-                    }
-                    if (meta.kind == "c") {
-                        if (!plain.readBytes().contentEquals(CHECK_VALUE)) throw PassphraseException()
-                    } else {
-                        handle(meta, plain)
-                    }
+                    visit(meta, payload)
                 } finally {
                     payload.delete()
-                    if (meta.kind == "c") plain.delete()
                 }
                 progress(index + 1, header.entries)
             }

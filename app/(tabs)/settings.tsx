@@ -10,6 +10,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
 import { backupService, describeBackupError, passphraseProblem } from '@/services/BackupService';
+import type { BackupProgress } from '../../modules/expo-vault';
 import { documentService } from '@/services/DocumentService';
 import { formatFileSize } from '@/utils/format';
 
@@ -50,7 +51,11 @@ export default function SettingsScreen() {
     created: string;
   } | null>(null);
   const [restorePassphrase, setRestorePassphrase] = useState('');
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    phase?: BackupProgress['phase'];
+    done: number;
+    total: number;
+  } | null>(null);
   // Shown inside the open sheet; a toast would sit behind it.
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'export' | 'import' | 'clear' | null>(null);
@@ -139,7 +144,7 @@ export default function SettingsScreen() {
     if (!restore || !restorePassphrase) return;
     setSheetError(null);
     setBusy('import');
-    setProgress({ done: 0, total: 1 });
+    setProgress({ phase: 'verify', done: 0, total: 1 });
     try {
       const entries = await backupService.restoreBackup(
         restore.uri,
@@ -417,7 +422,8 @@ export default function SettingsScreen() {
             ) : null}
             {progress && busy === 'import' ? (
               <Text variant="footnote" tone="secondary" accessibilityLiveRegion="polite">
-                Restoring {progress.done} of {progress.total}
+                {progress.phase === 'verify' ? 'Checking' : 'Restoring'} {progress.done} of{' '}
+                {progress.total}
               </Text>
             ) : null}
             <Button

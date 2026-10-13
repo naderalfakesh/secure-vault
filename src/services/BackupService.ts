@@ -40,6 +40,8 @@ export function describeBackupError(error: unknown): string {
       return 'This file is not a SecureVault backup, or it is damaged.';
     case 'BACKUP_UNSUPPORTED':
       return 'This backup was made by a newer version of the app.';
+    case 'BACKUP_PARTIAL':
+      return 'The restore stopped after the previous vault was removed. Restore the backup again.';
     default:
       return error instanceof Error && error.message ? error.message : 'Could not use this backup.';
   }
@@ -109,7 +111,8 @@ class BackupService {
 
   /**
    * Replaces everything in the vault with the backup's contents. A wrong
-   * passphrase fails before anything is removed.
+   * passphrase or a damaged entry fails before anything is removed; the index
+   * is replaced only after the native import has finished.
    */
   async restoreBackup(
     uri: string,

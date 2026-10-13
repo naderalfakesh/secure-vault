@@ -139,44 +139,115 @@ enum BackupContainer {
     return header
   }
 
-  /// Streams every entry as a decrypted plaintext file. The check entry is
-  /// verified first; `handle` receives the others and owns the plaintext file.
-  static func read(
-    from source: URL, passphrase: String, progress: Progress,
-    handle: (Meta, URL) throws -> Void
-  ) throws {
+  /// Entry metadata only, read by seeking past each payload. No key is derived
+  /// and nothing is decrypted, so a bad key or a truncated file is found before
+  /// the vault is touched.
+  static func readMetas(from source: URL) throws -> [Meta] {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
+    let end = try input.seekToEnd()
+    try input.seek(toOffset: 0)
     let header = try readHeader(input)
-    guard let salt = Data(base64Encoded: header.kdf.salt) else { throw BackupError.corrupt("salt") }
-    let key = try deriveKey(passphrase: passphrase, salt: salt, iterations: header.kdf.iterations)
-
+    guard header.entries >= 0 else { throw BackupError.corrupt("header") }
+    var metas: [Meta] = []
     for index in 0..<header.entries {
       let metaLength = input.readData(ofLength: 4)
       guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
-      let metaData = input.readData(ofLength: Int(readBe32(metaLength)))
-      guard let meta = try? JSONDecoder().decode(Meta.self, from: metaData) else { throw BackupError.corrupt("entry \(index)") }
+      let metaSize = UInt64(readBe32(metaLength))
+      guard metaSize <= end - (try input.offset()) else { throw BackupError.corrupt("truncated") }
+      guard let meta = try? JSONDecoder().decode(Meta.self, from: input.readData(ofLength: Int(metaSize))) else {
+        throw BackupError.corrupt("entry \(index)")
+      }
       let sizeData = input.readData(ofLength: 8)
       guard sizeData.count == 8 else { throw BackupError.corrupt("entry \(index)") }
       let size = readBe64(sizeData)
+      let payloadStart = try input.offset()
+      guard size <= end - payloadStart else { throw BackupError.corrupt("truncated") }
+      try input.seek(toOffset: payloadStart + size)
+      metas.append(meta)
+    }
+    return metas
+  }
 
-      let payload = temporaryFile()
-      defer { try? FileManager.default.removeItem(at: payload) }
-      try copy(from: input, bytes: size, to: payload)
+  /// Which pass of a restore a progress event belongs to; the raw value is
+  /// the phase name sent to JavaScript.
+  enum ReadPhase: String {
+    case verify
+    case restore = "import"
+  }
+
+  /// Decrypts every entry in two passes. The first checks the passphrase
+  /// against the check entry, then decrypts every other payload to nothing,
+  /// so a backup that is damaged anywhere, including its last entry, is
+  /// refused before `handle` runs. The second decrypts again and hands each
+  /// plaintext file to `handle`, which owns it. The second pass is not a
+  /// transaction: once `handle` has started replacing the vault, a disk, I/O
+  /// or key failure still leaves it partly restored; the caller reports that
+  /// case separately.
+  static func read(
+    from source: URL, passphrase: String, validate: (Meta) throws -> Void,
+    progress: (ReadPhase, Int, Int) -> Void, handle: (Meta, URL) throws -> Void
+  ) throws {
+    for meta in try readMetas(from: source) { try validate(meta) }
+    let header = try readHeader(from: source)
+    guard let salt = Data(base64Encoded: header.kdf.salt) else { throw BackupError.corrupt("salt") }
+    let key = try deriveKey(passphrase: passphrase, salt: salt, iterations: header.kdf.iterations)
+
+    try walk(source, validate: validate, progress: { progress(.verify, $0, $1) }) { meta, payload in
+      if meta.kind == "c" {
+        try verifyCheck(payload, key: key)
+      } else {
+        do { try VaultCrypto.verifyFile(at: payload, key: key) } catch { throw BackupError.corrupt("entry \(meta.key)") }
+      }
+    }
+    try walk(source, validate: validate, progress: { progress(.restore, $0, $1) }) { meta, payload in
+      if meta.kind == "c" {
+        try verifyCheck(payload, key: key)
+        return
+      }
       let plain = temporaryFile()
       do {
         try VaultCrypto.decryptFile(from: payload, to: plain, key: key)
       } catch {
         try? FileManager.default.removeItem(at: plain)
-        if meta.kind == "c" { throw BackupError.passphrase }
         throw BackupError.corrupt("entry \(meta.key)")
       }
-      if meta.kind == "c" {
-        defer { try? FileManager.default.removeItem(at: plain) }
-        guard (try? Data(contentsOf: plain)) == checkValue else { throw BackupError.passphrase }
-      } else {
-        try handle(meta, plain)
-      }
+      try handle(meta, plain)
+    }
+  }
+
+  /// The check entry must decrypt to the fixed value; anything else means the
+  /// passphrase is wrong.
+  private static func verifyCheck(_ payload: URL, key: SymmetricKey) throws {
+    let plain = temporaryFile()
+    defer { try? FileManager.default.removeItem(at: plain) }
+    do { try VaultCrypto.decryptFile(from: payload, to: plain, key: key) } catch { throw BackupError.passphrase }
+    guard (try? Data(contentsOf: plain)) == checkValue else { throw BackupError.passphrase }
+  }
+
+  /// One pass over the container: each entry's metadata is validated again,
+  /// its payload is copied to a temporary file that `visit` may read but not
+  /// keep, and progress is reported per entry.
+  private static func walk(
+    _ source: URL, validate: (Meta) throws -> Void, progress: Progress,
+    visit: (Meta, URL) throws -> Void
+  ) throws {
+    let input = try FileHandle(forReadingFrom: source)
+    defer { try? input.close() }
+    let header = try readHeader(input)
+    for index in 0..<header.entries {
+      let metaLength = input.readData(ofLength: 4)
+      guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
+      let metaData = input.readData(ofLength: Int(readBe32(metaLength)))
+      guard let meta = try? JSONDecoder().decode(Meta.self, from: metaData) else { throw BackupError.corrupt("entry \(index)") }
+      // Checked again in case the file changed since the pre-pass.
+      try validate(meta)
+      let sizeData = input.readData(ofLength: 8)
+      guard sizeData.count == 8 else { throw BackupError.corrupt("entry \(index)") }
+      let payload = temporaryFile()
+      defer { try? FileManager.default.removeItem(at: payload) }
+      try copy(from: input, bytes: readBe64(sizeData), to: payload)
+      try visit(meta, payload)
       progress(index + 1, header.entries)
     }
   }

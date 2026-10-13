@@ -19,6 +19,7 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toMatch(/does not match/);
     expect(describeBackupError({ code: 'BACKUP_INVALID' })).toMatch(/not a SecureVault backup/);
     expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toMatch(/newer version/);
+    expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
   });
 });
@@ -59,7 +60,9 @@ describe('BackupService', () => {
     );
     expect(restored).toBe(backup.entries);
     expect(await vault.get('_database_key')).toBe('ab'.repeat(32));
-    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'import' }));
+    const phases = progress.mock.calls.map(([event]) => (event as { phase: string }).phase);
+    expect(phases.indexOf('verify')).toBeGreaterThan(phases.indexOf('export'));
+    expect(phases.indexOf('import')).toBeGreaterThan(phases.indexOf('verify'));
   });
 
   it('rejects a wrong passphrase without touching the vault', async () => {
