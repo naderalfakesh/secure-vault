@@ -113,7 +113,7 @@ system issues` (2025-12-28) plus seven uncommitted files.
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Runtime          | Expo SDK 57, RN 0.86, React 19.2, TypeScript 6, New Architecture, React Compiler                                                                                                  | Matches Hakeemi and image-toolset-modern                                                 |
 | Navigation       | Expo Router 57, typed routes, tabs with a lock gate in the root layout                                                                                                            | Route guard replaces ad-hoc `router.replace`                                             |
-| Styling          | Unistyles 3 with tokens, dark mode, Dynamic Type                                                                                                                                  | Already proven in NadirNeoBank                                                           |
+| Styling          | Unistyles 3 with tokens, dark mode, Dynamic Type                                                                                                                                  | Proven in an earlier app                                                                 |
 | Native feel      | `expo-glass-effect` and `@expo/ui` where iOS 26 is available, graceful fallback                                                                                                   | Same pattern as Nadir Wallet                                                             |
 | Motion           | Reanimated 4 + Gesture Handler 2, `react-native-worklets`                                                                                                                         | Viewer gestures, sheets, list transitions                                                |
 | Lists and images | FlashList 2, `expo-image` with native thumbnails                                                                                                                                  | Replace FlatList + full-image thumbnails                                                 |
@@ -247,6 +247,6 @@ each, conventional commit messages.
   each, or the failure surface is too large to debug.
 - **Scanner module scope.** Wrapping the platform scanners is a few hundred
   lines of Swift and Kotlin; writing a custom edge detector is not. Wrap.
-- **Reuse before writing.** The image viewer (image-toolset-modern), theme and
-  security patterns (NadirNeoBank), PIN hashing (Nadir Wallet), and testing
-  setup (Hakeemi) already exist in sibling repos.
+- **Reuse before writing.** The image viewer (image-toolset-modern), PIN
+  hashing (Nadir Wallet), and testing setup (Hakeemi) already exist in sibling
+  repos.
