@@ -123,15 +123,19 @@ docs/                    Plan, security model, ADRs, verification records, scree
 
 ## Run locally
 
-Prerequisites: Node.js 24 (`.nvmrc`), npm, Xcode with CocoaPods for iOS, and
-Android Studio with an SDK and JDK 17+ for Android. Expo Go is not a
-supported runtime; the app needs a development build for its native modules.
+Prerequisites: Node.js 24 (`.nvmrc`), npm, Xcode 27 with CocoaPods for iOS, and
+Android Studio with an SDK and JDK 17 or 21 for Android (the JDK 25 that
+recent Android Studio builds bundle fails the Gradle prefab step). Expo Go is
+not a supported runtime; the app needs a development build for its native
+modules.
 
 ```sh
 npm install
 npm run validate
 npx expo prebuild --clean
 npm run ios
+# or pick a simulator from `xcrun simctl list devices available`:
+# npm run ios -- --device "<simulator name>"
 # or
 npm run android
 ```

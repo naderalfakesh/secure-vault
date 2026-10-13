@@ -11,16 +11,20 @@ the nine phases with their scope. Verification notes for finished phases live in
 | -------------------------- | ----------------------------------------------------------------------- |
 | Install                    | `npm install` (Node 24, see `.nvmrc`; npm, not yarn or pnpm)            |
 | Start Metro                | `npm start`                                                             |
-| iOS build and run          | `npm run ios -- --device "iPhone 17 Pro"`                               |
+| iOS build and run          | `npm run ios -- --device "iPhone 18 Pro"` (Xcode 27, iOS 27 simulator)  |
 | Android build and run      | `npm run android`                                                       |
 | Regenerate native projects | `npx expo prebuild --clean` (`ios/` and `android/` are gitignored)      |
 | Quality gate               | `npm run validate` (prettier, eslint, tsc, jest, expo-doctor)           |
 | Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` |
 
 Local toolchain quirks: CocoaPods needs a UTF-8 locale (`LANG=en_US.UTF-8`),
-Gradle needs `JAVA_HOME` pointing at the Android Studio JBR and must run with `--max-workers=4` while no emulator is booted, and `expo run:ios`
-only sees Apple Silicon simulators because `plugins/withMlkitSimulatorFix.js`
-strips Google ML Kit's `EXCLUDED_ARCHS = arm64`. Do not remove that plugin.
+Gradle needs `JAVA_HOME` pointing at a JDK 17 or 21 (the JDK 25 Android Studio
+JBR fails AGP's prefab step) and must run with `--max-workers=4` while no
+emulator is booted, `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's
+`libcrypto.so` because AGP drops it when the project path contains spaces, and
+`expo run:ios` only sees Apple Silicon simulators because
+`plugins/withMlkitSimulatorFix.js` strips Google ML Kit's
+`EXCLUDED_ARCHS = arm64`. Do not remove either plugin.
 
 ## Structure
 

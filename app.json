@@ -44,8 +44,17 @@
           "enableFTS": true
         }
       ],
+      "./plugins/withSqlCipherOpenSsl.js",
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true,
