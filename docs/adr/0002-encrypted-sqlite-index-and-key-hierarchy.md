@@ -56,8 +56,10 @@ is the intended property of an on-device vault.
 - New files use a streaming container: magic `SVC1`, chunk size, then one
   AES-256-GCM sealed chunk per 1 MiB with a fresh random nonce and the chunk
   index as additional authenticated data. Both platforms read and write the
-  same layout; a large PDF no longer has to fit in memory, and chunks cannot
-  be reordered or truncated without failing authentication.
+  same layout; a large PDF no longer has to fit in memory, and a chunk cannot
+  be altered or reordered without failing authentication. The index alone
+  does not detect a stream cut short at a chunk boundary or a same-index
+  chunk from another file; `docs/SECURITY.md` records those limits.
 - Files written by the prototype (no header, whole-file sealed box; on Android
   with the IV in SharedPreferences) remain readable, so an existing vault keeps
   working after the upgrade.

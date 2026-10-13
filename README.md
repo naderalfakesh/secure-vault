@@ -1,6 +1,6 @@
 # SecureVault
 
-**A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with hardware-backed encryption, an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
+**A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a Keychain- or Keystore-protected key, an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
 
 > SecureVault is a technical portfolio project. The screenshots use a
 > fictional "Republic of Example" passport and lease; it is not a published
@@ -26,7 +26,7 @@ product: no session, no PIN, no search index, one-shot photos, a backup only
 its own device could read.
 
 The rebuild kept the prototype's one good idea, a small Swift and Kotlin vault
-module with hardware-backed keys, and replaced everything around it in nine
+module with a platform-protected key, and replaced everything around it in nine
 phases: Expo SDK 57 and React Native 0.86 on the New Architecture, a real
 session model, an encrypted SQLite index with full-text search, the platform
 document scanners, on-device text reading with suggestions, a page viewer,
@@ -41,9 +41,11 @@ a native run on both platforms, and a note under
 - Onboarding, a 6-digit PIN with escalating lockout, Face ID, Touch ID, or
   the device credential, auto-lock with a privacy blur, and an optional second
   biometric check before anything is shared
-- Every file encrypted with AES-256-GCM under a key that never leaves the
-  Secure Enclave or Android Keystore; thumbnails and pages encrypted
-  separately so lists stay fast
+- Every file encrypted with AES-256-GCM under a device key: on iOS a random
+  key stored in the Keychain, device-only and behind a user-presence check,
+  read into app memory for each operation; on Android a non-exportable
+  Android Keystore key. Thumbnails and pages encrypted separately so lists
+  stay fast
 - A SQLCipher index with FTS5 search over titles, tags, and extracted text;
   the prototype's JSON index migrates on first open
 - VisionKit and ML Kit document scanning with multi-page capture, plus
@@ -79,8 +81,9 @@ flowchart LR
 Screens read one session status and only mount document routes while it is
 `unlocked`. Services own the two stores a document lives in: encrypted bytes
 in the vault module and searchable rows in the index. The vault module is
-the only code that touches keys; the index key and the backup key both
-derive from it or from a passphrase, never from anything stored in plain. The
+the only code that touches keys; the index key is stored encrypted under the
+device key and the backup key derives from a passphrase, never from anything
+stored in plain. The
 [security model](docs/SECURITY.md) draws the full key hierarchy.
 
 ## Technology

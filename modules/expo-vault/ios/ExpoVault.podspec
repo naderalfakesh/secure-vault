@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'ExpoVault'
   s.version        = '1.0.0'
-  s.summary        = 'Hardware-backed AES-GCM vault for SecureVault'
+  s.summary        = 'AES-GCM vault with a Keychain-protected key for SecureVault'
   s.description    = 'Expo module that encrypts SecureVault documents with a Keychain-protected key'
   s.author         = 'Nadir Alfakesh'
   s.homepage       = 'https://docs.expo.dev/modules/'

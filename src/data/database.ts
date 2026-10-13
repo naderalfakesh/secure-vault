@@ -94,9 +94,10 @@ function mainIndexFiles(): string[] {
 }
 
 /**
- * Key hierarchy: the device key in the Keychain or Keystore never leaves the
- * vault module; it encrypts this random database key, which SQLCipher uses
- * for every page of the index. Losing the device key loses both.
+ * Key hierarchy: the device key (a Keychain item on iOS, a non-exportable
+ * Keystore key on Android) is used only inside the vault module; it encrypts
+ * this random database key, which SQLCipher uses for every page of the index.
+ * Losing the device key loses both.
  *
  * A new key is only written when the entry is absent from the vault's listing
  * (which needs no device key) and no index file of any name exists. Writing

@@ -7,10 +7,11 @@ import UIKit
 ///
 /// Layout: magic "SVC1", chunk size (UInt32 BE), then per chunk a UInt32 BE
 /// length followed by nonce (12) + ciphertext + tag (16). The chunk index is
-/// bound as additional authenticated data so interior chunks cannot be
-/// reordered or dropped; there is no end marker, so a stream cut on a chunk
-/// boundary reads as a shorter file. Files written by the 2025 prototype are a
-/// single CryptoKit sealed box with no header and are still readable.
+/// the only additional authenticated data: an altered or repositioned chunk
+/// fails its tag. There is no end marker, so a stream cut on a chunk boundary
+/// reads as a shorter file, and a same-index chunk from another file under the
+/// same key is not detected. Files written by the 2025 prototype are a single
+/// CryptoKit sealed box with no header and are still readable.
 enum VaultCrypto {
   static let magic = Data("SVC1".utf8)
   static let chunkSize = 1_048_576

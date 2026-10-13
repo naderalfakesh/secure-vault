@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
-import { Alert, ScrollView, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, Switch, TextInput, View } from 'react-native';
 import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
 
 import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
@@ -385,7 +385,10 @@ export default function SettingsScreen() {
           <ListRow
             icon="shield"
             title="How your data is protected"
-            subtitle="AES-256-GCM with a key in the Secure Enclave or Android Keystore"
+            subtitle={Platform.select({
+              ios: 'AES-256-GCM with a key kept in the iOS Keychain, behind Face ID, Touch ID, or your passcode',
+              default: 'AES-256-GCM with a non-exportable key in the Android Keystore',
+            })}
           />
           <ListRow
             icon="sparkles"
