@@ -1,5 +1,8 @@
 package expo.modules.vault
 
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import org.json.JSONObject
 import java.io.DataOutputStream
 import java.io.EOFException
@@ -7,8 +10,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
-import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,14 +52,15 @@ object BackupContainer {
 
             fun resolve(requested: String, cacheDir: File): StagingDirectory {
                 if (!requested.startsWith("/")) throw StagingException("not an absolute path")
-                val candidate = File(requested).toPath()
-                // A link at the path is refused even when it points at the right place.
-                if (Files.isSymbolicLink(candidate)) throw StagingException("not a directory")
-                if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS) &&
-                    !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)
-                ) throw StagingException("not a directory")
+                val candidate = File(requested)
+                // A link at the path is refused even when it points at the right place; a missing
+                // folder is fine (the sweep creates it), anything else there is not.
+                when (entryKind(candidate)) {
+                    EntryKind.DIRECTORY, EntryKind.MISSING -> Unit
+                    EntryKind.LINK, EntryKind.OTHER -> throw StagingException("not a directory")
+                }
                 val expected = File(cacheDir.canonicalFile, NAME)
-                if (File(requested).canonicalPath != expected.path) {
+                if (candidate.canonicalPath != expected.path) {
                     throw StagingException("not the app's backup-staging cache folder")
                 }
                 return StagingDirectory(expected)
@@ -96,35 +98,79 @@ object BackupContainer {
 
     fun temporaryFile(directory: File): File = File.createTempFile("backup", null, directory)
 
+    /** What sits at a path, without following a link at the path itself. */
+    private enum class EntryKind { MISSING, DIRECTORY, LINK, OTHER }
+
+    /**
+     * lstat-based, so a symbolic link is reported as a link and never as what it points at.
+     * `android.system.Os` has been available since API 21; `java.nio.file` needs API 26, above the
+     * app's minimum. Any error other than "no such entry" is reported as OTHER so the caller refuses it.
+     */
+    private fun entryKind(file: File): EntryKind {
+        val mode = try {
+            Os.lstat(file.path).st_mode
+        } catch (e: ErrnoException) {
+            return if (e.errno == OsConstants.ENOENT) EntryKind.MISSING else EntryKind.OTHER
+        }
+        return when {
+            OsConstants.S_ISLNK(mode) -> EntryKind.LINK
+            OsConstants.S_ISDIR(mode) -> EntryKind.DIRECTORY
+            else -> EntryKind.OTHER
+        }
+    }
+
     /**
      * Empties the staging directory, creating it if needed. Export plaintext only ever lives here,
-     * so one sweep is the whole cleanup after a crash.
+     * so one sweep is the whole cleanup after a crash. Throws when the folder cannot be created or
+     * something in it could not be removed: staging must not start next to leftover plaintext.
      */
     fun sweep(staging: StagingDirectory) {
         val dir = staging.dir
-        if (!dir.isDirectory && !dir.mkdirs()) throw StagingException("cannot be created")
-        dir.listFiles()?.forEach { removeTree(it) }
+        when (entryKind(dir)) {
+            EntryKind.DIRECTORY -> Unit
+            EntryKind.MISSING -> if (!dir.mkdirs()) throw StagingException("cannot be created")
+            EntryKind.LINK, EntryKind.OTHER -> throw StagingException("cannot be created")
+        }
+        var emptied = true
+        dir.listFiles()?.forEach { if (!removeTree(it)) emptied = false }
+        if (!emptied) throw StagingException("could not be emptied")
     }
 
-    /** Deletes a tree without following symbolic links, so a link planted in staging cannot pull in its target. */
-    private fun removeTree(file: File) {
-        val path = file.toPath()
-        if (!Files.isSymbolicLink(path) && file.isDirectory) file.listFiles()?.forEach { removeTree(it) }
-        Files.deleteIfExists(path)
+    /**
+     * Deletes a tree without following symbolic links, so a link planted in staging cannot pull in
+     * its target: only a real directory is recursed into, and `File.delete` unlinks a link entry
+     * itself. Returns false if anything is still there afterwards.
+     */
+    private fun removeTree(file: File): Boolean {
+        var removed = true
+        if (entryKind(file) == EntryKind.DIRECTORY) file.listFiles()?.forEach { if (!removeTree(it)) removed = false }
+        return (file.delete() || entryKind(file) == EntryKind.MISSING) && removed
     }
 
     /**
      * Writes the container. Plaintext is staged one entry at a time inside [staging], which is swept
      * first (an earlier export may have been killed mid-entry) and left empty whether the write
      * succeeds or fails. Returns (entries, bytes).
+     *
+     * When the write fails, the cleanup sweep is best effort: the write's own error is what the
+     * caller sees (it may be a locked-key failure the bridge maps to its own code) and a cleanup
+     * error is attached as suppressed. After a successful write, a cleanup error fails the export,
+     * because a success must not be reported while plaintext may still be on disk.
      */
     fun write(destination: File, passphrase: String, staging: StagingDirectory, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         sweep(staging)
-        try {
-            return writeEntries(destination, passphrase, staging.dir, entries, progress)
-        } finally {
-            sweep(staging)
+        val result = try {
+            writeEntries(destination, passphrase, staging.dir, entries, progress)
+        } catch (failure: Throwable) {
+            try {
+                sweep(staging)
+            } catch (cleanup: Exception) {
+                failure.addSuppressed(cleanup)
+            }
+            throw failure
         }
+        sweep(staging)
+        return result
     }
 
     private fun writeEntries(destination: File, passphrase: String, staging: File, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
