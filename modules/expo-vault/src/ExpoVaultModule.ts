@@ -98,10 +98,6 @@ export interface SecureVault {
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,
   ): { remove(): void };
-  /** @deprecated Prototype clipboard export under the device key; replaced by exportBackup. */
-  exportEncrypted(): Promise<string>;
-  /** @deprecated See exportEncrypted. */
-  importEncrypted(jsonString: string): Promise<void>;
 }
 
 export default ExpoVaultModule as SecureVault;

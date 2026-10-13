@@ -117,13 +117,6 @@ export function createVaultMock(): SecureVault & { reset(): void } {
         },
       };
     },
-    async exportEncrypted() {
-      return JSON.stringify(Object.fromEntries(strings));
-    },
-    async importEncrypted(json) {
-      strings = new Map(Object.entries(JSON.parse(json) as Record<string, string>));
-      files = new Map();
-    },
     reset() {
       strings = new Map();
       files = new Map();

@@ -12,7 +12,6 @@ import androidx.fragment.app.FragmentActivity
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import org.json.JSONObject
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -295,45 +294,6 @@ class ExpoVaultModule : Module() {
                 promise.reject("BACKUP_INVALID", e.message, e)
             } catch (e: Exception) {
                 promise.reject(failureCode(e, "BACKUP_IMPORT_FAILED"), e.message, e)
-            }
-        }
-
-        AsyncFunction("exportEncrypted") { promise: Promise ->
-            try {
-                val filesDir = appContext.reactContext!!.filesDir
-                val exportedData = JSONObject()
-                filesDir.listFiles()?.forEach { file ->
-                    val fileName = file.name
-                    if (fileName != "ExpoVault_IVs.xml") { // Don't export the IV preferences file
-                        val fileData = file.readBytes()
-                        exportedData.put(fileName, android.util.Base64.encodeToString(fileData, android.util.Base64.DEFAULT))
-                    }
-                }
-                promise.resolve(exportedData.toString())
-            } catch (e: Exception) {
-                promise.reject(failureCode(e, "EXPORT_FAILED"), e.message, e)
-            }
-        }
-
-        AsyncFunction("importEncrypted") { jsonString: String, promise: Promise ->
-            try {
-                val filesDir = appContext.reactContext!!.filesDir
-                filesDir.listFiles()?.forEach { file ->
-                    if (file.name != "ExpoVault_IVs.xml") {
-                        file.delete()
-                    }
-                }
-
-                val importedData = JSONObject(jsonString)
-                importedData.keys().forEach { fileName ->
-                    val base64String = importedData.getString(fileName)
-                    val fileData = android.util.Base64.decode(base64String, android.util.Base64.DEFAULT)
-                    val file = File(filesDir, fileName)
-                    file.writeBytes(fileData)
-                }
-                promise.resolve(null)
-            } catch (e: Exception) {
-                promise.reject(failureCode(e, "IMPORT_FAILED"), e.message, e)
             }
         }
 

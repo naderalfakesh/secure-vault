@@ -222,61 +222,6 @@ public class ExpoVaultModule: Module {
         }
     }
 
-    AsyncFunction("exportEncrypted") { (promise: Promise) in
-        do {
-            let fileManager = FileManager.default
-            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            let fileURLs = try fileManager.contentsOfDirectory(at: documentsURL, includingPropertiesForKeys: nil)
-
-            var exportedData: [String: String] = [:]
-            for fileURL in fileURLs {
-                let fileName = fileURL.lastPathComponent
-                let fileData = try Data(contentsOf: fileURL)
-                exportedData[fileName] = fileData.base64EncodedString()
-            }
-
-            let jsonData = try JSONSerialization.data(withJSONObject: exportedData, options: [])
-            let jsonString = String(data: jsonData, encoding: .utf8)
-            promise.resolve(jsonString)
-        } catch {
-            promise.reject("EXPORT_FAILED", error.localizedDescription)
-        }
-    }
-
-    AsyncFunction("importEncrypted") { (jsonString: String, promise: Promise) in
-        do {
-            guard let jsonData = jsonString.data(using: .utf8) else {
-                throw NSError(domain: "ExpoVault", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON string"])
-            }
-
-            guard let importedData = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: String] else {
-                throw NSError(domain: "ExpoVault", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
-            }
-
-            let fileManager = FileManager.default
-            let documentsURL = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-
-            // Clear existing notes before importing
-            let existingFiles = try fileManager.contentsOfDirectory(at: documentsURL, includingPropertiesForKeys: nil)
-            for fileURL in existingFiles {
-                try fileManager.removeItem(at: fileURL)
-            }
-
-            for (fileName, base64String) in importedData {
-                guard let fileData = Data(base64Encoded: base64String) else {
-                    // Skip invalid base64 strings
-                    continue
-                }
-                let fileURL = documentsURL.appendingPathComponent(fileName)
-                try fileData.write(to: fileURL)
-            }
-
-            promise.resolve(nil)
-        } catch {
-            promise.reject("IMPORT_FAILED", error.localizedDescription)
-        }
-    }
-
     AsyncFunction("getAllKeys") { (promise: Promise) in
         do {
             promise.resolve(try self.vaultEntryURLs().map { $0.lastPathComponent })
