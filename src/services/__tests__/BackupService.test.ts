@@ -153,6 +153,42 @@ describe('BackupService', () => {
       expect(staging().exists).toBe(false);
     });
 
+    const containers = () =>
+      new Directory(Paths.cache, 'backup')
+        .list()
+        .filter((entry) => entry.name.endsWith('.svbackup'));
+
+    it('removes a half-written container when the module fails mid-write', async () => {
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
+        new File(`file://${destPath}`).write('SVB1 partial');
+        throw Object.assign(new Error('disk full'), { code: 'BACKUP_EXPORT_FAILED' });
+      });
+      try {
+        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow(
+          'disk full',
+        );
+      } finally {
+        spy.mockRestore();
+      }
+      expect(containers()).toHaveLength(0);
+    });
+
+    it('keeps the container the module finished writing', async () => {
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
+        new File(`file://${destPath}`).write('SVB1 complete');
+        return { entries: 1, bytes: 13 };
+      });
+      let backup;
+      try {
+        backup = await backupService.createBackup('correct horse battery');
+      } finally {
+        spy.mockRestore();
+      }
+      expect(containers().map((entry) => entry.name)).toEqual([backup.name]);
+      backupService.discardBackup(backup.uri);
+      expect(containers()).toHaveLength(0);
+    });
+
     it('is swept with the rest of the cache when the vault locks', async () => {
       plantResidue();
       const finished = new Directory(Paths.cache, 'backup');

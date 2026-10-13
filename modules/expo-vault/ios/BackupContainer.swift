@@ -71,12 +71,44 @@ enum BackupContainer {
 
   typealias Progress = (Int, Int) -> Void
 
+  struct StagingDirectoryError: LocalizedError {
+    let reason: String
+    var errorDescription: String? { "The backup staging folder is not allowed: \(reason)" }
+  }
+
+  /// The one folder export plaintext may be staged in: `<caches>/backup-staging`.
+  /// The requested path is standardized and symlink-resolved, then compared
+  /// exactly with the app's own cache location, so a sweep can never reach the
+  /// cache root, the vault, or whatever a planted link points at. Only this
+  /// type can be handed to `write` and `sweep`.
+  struct StagingDirectory {
+    static let name = "backup-staging"
+    let url: URL
+
+    init(requested: String, caches: URL) throws {
+      guard requested.hasPrefix("/") else { throw StagingDirectoryError(reason: "not an absolute path") }
+      let candidate = URL(fileURLWithPath: requested, isDirectory: true).standardizedFileURL
+      // attributesOfItem does not follow links, so a symlink at the path is
+      // refused here even when it points at the right place.
+      if let type = (try? FileManager.default.attributesOfItem(atPath: candidate.path))?[.type] as? FileAttributeType {
+        guard type == .typeDirectory else { throw StagingDirectoryError(reason: "not a directory") }
+      }
+      let expected = caches.standardizedFileURL.resolvingSymlinksInPath()
+        .appendingPathComponent(Self.name, isDirectory: true)
+      guard candidate.resolvingSymlinksInPath().path == expected.path else {
+        throw StagingDirectoryError(reason: "not the app's backup-staging cache folder")
+      }
+      url = expected
+    }
+  }
+
   /// Empties the staging directory, creating it if needed. Export plaintext
   /// only ever lives here, so one sweep is the whole cleanup after a crash.
-  static func sweep(_ staging: URL) throws {
+  /// `removeItem` deletes a link itself and never follows it.
+  static func sweep(_ staging: StagingDirectory) throws {
     let fileManager = FileManager.default
-    try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
-    for item in try fileManager.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil) {
+    try fileManager.createDirectory(at: staging.url, withIntermediateDirectories: true)
+    for item in try fileManager.contentsOfDirectory(at: staging.url, includingPropertiesForKeys: nil) {
       try fileManager.removeItem(at: item)
     }
   }
@@ -102,7 +134,7 @@ enum BackupContainer {
   /// `staging`, which is swept first (an earlier export may have been killed
   /// mid-entry) and left empty whether the write succeeds or fails.
   static func write(
-    to destination: URL, passphrase: String, staging: URL, entries: [Entry], progress: Progress
+    to destination: URL, passphrase: String, staging: StagingDirectory, entries: [Entry], progress: Progress
   ) throws -> (entries: Int, bytes: Int) {
     try sweep(staging)
     defer { try? sweep(staging) }
@@ -129,8 +161,8 @@ enum BackupContainer {
     let check = Entry(key: checkKey, kind: "c", source: .staged { try checkValue.write(to: $0) })
     let all = [check] + entries
     for (index, entry) in all.enumerated() {
-      let plain = staging.appendingPathComponent("plain-\(UUID().uuidString)")
-      let payload = staging.appendingPathComponent("payload-\(UUID().uuidString)")
+      let plain = staging.url.appendingPathComponent("plain-\(UUID().uuidString)")
+      let payload = staging.url.appendingPathComponent("payload-\(UUID().uuidString)")
       defer {
         try? FileManager.default.removeItem(at: plain)
         try? FileManager.default.removeItem(at: payload)

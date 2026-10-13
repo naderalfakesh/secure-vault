@@ -123,6 +123,11 @@ class BackupService {
         toPath(staging.uri),
       );
       return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
+    } catch (error) {
+      // A failure mid-write leaves a half-written container; it is ciphertext
+      // but useless, so it does not wait for the next export to replace it.
+      if (target.exists) target.delete();
+      throw error;
     } finally {
       unsubscribe();
       if (databaseCopy.exists) databaseCopy.delete();

@@ -211,6 +211,9 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("exportBackup") { destPath: String, passphrase: String, extraFiles: List<Map<String, String>>, stagingDir: String, promise: Promise ->
             try {
+                // Checked before anything is swept or written: only the app's own
+                // backup-staging cache folder may hold export plaintext.
+                val staging = BackupContainer.StagingDirectory.resolve(stagingDir, appContext.reactContext!!.cacheDir)
                 val secretKey = getSecretKey()
                 val entries = mutableListOf<BackupContainer.Entry>()
                 for (file in vaultEntryFiles()) {
@@ -225,10 +228,12 @@ class ExpoVaultModule : Module() {
                     val path = extra["path"] ?: continue
                     entries.add(BackupContainer.Entry(key, "x", BackupContainer.Source.Ready(File(path))))
                 }
-                val result = BackupContainer.write(File(destPath), passphrase, File(stagingDir), entries) { done, total ->
+                val result = BackupContainer.write(File(destPath), passphrase, staging, entries) { done, total ->
                     sendEvent("backupProgress", mapOf("phase" to "export", "done" to done, "total" to total))
                 }
                 promise.resolve(mapOf("entries" to result.first, "bytes" to result.second))
+            } catch (e: BackupContainer.StagingException) {
+                promise.reject("BACKUP_STAGING_INVALID", e.message, e)
             } catch (e: Exception) {
                 promise.reject(failureCode(e, "BACKUP_EXPORT_FAILED"), e.message, e)
             }

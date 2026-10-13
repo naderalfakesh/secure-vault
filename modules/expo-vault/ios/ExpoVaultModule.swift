@@ -136,6 +136,10 @@ public class ExpoVaultModule: Module {
 
     AsyncFunction("exportBackup") { (destPath: String, passphrase: String, extraFiles: [[String: String]], stagingDir: String, promise: Promise) in
         do {
+            // Checked before anything is swept or written: only the app's own
+            // backup-staging cache folder may hold export plaintext.
+            let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let staging = try BackupContainer.StagingDirectory(requested: stagingDir, caches: caches)
             let encryptionKey = try self.getEncryptionKey()
             var entries: [BackupContainer.Entry] = []
             for url in try self.vaultEntryURLs() {
@@ -151,12 +155,13 @@ public class ExpoVaultModule: Module {
                 entries.append(.init(key: key, kind: "x", source: .file(URL(fileURLWithPath: path))))
             }
             let result = try BackupContainer.write(
-                to: URL(fileURLWithPath: destPath), passphrase: passphrase,
-                staging: URL(fileURLWithPath: stagingDir, isDirectory: true), entries: entries
+                to: URL(fileURLWithPath: destPath), passphrase: passphrase, staging: staging, entries: entries
             ) { done, total in
                 self.sendEvent("backupProgress", ["phase": "export", "done": done, "total": total])
             }
             promise.resolve(["entries": result.entries, "bytes": result.bytes])
+        } catch let error as BackupContainer.StagingDirectoryError {
+            promise.reject("BACKUP_STAGING_INVALID", error.localizedDescription)
         } catch {
             promise.reject("BACKUP_EXPORT_FAILED", error.localizedDescription)
         }

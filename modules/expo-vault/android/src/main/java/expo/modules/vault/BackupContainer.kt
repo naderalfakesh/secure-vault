@@ -7,6 +7,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.security.SecureRandom
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -35,6 +37,34 @@ object BackupContainer {
     class PassphraseException : Exception("That passphrase does not match this backup.")
     class UnsupportedException(version: Int) :
         Exception("This backup needs a newer version of the app (format $version).")
+    class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
+
+    /**
+     * The one folder export plaintext may be staged in: `<cacheDir>/backup-staging`. The requested
+     * path is canonicalised (symlinks and `..` resolved) and compared exactly with the app's own
+     * cache location, so a sweep can never reach the cache root, the vault, or whatever a planted
+     * link points at. Only this type can be handed to [write] and [sweep].
+     */
+    class StagingDirectory private constructor(val dir: File) {
+        companion object {
+            const val NAME = "backup-staging"
+
+            fun resolve(requested: String, cacheDir: File): StagingDirectory {
+                if (!requested.startsWith("/")) throw StagingException("not an absolute path")
+                val candidate = File(requested).toPath()
+                // A link at the path is refused even when it points at the right place.
+                if (Files.isSymbolicLink(candidate)) throw StagingException("not a directory")
+                if (Files.exists(candidate, LinkOption.NOFOLLOW_LINKS) &&
+                    !Files.isDirectory(candidate, LinkOption.NOFOLLOW_LINKS)
+                ) throw StagingException("not a directory")
+                val expected = File(cacheDir.canonicalFile, NAME)
+                if (File(requested).canonicalPath != expected.path) {
+                    throw StagingException("not the app's backup-staging cache folder")
+                }
+                return StagingDirectory(expected)
+            }
+        }
+    }
 
     data class Header(val version: Int, val app: String, val created: String, val iterations: Int, val salt: ByteArray, val entries: Int)
     data class Meta(val key: String, val kind: String)
@@ -70,9 +100,17 @@ object BackupContainer {
      * Empties the staging directory, creating it if needed. Export plaintext only ever lives here,
      * so one sweep is the whole cleanup after a crash.
      */
-    fun sweep(staging: File) {
-        staging.mkdirs()
-        staging.listFiles()?.forEach { it.deleteRecursively() }
+    fun sweep(staging: StagingDirectory) {
+        val dir = staging.dir
+        if (!dir.isDirectory && !dir.mkdirs()) throw StagingException("cannot be created")
+        dir.listFiles()?.forEach { removeTree(it) }
+    }
+
+    /** Deletes a tree without following symbolic links, so a link planted in staging cannot pull in its target. */
+    private fun removeTree(file: File) {
+        val path = file.toPath()
+        if (!Files.isSymbolicLink(path) && file.isDirectory) file.listFiles()?.forEach { removeTree(it) }
+        Files.deleteIfExists(path)
     }
 
     /**
@@ -80,10 +118,10 @@ object BackupContainer {
      * first (an earlier export may have been killed mid-entry) and left empty whether the write
      * succeeds or fails. Returns (entries, bytes).
      */
-    fun write(destination: File, passphrase: String, staging: File, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
+    fun write(destination: File, passphrase: String, staging: StagingDirectory, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         sweep(staging)
         try {
-            return writeEntries(destination, passphrase, staging, entries, progress)
+            return writeEntries(destination, passphrase, staging.dir, entries, progress)
         } finally {
             sweep(staging)
         }

@@ -78,7 +78,10 @@ export interface SecureVault {
    * Writes every vault entry plus `extraFiles` into a passphrase-protected
    * container at `destPath`. Entries are decrypted one at a time into
    * `stagingDir`, which is emptied before and after; the caller sweeps it on
-   * lock and launch as well. Emits `backupProgress` while it works.
+   * lock and launch as well. The module accepts only the app cache's own
+   * `backup-staging` folder there and rejects anything else with
+   * BACKUP_STAGING_INVALID before touching the disk. Emits `backupProgress`
+   * while it works.
    */
   exportBackup(
     destPath: string,

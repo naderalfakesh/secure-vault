@@ -98,7 +98,10 @@ while unlocked. Sharing can require a second biometric check.
   into a staging folder in the cache and removes it as soon as that entry is
   encrypted under the backup key. The folder is emptied before and after every
   export and by the lock and launch sweep, so an export killed mid-entry leaves
-  at most one entry behind, and only until the next launch or lock.
+  at most one entry behind, and only until the next launch or lock. The module
+  sweeps only that exact folder: the path it is given must resolve, links and
+  `..` included, to the cache's own `backup-staging`, or the export is refused
+  before anything is touched.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
