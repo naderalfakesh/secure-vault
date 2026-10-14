@@ -2,6 +2,7 @@ package expo.modules.documentscanner
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
@@ -29,6 +30,10 @@ class ExpoDocumentScannerModule : Module() {
     Name("ExpoDocumentScanner")
 
     Function("isSupported") { true }
+
+    Function("isCameraAvailable") {
+      appContext.reactContext?.packageManager?.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) ?: false
+    }
 
     AsyncFunction("scanDocuments") { options: ScanOptions, promise: Promise ->
       val activity = appContext.currentActivity

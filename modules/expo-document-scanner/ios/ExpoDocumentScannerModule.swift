@@ -16,6 +16,13 @@ public class ExpoDocumentScannerModule: Module {
       VNDocumentCameraViewController.isSupported
     }
 
+    // Selecting the picker's camera source without a camera throws an
+    // NSInvalidArgumentException that JavaScript cannot catch; this is the
+    // check UIKit documents for it.
+    Function("isCameraAvailable") { () -> Bool in
+      UIImagePickerController.isSourceTypeAvailable(.camera)
+    }
+
     AsyncFunction("scanDocuments") { (options: ScanOptions, promise: Promise) in
       guard VNDocumentCameraViewController.isSupported else {
         promise.reject("SCANNER_UNAVAILABLE", "The document camera is not available on this device.")

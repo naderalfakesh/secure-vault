@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -34,27 +34,56 @@ import type { ExtractedField } from '@/data/DocumentRepository';
 import { DocumentCategory, type PickedFile } from '@/types';
 import { formatDate } from '@/utils/format';
 
-import { isScannerSupported, scanDocuments } from '../../modules/expo-document-scanner';
+import {
+  isCameraAvailable,
+  isScannerSupported,
+  scanDocuments,
+} from '../../modules/expo-document-scanner';
 
 type Source = 'scan' | 'camera' | 'library' | 'files';
 type SaveStep = 'ocr' | 'suggest' | 'encrypt' | 'index';
 
-const scannerAvailable = isScannerSupported();
+type SourceRow = {
+  key: Source;
+  icon: IconName;
+  title: string;
+  subtitle: string;
+  disabled?: boolean;
+};
 
-const sources: { key: Source; icon: IconName; title: string; subtitle: string }[] = [
-  scannerAvailable
-    ? {
-        key: 'scan',
-        icon: 'scan',
-        title: 'Scan with the camera',
-        subtitle: 'Finds the edges, straightens the page, and captures several pages',
-      }
-    : {
-        key: 'camera',
-        icon: 'camera',
-        title: 'Take a photo',
-        subtitle: 'Best for cards, passports, and single pages',
-      },
+/**
+ * The capture row depends on the hardware: the platform scanner when it exists,
+ * otherwise a plain photo, and a disabled photo row when there is no camera at
+ * all (the simulator). The native camera picker aborts the app on a camera-less
+ * device, so that row must never be pressable there.
+ */
+function captureRow(): SourceRow {
+  if (isScannerSupported()) {
+    return {
+      key: 'scan',
+      icon: 'scan',
+      title: 'Scan with the camera',
+      subtitle: 'Finds the edges, straightens the page, and captures several pages',
+    };
+  }
+  if (isCameraAvailable()) {
+    return {
+      key: 'camera',
+      icon: 'camera',
+      title: 'Take a photo',
+      subtitle: 'Best for cards, passports, and single pages',
+    };
+  }
+  return {
+    key: 'camera',
+    icon: 'camera',
+    title: 'Take a photo',
+    subtitle: 'No camera on this device',
+    disabled: true,
+  };
+}
+
+const importRows: SourceRow[] = [
   {
     key: 'library',
     icon: 'photos',
@@ -94,6 +123,7 @@ export default function AddDocumentScreen() {
   const [ocrText, setOcrText] = useState<string | undefined>(undefined);
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [engine, setEngine] = useState<string | null>(null);
+  const sources = useMemo(() => [captureRow(), ...importRows], []);
 
   const accept = useCallback(
     async (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
@@ -166,6 +196,11 @@ export default function AddDocumentScreen() {
             preview,
             stripExtension(asset.name),
           );
+          return;
+        }
+
+        if (source === 'camera' && !isCameraAvailable()) {
+          toast.show({ message: 'This device has no camera.', tone: 'danger' });
           return;
         }
 
@@ -296,6 +331,8 @@ export default function AddDocumentScreen() {
                 title={source.title}
                 subtitle={source.subtitle}
                 onPress={() => pick(source.key)}
+                disabled={source.disabled}
+                iconTone={source.disabled ? 'tertiary' : undefined}
                 divider={index < sources.length - 1}
               />
             ))}

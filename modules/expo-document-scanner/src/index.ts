@@ -1,4 +1,5 @@
 import { requireOptionalNativeModule } from 'expo';
+import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
 export interface ScannedPage {
@@ -16,6 +17,8 @@ export interface ScanOptions {
 
 interface NativeScanner {
   isSupported(): boolean;
+  /** Missing in native builds that predate the camera probe. */
+  isCameraAvailable?(): boolean;
   scanDocuments(options: ScanOptions): Promise<ScannedPage[]>;
 }
 
@@ -35,6 +38,24 @@ const native = loadNative();
 export function isScannerSupported(): boolean {
   try {
     return native?.isSupported() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when this device can take a photo: UIImagePickerController's own source
+ * check on iOS, the FEATURE_CAMERA_ANY system feature on Android. Opening the
+ * camera picker without a camera throws an exception JavaScript cannot catch,
+ * so the add flow asks this before offering the camera.
+ */
+export function isCameraAvailable(): boolean {
+  if (!native) return false;
+  try {
+    // A native build older than the probe cannot answer; the simulator is the
+    // only camera-less device the app runs on, so expo-device decides there.
+    if (typeof native.isCameraAvailable !== 'function') return Device.isDevice;
+    return native.isCameraAvailable();
   } catch {
     return false;
   }
