@@ -42,6 +42,15 @@ crypto files came out byte-identical to the structural checks commit.
 - A failure after the native import has replaced the vault (replacing or
   opening the index) rejects with `BACKUP_INDEX` and a sentence that says the
   documents are back but the index is not; it never claims nothing changed.
+- The plaintext the container hands to the restore handler is removed when
+  the handler returns, even by throwing, by the container itself and, on both
+  platforms, by the handler before it probes the key or clears the vault. An
+  independent review found that the Android key probe, placed before the
+  handler's own cleanup, would have left the first decrypted entry in the
+  cache when the authentication window had lapsed. From the first removal on,
+  a failure is reported as a partial restore on both platforms, and on Android
+  a vault file that cannot be removed stops the restore instead of surviving
+  it.
 
 Not changed, on purpose: the container format, the vault stream, the 600 000
 iteration default and every header value the exporter writes, the device key
@@ -105,6 +114,10 @@ Outcomes on the new build, all three runtimes:
 - The valid exports and the backups written by each runtime restore on every
   runtime with digests identical across runtimes and to the base build. The
   empty-salt fixture is `BACKUP_INVALID` on iOS as on Android.
+- A restore whose handler throws before touching the first plaintext (the
+  shape of a lapsed key window or a failed wipe) ends typed with nothing handed
+  over and no decrypted temporary left, on every runtime; the build before the
+  repair left one.
 
 ## Not verified
 
