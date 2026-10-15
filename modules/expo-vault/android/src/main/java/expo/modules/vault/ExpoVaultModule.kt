@@ -23,6 +23,7 @@ class ExpoVaultModule : Module() {
     class InvalidKeyException(key: String) : IllegalArgumentException("Invalid vault key: $key")
 
     private val keyAlias = "encryptionKey"
+    private val RESOURCE_MESSAGE = "This device does not have enough memory to read this backup."
     private val AUTH_VALIDITY_SECONDS = 300
     private val keystoreProvider = "AndroidKeyStore"
     private val ivPreferences: SharedPreferences by lazy {
@@ -243,8 +244,13 @@ class ExpoVaultModule : Module() {
                         "entries" to maxOf(0, header.entries - 1)
                     )
                 )
-            } catch (e: Exception) {
-                promise.reject("BACKUP_INVALID", e.message, e)
+            } catch (e: Throwable) {
+                when (e) {
+                    is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
+                    is OutOfMemoryError -> promise.reject("BACKUP_RESOURCE", RESOURCE_MESSAGE, e)
+                    is Exception -> promise.reject("BACKUP_INVALID", e.message, e)
+                    else -> throw e
+                }
             }
         }
 
@@ -294,7 +300,11 @@ class ExpoVaultModule : Module() {
                     }
                 }
                 promise.resolve(mapOf("entries" to count, "extras" to restored))
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Errors are caught as well: an OutOfMemoryError from a declared length is a
+                // typed refusal before the wipe and a named partial after it, instead of an
+                // untyped rejection from the module runtime over a half-replaced vault.
+                if (e !is Exception && e !is OutOfMemoryError && !cleared) throw e
                 val code = failureCode(e, "BACKUP_IMPORT_FAILED")
                 // Every entry had already decrypted once, so a failure after the wipe is
                 // usually disk, I/O or the key, not the file; it is named either way,
@@ -306,6 +316,7 @@ class ExpoVaultModule : Module() {
                     // invalidated key names the cause. The message covers the wipe either way.
                     VaultErrors.isKeyCode(code) -> promise.reject(code, if (cleared) partial else e.message, e)
                     cleared -> promise.reject("BACKUP_PARTIAL", partial, e)
+                    e is OutOfMemoryError -> promise.reject("BACKUP_RESOURCE", RESOURCE_MESSAGE, e)
                     e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
                     e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
                     e is BackupContainer.CorruptException -> promise.reject("BACKUP_INVALID", e.message, e)

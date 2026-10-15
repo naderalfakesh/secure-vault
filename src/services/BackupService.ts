@@ -42,6 +42,8 @@ export function describeBackupError(error: unknown): string {
       return 'This backup was made by a newer version of the app.';
     case 'BACKUP_PARTIAL':
       return 'The restore stopped after the previous vault was removed. Restore the backup again.';
+    case 'BACKUP_RESOURCE':
+      return "This device doesn't have enough memory to read this backup. Nothing was changed.";
     default:
       return error instanceof Error && error.message ? error.message : 'Could not use this backup.';
   }

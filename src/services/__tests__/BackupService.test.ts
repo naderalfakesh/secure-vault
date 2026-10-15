@@ -20,6 +20,7 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_INVALID' })).toMatch(/not a SecureVault backup/);
     expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toMatch(/newer version/);
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
+    expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toMatch(/enough memory/);
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
   });
 });

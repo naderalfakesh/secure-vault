@@ -83,14 +83,19 @@ export interface SecureVault {
     passphrase: string,
     extraFiles: BackupFile[],
   ): Promise<BackupSummary>;
-  /** Reads the container header without a passphrase; rejects with BACKUP_INVALID otherwise. */
+  /**
+   * Reads the container header without a passphrase. Rejects with
+   * BACKUP_UNSUPPORTED for a newer format, BACKUP_RESOURCE when the device
+   * cannot hold a declared length, and BACKUP_INVALID otherwise.
+   */
   inspectBackup(sourcePath: string): Promise<BackupInfo>;
   /**
    * Replaces the vault with the container's entries. Every entry is decrypted
-   * once before anything is replaced, so a wrong passphrase (BACKUP_PASSPHRASE)
-   * or a damaged file (BACKUP_INVALID) leaves the vault untouched. A failure
-   * while the entries are being written back rejects with BACKUP_PARTIAL.
-   * Extra files land in `extraDir` and are listed in the result.
+   * once before anything is replaced, so a wrong passphrase (BACKUP_PASSPHRASE),
+   * a damaged file or one without its document index (BACKUP_INVALID), or a
+   * declared length the device cannot hold (BACKUP_RESOURCE) leaves the vault
+   * untouched. A failure while the entries are being written back rejects with
+   * BACKUP_PARTIAL. Extra files land in `extraDir` and are listed in the result.
    */
   importBackup(
     sourcePath: string,
