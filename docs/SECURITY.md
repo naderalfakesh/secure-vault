@@ -70,8 +70,14 @@ while the module encrypts or decrypts the entries and is never written
 anywhere. A wrong passphrase fails on a check entry before the vault is
 touched, and every entry is decrypted once, to nothing, before the first
 vault file is replaced, so a damaged backup is refused with the vault
-intact. Writing the entries back is not a transaction: a disk or key failure
-at that point is reported as a partial restore, and the user restores again.
+intact. Every length the file declares is checked against the bytes left in
+it before a buffer is allocated, a backup without its document index is
+refused before the key is derived, and on Android the device key is used
+once more right before the vault is cleared, so a lapsed authentication
+window is reported with nothing removed. Writing the entries back is not a
+transaction: a disk or key failure at that point is reported as a partial
+restore, and the user restores again. A failed encryption or decryption
+removes its own half-written file.
 
 ## Session
 
