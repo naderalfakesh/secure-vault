@@ -21,6 +21,7 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toMatch(/newer version/);
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
     expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toMatch(/enough memory/);
+    expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
   });
 });
@@ -64,6 +65,21 @@ describe('BackupService', () => {
     const phases = progress.mock.calls.map(([event]) => (event as { phase: string }).phase);
     expect(phases.indexOf('verify')).toBeGreaterThan(phases.indexOf('export'));
     expect(phases.indexOf('import')).toBeGreaterThan(phases.indexOf('verify'));
+  });
+
+  it('names a restore whose index could not be opened after the vault was replaced', async () => {
+    await vault.put('_database_key', 'ab'.repeat(32));
+    const backup = await backupService.createBackup('correct horse battery');
+    const reload = jest
+      .spyOn(documentService, 'reload')
+      .mockRejectedValueOnce(new Error('file is not a database'));
+    try {
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery'),
+      ).rejects.toMatchObject({ code: 'BACKUP_INDEX', message: 'file is not a database' });
+    } finally {
+      reload.mockRestore();
+    }
   });
 
   it('rejects a wrong passphrase without touching the vault', async () => {

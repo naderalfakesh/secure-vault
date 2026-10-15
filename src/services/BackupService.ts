@@ -44,6 +44,8 @@ export function describeBackupError(error: unknown): string {
       return 'The restore stopped after the previous vault was removed. Restore the backup again.';
     case 'BACKUP_RESOURCE':
       return "This device doesn't have enough memory to read this backup. Nothing was changed.";
+    case 'BACKUP_INDEX':
+      return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
     default:
       return error instanceof Error && error.message ? error.message : 'Could not use this backup.';
   }
@@ -55,6 +57,17 @@ function backupFileName(date = new Date()): string {
 
 function toPath(uri: string): string {
   return decodeURIComponent(uri.replace(/^file:\/\//, ''));
+}
+
+/**
+ * A failure after the native import has replaced the vault: the documents
+ * are back, the index is not. It gets its own code so the sentence never
+ * claims that nothing changed.
+ */
+function indexError(cause: unknown): Error {
+  const message =
+    cause instanceof Error && cause.message ? cause.message : 'The index could not be opened.';
+  return Object.assign(new Error(message), { code: 'BACKUP_INDEX', cause });
 }
 
 /**
@@ -114,7 +127,8 @@ class BackupService {
   /**
    * Replaces everything in the vault with the backup's contents. A wrong
    * passphrase or a damaged entry fails before anything is removed; the index
-   * is replaced only after the native import has finished.
+   * is replaced only after the native import has finished, and a failure from
+   * that point on rejects with BACKUP_INDEX.
    */
   async restoreBackup(
     uri: string,
@@ -128,10 +142,14 @@ class BackupService {
     try {
       const result = await vault.importBackup(toPath(uri), passphrase, toPath(extras.uri));
       const database = result.extras.find((extra) => extra.key === DATABASE_ENTRY);
-      if (!database) throw new Error('The backup has no document index.');
-      await replaceDatabaseFile(database.path);
-      await documentService.clearCache();
-      await documentService.reload();
+      if (!database) throw indexError(new Error('The backup has no document index.'));
+      try {
+        await replaceDatabaseFile(database.path);
+        await documentService.clearCache();
+        await documentService.reload();
+      } catch (error) {
+        throw indexError(error);
+      }
       return result.entries;
     } finally {
       unsubscribe();
