@@ -147,7 +147,15 @@ enum BackupContainer {
     guard header.entries >= 0, let rounds = UInt32(exactly: header.kdf.iterations), rounds > 0 else {
       throw BackupError.corrupt("header")
     }
+    _ = try salt(of: header)
     return header
+  }
+
+  /// The salt must decode to at least one byte, as on Android, so an empty or
+  /// undecodable salt is a damaged header rather than a wrong passphrase.
+  private static func salt(of header: Header) throws -> Data {
+    guard let salt = Data(base64Encoded: header.kdf.salt), !salt.isEmpty else { throw BackupError.corrupt("salt") }
+    return salt
   }
 
   /// Entry metadata only, read by seeking past each payload. No key is derived
@@ -219,8 +227,7 @@ enum BackupContainer {
     for meta in metas { try validate(meta) }
     try validateAll(metas)
     let header = try readHeader(from: source)
-    guard let salt = Data(base64Encoded: header.kdf.salt) else { throw BackupError.corrupt("salt") }
-    let key = try deriveKey(passphrase: passphrase, salt: salt, iterations: header.kdf.iterations)
+    let key = try deriveKey(passphrase: passphrase, salt: try salt(of: header), iterations: header.kdf.iterations)
 
     try walk(source, validate: validate, progress: { progress(.verify, $0, $1) }) { meta, payload in
       if meta.kind == "c" {

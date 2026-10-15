@@ -21,9 +21,10 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * Layout: magic "SVC1", chunk size (Int32 BE), then per chunk an Int32 BE
  * length followed by nonce (12) + ciphertext + tag (16). The chunk index is
- * bound as additional authenticated data so chunks cannot be reordered or
- * dropped. Files written by the 2025 prototype have no header and keep their
- * IV in SharedPreferences; [legacyIv] handles those.
+ * bound as additional authenticated data so interior chunks cannot be reordered
+ * or dropped; there is no end marker, so a stream cut on a chunk boundary reads
+ * as a shorter file. Files written by the 2025 prototype have no header and keep
+ * their IV in SharedPreferences; [legacyIv] handles those.
  */
 object VaultCrypto {
     private val MAGIC = "SVC1".toByteArray(Charsets.US_ASCII)
