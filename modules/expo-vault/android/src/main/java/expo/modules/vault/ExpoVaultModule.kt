@@ -263,6 +263,7 @@ class ExpoVaultModule : Module() {
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }) { meta, plain ->
                     if (!cleared) {
+                        probeKey(secretKey)
                         vaultEntryFiles().forEach { it.delete() }
                         ivPreferences.edit().clear().apply()
                         cleared = true
@@ -298,10 +299,10 @@ class ExpoVaultModule : Module() {
                 // because the old vault is gone.
                 val partial = "The restore stopped after the previous vault was removed: ${e.message}"
                 when {
-                    // A lapsed key window keeps its code even after the wipe so the caller
-                    // re-authenticates and retries the whole restore; the message covers
-                    // the case where that prompt is cancelled.
-                    code == "KEY_LOCKED" -> promise.reject(code, if (cleared) partial else e.message, e)
+                    // A key failure keeps its code even after the wipe: a lapsed window lets
+                    // the caller re-authenticate and retry the whole restore, and an
+                    // invalidated key names the cause. The message covers the wipe either way.
+                    VaultErrors.isKeyCode(code) -> promise.reject(code, if (cleared) partial else e.message, e)
                     cleared -> promise.reject("BACKUP_PARTIAL", partial, e)
                     e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
                     e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
@@ -416,14 +417,16 @@ class ExpoVaultModule : Module() {
         }
     }
 
-    /** A lapsed authentication window gets its own code so the caller can re-prompt and retry. */
-    private fun failureCode(e: Exception, fallback: String): String {
-        var cause: Throwable? = e
-        while (cause != null) {
-            if (cause is android.security.keystore.UserNotAuthenticatedException) return "KEY_LOCKED"
-            cause = cause.cause
-        }
-        return fallback
+    /** KEY_LOCKED or KEY_INVALIDATED when the device key stopped the call, otherwise [fallback]. */
+    private fun failureCode(e: Throwable, fallback: String): String = VaultErrors.keyFailureCode(e, fallback)
+
+    /**
+     * The Keystore only reports a lapsed authentication window or an invalidated key
+     * when the key is used, and the verify pass can outlast the window. Using the key
+     * once here makes that failure arrive with nothing removed.
+     */
+    private fun probeKey(key: SecretKey) {
+        Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, key)
     }
 
     /**

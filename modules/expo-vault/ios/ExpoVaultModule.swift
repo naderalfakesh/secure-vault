@@ -3,15 +3,6 @@ import Security
 import LocalAuthentication
 import CryptoKit
 
-enum VaultKeyError: LocalizedError {
-  case invalid(String)
-
-  var errorDescription: String? {
-    if case let .invalid(key) = self { return "Invalid vault key: \(key)" }
-    return nil
-  }
-}
-
 public class ExpoVaultModule: Module {
   private let keychainService = "com.naderalfakesh.securevault.vault"
 
@@ -40,7 +31,7 @@ public class ExpoVaultModule: Module {
 
       let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: "encryptionKey",
+        kSecAttrAccount as String: VaultKeychain.account,
         kSecAttrService as String: keychainService,
         kSecValueData as String: key,
         kSecAttrAccessControl as String: accessControl
@@ -51,7 +42,7 @@ public class ExpoVaultModule: Module {
 
       let status = SecItemAdd(query as CFDictionary, nil)
       if status != errSecSuccess {
-        promise.reject("KEYCHAIN_STORE_FAILED", "Failed to store key in keychain: \(status)")
+        promise.reject("KEYCHAIN_STORE_FAILED", "Failed to store key in keychain: \(VaultKeychain.describe(status))")
         return
       }
 
@@ -61,7 +52,7 @@ public class ExpoVaultModule: Module {
     AsyncFunction("hasVault") { (promise: Promise) in
       let query: [String: Any] = [
         kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: "encryptionKey",
+        kSecAttrAccount as String: VaultKeychain.account,
         kSecAttrService as String: self.keychainService,
         kSecReturnData as String: false,
         kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
@@ -232,9 +223,10 @@ public class ExpoVaultModule: Module {
             case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
             case .corrupt: promise.reject("BACKUP_INVALID", error.localizedDescription)
             }
-        } catch let error as VaultKeyError {
-            promise.reject("BACKUP_INVALID", error.localizedDescription)
+        } catch VaultKeyError.invalid(let key) {
+            promise.reject("BACKUP_INVALID", VaultKeyError.invalid(key).localizedDescription)
         } catch {
+            // Includes the keychain refusing the device key, which is not the file's fault.
             promise.reject("BACKUP_IMPORT_FAILED", error.localizedDescription)
         }
     }
@@ -344,21 +336,7 @@ public class ExpoVaultModule: Module {
   }
 
   private func getEncryptionKey() throws -> SymmetricKey {
-    let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: "encryptionKey",
-        kSecAttrService as String: keychainService,
-        kSecReturnData as String: true
-    ]
-
-    var item: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-    guard status == errSecSuccess, let keyData = item as? Data else {
-        throw NSError(domain: "ExpoVault", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "Failed to retrieve key from keychain"])
-    }
-
-    return SymmetricKey(data: keyData)
+    try VaultKeychain.loadKey(service: keychainService)
   }
 
   /// Only names the vault itself writes count as entries: document files,
