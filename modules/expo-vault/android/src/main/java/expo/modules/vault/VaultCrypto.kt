@@ -10,6 +10,7 @@ import java.io.DataOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.nio.ByteBuffer
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -32,8 +33,17 @@ object VaultCrypto {
 
     class CorruptException(reason: String) : Exception("Vault file is corrupt: $reason")
 
+    /** A failed encryption leaves no partial ciphertext at [destination]. */
     fun encryptFile(source: File, destination: File, key: SecretKey) {
-        FileInputStream(source).use { input ->
+        FileInputStream(source).use { input -> encrypt(input, destination, key) }
+    }
+
+    /**
+     * Reads [input] to its end in chunks and writes the container to [destination].
+     * An I/O failure on either side removes whatever was written before it.
+     */
+    fun encrypt(input: InputStream, destination: File, key: SecretKey) {
+        removingOnFailure(destination) {
             DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
                 output.write(MAGIC)
                 output.writeInt(CHUNK_SIZE)
@@ -178,7 +188,7 @@ object VaultCrypto {
         return output.toByteArray()
     }
 
-    private fun readFully(input: FileInputStream, buffer: ByteArray): Int {
+    private fun readFully(input: InputStream, buffer: ByteArray): Int {
         var total = 0
         while (total < buffer.size) {
             val read = input.read(buffer, total, buffer.size - total)

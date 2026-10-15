@@ -24,24 +24,37 @@ enum VaultCrypto {
     }
   }
 
+  /// A failed encryption leaves no partial ciphertext at `destination`.
   static func encryptFile(from source: URL, to destination: URL, key: SymmetricKey) throws {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
-    FileManager.default.createFile(atPath: destination.path, contents: nil)
-    let output = try FileHandle(forWritingTo: destination)
-    defer { try? output.close() }
+    try encrypt(input, to: destination, key: key)
+  }
 
-    output.write(magic)
-    output.write(be32(UInt32(chunkSize)))
-    var index: UInt32 = 0
-    while true {
-      let chunk = input.readData(ofLength: chunkSize)
-      if chunk.isEmpty { break }
-      let sealed = try AES.GCM.seal(chunk, using: key, authenticating: be32(index))
-      guard let combined = sealed.combined else { throw CryptoError.corrupt("seal") }
-      output.write(be32(UInt32(combined.count)))
-      output.write(combined)
-      index += 1
+  /// Reads `input` to its end in chunks and writes the container to
+  /// `destination`. Every read and write is a throwing call, so an I/O error
+  /// is a Swift error rather than an Objective-C exception, and whatever was
+  /// written before it is removed.
+  static func encrypt(_ input: FileHandle, to destination: URL, key: SymmetricKey) throws {
+    FileManager.default.createFile(atPath: destination.path, contents: nil)
+    do {
+      let output = try FileHandle(forWritingTo: destination)
+      defer { try? output.close() }
+      try output.write(contentsOf: magic)
+      try output.write(contentsOf: be32(UInt32(chunkSize)))
+      var index: UInt32 = 0
+      while true {
+        let chunk = try read(input, count: chunkSize)
+        if chunk.isEmpty { break }
+        let sealed = try AES.GCM.seal(chunk, using: key, authenticating: be32(index))
+        guard let combined = sealed.combined else { throw CryptoError.corrupt("seal") }
+        try output.write(contentsOf: be32(UInt32(combined.count)))
+        try output.write(contentsOf: combined)
+        index += 1
+      }
+    } catch {
+      try? FileManager.default.removeItem(at: destination)
+      throw error
     }
   }
 
