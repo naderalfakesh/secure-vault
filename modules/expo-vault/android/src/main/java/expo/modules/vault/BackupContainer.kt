@@ -213,12 +213,19 @@ object BackupContainer {
      * transaction: once [handle] has started replacing the vault, a disk, I/O
      * or key failure still leaves it partly restored; the caller reports that
      * case separately.
+     *
+     * [validate] sees each entry's metadata on every pass; [validateAll] sees the
+     * whole list once, after the pre-pass and before the key is derived, for rules
+     * about which entries must be present.
      */
     fun read(
         source: File, passphrase: String, scratch: File, validate: (Meta) -> Unit,
+        validateAll: (List<Meta>) -> Unit = {},
         progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
     ) {
-        readMetas(source).forEach(validate)
+        val metas = readMetas(source)
+        metas.forEach(validate)
+        validateAll(metas)
         val header = readHeader(source)
         val key = deriveKey(passphrase, header.salt, header.iterations)
 

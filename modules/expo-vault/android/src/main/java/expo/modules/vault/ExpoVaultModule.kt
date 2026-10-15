@@ -259,6 +259,8 @@ class ExpoVaultModule : Module() {
                 // first entry is handled; the vault is only cleared after both.
                 BackupContainer.read(File(sourcePath), passphrase, appContext.reactContext!!.cacheDir, { meta ->
                     if (!isRestoreKeyAllowed(meta)) throw BackupContainer.CorruptException("entry key ${meta.key}")
+                }, { metas ->
+                    if (!hasIndex(metas)) throw BackupContainer.CorruptException("no document index")
                 }, { phase, done, total ->
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }) { meta, plain ->
@@ -457,6 +459,17 @@ class ExpoVaultModule : Module() {
         "s", "f" -> isVaultKey(meta.key)
         else -> true
     }
+
+    /**
+     * The restore in JavaScript replaces the SQLite index with the "database" extra and
+     * opens it with the "_database_key" string entry (see `src/data/database.ts`). Every
+     * backup the app has written carries both; one without them would be refused in
+     * JavaScript only after the vault had been cleared, so it is refused here, before
+     * anything is derived or removed.
+     */
+    private fun hasIndex(metas: List<BackupContainer.Meta>): Boolean =
+        metas.any { it.kind == "x" && it.key == "database" } &&
+            metas.any { it.kind == "s" && it.key == "_database_key" }
 
     /** The vault file for [key], after the grammar check and a containment check on the resolved path. */
     private fun vaultFile(key: String): File {

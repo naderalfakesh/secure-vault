@@ -206,11 +206,18 @@ enum BackupContainer {
   /// transaction: once `handle` has started replacing the vault, a disk, I/O
   /// or key failure still leaves it partly restored; the caller reports that
   /// case separately.
+  ///
+  /// `validate` sees each entry's metadata on every pass; `validateAll` sees
+  /// the whole list once, after the pre-pass and before the key is derived,
+  /// for rules about which entries must be present.
   static func read(
     from source: URL, passphrase: String, validate: (Meta) throws -> Void,
+    validateAll: ([Meta]) throws -> Void = { _ in },
     progress: (ReadPhase, Int, Int) -> Void, handle: (Meta, URL) throws -> Void
   ) throws {
-    for meta in try readMetas(from: source) { try validate(meta) }
+    let metas = try readMetas(from: source)
+    for meta in metas { try validate(meta) }
+    try validateAll(metas)
     let header = try readHeader(from: source)
     guard let salt = Data(base64Encoded: header.kdf.salt) else { throw BackupError.corrupt("salt") }
     let key = try deriveKey(passphrase: passphrase, salt: salt, iterations: header.kdf.iterations)

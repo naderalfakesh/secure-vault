@@ -186,6 +186,8 @@ public class ExpoVaultModule: Module {
             var count = 0
             try BackupContainer.read(from: source, passphrase: passphrase, validate: { meta in
                 guard Self.isRestoreKeyAllowed(meta) else { throw BackupError.corrupt("entry key \(meta.key)") }
+            }, validateAll: { metas in
+                guard Self.hasIndex(metas) else { throw BackupError.corrupt("no document index") }
             }, progress: { phase, done, total in
                 self.sendEvent("backupProgress", ["phase": phase.rawValue, "done": done, "total": total])
             }) { meta, plain in
@@ -362,6 +364,16 @@ public class ExpoVaultModule: Module {
     case "s", "f": return isVaultKey(meta.key)
     default: return true
     }
+  }
+
+  /// The restore in JavaScript replaces the SQLite index with the "database"
+  /// extra and opens it with the "_database_key" string entry (see
+  /// `src/data/database.ts`). Every backup the app has written carries both;
+  /// one without them would be refused in JavaScript only after the vault had
+  /// been cleared, so it is refused here, before anything is derived or removed.
+  private static func hasIndex(_ metas: [BackupContainer.Meta]) -> Bool {
+    metas.contains { $0.kind == "x" && $0.key == "database" }
+      && metas.contains { $0.kind == "s" && $0.key == "_database_key" }
   }
 
   /// Second line of defence after the grammar: the resolved path must stay
