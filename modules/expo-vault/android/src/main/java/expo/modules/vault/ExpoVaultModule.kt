@@ -13,6 +13,7 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
+import java.io.IOException
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -270,13 +271,19 @@ class ExpoVaultModule : Module() {
                 }, { phase, done, total ->
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }) { meta, plain ->
-                    if (!cleared) {
-                        probeKey(secretKey)
-                        vaultEntryFiles().forEach { it.delete() }
-                        ivPreferences.edit().clear().apply()
-                        cleared = true
-                    }
+                    // The whole handler runs with the plaintext's removal guaranteed, so a
+                    // key probe or wipe failure cannot leave a decrypted entry in the cache.
                     try {
+                        if (!cleared) {
+                            probeKey(secretKey)
+                            val previous = vaultEntryFiles()
+                            // From the first removal on, a failure is a partial restore.
+                            cleared = true
+                            previous.forEach {
+                                if (!it.delete() && it.exists()) throw IOException("Could not remove ${it.name}")
+                            }
+                            ivPreferences.edit().clear().apply()
+                        }
                         when (meta.kind) {
                             "s" -> {
                                 val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -309,7 +316,7 @@ class ExpoVaultModule : Module() {
                 // Every entry had already decrypted once, so a failure after the wipe is
                 // usually disk, I/O or the key, not the file; it is named either way,
                 // because the old vault is gone.
-                val partial = "The restore stopped after the previous vault was removed: ${e.message}"
+                val partial = "The restore stopped after the previous vault was removed: ${e.message ?: e.javaClass.simpleName}"
                 when {
                     // A key failure keeps its code even after the wipe: a lapsed window lets
                     // the caller re-authenticate and retry the whole restore, and an

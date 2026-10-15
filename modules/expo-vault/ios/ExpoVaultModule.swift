@@ -193,11 +193,14 @@ public class ExpoVaultModule: Module {
             }, progress: { phase, done, total in
                 self.sendEvent("backupProgress", ["phase": phase.rawValue, "done": done, "total": total])
             }) { meta, plain in
-                if !cleared {
-                    for url in try self.vaultEntryURLs() { try FileManager.default.removeItem(at: url) }
-                    cleared = true
-                }
+                // Registered first, so a wipe failure cannot leave the decrypted entry behind.
                 defer { try? FileManager.default.removeItem(at: plain) }
+                if !cleared {
+                    let previous = try self.vaultEntryURLs()
+                    // From the first removal on, a failure is a partial restore.
+                    cleared = true
+                    for url in previous { try FileManager.default.removeItem(at: url) }
+                }
                 switch meta.kind {
                 case "s":
                     let sealed = try AES.GCM.seal(Data(contentsOf: plain), using: encryptionKey)

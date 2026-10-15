@@ -210,7 +210,8 @@ enum BackupContainer {
   /// against the check entry, then decrypts every other payload to nothing,
   /// so a backup that is damaged anywhere, including its last entry, is
   /// refused before `handle` runs. The second decrypts again and hands each
-  /// plaintext file to `handle`, which owns it. The second pass is not a
+  /// plaintext file to `handle`, which may move it; whatever `handle` leaves
+  /// behind is removed when it returns, even by throwing. The second pass is not a
   /// transaction: once `handle` has started replacing the vault, a disk, I/O
   /// or key failure still leaves it partly restored; the caller reports that
   /// case separately.
@@ -248,6 +249,7 @@ enum BackupContainer {
         try? FileManager.default.removeItem(at: plain)
         throw BackupError.corrupt("entry \(meta.key)")
       }
+      defer { try? FileManager.default.removeItem(at: plain) }
       try handle(meta, plain)
     }
   }
