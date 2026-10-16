@@ -28,6 +28,9 @@ export interface BackupResult {
 
 export type ProgressListener = (progress: BackupProgress) => void;
 
+/** Work that must never overlap another: each one rewrites the vault or the backup folders. */
+export type BackupOperation = 'export' | 'restore' | 'erase';
+
 /** A sentence explaining why a passphrase is not acceptable, or null when it is. */
 export function passphraseProblem(passphrase: string, confirmation?: string): string | null {
   if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
@@ -62,6 +65,8 @@ export function describeBackupError(
       return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
     case 'BACKUP_STAGING_INVALID':
       return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
+    case 'BACKUP_BUSY':
+      return 'A backup or restore is still running. Try again once it has finished.';
     default:
       return error instanceof Error && error.message ? error.message : fallback;
   }
@@ -75,6 +80,7 @@ const knownBackupErrors = new Set([
   'BACKUP_RESOURCE',
   'BACKUP_INDEX',
   'BACKUP_STAGING_INVALID',
+  'BACKUP_BUSY',
 ]);
 
 /**
@@ -123,7 +129,44 @@ function indexError(cause: unknown): Error {
  * The backup key is derived from the passphrase and never stored.
  */
 class BackupService {
-  private restoring = 0;
+  /**
+   * The one export, restore, or erase running. It lives here rather than in a
+   * screen because the lock unmounts the screen and the work goes on: a second
+   * restore would delete the first one's extras after its vault entries were
+   * replaced, and an export or erase would read or remove a vault mid-import.
+   */
+  private operation: BackupOperation | null = null;
+  private readonly activityListeners = new Set<() => void>();
+
+  /** The operation still running, whichever screen started it. */
+  readonly activity = (): BackupOperation | null => this.operation;
+
+  readonly onActivity = (listener: () => void): (() => void) => {
+    this.activityListeners.add(listener);
+    return () => {
+      this.activityListeners.delete(listener);
+    };
+  };
+
+  private setOperation(next: BackupOperation | null) {
+    this.operation = next;
+    for (const listener of [...this.activityListeners]) listener();
+  }
+
+  /** Runs `task` as the only backup operation; one started meanwhile is refused with BACKUP_BUSY. */
+  async exclusive<T>(kind: BackupOperation, task: () => Promise<T>): Promise<T> {
+    if (this.operation) {
+      throw Object.assign(new Error('Another backup operation is still running.'), {
+        code: 'BACKUP_BUSY',
+      });
+    }
+    this.setOperation(kind);
+    try {
+      return await task();
+    } finally {
+      this.setOperation(null);
+    }
+  }
 
   private directory() {
     const directory = new Directory(Paths.cache, BACKUP_DIRECTORY);
@@ -145,8 +188,35 @@ class BackupService {
     return () => subscription.remove();
   }
 
-  /** Writes a backup file into the cache and returns where it is. */
-  async createBackup(passphrase: string, onProgress?: ProgressListener): Promise<BackupResult> {
+  /** Writes a backup file into the cache and returns where it is; the caller discards it. */
+  createBackup(passphrase: string, onProgress?: ProgressListener): Promise<BackupResult> {
+    return this.exclusive('export', () => this.writeBackup(passphrase, onProgress));
+  }
+
+  /**
+   * Writes a backup, hands it to `handOff` (the share sheet), and removes it
+   * afterwards. The operation lasts until the file is gone, so a later export
+   * cannot be given the same file name and then lose it to this one's cleanup.
+   */
+  exportBackup<T>(
+    passphrase: string,
+    handOff: (backup: BackupResult) => Promise<T>,
+    onProgress?: ProgressListener,
+  ): Promise<T> {
+    return this.exclusive('export', async () => {
+      const backup = await this.writeBackup(passphrase, onProgress);
+      try {
+        return await handOff(backup);
+      } finally {
+        this.discardBackup(backup.uri);
+      }
+    });
+  }
+
+  private async writeBackup(
+    passphrase: string,
+    onProgress?: ProgressListener,
+  ): Promise<BackupResult> {
     const problem = passphraseProblem(passphrase);
     if (problem) throw new Error(problem);
     const directory = this.directory();
@@ -221,12 +291,13 @@ class BackupService {
    * The lock and launch sweep for backup ciphertext: finished containers,
    * the index copy, and the picker's copies. A restore in progress keeps both
    * folders, because it is still reading the picked file and writing its
-   * extras; it removes them itself when it ends. An export in progress loses
-   * its files and fails, which is the point: nothing written for an earlier
-   * session is shared.
+   * extras; it removes them itself when it ends. An export in progress is not
+   * stopped natively; it fails at its next entry because the lock's
+   * `DocumentService.clearCache` removes its staging folder, and the share
+   * gate deletes whatever it finished unshared.
    */
   sweepCache(): void {
-    if (this.restoring > 0) return;
+    if (this.operation === 'restore') return;
     for (const name of [BACKUP_DIRECTORY, PICKER_DIRECTORY]) {
       removeQuietly(new Directory(Paths.cache, name));
     }
@@ -242,14 +313,17 @@ class BackupService {
    * is replaced only after the native import has finished, and a failure from
    * that point on rejects with BACKUP_INDEX.
    */
-  async restoreBackup(
+  restoreBackup(uri: string, passphrase: string, onProgress?: ProgressListener): Promise<number> {
+    return this.exclusive('restore', () => this.replaceVault(uri, passphrase, onProgress));
+  }
+
+  private async replaceVault(
     uri: string,
     passphrase: string,
     onProgress?: ProgressListener,
   ): Promise<number> {
     const extras = new Directory(this.directory(), 'restore');
     let unsubscribe = () => {};
-    this.restoring += 1;
     try {
       if (extras.exists) extras.delete();
       extras.create({ intermediates: true });
@@ -266,7 +340,6 @@ class BackupService {
       }
       return result.entries;
     } finally {
-      this.restoring -= 1;
       unsubscribe();
       if (extras.exists) extras.delete();
     }

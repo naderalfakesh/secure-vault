@@ -10,7 +10,7 @@ import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
-import { type BackupResult, backupService } from '../services/BackupService';
+import { backupService } from '../services/BackupService';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -65,12 +65,34 @@ async function renderUnlocked(autoLockSeconds: AutoLockSeconds = 0) {
   return view;
 }
 
-const backup: BackupResult = {
-  uri: 'file:///mock/cache/backup/SecureVault backup 2026-10-16.svbackup',
-  name: 'SecureVault backup 2026-10-16.svbackup',
-  entries: 19,
-  bytes: 471948836,
-};
+// The real service writes and removes the container; only the native export is stubbed.
+const CONTAINER = expect.stringMatching(
+  /\/backup\/SecureVault%20backup%20\d{4}-\d{2}-\d{2}\.svbackup$/,
+);
+const nativeExport = (during: () => void = () => {}) =>
+  jest.spyOn(vault, 'exportBackup').mockImplementation(async () => {
+    during();
+    return { entries: 19, bytes: 471948836 };
+  });
+
+// A native call that stays open until the test settles it, as a large backup does.
+function pending<T>() {
+  let settle!: (value: T) => void;
+  let fail!: (error: unknown) => void;
+  const promise = new Promise<T>((resolve, reject) => {
+    settle = resolve;
+    fail = reject;
+  });
+  return { promise, settle, fail };
+}
+
+const rowLabelled = (view: Awaited<ReturnType<typeof renderUnlocked>>, title: string) =>
+  view.getByLabelText(new RegExp(`^${title}`));
+
+const settleFor = (ms: number) =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  });
 
 // Presses inside one act that also covers the work the press starts: the
 // pause before the share sheet and any trip away.
@@ -88,6 +110,21 @@ async function runExport(view: Awaited<ReturnType<typeof renderUnlocked>>) {
     'correct horse battery',
   );
   await pressAndSettle(view.getByText('Create backup'), 1200);
+}
+
+async function startRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
+  await openRestore(view);
+  await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
+  await pressAndSettle(view.getByText('Restore'), 50);
+}
+
+async function lockAndUnlock() {
+  await act(async () => {
+    session.lock();
+  });
+  await act(async () => {
+    await session.unlockWithPin('123456');
+  });
 }
 
 async function openRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
@@ -125,39 +162,36 @@ describe('Settings backup and the lock gate', () => {
   });
 
   it('shares a finished backup while the vault stays unlocked, then removes it', async () => {
-    jest.spyOn(backupService, 'createBackup').mockResolvedValue(backup);
+    nativeExport();
     const view = await renderUnlocked();
 
     await runExport(view);
 
     expect(share).toHaveBeenCalledTimes(1);
-    expect(share).toHaveBeenCalledWith(backup.uri, expect.anything());
-    expect(discard).toHaveBeenCalledWith(backup.uri);
+    expect(share).toHaveBeenCalledWith(CONTAINER, expect.anything());
+    expect(discard).toHaveBeenCalledWith(CONTAINER);
+    expect(backupService.activity()).toBeNull();
     expect(session.notice).toBeNull();
   });
 
   it('deletes a backup that finished after the vault locked and never opens the share sheet', async () => {
-    jest.spyOn(backupService, 'createBackup').mockImplementation(async () => {
-      session.lock();
-      return backup;
-    });
+    nativeExport(() => session.lock());
     const view = await renderUnlocked();
 
     await runExport(view);
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(share).not.toHaveBeenCalled();
-    expect(discard).toHaveBeenCalledWith(backup.uri);
+    expect(discard).toHaveBeenCalledWith(CONTAINER);
     // The outcome waits for the next unlock and names nothing about the vault.
     expect(session.notice).toEqual({ message: STOPPED });
   });
 
   it('does not share when auto-lock locks on the return from a trip away before the sheet', async () => {
-    jest.spyOn(backupService, 'createBackup').mockImplementation(async () => {
+    nativeExport(() => {
       moveTo('background');
       // Back in the foreground after the pause before the share sheet.
       setTimeout(() => moveTo('active'), 700);
-      return backup;
     });
     const view = await renderUnlocked(0);
 
@@ -165,7 +199,7 @@ describe('Settings backup and the lock gate', () => {
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(share).not.toHaveBeenCalled();
-    expect(discard).toHaveBeenCalledWith(backup.uri);
+    expect(discard).toHaveBeenCalledWith(CONTAINER);
     expect(session.notice).toEqual({ message: STOPPED });
   });
 
@@ -174,10 +208,9 @@ describe('Settings backup and the lock gate', () => {
     share.mockImplementationOnce(async () => {
       sharedWhileAway = appState.currentState !== 'active';
     });
-    jest.spyOn(backupService, 'createBackup').mockImplementation(async () => {
+    nativeExport(() => {
       moveTo('background');
       setTimeout(() => moveTo('active'), 700);
-      return backup;
     });
     const view = await renderUnlocked(300);
 
@@ -190,7 +223,7 @@ describe('Settings backup and the lock gate', () => {
   });
 
   it('reports an export the lock stopped after the next unlock, without its error text', async () => {
-    jest.spyOn(backupService, 'createBackup').mockImplementation(async () => {
+    jest.spyOn(vault, 'exportBackup').mockImplementation(async () => {
       session.lock();
       throw new Error('/var/mobile/Caches/backup-staging/plain-1: No such file');
     });
@@ -240,5 +273,124 @@ describe('Settings backup and the lock gate', () => {
     expect(view.queryByText('Vault restored: 19 entries')).toBeNull();
     expect(session.notice).toEqual({ message: 'Vault restored: 19 entries', tone: 'success' });
     expect(discardPicked).toHaveBeenCalledWith(PICKED);
+  });
+  it('reports a restore that failed behind the lock as a plain sentence after the next unlock', async () => {
+    jest.spyOn(backupService, 'restoreBackup').mockImplementation(async () => {
+      session.lock();
+      throw new Error('/var/mobile/Caches/backup/restore/database: EIO');
+    });
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+
+    expect(session.notice).toEqual({
+      message: 'The restore did not finish. Try it again.',
+      tone: 'danger',
+    });
+    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+  });
+
+  describe('work that outlives the screen', () => {
+    it('keeps Restore, Export and erase disabled after unlock until a restore from before the lock ends', async () => {
+      const importing = pending<{ entries: number; extras: { key: string; path: string }[] }>();
+      let extras = '';
+      jest.spyOn(vault, 'importBackup').mockImplementation((_source, _passphrase, extraDir) => {
+        extras = extraDir;
+        return importing.promise;
+      });
+      const view = await renderUnlocked();
+
+      await startRestore(view);
+      await lockAndUnlock();
+
+      // The screen is new, but the restore it started before the lock is not over.
+      expect(view.getByText('A restore started earlier is still running')).toBeOnTheScreen();
+      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+        expect(rowLabelled(view, title)).toBeDisabled();
+      }
+      await fireEvent.press(rowLabelled(view, 'Restore from backup'));
+      expect(pick).toHaveBeenCalledTimes(1);
+
+      // The service refuses on its own too, before touching the first restore's extras.
+      await expect(
+        backupService.restoreBackup(PICKED, 'correct horse battery'),
+      ).rejects.toMatchObject({ code: 'BACKUP_BUSY' });
+      await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+        code: 'BACKUP_BUSY',
+      });
+      expect(vault.importBackup).toHaveBeenCalledTimes(1);
+      expect(extras).not.toBe('');
+
+      await act(async () => {
+        importing.settle({
+          entries: 19,
+          extras: [{ key: 'database', path: `${extras}/database` }],
+        });
+      });
+      await settleFor(50);
+
+      expect(backupService.activity()).toBeNull();
+      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+        expect(rowLabelled(view, title)).toBeEnabled();
+      }
+      expect(view.queryByText('A restore started earlier is still running')).toBeNull();
+      expect(session.notice).toEqual({ message: 'Vault restored: 19 entries', tone: 'success' });
+      expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    });
+
+    it('keeps the backup rows disabled after unlock until an export from before the lock ends, then drops it unshared', async () => {
+      const exporting = pending<{ entries: number; bytes: number }>();
+      jest.spyOn(vault, 'exportBackup').mockReturnValue(exporting.promise);
+      const view = await renderUnlocked();
+
+      await fireEvent.press(view.getByText('Export vault'));
+      await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
+      await fireEvent.changeText(
+        view.getByLabelText('Repeat the backup passphrase'),
+        'correct horse battery',
+      );
+      await pressAndSettle(view.getByText('Create backup'), 50);
+      await lockAndUnlock();
+
+      expect(view.getByText('An export started earlier is still finishing')).toBeOnTheScreen();
+      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+        expect(rowLabelled(view, title)).toBeDisabled();
+      }
+      await expect(
+        backupService.restoreBackup(PICKED, 'correct horse battery'),
+      ).rejects.toMatchObject({ code: 'BACKUP_BUSY' });
+
+      await act(async () => {
+        exporting.settle({ entries: 19, bytes: 1024 });
+      });
+      await settleFor(50);
+
+      expect(share).not.toHaveBeenCalled();
+      expect(discard).toHaveBeenCalledWith(CONTAINER);
+      expect(session.notice).toEqual({ message: STOPPED });
+      expect(backupService.activity()).toBeNull();
+      expect(rowLabelled(view, 'Export vault')).toBeEnabled();
+    });
+
+    it('lets a restore end in failure behind the lock and then frees the rows', async () => {
+      const importing = pending<never>();
+      jest.spyOn(vault, 'importBackup').mockReturnValue(importing.promise);
+      const view = await renderUnlocked();
+
+      await startRestore(view);
+      await lockAndUnlock();
+      expect(rowLabelled(view, 'Restore from backup')).toBeDisabled();
+
+      await act(async () => {
+        importing.fail(Object.assign(new Error('bad'), { code: 'BACKUP_PASSPHRASE' }));
+      });
+      await settleFor(50);
+
+      expect(rowLabelled(view, 'Restore from backup')).toBeEnabled();
+      expect(session.notice).toEqual({
+        message: 'That passphrase does not match this backup.',
+        tone: 'danger',
+      });
+    });
   });
 });

@@ -36,6 +36,7 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
       /temporary files could not be cleared/,
     );
+    expect(describeBackupError({ code: 'BACKUP_BUSY' })).toMatch(/still running/);
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
     expect(describeBackupError(null)).toBe('Could not use this backup.');
     expect(describeBackupError(null, 'Could not create the backup.')).toBe(
@@ -441,6 +442,117 @@ describe('BackupService', () => {
       expect(neighbour.exists).toBe(true);
       own.delete();
       lookalike.delete();
+    });
+  });
+  describe('one operation at a time', () => {
+    const extras = () => new Directory(Paths.cache, BACKUP_DIRECTORY, 'restore');
+    const busy = { code: 'BACKUP_BUSY' };
+
+    afterEach(() => {
+      const folder = new Directory(Paths.cache, BACKUP_DIRECTORY);
+      if (folder.exists) folder.delete();
+    });
+
+    it('refuses a second restore, an export, and an erase while a restore runs, and leaves its extras alone', async () => {
+      let finishImport: () => void = () => {};
+      const spy = jest.spyOn(vault, 'importBackup').mockImplementationOnce(
+        (_source, _passphrase, extraDir) =>
+          new Promise((resolve) => {
+            finishImport = () => {
+              resolve({ entries: 1, extras: [{ key: 'database', path: `${extraDir}/database` }] });
+            };
+          }),
+      );
+      const erase = jest.fn(async () => {});
+      try {
+        const first = backupService.restoreBackup(
+          'file:///picked.svbackup',
+          'correct horse battery',
+        );
+        await Promise.resolve();
+        expect(backupService.activity()).toBe('restore');
+        new File(extras(), 'database').write('index');
+
+        await expect(
+          backupService.restoreBackup('file:///other.svbackup', 'correct horse battery'),
+        ).rejects.toMatchObject(busy);
+        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject(
+          busy,
+        );
+        await expect(
+          backupService.exportBackup('correct horse battery', async () => {}),
+        ).rejects.toMatchObject(busy);
+        await expect(backupService.exclusive('erase', erase)).rejects.toMatchObject(busy);
+
+        expect(erase).not.toHaveBeenCalled();
+        expect(vault.importBackup).toHaveBeenCalledTimes(1);
+        expect(new File(extras(), 'database').exists).toBe(true);
+
+        finishImport();
+        await expect(first).resolves.toBe(1);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(backupService.activity()).toBeNull();
+      await backupService.exclusive('erase', erase);
+      expect(erase).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a restore while an export runs', async () => {
+      let finishExport: () => void = () => {};
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishExport = () => resolve({ entries: 1, bytes: 1024 });
+          }),
+      );
+      try {
+        const exporting = backupService.createBackup('correct horse battery');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(backupService.activity()).toBe('export');
+
+        await expect(
+          backupService.restoreBackup('file:///picked.svbackup', 'correct horse battery'),
+        ).rejects.toMatchObject(busy);
+
+        finishExport();
+        backupService.discardBackup((await exporting).uri);
+      } finally {
+        spy.mockRestore();
+      }
+      expect(backupService.activity()).toBeNull();
+    });
+
+    it('holds an export until its container is removed, also when the hand-off fails', async () => {
+      let during: string | null = null;
+      let handed = '';
+      await expect(
+        backupService.exportBackup('correct horse battery', async (backup) => {
+          handed = backup.uri;
+          during = backupService.activity();
+          new File(backup.uri).write('ciphertext');
+          throw new Error('share sheet failed');
+        }),
+      ).rejects.toThrow('share sheet failed');
+
+      expect(during).toBe('export');
+      expect(new File(handed).exists).toBe(false);
+      expect(backupService.activity()).toBeNull();
+    });
+
+    it('tells listeners when an operation starts and ends, also when it fails', async () => {
+      const seen: (string | null)[] = [];
+      const stop = backupService.onActivity(() => seen.push(backupService.activity()));
+      try {
+        await expect(
+          backupService.exclusive('erase', async () => {
+            throw new Error('erase failed');
+          }),
+        ).rejects.toThrow('erase failed');
+      } finally {
+        stop();
+      }
+      expect(seen).toEqual(['erase', null]);
     });
   });
 });

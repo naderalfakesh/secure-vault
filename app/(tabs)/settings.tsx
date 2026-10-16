@@ -9,6 +9,7 @@ import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
+import { useBackupActivity } from '@/hooks/useBackupActivity';
 import {
   backupService,
   describeBackupError,
@@ -23,7 +24,7 @@ type Appearance = 'system' | 'light' | 'dark';
 
 const APP_VERSION = '2.0.0';
 
-// Shown after the next unlock; it names nothing about the vault.
+// Shown once the vault is unlocked; it names nothing about the vault.
 const EXPORT_STOPPED =
   'The backup was cancelled before it could be shared. Nothing left the vault.';
 
@@ -86,6 +87,11 @@ export default function SettingsScreen() {
   // Shown inside the open sheet; a toast would sit behind it.
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'export' | 'import' | 'clear' | null>(null);
+  // An export or restore started before the last lock may still be running
+  // after this screen mounts again; nothing else may start until it ends.
+  const running = useBackupActivity();
+  const blocked = busy !== null || running !== null;
+  const earlier = busy === null ? running : null;
 
   const setAppearance = useCallback((next: Appearance) => {
     setAppearanceState(next);
@@ -120,43 +126,46 @@ export default function SettingsScreen() {
     setSheetError(null);
     setBusy('export');
     setProgress({ done: 0, total: 1 });
-    let uri: string | null = null;
     let cancelled = false;
     try {
-      const backup = await backupService.createBackup(passphrase, (event) => {
-        if (mounted.current) setProgress(event);
-      });
-      uri = backup.uri;
-      if (!stillHere()) {
-        cancelled = true;
-        return;
-      }
-      setExportSheet(false);
-      setPassphrase('');
-      setConfirmation('');
-      // Let the sheet's modal finish dismissing; presenting the share sheet
-      // over a dismissing modal leaves iOS with neither on screen.
-      await new Promise((resolve) => setTimeout(resolve, 450));
-      if (!mounted.current || !(await session.confirm()) || !mounted.current) {
-        cancelled = true;
-        return;
-      }
-      await withoutAutoLock(() =>
-        Sharing.shareAsync(backup.uri, {
-          dialogTitle: backup.name,
-          mimeType: 'application/octet-stream',
-          UTI: 'public.data',
-        }),
+      // The service removes the container once this returns or throws.
+      await backupService.exportBackup(
+        passphrase,
+        async (backup) => {
+          if (!stillHere()) {
+            cancelled = true;
+            return;
+          }
+          setExportSheet(false);
+          setPassphrase('');
+          setConfirmation('');
+          // Let the sheet's modal finish dismissing; presenting the share sheet
+          // over a dismissing modal leaves iOS with neither on screen.
+          await new Promise((resolve) => setTimeout(resolve, 450));
+          if (!mounted.current || !(await session.confirm()) || !mounted.current) {
+            cancelled = true;
+            return;
+          }
+          await withoutAutoLock(() =>
+            Sharing.shareAsync(backup.uri, {
+              dialogTitle: backup.name,
+              mimeType: 'application/octet-stream',
+              UTI: 'public.data',
+            }),
+          );
+          toast.show({
+            message: `Backup of ${backup.entries} entries (${formatFileSize(backup.bytes)}) shared`,
+            tone: 'success',
+          });
+        },
+        (event) => {
+          if (mounted.current) setProgress(event);
+        },
       );
-      toast.show({
-        message: `Backup of ${backup.entries} entries (${formatFileSize(backup.bytes)}) shared`,
-        tone: 'success',
-      });
     } catch (e) {
       if (stillHere()) setSheetError(describeBackupError(e, 'Could not create the backup.'));
       else cancelled = true;
     } finally {
-      if (uri) backupService.discardBackup(uri);
       if (cancelled) postNotice({ message: EXPORT_STOPPED });
       if (mounted.current) {
         setProgress(null);
@@ -206,6 +215,7 @@ export default function SettingsScreen() {
 
   // A restore is never cancelled by the lock: it keeps running so the vault is
   // never left half replaced, and reports its outcome after the next unlock.
+  // The service refuses any other backup work until it ends.
   const importVault = useCallback(async () => {
     if (!restore || !restorePassphrase) return;
     const session = captureSession();
@@ -257,12 +267,14 @@ export default function SettingsScreen() {
           onPress: async () => {
             setBusy('clear');
             try {
-              await documentService.eraseEverything();
-              await eraseVault();
+              await backupService.exclusive('erase', async () => {
+                await documentService.eraseEverything();
+                await eraseVault();
+              });
               toast.show({ message: 'Vault emptied' });
             } catch (e) {
               toast.show({
-                message: e instanceof Error ? e.message : 'Could not clear the vault.',
+                message: describeBackupError(e, 'Could not clear the vault.'),
                 tone: 'danger',
               });
             } finally {
@@ -346,16 +358,24 @@ export default function SettingsScreen() {
           <ListRow
             icon="backup"
             title="Export vault"
-            subtitle="Encrypted copy of every document and the index"
+            subtitle={
+              earlier === 'export'
+                ? 'An export started earlier is still finishing'
+                : 'Encrypted copy of every document and the index'
+            }
             onPress={openExport}
-            disabled={busy !== null}
+            disabled={blocked}
           />
           <ListRow
             icon="restore"
             title="Restore from backup"
-            subtitle="Replaces everything in this vault"
+            subtitle={
+              earlier === 'restore'
+                ? 'A restore started earlier is still running'
+                : 'Replaces everything in this vault'
+            }
             onPress={pickBackup}
-            disabled={busy !== null}
+            disabled={blocked}
             divider={false}
           />
         </Section>
@@ -387,7 +407,7 @@ export default function SettingsScreen() {
             subtitle="Erases all documents from this device"
             tone="danger"
             onPress={clearAll}
-            disabled={busy !== null}
+            disabled={blocked}
             divider={false}
           />
         </Section>
