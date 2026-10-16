@@ -93,10 +93,14 @@ opens one only for the unlocked session that asked for it. A backup export or
 a document share that is still being prepared when the vault locks, or when
 its screen goes away, is deleted without being shared. If the app left the
 foreground meanwhile, the share waits until it is back and auto-lock has
-judged the time away. Its outcome is shown as one plain sentence after the
-next unlock, with no file name, size, or entry count; toasts are cleared when
-the vault locks. A restore is not stopped by the lock, so the vault is never
-left half replaced; it finishes and reports after the next unlock.
+judged the time away. The outcome of such an export or share is shown as one
+plain sentence after the next unlock, with no file name, size, or entry count;
+toasts are cleared when the vault locks. A restore is not stopped by the lock,
+so the vault is never left half replaced; it finishes and reports after the
+next unlock. Only one export, restore, or erase runs at a time: the backup
+service refuses a second one while the first is still running, also when the
+first was started before the last lock, and Settings keeps those actions
+disabled until it ends.
 
 ## What touches the disk unencrypted
 
@@ -120,9 +124,13 @@ left half replaced; it finishes and reports after the next unlock.
   backup chosen for restore is removed after the restore or when its sheet
   closes. The lock and launch sweep removes both cache folders, `backup` and
   `DocumentPicker`, except while a restore is still reading them. An export
-  that is running when the vault locks loses its files at that sweep and
-  fails at its next entry, so at most the entry being written was staged after
-  the lock.
+  that is running when the vault locks is not cancelled natively: the lock
+  also empties the cache's `backup-staging` folder, so it fails at its next
+  entry, at most the entry being written was staged after the lock, and a
+  container it still finishes is deleted unshared. The document import picker
+  writes its plaintext copies into the same `DocumentPicker` folder, so this
+  sweep removes those too at lock and launch; copies left after a save while
+  the vault stays unlocked are a separate open item.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
