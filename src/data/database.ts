@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { Directory, File } from 'expo-file-system';
 
 import vault from '../../modules/expo-vault';
+import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
 import { DocumentRepository } from './DocumentRepository';
 import { databaseFilePath, deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
@@ -42,7 +43,9 @@ async function currentDatabaseName(): Promise<string> {
   try {
     const name = await vault.get(DATABASE_FILE_ENTRY);
     if (/^securevault(-\d+)?\.db$/.test(name)) return name;
-  } catch {
+  } catch (error) {
+    // A locked key says nothing about the name; guessing would point at the wrong file.
+    if (isKeyLocked(error)) throw error;
     // Never restored: the default file.
   }
   return DEFAULT_DATABASE_NAME;
@@ -142,7 +145,7 @@ export async function exportDatabaseFile(destPath: string): Promise<void> {
   const source = new File(`file://${databaseFilePath(await currentDatabaseName())}`);
   const target = new File(`file://${destPath}`);
   if (target.exists) target.delete();
-  source.copy(target);
+  await source.copy(target);
 }
 
 /**
@@ -157,6 +160,6 @@ export async function replaceDatabaseFile(sourcePath: string): Promise<void> {
   const path = databaseFilePath(name);
   const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
   if (!directory.exists) directory.create({ intermediates: true });
-  new File(`file://${sourcePath}`).move(new File(`file://${path}`));
+  await new File(`file://${sourcePath}`).move(new File(`file://${path}`));
   await vault.put(DATABASE_FILE_ENTRY, name);
 }

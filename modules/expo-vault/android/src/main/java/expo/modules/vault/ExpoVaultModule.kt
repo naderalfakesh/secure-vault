@@ -118,6 +118,12 @@ class ExpoVaultModule : Module() {
             }
 
             activity.runOnUiThread {
+                // Once the activity has saved its state, androidx refuses to show the
+                // prompt without calling back, which would leave this promise pending.
+                if (activity.isFinishing || activity.isDestroyed || activity.supportFragmentManager.isStateSaved) {
+                    promise.resolve(false)
+                    return@runOnUiThread
+                }
                 try {
                     val executor = ContextCompat.getMainExecutor(activity)
                     val biometricPrompt = BiometricPrompt(activity, executor,

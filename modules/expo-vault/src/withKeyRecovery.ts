@@ -25,9 +25,14 @@ function isThenable(value: unknown): value is Promise<unknown> {
 /**
  * Wraps the native vault so that a call failing with a locked key prompts the
  * system credential once and retries. On iOS the Keychain shows its own
- * prompt, so the wrapper only ever engages on Android.
+ * prompt, so the wrapper only ever engages on Android. It only prompts while
+ * `isForeground` holds: a prompt requested from the background is never shown
+ * and would leave the caller waiting.
  */
-export function withKeyRecovery<T extends KeyRecoveryTarget>(vault: T): T {
+export function withKeyRecovery<T extends KeyRecoveryTarget>(
+  vault: T,
+  isForeground: () => boolean = () => true,
+): T {
   return new Proxy(vault, {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver) as unknown;
@@ -39,7 +44,7 @@ export function withKeyRecovery<T extends KeyRecoveryTarget>(vault: T): T {
         // and other synchronous helpers pass through untouched.
         if (!isThenable(result)) return result;
         return result.catch(async (error: unknown) => {
-          if (!isKeyLocked(error)) throw error;
+          if (!isKeyLocked(error) || !isForeground()) throw error;
           const unlocked = await target.unlockWithBiometrics().catch(() => false);
           if (!unlocked) throw error;
           return method.apply(target, args);

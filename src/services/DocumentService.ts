@@ -216,7 +216,7 @@ class DocumentService {
     if (!directory.exists) directory.create();
     const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
     if (target.exists) target.delete();
-    new File(this.toUri(source)).copy(target);
+    await new File(this.toUri(source)).copy(target);
     return {
       uri: target.uri,
       discard: () => {

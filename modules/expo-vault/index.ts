@@ -1,9 +1,11 @@
 // The native module, wrapped so a lapsed Android key window re-prompts and
 // retries instead of surfacing "User not authenticated" to a screen.
+import { AppState } from 'react-native';
+
 import ExpoVaultModule from './src/ExpoVaultModule';
 import { withKeyRecovery } from './src/withKeyRecovery';
 
-export default withKeyRecovery(ExpoVaultModule);
+export default withKeyRecovery(ExpoVaultModule, () => AppState.currentState === 'active');
 export type {
   BackupFile,
   BackupImportResult,

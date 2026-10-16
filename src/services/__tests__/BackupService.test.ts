@@ -2,6 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import vault from '../../../modules/expo-vault';
 import type { VaultMockExport } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
+import { withKeyRecovery } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DocumentCategory } from '../../types';
 import {
   BACKUP_DIRECTORY,
@@ -538,6 +539,35 @@ describe('BackupService', () => {
       expect(during).toBe('export');
       expect(new File(handed).exists).toBe(false);
       expect(backupService.activity()).toBeNull();
+    });
+
+    it('releases the slot when the key window lapsed while the app was in the background', async () => {
+      const keyLocked = Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' });
+      // A prompt requested from the background is never shown and never answers.
+      const unlockWithBiometrics = jest.fn(() => new Promise<boolean>(() => {}));
+      const backgrounded = withKeyRecovery(
+        {
+          unlockWithBiometrics,
+          exportBackup: async (): Promise<{ entries: number; bytes: number }> => {
+            throw keyLocked;
+          },
+        },
+        () => false,
+      );
+      const spy = jest
+        .spyOn(vault, 'exportBackup')
+        .mockImplementationOnce(() => backgrounded.exportBackup());
+      try {
+        await expect(
+          backupService.exportBackup('correct horse battery', async () => {}),
+        ).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(unlockWithBiometrics).not.toHaveBeenCalled();
+      expect(backupService.activity()).toBeNull();
+      const backup = await backupService.createBackup('correct horse battery');
+      backupService.discardBackup(backup.uri);
     });
 
     it('tells listeners when an operation starts and ends, also when it fails', async () => {

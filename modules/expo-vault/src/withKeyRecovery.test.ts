@@ -51,6 +51,27 @@ describe('withKeyRecovery', () => {
     expect(corruptVault.unlockWithBiometrics).not.toHaveBeenCalled();
   });
 
+  it('does not prompt from the background, where the prompt would never answer', async () => {
+    let foreground = false;
+    let attempts = 0;
+    const vault = {
+      unlockWithBiometrics: jest.fn(() => new Promise<boolean>(() => {})),
+      async getFile() {
+        attempts += 1;
+        throw lockedError();
+      },
+    };
+    const wrapped = withKeyRecovery(vault, () => foreground);
+    await expect(wrapped.getFile()).rejects.toThrow('User not authenticated');
+    expect(vault.unlockWithBiometrics).not.toHaveBeenCalled();
+    expect(attempts).toBe(1);
+
+    foreground = true;
+    vault.unlockWithBiometrics.mockImplementationOnce(async () => false);
+    await expect(wrapped.getFile()).rejects.toThrow('User not authenticated');
+    expect(vault.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+  });
+
   it('leaves synchronous helpers such as event subscriptions alone', () => {
     const subscription = { remove: jest.fn() };
     const vault = {
