@@ -88,6 +88,16 @@ share sheets excluded so the vault does not lock behind them. The privacy
 screen blurs the app in the switcher and blocks screenshots and recording
 while unlocked. Sharing can require a second biometric check.
 
+A share sheet is system UI and would open over the lock screen, so the app
+opens one only for the unlocked session that asked for it. A backup export or
+a document share that is still being prepared when the vault locks, or when
+its screen goes away, is deleted without being shared. If the app left the
+foreground meanwhile, the share waits until it is back and auto-lock has
+judged the time away. Its outcome is shown as one plain sentence after the
+next unlock, with no file name, size, or entry count; toasts are cleared when
+the vault locks. A restore is not stopped by the lock, so the vault is never
+left half replaced; it finishes and reports after the next unlock.
+
 ## What touches the disk unencrypted
 
 - Decrypted previews, rendered PDF pages, share copies, and undo copies live
@@ -105,6 +115,14 @@ while unlocked. Sharing can require a second biometric check.
   export fails on both platforms, also after the container was written, and
   the finished file is removed, so no success is reported next to leftover
   plaintext.
+- Backup ciphertext is not left behind either. A finished container is
+  removed once the share sheet closes, and the document picker's copy of a
+  backup chosen for restore is removed after the restore or when its sheet
+  closes. The lock and launch sweep removes both cache folders, `backup` and
+  `DocumentPicker`, except while a restore is still reading them. An export
+  that is running when the vault locks loses its files at that sweep and
+  fails at its next entry, so at most the entry being written was staged after
+  the lock.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
