@@ -104,12 +104,28 @@ enum BackupContainer {
 
   /// Empties the staging directory, creating it if needed. Export plaintext
   /// only ever lives here, so one sweep is the whole cleanup after a crash.
-  /// `removeItem` deletes a link itself and never follows it.
+  /// `removeItem` deletes a link itself and never follows it. Throws when the
+  /// folder cannot be created or something in it could not be removed:
+  /// staging must not start next to leftover plaintext.
   static func sweep(_ staging: StagingDirectory) throws {
     let fileManager = FileManager.default
-    try fileManager.createDirectory(at: staging.url, withIntermediateDirectories: true)
-    for item in try fileManager.contentsOfDirectory(at: staging.url, includingPropertiesForKeys: nil) {
-      try fileManager.removeItem(at: item)
+    // attributesOfItem does not follow links, so a link swapped in for the
+    // folder after it was resolved is refused instead of emptied.
+    if let type = (try? fileManager.attributesOfItem(atPath: staging.url.path))?[.type] as? FileAttributeType {
+      guard type == .typeDirectory else { throw StagingDirectoryError(reason: "cannot be created") }
+    } else {
+      do {
+        try fileManager.createDirectory(at: staging.url, withIntermediateDirectories: true)
+      } catch {
+        throw StagingDirectoryError(reason: "cannot be created")
+      }
+    }
+    do {
+      for item in try fileManager.contentsOfDirectory(at: staging.url, includingPropertiesForKeys: nil) {
+        try fileManager.removeItem(at: item)
+      }
+    } catch {
+      throw StagingDirectoryError(reason: "could not be emptied")
     }
   }
 
@@ -133,11 +149,31 @@ enum BackupContainer {
   /// Writes the container. Plaintext is staged one entry at a time inside
   /// `staging`, which is swept first (an earlier export may have been killed
   /// mid-entry) and left empty whether the write succeeds or fails.
+  ///
+  /// When the write fails, the cleanup sweep is best effort and the write's
+  /// own error is what the caller sees. After a successful write, a cleanup
+  /// error fails the export, because a success must not be reported while
+  /// plaintext may still be on disk.
   static func write(
     to destination: URL, passphrase: String, staging: StagingDirectory, entries: [Entry], progress: Progress
   ) throws -> (entries: Int, bytes: Int) {
     try sweep(staging)
-    defer { try? sweep(staging) }
+    let written: (entries: Int, bytes: Int)
+    do {
+      written = try writeEntries(
+        to: destination, passphrase: passphrase, staging: staging, entries: entries, progress: progress
+      )
+    } catch {
+      try? sweep(staging)
+      throw error
+    }
+    try sweep(staging)
+    return written
+  }
+
+  private static func writeEntries(
+    to destination: URL, passphrase: String, staging: StagingDirectory, entries: [Entry], progress: Progress
+  ) throws -> (entries: Int, bytes: Int) {
     var salt = Data(count: 16)
     let result = salt.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, 16, $0.baseAddress!) }
     guard result == errSecSuccess else { throw BackupError.corrupt("random") }
