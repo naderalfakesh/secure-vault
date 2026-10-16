@@ -131,8 +131,10 @@ object BackupContainer {
             EntryKind.MISSING -> if (!dir.mkdirs()) throw StagingException("cannot be created")
             EntryKind.LINK, EntryKind.OTHER -> throw StagingException("cannot be created")
         }
+        // A folder that cannot be listed may still hold plaintext, so it fails like one that cannot be emptied.
+        val children = dir.listFiles() ?: throw StagingException("could not be emptied")
         var emptied = true
-        dir.listFiles()?.forEach { if (!removeTree(it)) emptied = false }
+        children.forEach { if (!removeTree(it)) emptied = false }
         if (!emptied) throw StagingException("could not be emptied")
     }
 
