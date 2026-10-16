@@ -1,0 +1,120 @@
+import { useEffect } from 'react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
+import * as Sharing from 'expo-sharing';
+import { AppState, type AppStateStatus, Text } from 'react-native';
+
+import DocumentDetailScreen from '../../app/documents/[id]';
+import vault from '../../modules/expo-vault';
+import { ToastProvider } from '../components/ui';
+import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { documentService } from '../services/DocumentService';
+import { DocumentCategory } from '../types';
+
+jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
+jest.mock('expo-router', () => {
+  const params: { id?: string } = {};
+  return {
+    __params: params,
+    router: { back: jest.fn(), push: jest.fn() },
+    useLocalSearchParams: () => params,
+    // The header buttons are where the share action lives.
+    Stack: {
+      Screen: ({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
+        options?.headerRight ? options.headerRight() : null,
+    },
+  };
+});
+
+const share = Sharing.shareAsync as jest.Mock;
+const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
+const secureStoreMock = SecureStore as unknown as { __reset(): void };
+const vaultMock = vault as unknown as { reset(): void };
+const appState = AppState as unknown as {
+  currentState: AppStateStatus;
+  addEventListener: jest.Mock;
+};
+
+let session: ReturnType<typeof useSession>;
+
+function Gate() {
+  const value = useSession();
+  useEffect(() => {
+    session = value;
+  });
+  return value.status === 'unlocked' ? <DocumentDetailScreen /> : <Text>{value.status}</Text>;
+}
+
+async function renderUnlocked() {
+  const document = await documentService.addDocument(
+    { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 },
+    { title: 'Passport', category: DocumentCategory.ID },
+  );
+  routeParams.id = document.id;
+  const view = await render(
+    <SessionProvider>
+      <ToastProvider>
+        <Gate />
+      </ToastProvider>
+    </SessionProvider>,
+  );
+  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
+  await act(async () => {
+    await session.setUp('123456');
+  });
+  await waitFor(() => expect(view.getByRole('button', { name: 'Share' })).toBeEnabled());
+  return view;
+}
+
+const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0]) =>
+  act(async () => {
+    void fireEvent.press(element);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
+describe('Document sharing and the lock gate', () => {
+  beforeEach(async () => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    await documentService.reload();
+    appState.currentState = 'active';
+    appState.addEventListener.mockImplementation(() => ({ remove: () => {} }));
+    share.mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('shares the decrypted copy while the vault stays unlocked, then removes it', async () => {
+    const discard = jest.fn();
+    jest
+      .spyOn(documentService, 'prepareShareFile')
+      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share' }));
+
+    expect(share).toHaveBeenCalledWith('file:///mock/cache/share/Passport.jpg', expect.anything());
+    expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes a copy prepared after the vault locked and never opens the share sheet', async () => {
+    const discard = jest.fn();
+    jest.spyOn(documentService, 'prepareShareFile').mockImplementation(async () => {
+      session.lock();
+      return { uri: 'file:///mock/cache/share/Passport.jpg', discard };
+    });
+    const clearCache = jest.spyOn(documentService, 'clearCache');
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share' }));
+
+    expect(view.getByText('locked')).toBeOnTheScreen();
+    expect(share).not.toHaveBeenCalled();
+    expect(discard).toHaveBeenCalledTimes(1);
+    // The lock sweep may have run before the copy existed, so it runs again.
+    expect(clearCache).toHaveBeenCalled();
+    expect(session.notice).toEqual({ message: 'Sharing was cancelled because the vault locked.' });
+  });
+});

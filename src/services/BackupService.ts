@@ -67,6 +67,29 @@ export function describeBackupError(
   }
 }
 
+const knownBackupErrors = new Set([
+  'BACKUP_PASSPHRASE',
+  'BACKUP_INVALID',
+  'BACKUP_UNSUPPORTED',
+  'BACKUP_PARTIAL',
+  'BACKUP_RESOURCE',
+  'BACKUP_INDEX',
+  'BACKUP_STAGING_INVALID',
+]);
+
+/**
+ * Like `describeBackupError`, but never the platform's own message, which can
+ * name cache paths. For outcomes reported after the screen that started them
+ * is gone.
+ */
+export function describeBackupErrorPlainly(error: unknown, fallback: string): string {
+  const code =
+    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
+  return typeof code === 'string' && knownBackupErrors.has(code)
+    ? describeBackupError(error)
+    : fallback;
+}
+
 function backupFileName(date = new Date()): string {
   return `SecureVault backup ${date.toISOString().slice(0, 10)}.svbackup`;
 }

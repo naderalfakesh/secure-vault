@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
@@ -9,7 +9,12 @@ import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
-import { backupService, describeBackupError, passphraseProblem } from '@/services/BackupService';
+import {
+  backupService,
+  describeBackupError,
+  describeBackupErrorPlainly,
+  passphraseProblem,
+} from '@/services/BackupService';
 import type { BackupProgress } from '../../modules/expo-vault';
 import { documentService } from '@/services/DocumentService';
 import { formatFileSize } from '@/utils/format';
@@ -18,11 +23,33 @@ type Appearance = 'system' | 'light' | 'dark';
 
 const APP_VERSION = '2.0.0';
 
+// Shown after the next unlock; it names nothing about the vault.
+const EXPORT_STOPPED =
+  'The backup was cancelled before it could be shared. Nothing left the vault.';
+
 export default function SettingsScreen() {
   const toast = useToast();
-  const { lock, settings, updateSettings, biometry, eraseVault, withoutAutoLock } = useSession();
+  const {
+    lock,
+    settings,
+    updateSettings,
+    biometry,
+    eraseVault,
+    withoutAutoLock,
+    captureSession,
+    postNotice,
+  } = useSession();
   const [autoLockSheet, setAutoLockSheet] = useState(false);
   const [engine, setEngine] = useState<string>('');
+  // The lock unmounts this screen while an export or restore may still be running.
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -78,26 +105,42 @@ export default function SettingsScreen() {
   }, []);
 
   // Writes the container, hands it to the share sheet, and removes the copy
-  // once the sheet closes. The passphrase never leaves this screen.
+  // once the sheet closes. The passphrase never leaves this screen. A backup
+  // finished after the vault locked, or after this screen went away, is
+  // deleted unshared: the share sheet is system UI and would open over the
+  // lock screen.
   const exportVault = useCallback(async () => {
     const problem = passphraseProblem(passphrase, confirmation);
     if (problem) {
       setSheetError(problem);
       return;
     }
+    const session = captureSession();
+    const stillHere = () => mounted.current && session.current();
     setSheetError(null);
     setBusy('export');
     setProgress({ done: 0, total: 1 });
     let uri: string | null = null;
+    let cancelled = false;
     try {
-      const backup = await backupService.createBackup(passphrase, setProgress);
+      const backup = await backupService.createBackup(passphrase, (event) => {
+        if (mounted.current) setProgress(event);
+      });
       uri = backup.uri;
+      if (!stillHere()) {
+        cancelled = true;
+        return;
+      }
       setExportSheet(false);
       setPassphrase('');
       setConfirmation('');
       // Let the sheet's modal finish dismissing; presenting the share sheet
       // over a dismissing modal leaves iOS with neither on screen.
       await new Promise((resolve) => setTimeout(resolve, 450));
+      if (!mounted.current || !(await session.confirm()) || !mounted.current) {
+        cancelled = true;
+        return;
+      }
       await withoutAutoLock(() =>
         Sharing.shareAsync(backup.uri, {
           dialogTitle: backup.name,
@@ -110,18 +153,23 @@ export default function SettingsScreen() {
         tone: 'success',
       });
     } catch (e) {
-      setSheetError(describeBackupError(e, 'Could not create the backup.'));
+      if (stillHere()) setSheetError(describeBackupError(e, 'Could not create the backup.'));
+      else cancelled = true;
     } finally {
       if (uri) backupService.discardBackup(uri);
-      setProgress(null);
-      setBusy(null);
+      if (cancelled) postNotice({ message: EXPORT_STOPPED });
+      if (mounted.current) {
+        setProgress(null);
+        setBusy(null);
+      }
     }
-  }, [passphrase, confirmation, toast, withoutAutoLock]);
+  }, [passphrase, confirmation, toast, withoutAutoLock, captureSession, postNotice]);
 
   // Picks a file, reads its header, and only then asks for the passphrase.
   // The picker's copy is removed once the restore is done or the sheet closes,
   // and by the lock sweep otherwise.
   const pickBackup = useCallback(async () => {
+    const session = captureSession();
     let picked: string | null = null;
     try {
       const result = await withoutAutoLock(() =>
@@ -131,6 +179,10 @@ export default function SettingsScreen() {
       if (!asset) return;
       picked = asset.uri;
       const info = await backupService.inspectBackup(asset.uri);
+      if (!mounted.current || !session.current()) {
+        backupService.discardPickedFile(asset.uri);
+        return;
+      }
       setRestorePassphrase('');
       setSheetError(null);
       setRestore({
@@ -141,37 +193,56 @@ export default function SettingsScreen() {
       });
     } catch (e) {
       if (picked) backupService.discardPickedFile(picked);
-      toast.show({ message: describeBackupError(e), tone: 'danger' });
+      if (mounted.current && session.current()) {
+        toast.show({ message: describeBackupError(e), tone: 'danger' });
+      }
     }
-  }, [toast, withoutAutoLock]);
+  }, [toast, withoutAutoLock, captureSession]);
 
   const closeRestore = useCallback(() => {
     if (restore) backupService.discardPickedFile(restore.uri);
     setRestore(null);
   }, [restore]);
 
+  // A restore is never cancelled by the lock: it keeps running so the vault is
+  // never left half replaced, and reports its outcome after the next unlock.
   const importVault = useCallback(async () => {
     if (!restore || !restorePassphrase) return;
+    const session = captureSession();
+    const stillHere = () => mounted.current && session.current();
     setSheetError(null);
     setBusy('import');
     setProgress({ phase: 'verify', done: 0, total: 1 });
     try {
-      const entries = await backupService.restoreBackup(
-        restore.uri,
-        restorePassphrase,
-        setProgress,
-      );
+      const entries = await backupService.restoreBackup(restore.uri, restorePassphrase, (event) => {
+        if (mounted.current) setProgress(event);
+      });
       backupService.discardPickedFile(restore.uri);
-      setRestore(null);
-      setRestorePassphrase('');
-      toast.show({ message: `Vault restored: ${entries} entries`, tone: 'success' });
+      const message = `Vault restored: ${entries} entries`;
+      if (stillHere()) {
+        setRestore(null);
+        setRestorePassphrase('');
+        toast.show({ message, tone: 'success' });
+      } else {
+        postNotice({ message, tone: 'success' });
+      }
     } catch (e) {
-      setSheetError(describeBackupError(e));
+      if (stillHere()) {
+        setSheetError(describeBackupError(e));
+      } else {
+        backupService.discardPickedFile(restore.uri);
+        postNotice({
+          message: describeBackupErrorPlainly(e, 'The restore did not finish. Try it again.'),
+          tone: 'danger',
+        });
+      }
     } finally {
-      setProgress(null);
-      setBusy(null);
+      if (mounted.current) {
+        setProgress(null);
+        setBusy(null);
+      }
     }
-  }, [restore, restorePassphrase, toast]);
+  }, [restore, restorePassphrase, toast, captureSession, postNotice]);
 
   const clearAll = useCallback(() => {
     // Destructive and irreversible: the one place a native confirmation is right.

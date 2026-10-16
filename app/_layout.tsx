@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { IconButton, ToastProvider } from '@/components/ui';
+import { IconButton, ToastProvider, useToast } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { backupService } from '@/services/BackupService';
@@ -18,8 +18,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 function RootNavigator() {
-  const { status } = useSession();
+  const { status, notice, dismissNotice } = useSession();
   const { theme } = useUnistyles();
+  const toast = useToast();
   const ready = status !== 'loading';
   const unlocked = status === 'unlocked';
 
@@ -33,11 +34,20 @@ function RootNavigator() {
     // Every decrypted preview, rendered page, and share copy goes when the
     // vault locks, whichever path locked it.
     if (status === 'locked') {
+      toast.hide();
       documentService.clearCache().catch(() => {});
       // Backup ciphertext too: finished containers and the picker's copies.
       backupService.sweepCache();
     }
-  }, [status]);
+  }, [status, toast]);
+
+  useEffect(() => {
+    // Work that ended behind the lock reports here, never over the lock screen.
+    if (status === 'unlocked' && notice) {
+      toast.show(notice);
+      dismissNotice();
+    }
+  }, [status, notice, toast, dismissNotice]);
 
   if (!ready) {
     return null;

@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -43,7 +43,7 @@ export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
   const { theme } = useUnistyles();
-  const { settings, stepUp, withoutAutoLock } = useSession();
+  const { settings, stepUp, withoutAutoLock, captureSession, postNotice } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +55,14 @@ export default function DocumentDetailScreen() {
   const [busy, setBusy] = useState<'ocr' | 'delete' | 'share' | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ title: '', category: DocumentCategory.OTHER, tags: '' });
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -90,12 +98,26 @@ export default function DocumentDetailScreen() {
 
   const share = useCallback(async () => {
     if (!document) return;
+    const session = captureSession();
     if (settings.biometricsForShare && !(await stepUp())) {
       toast.show({ message: 'Confirm with biometrics to share.' });
       return;
     }
     setBusy('share');
     const copy = await documentService.prepareShareFile(document.id).catch(() => null);
+    // The decrypted copy must not reach a share sheet once the vault has
+    // locked or this screen is gone: the sheet would open over the lock screen.
+    if (!mounted.current || !(await session.confirm()) || !mounted.current) {
+      copy?.discard();
+      if (!session.current()) {
+        // The lock sweep may have run before the copy was written; sweep again
+        // unless a new session has already been unlocked.
+        if (!captureSession().current()) documentService.clearCache().catch(() => {});
+        postNotice({ message: 'Sharing was cancelled because the vault locked.' });
+      }
+      if (mounted.current) setBusy(null);
+      return;
+    }
     if (!copy) {
       setBusy(null);
       toast.show({ message: 'Could not prepare the file.', tone: 'danger' });
@@ -114,9 +136,17 @@ export default function DocumentDetailScreen() {
       // Sheet dismissed or sharing unavailable; the copy is discarded either way.
     } finally {
       copy.discard();
-      setBusy(null);
+      if (mounted.current) setBusy(null);
     }
-  }, [document, settings.biometricsForShare, stepUp, toast, withoutAutoLock]);
+  }, [
+    document,
+    settings.biometricsForShare,
+    stepUp,
+    toast,
+    withoutAutoLock,
+    captureSession,
+    postNotice,
+  ]);
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;

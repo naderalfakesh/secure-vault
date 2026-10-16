@@ -18,6 +18,21 @@ import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './setti
 
 export type SessionStatus = 'loading' | 'setup' | 'locked' | 'unlocked';
 
+/** The unlocked session a piece of work started in. */
+export type SessionCapture = {
+  /** True while that same session is still unlocked. */
+  current: () => boolean;
+  /**
+   * Resolves true once the app is in the foreground with any time away already
+   * checked against auto-lock, and that same session is still unlocked;
+   * resolves false as soon as it has ended. Call it right before presenting
+   * system UI such as a share sheet.
+   */
+  confirm: () => Promise<boolean>;
+};
+
+export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
+
 // A tiny vault entry whose read proves the device key is currently usable.
 const KEY_PROBE_ENTRY = '_key_probe';
 
@@ -44,6 +59,12 @@ export type SessionContextValue = {
    * and share sheets send the app to the background without the user leaving it.
    */
   withoutAutoLock: <T>(work: () => Promise<T>) => Promise<T>;
+  /** Captures the current unlocked session so long work can tell whether it ended. */
+  captureSession: () => SessionCapture;
+  /** A message for work that ended behind the lock; shown once the vault is unlocked. */
+  notice: SessionNotice | null;
+  postNotice: (notice: SessionNotice) => void;
+  dismissNotice: () => void;
   /** Forget the PIN, settings, and lockout after the vault was emptied; returns to setup. */
   eraseVault: () => Promise<void>;
   /** Last unlock or setup failure, cleared on the next attempt. */
@@ -80,13 +101,30 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<SecuritySettings>(DEFAULT_SETTINGS);
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<SessionNotice | null>(null);
   const backgroundedAt = useRef<number | null>(null);
   const suspendedRef = useRef(0);
   const statusRef = useRef(status);
+  // Bumped every time the vault leaves `unlocked`, so work that started in an
+  // earlier session never mistakes a later unlock for its own.
+  const generationRef = useRef(0);
+  const waitersRef = useRef(new Set<() => void>());
 
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
+  const settleWaiters = useCallback(() => {
+    for (const settle of [...waitersRef.current]) settle();
+  }, []);
+
+  // The ref changes in the same tick as the transition, before React renders,
+  // so a check between two awaits never sees a stale `unlocked`.
+  const changeStatus = useCallback(
+    (next: SessionStatus) => {
+      if (statusRef.current === 'unlocked' && next !== 'unlocked') generationRef.current += 1;
+      statusRef.current = next;
+      setStatus(next);
+      settleWaiters();
+    },
+    [settleWaiters],
+  );
 
   useEffect(() => {
     let active = true;
@@ -102,12 +140,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
       // A key without a PIN record is either the 2025 prototype's vault or an
       // interrupted setup. Both go through setup again, and setUp keeps the
       // existing key so nothing already encrypted is lost.
-      setStatus(exists && hasPin ? 'locked' : 'setup');
+      changeStatus(exists && hasPin ? 'locked' : 'setup');
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [changeStatus]);
 
   const loadProtectedState = useCallback(async () => {
     const [nextSettings, nextLockout] = await Promise.all([
@@ -140,14 +178,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await loadProtectedState();
         setLockout(EMPTY_LOCKOUT);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-        setStatus('unlocked');
+        changeStatus('unlocked');
       }
       return ok;
     } catch (e) {
       setError(describeError(e, 'Could not unlock the vault.'));
       return false;
     }
-  }, [loadProtectedState]);
+  }, [loadProtectedState, changeStatus]);
 
   const unlockWithPin = useCallback(
     async (pin: string) => {
@@ -167,7 +205,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
           await loadProtectedState();
           setLockout(EMPTY_LOCKOUT);
           await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-          setStatus('unlocked');
+          changeStatus('unlocked');
           return true;
         }
         const next = recordFailure(lockout, now);
@@ -179,7 +217,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [lockout, loadProtectedState, ensureKeyAccess],
+    [lockout, loadProtectedState, ensureKeyAccess, changeStatus],
   );
 
   const setUp = useCallback(
@@ -196,14 +234,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setSettings(DEFAULT_SETTINGS);
         setLockout(EMPTY_LOCKOUT);
         setVaultExists(true);
-        setStatus('unlocked');
+        changeStatus('unlocked');
         return true;
       } catch (e) {
         setError(describeError(e, 'Could not set up the vault.'));
         return false;
       }
     },
-    [vaultExists],
+    [vaultExists, changeStatus],
   );
 
   const changePin = useCallback(async (currentPin: string, nextPin: string) => {
@@ -230,26 +268,54 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const lock = useCallback(() => {
     setError(null);
-    setStatus('locked');
-  }, []);
+    changeStatus('locked');
+  }, [changeStatus]);
 
   const eraseVault = useCallback(async () => {
     await sessionStorage.clear().catch(() => {});
     setSettings(DEFAULT_SETTINGS);
     setLockout(EMPTY_LOCKOUT);
     setError(null);
-    setStatus('setup');
+    setNotice(null);
+    changeStatus('setup');
+  }, [changeStatus]);
+
+  const withoutAutoLock = useCallback(
+    async <T,>(work: () => Promise<T>) => {
+      suspendedRef.current += 1;
+      try {
+        return await work();
+      } finally {
+        suspendedRef.current -= 1;
+        backgroundedAt.current = null;
+        settleWaiters();
+      }
+    },
+    [settleWaiters],
+  );
+
+  const captureSession = useCallback((): SessionCapture => {
+    const generation = statusRef.current === 'unlocked' ? generationRef.current : -1;
+    const current = () => generation === generationRef.current && statusRef.current === 'unlocked';
+    const confirm = () =>
+      new Promise<boolean>((resolve) => {
+        const settle = () => {
+          if (!current()) {
+            waitersRef.current.delete(settle);
+            resolve(false);
+          } else if (AppState.currentState === 'active' && backgroundedAt.current === null) {
+            waitersRef.current.delete(settle);
+            resolve(true);
+          }
+        };
+        waitersRef.current.add(settle);
+        settle();
+      });
+    return { current, confirm };
   }, []);
 
-  const withoutAutoLock = useCallback(async <T,>(work: () => Promise<T>) => {
-    suspendedRef.current += 1;
-    try {
-      return await work();
-    } finally {
-      suspendedRef.current -= 1;
-      backgroundedAt.current = null;
-    }
-  }, []);
+  const postNotice = useCallback((next: SessionNotice) => setNotice(next), []);
+  const dismissNotice = useCallback(() => setNotice(null), []);
 
   const stepUp = useCallback(
     () =>
@@ -266,21 +332,22 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // Auto-lock: remember when the app left the foreground and compare on return.
   useEffect(() => {
     const onChange = (next: AppStateStatus) => {
-      if (statusRef.current !== 'unlocked' || suspendedRef.current > 0) return;
-      if (next === 'background' || next === 'inactive') {
-        backgroundedAt.current ??= Date.now();
-        return;
+      if (statusRef.current === 'unlocked' && suspendedRef.current === 0) {
+        if (next === 'background' || next === 'inactive') {
+          backgroundedAt.current ??= Date.now();
+        } else if (next === 'active' && backgroundedAt.current !== null) {
+          const idleMs = Date.now() - backgroundedAt.current;
+          backgroundedAt.current = null;
+          const limit = settings.autoLockSeconds;
+          if (limit >= 0 && idleMs >= limit * 1000) changeStatus('locked');
+        }
       }
-      if (next === 'active' && backgroundedAt.current !== null) {
-        const idleMs = Date.now() - backgroundedAt.current;
-        backgroundedAt.current = null;
-        const limit = settings.autoLockSeconds;
-        if (limit >= 0 && idleMs >= limit * 1000) setStatus('locked');
-      }
+      // Waiting work resumes only after the return to the foreground was judged.
+      settleWaiters();
     };
     const subscription = AppState.addEventListener('change', onChange);
     return () => subscription.remove();
-  }, [settings.autoLockSeconds]);
+  }, [settings.autoLockSeconds, changeStatus, settleWaiters]);
 
   const value = useMemo(
     () => ({
@@ -297,6 +364,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
       lock,
       stepUp,
       withoutAutoLock,
+      captureSession,
+      notice,
+      postNotice,
+      dismissNotice,
       eraseVault,
       error,
     }),
@@ -314,6 +385,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
       lock,
       stepUp,
       withoutAutoLock,
+      captureSession,
+      notice,
+      postNotice,
+      dismissNotice,
       eraseVault,
       error,
     ],

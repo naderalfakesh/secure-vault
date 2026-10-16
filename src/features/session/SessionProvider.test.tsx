@@ -1,11 +1,14 @@
+import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { AppState, type AppStateStatus, Text } from 'react-native';
 
 import { hashPasscode } from '../auth/passcode';
 import * as SecureStore from 'expo-secure-store';
 import vault from '../../../modules/expo-vault';
-import { SessionProvider, useSession } from './SessionProvider';
+import { type SessionCapture, SessionProvider, useSession } from './SessionProvider';
+import type { SecuritySettings } from './settings';
 
+type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as {
   reset(): void;
@@ -122,5 +125,133 @@ describe('SessionProvider', () => {
     );
 
     vaultMock.unlockWithBiometrics = original;
+  });
+});
+
+describe('SessionProvider session capture', () => {
+  const appState = AppState as unknown as {
+    currentState: AppStateStatus;
+    addEventListener: jest.Mock;
+  };
+  const listeners = new Set<(state: AppStateStatus) => void>();
+  const moveTo = (state: AppStateStatus) =>
+    act(async () => {
+      appState.currentState = state;
+      for (const listener of [...listeners]) listener(state);
+    });
+
+  let session: ReturnType<typeof useSession>;
+  function Capture() {
+    const value = useSession();
+    useEffect(() => {
+      session = value;
+    });
+    return <Text testID="status">{value.status}</Text>;
+  }
+
+  async function unlocked(autoLockSeconds: AutoLockSeconds = 0) {
+    const view = await render(
+      <SessionProvider>
+        <Capture />
+      </SessionProvider>,
+    );
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await act(async () => {
+      await session.setUp('123456');
+    });
+    await act(async () => {
+      await session.updateSettings({ autoLockSeconds });
+    });
+    expect(view.getByTestId('status')).toHaveTextContent('unlocked');
+    return view;
+  }
+
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    listeners.clear();
+    appState.currentState = 'active';
+    appState.addEventListener.mockImplementation(
+      (_event: string, listener: (state: AppStateStatus) => void) => {
+        listeners.add(listener);
+        return { remove: () => listeners.delete(listener) };
+      },
+    );
+  });
+
+  it('confirms the same unlocked session in the foreground', async () => {
+    await unlocked();
+    const capture = session.captureSession();
+    expect(capture.current()).toBe(true);
+    await expect(capture.confirm()).resolves.toBe(true);
+  });
+
+  it('never confirms a session that ended, even after the next unlock', async () => {
+    await unlocked();
+    const capture = session.captureSession();
+    await act(async () => {
+      session.lock();
+    });
+    expect(capture.current()).toBe(false);
+    await expect(capture.confirm()).resolves.toBe(false);
+
+    await act(async () => {
+      await session.unlock();
+    });
+    expect(session.status).toBe('unlocked');
+    expect(capture.current()).toBe(false);
+    await expect(capture.confirm()).resolves.toBe(false);
+  });
+
+  it('waits out a trip to the background and fails when auto-lock locks on return', async () => {
+    await unlocked(0);
+    const capture = session.captureSession();
+    await moveTo('background');
+    let outcome: boolean | null = null;
+    void capture.confirm().then((value) => {
+      outcome = value;
+    });
+    await act(async () => {});
+    expect(outcome).toBeNull();
+
+    await moveTo('active');
+    await waitFor(() => expect(outcome).toBe(false));
+    expect(session.status).toBe('locked');
+  });
+
+  it('waits out a trip to the background and confirms when auto-lock allows the time away', async () => {
+    await unlocked(300);
+    const capture: SessionCapture = session.captureSession();
+    await moveTo('inactive');
+    let outcome: boolean | null = null;
+    void capture.confirm().then((value) => {
+      outcome = value;
+    });
+    await act(async () => {});
+    expect(outcome).toBeNull();
+
+    await moveTo('active');
+    await waitFor(() => expect(outcome).toBe(true));
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('holds a notice until the vault is unlocked and forgets it when the vault is erased', async () => {
+    await unlocked();
+    await act(async () => {
+      session.postNotice({ message: 'Done' });
+    });
+    expect(session.notice).toEqual({ message: 'Done' });
+    await act(async () => {
+      session.dismissNotice();
+    });
+    expect(session.notice).toBeNull();
+
+    await act(async () => {
+      session.postNotice({ message: 'Again' });
+    });
+    await act(async () => {
+      await session.eraseVault();
+    });
+    expect(session.notice).toBeNull();
   });
 });

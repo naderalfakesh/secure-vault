@@ -8,6 +8,7 @@ import {
   BACKUP_STAGING_DIRECTORY,
   backupService,
   describeBackupError,
+  describeBackupErrorPlainly,
   PICKER_DIRECTORY,
   passphraseProblem,
 } from '../BackupService';
@@ -40,6 +41,16 @@ describe('passphrase policy', () => {
     expect(describeBackupError(null, 'Could not create the backup.')).toBe(
       'Could not create the backup.',
     );
+  });
+
+  it('never passes on the platform message when describing plainly', () => {
+    expect(describeBackupErrorPlainly({ code: 'BACKUP_PARTIAL' }, 'fallback')).toMatch(
+      /previous vault was removed/,
+    );
+    expect(
+      describeBackupErrorPlainly(new Error('/var/mobile/Caches/backup/restore: EIO'), 'fallback'),
+    ).toBe('fallback');
+    expect(describeBackupErrorPlainly({ code: 'SOMETHING_ELSE' }, 'fallback')).toBe('fallback');
   });
 });
 
