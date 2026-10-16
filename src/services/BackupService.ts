@@ -66,6 +66,14 @@ function toPath(uri: string): string {
   return decodeURIComponent(uri.replace(/^file:\/\//, ''));
 }
 
+function removeQuietly(entry: File | Directory): void {
+  try {
+    if (entry.exists) entry.delete();
+  } catch {
+    // The caller retries: the next export, or the lock sweep for staging.
+  }
+}
+
 /**
  * A failure after the native import has replaced the vault: the documents
  * are back, the index is not. It gets its own code so the sentence never
@@ -114,25 +122,35 @@ class BackupService {
     const databaseCopy = new File(directory, 'index.db');
     const staging = this.staging();
     const unsubscribe = this.subscribe(onProgress);
+    let summary: { entries: number; bytes: number };
     try {
       await exportDatabaseFile(toPath(databaseCopy.uri));
-      const summary = await vault.exportBackup(
+      summary = await vault.exportBackup(
         toPath(target.uri),
         passphrase,
         [{ key: DATABASE_ENTRY, path: toPath(databaseCopy.uri) }],
         toPath(staging.uri),
       );
-      return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
     } catch (error) {
-      // A failure mid-write leaves a half-written container; it is ciphertext
-      // but useless, so it does not wait for the next export to replace it.
-      if (target.exists) target.delete();
-      throw error;
-    } finally {
       unsubscribe();
+      // The export's own error is what the caller sees (it may be KEY_LOCKED),
+      // so this cleanup cannot replace it; the next export retries whatever it
+      // leaves, and the lock sweep the staging folder. A failure mid-write
+      // leaves a half-written container; it is ciphertext but useless, so it
+      // goes too.
+      for (const leftover of [target, databaseCopy, staging]) removeQuietly(leftover);
+      throw error;
+    }
+    unsubscribe();
+    try {
       if (databaseCopy.exists) databaseCopy.delete();
       if (staging.exists) staging.delete();
+    } catch (error) {
+      // A finished backup is not handed out while the staging folder may remain.
+      removeQuietly(target);
+      throw error;
     }
+    return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
   }
 
   /** Removes a backup file once it has been handed off. */

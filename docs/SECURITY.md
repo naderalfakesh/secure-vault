@@ -101,7 +101,10 @@ while unlocked. Sharing can require a second biometric check.
   at most one entry behind, and only until the next launch or lock. The module
   sweeps only that exact folder: the path it is given must resolve, links and
   `..` included, to the cache's own `backup-staging`, or the export is refused
-  before anything is touched.
+  before anything is touched. If the folder cannot be listed or emptied, the
+  export fails on both platforms, also after the container was written, and
+  the finished file is removed, so no success is reported next to leftover
+  plaintext.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.

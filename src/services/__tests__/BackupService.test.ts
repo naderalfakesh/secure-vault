@@ -189,6 +189,55 @@ describe('BackupService', () => {
       expect(containers()).toHaveLength(0);
     });
 
+    // Makes removing the staging folder fail once the module has been called.
+    const failStagingRemoval = (called: () => boolean) => {
+      const remove = Directory.prototype.delete;
+      return jest.spyOn(Directory.prototype, 'delete').mockImplementation(function (
+        this: Directory,
+      ) {
+        if (called() && this.name === BACKUP_STAGING_DIRECTORY) throw new Error('busy');
+        return remove.call(this);
+      });
+    };
+
+    it("keeps the module's own error when the staging folder cannot be removed", async () => {
+      let called = false;
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
+        called = true;
+        new File(`file://${destPath}`).write('SVB1 partial');
+        throw Object.assign(new Error('Key user not authenticated'), { code: 'KEY_LOCKED' });
+      });
+      const removal = failStagingRemoval(() => called);
+      try {
+        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+          code: 'KEY_LOCKED',
+        });
+      } finally {
+        removal.mockRestore();
+        spy.mockRestore();
+      }
+      expect(containers()).toHaveLength(0);
+      staging().delete();
+    });
+
+    it('fails and drops a finished container when the staging folder cannot be removed', async () => {
+      let called = false;
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
+        called = true;
+        new File(`file://${destPath}`).write('SVB1 complete');
+        return { entries: 1, bytes: 13 };
+      });
+      const removal = failStagingRemoval(() => called);
+      try {
+        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow('busy');
+      } finally {
+        removal.mockRestore();
+        spy.mockRestore();
+      }
+      expect(containers()).toHaveLength(0);
+      staging().delete();
+    });
+
     it('is swept with the rest of the cache when the vault locks', async () => {
       plantResidue();
       const finished = new Directory(Paths.cache, 'backup');
