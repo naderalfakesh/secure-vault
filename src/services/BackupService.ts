@@ -36,8 +36,11 @@ export function passphraseProblem(passphrase: string, confirmation?: string): st
   return null;
 }
 
-/** Plain-language message for a failed restore. */
-export function describeBackupError(error: unknown): string {
+/** Plain-language message for a failed export or restore. */
+export function describeBackupError(
+  error: unknown,
+  fallback = 'Could not use this backup.',
+): string {
   const code =
     typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
   switch (code) {
@@ -53,8 +56,10 @@ export function describeBackupError(error: unknown): string {
       return "This device doesn't have enough memory to read this backup. Nothing was changed.";
     case 'BACKUP_INDEX':
       return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
+    case 'BACKUP_STAGING_INVALID':
+      return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
     default:
-      return error instanceof Error && error.message ? error.message : 'Could not use this backup.';
+      return error instanceof Error && error.message ? error.message : fallback;
   }
 }
 
@@ -142,13 +147,23 @@ class BackupService {
       throw error;
     }
     unsubscribe();
-    try {
-      if (databaseCopy.exists) databaseCopy.delete();
-      if (staging.exists) staging.delete();
-    } catch (error) {
-      // A finished backup is not handed out while the staging folder may remain.
+    // Each removal is tried even when the other fails. A finished backup is
+    // not handed out while either may remain; the platform error names a
+    // cache path, so it travels only as the cause.
+    const failures: unknown[] = [];
+    for (const leftover of [databaseCopy, staging]) {
+      try {
+        if (leftover.exists) leftover.delete();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length > 0) {
       removeQuietly(target);
-      throw error;
+      throw Object.assign(new Error('The backup staging files could not be removed.'), {
+        code: 'BACKUP_STAGING_INVALID',
+        cause: failures[0],
+      });
     }
     return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
   }

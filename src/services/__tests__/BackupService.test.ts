@@ -30,7 +30,14 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
     expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toMatch(/enough memory/);
     expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);
+    expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
+      /temporary files could not be cleared/,
+    );
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
+    expect(describeBackupError(null)).toBe('Could not use this backup.');
+    expect(describeBackupError(null, 'Could not create the backup.')).toBe(
+      'Could not create the backup.',
+    );
   });
 });
 
@@ -220,22 +227,111 @@ describe('BackupService', () => {
       staging().delete();
     });
 
-    it('fails and drops a finished container when the staging folder cannot be removed', async () => {
-      let called = false;
-      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
-        called = true;
+    // Makes removing the index copy fail once the module has been called.
+    const failIndexRemoval = (called: () => boolean) => {
+      const remove = File.prototype.delete;
+      return jest.spyOn(File.prototype, 'delete').mockImplementation(function (this: File) {
+        if (called() && this.name === 'index.db') {
+          throw new Error('"index.db" couldn\'t be removed: /private/var/mobile/Caches/backup');
+        }
+        return remove.call(this);
+      });
+    };
+
+    const indexCopy = () => new File(new Directory(Paths.cache, 'backup'), 'index.db');
+    // The Jest database double writes no copy; the real one does before the module runs.
+    const writeIndexCopy = () => indexCopy().write('SQLite format 3');
+
+    const finishedExport = (onCall: () => void) =>
+      jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
+        onCall();
+        writeIndexCopy();
         new File(`file://${destPath}`).write('SVB1 complete');
         return { entries: 1, bytes: 13 };
       });
+
+    it('fails with a typed error and drops a finished container when the staging folder cannot be removed', async () => {
+      let called = false;
+      const spy = finishedExport(() => (called = true));
       const removal = failStagingRemoval(() => called);
+      let caught: unknown;
       try {
-        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow('busy');
+        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
       } finally {
         removal.mockRestore();
         spy.mockRestore();
       }
+      expect(caught).toMatchObject({ code: 'BACKUP_STAGING_INVALID' });
+      expect((caught as Error).cause).toEqual(new Error('busy'));
       expect(containers()).toHaveLength(0);
+      // The index copy is removed even though the staging folder was not.
+      expect(indexCopy().exists).toBe(false);
       staging().delete();
+    });
+
+    it('still removes the staging folder and drops the container when the index copy cannot be removed', async () => {
+      let called = false;
+      const spy = finishedExport(() => (called = true));
+      const removal = failIndexRemoval(() => called);
+      let caught: unknown;
+      try {
+        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
+      } finally {
+        removal.mockRestore();
+        spy.mockRestore();
+      }
+      expect(caught).toMatchObject({ code: 'BACKUP_STAGING_INVALID' });
+      expect(String((caught as Error).cause)).toMatch(/index\.db/);
+      expect(containers()).toHaveLength(0);
+      expect(staging().exists).toBe(false);
+      // The sentence the export sheet shows names no path and no platform error.
+      const shown = describeBackupError(caught, 'Could not create the backup.');
+      expect(shown).toBe(
+        "The backup's temporary files could not be cleared, so no backup was made. Try again.",
+      );
+      expect(shown).not.toMatch(/index\.db|\/private|Caches|Exception/);
+      indexCopy().delete();
+    });
+
+    it('reports the first cleanup failure when both the index copy and the staging folder remain', async () => {
+      let called = false;
+      const spy = finishedExport(() => (called = true));
+      const indexRemoval = failIndexRemoval(() => called);
+      const stagingRemoval = failStagingRemoval(() => called);
+      let caught: unknown;
+      try {
+        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
+      } finally {
+        stagingRemoval.mockRestore();
+        indexRemoval.mockRestore();
+        spy.mockRestore();
+      }
+      expect(caught).toMatchObject({ code: 'BACKUP_STAGING_INVALID' });
+      expect(String((caught as Error).cause)).toMatch(/index\.db/);
+      expect(containers()).toHaveLength(0);
+      indexCopy().delete();
+      staging().delete();
+    });
+
+    it("keeps the module's own error when the index copy cannot be removed after a failed export", async () => {
+      let called = false;
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async () => {
+        called = true;
+        writeIndexCopy();
+        throw Object.assign(new Error('Key user not authenticated'), { code: 'KEY_LOCKED' });
+      });
+      const removal = failIndexRemoval(() => called);
+      try {
+        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+          code: 'KEY_LOCKED',
+          message: 'Key user not authenticated',
+        });
+      } finally {
+        removal.mockRestore();
+        spy.mockRestore();
+      }
+      expect(staging().exists).toBe(false);
+      indexCopy().delete();
     });
 
     it('is swept with the rest of the cache when the vault locks', async () => {

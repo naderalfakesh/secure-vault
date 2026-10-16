@@ -110,7 +110,7 @@ export default function SettingsScreen() {
         tone: 'success',
       });
     } catch (e) {
-      setSheetError(e instanceof Error ? e.message : 'Could not create the backup.');
+      setSheetError(describeBackupError(e, 'Could not create the backup.'));
     } finally {
       if (uri) backupService.discardBackup(uri);
       setProgress(null);
