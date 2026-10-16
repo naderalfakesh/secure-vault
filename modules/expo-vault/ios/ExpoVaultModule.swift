@@ -425,7 +425,9 @@ public class ExpoVaultModule: Module {
       return
     }
     let box = try AES.GCM.SealedBox(combined: Data(contentsOf: url))
-    try AES.GCM.open(box, using: key).write(to: plain, options: .atomic)
+    // Written in place: an atomic write may stage its auxiliary copy outside
+    // the swept folder, and `plain` is a fresh name that nothing else reads.
+    try AES.GCM.open(box, using: key).write(to: plain)
   }
 
   private func getFileURL(for key: String) throws -> URL {
