@@ -4,9 +4,11 @@ import vault from '../../../modules/expo-vault';
 import type { VaultMockExport } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import { DocumentCategory } from '../../types';
 import {
+  BACKUP_DIRECTORY,
   BACKUP_STAGING_DIRECTORY,
   backupService,
   describeBackupError,
+  PICKER_DIRECTORY,
   passphraseProblem,
 } from '../BackupService';
 import { documentService } from '../DocumentService';
@@ -343,9 +345,91 @@ describe('BackupService', () => {
       await documentService.clearCache();
 
       expect(staging().exists).toBe(false);
-      // Finished backups are ciphertext and stay until the share sheet hands them off.
+      // Finished backups are ciphertext; the backup sweep removes them, not this one.
       expect(finished.exists).toBe(true);
       finished.delete();
+    });
+  });
+
+  describe('ciphertext sweep', () => {
+    const finished = () => new Directory(Paths.cache, BACKUP_DIRECTORY);
+    const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+
+    const plantCiphertext = () => {
+      for (const folder of [finished(), pickerFolder()]) {
+        if (!folder.exists) folder.create({ intermediates: true });
+      }
+      new File(finished(), 'SecureVault backup 2026-10-16.svbackup').write('ciphertext');
+      new File(finished(), 'index.db').write('ciphertext');
+      const picked = new File(pickerFolder(), '839E8D63.svbackup');
+      picked.write('ciphertext');
+      return picked;
+    };
+
+    afterEach(() => {
+      for (const folder of [finished(), pickerFolder()]) if (folder.exists) folder.delete();
+    });
+
+    it('removes finished containers, the index copy, and picked copies at lock and launch', () => {
+      plantCiphertext();
+
+      backupService.sweepCache();
+
+      expect(finished().exists).toBe(false);
+      expect(pickerFolder().exists).toBe(false);
+    });
+
+    it('leaves a restore in progress its picked file and extras, then lets the next sweep run', async () => {
+      const picked = plantCiphertext();
+      let finishImport: () => void = () => {};
+      let extrasDuringImport = false;
+      const spy = jest.spyOn(vault, 'importBackup').mockImplementationOnce(
+        (_source, _passphrase, extraDir) =>
+          new Promise((resolve) => {
+            finishImport = () => {
+              extrasDuringImport = new Directory(`file://${extraDir}`).exists;
+              resolve({ entries: 1, extras: [{ key: 'database', path: `${extraDir}/database` }] });
+            };
+          }),
+      );
+      try {
+        const restoring = backupService.restoreBackup(picked.uri, 'correct horse battery');
+        await Promise.resolve();
+
+        backupService.sweepCache();
+        expect(picked.exists).toBe(true);
+        expect(new Directory(finished(), 'restore').exists).toBe(true);
+
+        finishImport();
+        await restoring.catch(() => {});
+        expect(extrasDuringImport).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+
+      backupService.sweepCache();
+      expect(picked.exists).toBe(false);
+      expect(finished().exists).toBe(false);
+    });
+
+    it("removes the picker's copy after use and never a file outside the picker folder", () => {
+      const picked = plantCiphertext();
+      const own = new File(Paths.document, 'my.svbackup');
+      own.write('ciphertext');
+      const lookalike = new Directory(Paths.cache, `${PICKER_DIRECTORY}-other`);
+      lookalike.create();
+      const neighbour = new File(lookalike, 'other.svbackup');
+      neighbour.write('ciphertext');
+
+      backupService.discardPickedFile(picked.uri);
+      backupService.discardPickedFile(own.uri);
+      backupService.discardPickedFile(neighbour.uri);
+
+      expect(picked.exists).toBe(false);
+      expect(own.exists).toBe(true);
+      expect(neighbour.exists).toBe(true);
+      own.delete();
+      lookalike.delete();
     });
   });
 });

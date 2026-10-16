@@ -119,13 +119,17 @@ export default function SettingsScreen() {
   }, [passphrase, confirmation, toast, withoutAutoLock]);
 
   // Picks a file, reads its header, and only then asks for the passphrase.
+  // The picker's copy is removed once the restore is done or the sheet closes,
+  // and by the lock sweep otherwise.
   const pickBackup = useCallback(async () => {
+    let picked: string | null = null;
     try {
       const result = await withoutAutoLock(() =>
         DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }),
       );
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;
+      picked = asset.uri;
       const info = await backupService.inspectBackup(asset.uri);
       setRestorePassphrase('');
       setSheetError(null);
@@ -136,9 +140,15 @@ export default function SettingsScreen() {
         created: info.created,
       });
     } catch (e) {
+      if (picked) backupService.discardPickedFile(picked);
       toast.show({ message: describeBackupError(e), tone: 'danger' });
     }
   }, [toast, withoutAutoLock]);
+
+  const closeRestore = useCallback(() => {
+    if (restore) backupService.discardPickedFile(restore.uri);
+    setRestore(null);
+  }, [restore]);
 
   const importVault = useCallback(async () => {
     if (!restore || !restorePassphrase) return;
@@ -151,6 +161,7 @@ export default function SettingsScreen() {
         restorePassphrase,
         setProgress,
       );
+      backupService.discardPickedFile(restore.uri);
       setRestore(null);
       setRestorePassphrase('');
       toast.show({ message: `Vault restored: ${entries} entries`, tone: 'success' });
@@ -391,7 +402,7 @@ export default function SettingsScreen() {
 
       <Sheet
         visible={restore !== null}
-        onClose={() => setRestore(null)}
+        onClose={closeRestore}
         title="Restore from backup"
         dismissable={busy !== 'import'}
       >

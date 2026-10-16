@@ -14,6 +14,10 @@ const DATABASE_ENTRY = 'database';
  * killed mid-entry leaves at most one entry behind, and only until then.
  */
 export const BACKUP_STAGING_DIRECTORY = 'backup-staging';
+/** Cache folder of finished containers, the index copy, and the restore extras. */
+export const BACKUP_DIRECTORY = 'backup';
+/** Where the document picker copies a picked file when asked to (iOS and Android). */
+export const PICKER_DIRECTORY = 'DocumentPicker';
 
 export interface BackupResult {
   uri: string;
@@ -96,8 +100,10 @@ function indexError(cause: unknown): Error {
  * The backup key is derived from the passphrase and never stored.
  */
 class BackupService {
+  private restoring = 0;
+
   private directory() {
-    const directory = new Directory(Paths.cache, 'backup');
+    const directory = new Directory(Paths.cache, BACKUP_DIRECTORY);
     if (!directory.exists) directory.create({ intermediates: true });
     return directory;
   }
@@ -178,6 +184,31 @@ class BackupService {
     }
   }
 
+  /**
+   * Removes the document picker's copy of a picked backup. Anything outside
+   * the picker's cache folder is the user's own file and is left alone.
+   */
+  discardPickedFile(uri: string): void {
+    const folder = toPath(new Directory(Paths.cache, PICKER_DIRECTORY).uri).replace(/\/?$/, '/');
+    if (!toPath(uri).startsWith(folder)) return;
+    removeQuietly(new File(uri));
+  }
+
+  /**
+   * The lock and launch sweep for backup ciphertext: finished containers,
+   * the index copy, and the picker's copies. A restore in progress keeps both
+   * folders, because it is still reading the picked file and writing its
+   * extras; it removes them itself when it ends. An export in progress loses
+   * its files and fails, which is the point: nothing written for an earlier
+   * session is shared.
+   */
+  sweepCache(): void {
+    if (this.restoring > 0) return;
+    for (const name of [BACKUP_DIRECTORY, PICKER_DIRECTORY]) {
+      removeQuietly(new Directory(Paths.cache, name));
+    }
+  }
+
   inspectBackup(uri: string): Promise<BackupInfo> {
     return vault.inspectBackup(toPath(uri));
   }
@@ -194,10 +225,12 @@ class BackupService {
     onProgress?: ProgressListener,
   ): Promise<number> {
     const extras = new Directory(this.directory(), 'restore');
-    if (extras.exists) extras.delete();
-    extras.create({ intermediates: true });
-    const unsubscribe = this.subscribe(onProgress);
+    let unsubscribe = () => {};
+    this.restoring += 1;
     try {
+      if (extras.exists) extras.delete();
+      extras.create({ intermediates: true });
+      unsubscribe = this.subscribe(onProgress);
       const result = await vault.importBackup(toPath(uri), passphrase, toPath(extras.uri));
       const database = result.extras.find((extra) => extra.key === DATABASE_ENTRY);
       if (!database) throw indexError(new Error('The backup has no document index.'));
@@ -210,6 +243,7 @@ class BackupService {
       }
       return result.entries;
     } finally {
+      this.restoring -= 1;
       unsubscribe();
       if (extras.exists) extras.delete();
     }
