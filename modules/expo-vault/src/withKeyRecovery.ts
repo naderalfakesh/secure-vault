@@ -28,15 +28,33 @@ function isThenable(value: unknown): value is Promise<unknown> {
  * prompt, so the wrapper only ever engages on Android. It only prompts while
  * `isForeground` holds: a prompt requested from the background is never shown
  * and would leave the caller waiting.
+ *
+ * One prompt is open at a time. Android keeps a single prompt callback per
+ * activity, so a second prompt requested while one is showing takes over its
+ * answer and the first caller never hears back. Every caller that asks while
+ * a prompt is open shares that prompt's outcome instead.
  */
 export function withKeyRecovery<T extends KeyRecoveryTarget>(
   vault: T,
   isForeground: () => boolean = () => true,
 ): T {
+  let openPrompt: Promise<boolean> | null = null;
+  const unlockWithBiometrics = (): Promise<boolean> => {
+    if (!openPrompt) {
+      openPrompt = Promise.resolve()
+        .then(() => vault.unlockWithBiometrics())
+        .finally(() => {
+          openPrompt = null;
+        });
+    }
+    return openPrompt;
+  };
+
   return new Proxy(vault, {
     get(target, property, receiver) {
+      if (property === 'unlockWithBiometrics') return unlockWithBiometrics;
       const value = Reflect.get(target, property, receiver) as unknown;
-      if (typeof value !== 'function' || property === 'unlockWithBiometrics') return value;
+      if (typeof value !== 'function') return value;
       const method = value as (...args: unknown[]) => unknown;
       return (...args: unknown[]) => {
         const result = method.apply(target, args);
@@ -45,7 +63,7 @@ export function withKeyRecovery<T extends KeyRecoveryTarget>(
         if (!isThenable(result)) return result;
         return result.catch(async (error: unknown) => {
           if (!isKeyLocked(error) || !isForeground()) throw error;
-          const unlocked = await target.unlockWithBiometrics().catch(() => false);
+          const unlocked = await unlockWithBiometrics().catch(() => false);
           if (!unlocked) throw error;
           return method.apply(target, args);
         });

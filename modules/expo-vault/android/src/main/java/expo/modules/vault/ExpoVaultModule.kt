@@ -27,6 +27,9 @@ class ExpoVaultModule : Module() {
     private val RESOURCE_MESSAGE = "This device does not have enough memory to read this backup."
     private val AUTH_VALIDITY_SECONDS = 300
     private val keystoreProvider = "AndroidKeyStore"
+    // Callers of the prompt that is currently open, settled together from its
+    // callback. Touched on the main thread only (runOnUiThread and the main executor).
+    private val promptWaiters = mutableListOf<Promise>()
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
     }
@@ -124,13 +127,22 @@ class ExpoVaultModule : Module() {
                     promise.resolve(false)
                     return@runOnUiThread
                 }
+                // androidx keeps one prompt callback per activity: building a second
+                // BiometricPrompt while one is showing hands that prompt's answer to the
+                // new callback and the first caller never hears back. A caller arriving
+                // while a prompt is open waits for its outcome instead.
+                if (promptWaiters.isNotEmpty()) {
+                    promptWaiters.add(promise)
+                    return@runOnUiThread
+                }
+                promptWaiters.add(promise)
                 try {
                     val executor = ContextCompat.getMainExecutor(activity)
                     val biometricPrompt = BiometricPrompt(activity, executor,
                         object : BiometricPrompt.AuthenticationCallback() {
                             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                                 super.onAuthenticationSucceeded(result)
-                                promise.resolve(true)
+                                settlePrompt { it.resolve(true) }
                             }
 
                             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -140,8 +152,8 @@ class ExpoVaultModule : Module() {
                                     // caller falls back to the PIN without showing an error.
                                     BiometricPrompt.ERROR_USER_CANCELED,
                                     BiometricPrompt.ERROR_NEGATIVE_BUTTON,
-                                    BiometricPrompt.ERROR_CANCELED -> promise.resolve(false)
-                                    else -> promise.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null)
+                                    BiometricPrompt.ERROR_CANCELED -> settlePrompt { it.resolve(false) }
+                                    else -> settlePrompt { it.reject("BIOMETRIC_AUTH_FAILED", errString.toString(), null) }
                                 }
                             }
 
@@ -162,7 +174,7 @@ class ExpoVaultModule : Module() {
 
                     biometricPrompt.authenticate(promptInfo)
                 } catch (e: Exception) {
-                    promise.reject("BIOMETRIC_ERROR", "Failed to show biometric prompt: ${e.message}", e)
+                    settlePrompt { it.reject("BIOMETRIC_ERROR", "Failed to show biometric prompt: ${e.message}", e) }
                 }
             }
         }
@@ -444,6 +456,12 @@ class ExpoVaultModule : Module() {
                 promise.reject("GET_FILE_SIZE_FAILED", e.message, e)
             }
         }
+    }
+
+    private fun settlePrompt(outcome: (Promise) -> Unit) {
+        val waiters = promptWaiters.toList()
+        promptWaiters.clear()
+        waiters.forEach(outcome)
     }
 
     /** KEY_LOCKED or KEY_INVALIDATED when the device key stopped the call, otherwise [fallback]. */
