@@ -38,7 +38,10 @@ backup passphrase ─── PBKDF2-HMAC-SHA256, 600 000 iterations, per-file sal
 - Android: an AES-256 key in the Android Keystore with user authentication
   required and a 300-second validity window, so the chunked cipher can run
   without a `CryptoObject` per call. Once the window lapses the module reports
-  `KEY_LOCKED` and the app re-prompts and retries (ADR 0003).
+  `KEY_LOCKED` and the app re-prompts and retries (ADR 0003). One prompt is
+  open at a time: a caller that needs the key while a prompt is showing waits
+  for that prompt's answer instead of opening a second one, which would take
+  over the first one's callback and leave it waiting forever.
 
 Everything the vault stores is encrypted under this key with AES-256-GCM.
 Files are streamed in 1 MiB chunks, each with its own random nonce and the
