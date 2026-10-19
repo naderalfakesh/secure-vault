@@ -1,4 +1,4 @@
-import { File } from 'expo-file-system';
+import { Directory, File } from 'expo-file-system';
 
 import vault from '../../../modules/expo-vault';
 import {
@@ -116,6 +116,40 @@ describe('database file handling', () => {
     expect(await openDocumentStore()).toBe(restored);
     expect(restored).not.toBe(previous);
     expect(previous.db.close).not.toHaveBeenCalled();
+  });
+
+  it('keeps the restored index when an open of the old one was still in flight', async () => {
+    const files = new Set(['securevault.db']);
+    jest.spyOn(Object.getPrototypeOf(Directory.prototype), 'exists', 'get').mockReturnValue(true);
+    jest
+      .spyOn(Directory.prototype, 'list')
+      .mockImplementation(() =>
+        [...files].map((name) => ({ name, delete: () => files.delete(name) }) as never),
+      );
+    jest.spyOn(File.prototype, 'move').mockImplementation(async (target) => {
+      files.add((target as File).uri.split('/').pop()!);
+    });
+    let finishOpen: () => void = () => {};
+    openEncrypted.mockClear().mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOpen = () => resolve({ exec: jest.fn(async () => {}), close: jest.fn() });
+        }),
+    );
+
+    const inFlight = openDocumentStore();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
+    const replacing = replaceDatabaseFile('/cache/backup/restore/database');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    finishOpen();
+    await replacing;
+    await inFlight;
+    await openDocumentStore();
+
+    const restored = await vault.get('_database_file');
+    expect(openEncrypted).toHaveBeenLastCalledWith(restored, 'ab'.repeat(32));
+    expect([...files]).toEqual([restored]);
   });
 
   it('lets the next open retry when the restored index cannot be installed', async () => {

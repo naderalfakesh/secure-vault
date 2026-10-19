@@ -162,8 +162,13 @@ export async function exportDatabaseFile(destPath: string): Promise<void> {
  * so nothing reopens the old name or holds a connection the restore drops.
  */
 export async function replaceDatabaseFile(sourcePath: string): Promise<void> {
-  if (opening) abandoned.push(opening);
-  const swap = installDatabaseFile(sourcePath);
+  const previous = opening;
+  if (previous) abandoned.push(previous);
+  // An open already under way has read the old name and, once it finishes,
+  // sweeps every other index file; the restored file must not exist yet.
+  const swap = (previous ?? Promise.resolve())
+    .catch(() => {})
+    .then(() => installDatabaseFile(sourcePath));
   share(swap.then(openStore)).catch(() => {
     // A failed swap reaches the caller through `swap`; a failed open, whoever waits for the index.
   });
