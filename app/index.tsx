@@ -52,14 +52,14 @@ export default function LockScreen() {
     shake,
     press,
   } = usePinEntry({
-    onComplete: (entered, { fail }) => {
+    onComplete: (entered, { clear, fail }) => {
       setChecking(true);
       unlockWithPin(entered)
-        .then((ok) => {
-          if (!ok) {
-            setWrong(true);
-            fail();
-          }
+        .then((result) => {
+          if (result === 'unlocked') return;
+          setWrong(result === 'wrong-pin');
+          if (result === 'wrong-pin') fail();
+          else clear();
         })
         .finally(() => setChecking(false));
     },

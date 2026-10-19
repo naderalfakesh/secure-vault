@@ -14,6 +14,7 @@ import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode
 import { EMPTY_LOCKOUT, isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
+import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
 
 export type SessionStatus = 'loading' | 'setup' | 'locked' | 'unlocked';
@@ -31,6 +32,9 @@ export type SessionCapture = {
   confirm: () => Promise<boolean>;
 };
 
+/** How a PIN attempt ended. Only `wrong-pin` counts towards the lockout. */
+export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
+
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
 // A tiny vault entry whose read proves the device key is currently usable.
@@ -46,7 +50,7 @@ export type SessionContextValue = {
   /** Prompts for biometrics or the device passcode; resolves false when cancelled or failed. */
   unlock: () => Promise<boolean>;
   /** Checks a PIN, records failures for the lockout policy, and unlocks on success. */
-  unlockWithPin: (pin: string) => Promise<boolean>;
+  unlockWithPin: (pin: string) => Promise<PinUnlockResult>;
   /** First run: creates the device key and stores the hashed PIN, then unlocks. */
   setUp: (pin: string) => Promise<boolean>;
   changePin: (currentPin: string, nextPin: string) => Promise<boolean>;
@@ -80,6 +84,8 @@ const friendlyMessages: Record<string, string> = {
   NO_AUTH_ENROLLED: 'Set up a screen lock in your device settings first.',
   KEY_RETRIEVAL_FAILED: 'The vault key could not be read. Restart the app and try again.',
 };
+
+const KEY_NOT_UNLOCKED = 'The device key was not unlocked. Enter your PIN to try again.';
 
 function describeError(e: unknown, fallback: string): string {
   const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
@@ -160,9 +166,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
     try {
       await vault.get(KEY_PROBE_ENTRY);
       return true;
-    } catch {
+    } catch (probeError) {
+      // The vault's key recovery has already shown the Android prompt for a
+      // locked key (or declined to from the background). Prompting again here
+      // would open a second prompt right after the user cancelled the first.
+      if (isKeyLocked(probeError)) {
+        setError(KEY_NOT_UNLOCKED);
+        return false;
+      }
       try {
-        return await vault.unlockWithBiometrics();
+        if (await vault.unlockWithBiometrics()) return true;
+        setError(KEY_NOT_UNLOCKED);
+        return false;
       } catch (e) {
         setError(describeError(e, 'Could not unlock the vault key.'));
         return false;
@@ -191,7 +206,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     async (pin: string) => {
       setError(null);
       const now = Date.now();
-      if (isLocked(lockout, now)) return false;
+      if (isLocked(lockout, now)) return 'not-unlocked';
       try {
         // Reading the PIN record needs the device key, which the OS may gate
         // with its own prompt; that is the same gate biometrics use.
@@ -201,20 +216,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
           // The PIN opens the app; the device key still needs the OS gate if its
           // authentication window has lapsed. iOS prompts on first Keychain read,
           // Android needs an explicit prompt, so probe and re-arm when required.
-          if (!(await ensureKeyAccess())) return false;
+          // A key prompt the user cancelled is not a wrong PIN.
+          if (!(await ensureKeyAccess())) return 'not-unlocked';
           await loadProtectedState();
           setLockout(EMPTY_LOCKOUT);
           await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
           changeStatus('unlocked');
-          return true;
+          return 'unlocked';
         }
         const next = recordFailure(lockout, now);
         setLockout(next);
         await sessionStorage.saveLockout(next).catch(() => {});
-        return false;
+        return 'wrong-pin';
       } catch (e) {
         setError(describeError(e, 'Could not check the PIN.'));
-        return false;
+        return 'not-unlocked';
       }
     },
     [lockout, loadProtectedState, ensureKeyAccess, changeStatus],
