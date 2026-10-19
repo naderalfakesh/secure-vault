@@ -4,6 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import { AppState, type AppStateStatus, Text } from 'react-native';
 
+import { closeDocumentStore } from '@/data/database';
+
 import DocumentDetailScreen from '../../app/documents/[id]';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
@@ -76,7 +78,7 @@ describe('Document sharing and the lock gate', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    await documentService.reload();
+    await closeDocumentStore();
     appState.currentState = 'active';
     appState.addEventListener.mockImplementation(() => ({ remove: () => {} }));
     share.mockClear();

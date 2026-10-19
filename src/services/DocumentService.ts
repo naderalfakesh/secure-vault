@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { closeDocumentStore, deleteDocumentStore, openDocumentStore } from '@/data/database';
+import { deleteDocumentStore, openDocumentStore } from '@/data/database';
 import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 
@@ -77,9 +77,12 @@ class DocumentService {
     };
   }
 
-  /** Reopen the index, e.g. after a backup restore replaced the vault. */
+  /**
+   * Open the current index and refresh every list, e.g. after a backup
+   * restore replaced it. Nothing is closed here: a screen may still be
+   * running a statement on the connection it already holds.
+   */
   async reload(): Promise<void> {
-    await closeDocumentStore();
     await openDocumentStore();
     this.notify();
   }

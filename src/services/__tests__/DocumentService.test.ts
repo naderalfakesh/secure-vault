@@ -1,3 +1,5 @@
+import { closeDocumentStore, openDocumentStore } from '@/data/database';
+
 import vault from '../../../modules/expo-vault';
 import { DocumentCategory } from '../../types';
 import { documentService, shareFileName } from '../DocumentService';
@@ -9,8 +11,22 @@ const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jp
 describe('DocumentService', () => {
   beforeEach(async () => {
     vaultMock.reset();
-    // reload closes the in-memory index and opens a fresh, empty one.
+    // The next call opens a fresh, empty in-memory index.
+    await closeDocumentStore();
+  });
+
+  it('reloads without closing the connection a screen may still be querying', async () => {
+    const { db, repository } = await openDocumentStore();
+    const close = jest.spyOn(db, 'close');
+    const listener = jest.fn();
+    const unsubscribe = documentService.subscribe(listener);
+
     await documentService.reload();
+
+    expect(close).not.toHaveBeenCalled();
+    await expect(repository.list()).resolves.toEqual([]);
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 
   it('stores documents in the encrypted index and notifies subscribers on every write', async () => {

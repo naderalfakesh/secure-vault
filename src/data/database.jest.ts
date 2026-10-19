@@ -33,6 +33,7 @@ export async function deleteDocumentStore(): Promise<void> {
 /** Test doubles: the in-memory index has no file to copy or replace. */
 export async function exportDatabaseFile(_destPath: string): Promise<void> {}
 
+/** Like the real index, the replaced connection is dropped, not closed. */
 export async function replaceDatabaseFile(_sourcePath: string): Promise<void> {
-  await closeDocumentStore();
+  opening = null;
 }

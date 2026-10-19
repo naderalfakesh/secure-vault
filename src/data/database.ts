@@ -94,31 +94,37 @@ let opening: Promise<DocumentStore> | null = null;
 // teardown, and an idle open connection costs nothing until relaunch.
 const abandoned: Promise<DocumentStore>[] = [];
 
-/** Opens (once) the encrypted index, migrating schema and the prototype's JSON index. */
-export function openDocumentStore(): Promise<DocumentStore> {
-  if (!opening) {
-    opening = (async () => {
-      const key = await loadDatabaseKey();
-      const name = await currentDatabaseName();
-      const db = await openEncryptedDatabase(name, key);
-      sweepStaleDatabases(name);
-      await applyMigrations(db);
-      const repository = new DocumentRepository(db);
-      const legacy = await readLegacyIndex();
-      if (legacy) {
-        await migrateLegacyIndex(legacy, repository);
-        await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());
-      }
-      return { db, repository };
-    })().catch((error: unknown) => {
-      opening = null;
-      throw error;
-    });
+async function openStore(): Promise<DocumentStore> {
+  const key = await loadDatabaseKey();
+  const name = await currentDatabaseName();
+  const db = await openEncryptedDatabase(name, key);
+  sweepStaleDatabases(name);
+  await applyMigrations(db);
+  const repository = new DocumentRepository(db);
+  const legacy = await readLegacyIndex();
+  if (legacy) {
+    await migrateLegacyIndex(legacy, repository);
+    await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());
   }
-  return opening;
+  return { db, repository };
 }
 
-/** Forget the open store, e.g. after the vault was emptied or restored. */
+/** Makes `store` the one every caller gets; a failed open is forgotten so the next call retries. */
+function share(store: Promise<DocumentStore>): Promise<DocumentStore> {
+  const shared: Promise<DocumentStore> = store.catch((error: unknown) => {
+    if (opening === shared) opening = null;
+    throw error;
+  });
+  opening = shared;
+  return shared;
+}
+
+/** Opens (once) the encrypted index, migrating schema and the prototype's JSON index. */
+export function openDocumentStore(): Promise<DocumentStore> {
+  return opening ?? share(openStore());
+}
+
+/** Close the open store, e.g. before the vault is emptied. */
 export async function closeDocumentStore(): Promise<void> {
   const current = opening;
   opening = null;
@@ -150,12 +156,21 @@ export async function exportDatabaseFile(destPath: string): Promise<void> {
 
 /**
  * Installs a database file restored from a backup under a new name and
- * points the vault at it; the caller reopens the store. The previous
- * connection is abandoned rather than closed (see `abandoned`).
+ * points the vault at it. The previous connection is abandoned rather than
+ * closed (see `abandoned`): an unlocked screen may still be running a
+ * statement on it. Whoever opens the index meanwhile waits for the new file,
+ * so nothing reopens the old name or holds a connection the restore drops.
  */
 export async function replaceDatabaseFile(sourcePath: string): Promise<void> {
   if (opening) abandoned.push(opening);
-  opening = null;
+  const swap = installDatabaseFile(sourcePath);
+  share(swap.then(openStore)).catch(() => {
+    // A failed swap reaches the caller through `swap`; a failed open, whoever waits for the index.
+  });
+  await swap;
+}
+
+async function installDatabaseFile(sourcePath: string): Promise<void> {
   const name = `securevault-${Date.now()}.db`;
   const path = databaseFilePath(name);
   const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);

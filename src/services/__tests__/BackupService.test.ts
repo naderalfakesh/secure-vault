@@ -1,5 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { closeDocumentStore } from '@/data/database';
+
 import vault from '../../../modules/expo-vault';
 import type { VaultMockExport } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import { withKeyRecovery } from '../../../modules/expo-vault/src/withKeyRecovery';
@@ -59,7 +61,7 @@ describe('passphrase policy', () => {
 describe('BackupService', () => {
   beforeEach(async () => {
     vaultMock.reset();
-    await documentService.reload();
+    await closeDocumentStore();
   });
 
   it('refuses to write a backup behind a weak passphrase', async () => {

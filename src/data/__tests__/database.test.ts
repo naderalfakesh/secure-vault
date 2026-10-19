@@ -1,7 +1,13 @@
 import { File } from 'expo-file-system';
 
 import vault from '../../../modules/expo-vault';
-import { closeDocumentStore, exportDatabaseFile, replaceDatabaseFile } from '../database';
+import {
+  closeDocumentStore,
+  exportDatabaseFile,
+  openDocumentStore,
+  replaceDatabaseFile,
+} from '../database';
+import { openEncryptedDatabase } from '../expoSqlite';
 
 jest.mock('../expoSqlite', () => ({
   databaseFilePath: (name: string) => `/data/SQLite/${name}`,
@@ -11,6 +17,7 @@ jest.mock('../expoSqlite', () => ({
 jest.mock('../schema', () => ({ applyMigrations: jest.fn(async () => 0) }));
 
 const vaultMock = vault as unknown as { reset(): void };
+const openEncrypted = openEncryptedDatabase as jest.Mock;
 const keyLocked = () => Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' });
 
 describe('database file handling', () => {
@@ -80,5 +87,43 @@ describe('database file handling', () => {
 
     await expect(replaceDatabaseFile('/cache/backup/restore/database')).rejects.toThrow('EIO');
     expect(put).not.toHaveBeenCalled();
+  });
+
+  it('makes an open during a restore wait for the restored index', async () => {
+    const previous = await openDocumentStore();
+    let finishMove: () => void = () => {};
+    jest.spyOn(File.prototype, 'move').mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishMove = resolve;
+        }),
+    );
+    openEncrypted.mockClear();
+
+    const replacing = replaceDatabaseFile('/cache/backup/restore/database');
+    const duringSwap = openDocumentStore();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(openEncrypted).not.toHaveBeenCalled();
+
+    finishMove();
+    await replacing;
+    const restored = await duringSwap;
+    expect(openEncrypted).toHaveBeenCalledTimes(1);
+    expect(openEncrypted).toHaveBeenCalledWith(
+      expect.stringMatching(/^securevault-\d+\.db$/),
+      'ab'.repeat(32),
+    );
+    expect(await openDocumentStore()).toBe(restored);
+    expect(restored).not.toBe(previous);
+    expect(previous.db.close).not.toHaveBeenCalled();
+  });
+
+  it('lets the next open retry when the restored index cannot be installed', async () => {
+    jest.spyOn(File.prototype, 'move').mockRejectedValueOnce(new Error('EIO'));
+    openEncrypted.mockClear();
+
+    await expect(replaceDatabaseFile('/cache/backup/restore/database')).rejects.toThrow('EIO');
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
   });
 });
