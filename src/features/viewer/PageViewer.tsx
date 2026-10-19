@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
@@ -17,6 +16,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { IconButton, Text } from '@/components/ui';
 
 import { ZoomablePage } from './ZoomablePage';
+import { DocumentImage } from '@/features/documents/DocumentImage';
 
 export interface PageViewerProps {
   visible: boolean;
@@ -148,7 +148,11 @@ function ViewerBody({ pages, title, initialIndex = 0, onClose }: Omit<PageViewer
                 onPress={() => jumpTo(itemIndex)}
                 style={[styles.thumb, itemIndex === index && styles.thumbActive]}
               >
-                <Image source={{ uri: item }} style={styles.thumbImage} contentFit="cover" />
+                <DocumentImage
+                  source={{ uri: item }}
+                  style={styles.thumbImage}
+                  contentFit="cover"
+                />
               </Pressable>
             )}
           />

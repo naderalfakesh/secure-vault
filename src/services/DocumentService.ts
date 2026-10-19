@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
+import { Image } from 'expo-image';
 
 import { deleteDocumentStore, openDocumentStore } from '@/data/database';
 import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
@@ -394,8 +395,14 @@ class DocumentService {
     this.notify();
   }
 
-  /** Remove every decrypted file from the cache directory. */
+  /** Remove every decrypted file from the cache directory, and every image the image library cached. */
   async clearCache(): Promise<void> {
+    // The disk sweep also removes copies an older build wrote to the image
+    // library's disk cache (iOS kept full decrypted pages there).
+    const images = Promise.all([
+      Image.clearMemoryCache().catch(() => false),
+      Image.clearDiskCache().catch(() => false),
+    ]);
     try {
       for (const entry of new Directory(this.cacheUri).list()) {
         const { name } = entry;
@@ -419,6 +426,7 @@ class DocumentService {
     } catch {
       // The cache directory may not exist yet.
     }
+    await images;
   }
 
   /** Copies content:// sources (Android pickers) into the cache so the native module can read a path. */

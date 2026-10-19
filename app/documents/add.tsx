@@ -1,5 +1,4 @@
 import * as DocumentPicker from 'expo-document-picker';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
@@ -39,6 +38,7 @@ import {
   isScannerSupported,
   scanDocuments,
 } from '../../modules/expo-document-scanner';
+import { DocumentImage } from '@/features/documents/DocumentImage';
 
 type Source = 'scan' | 'camera' | 'library' | 'files';
 type SaveStep = 'ocr' | 'suggest' | 'encrypt' | 'index';
@@ -352,7 +352,7 @@ export default function AddDocumentScreen() {
         <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <View style={styles.preview}>
             {preview ? (
-              <Image
+              <DocumentImage
                 source={{ uri: preview }}
                 style={styles.previewImage}
                 contentFit="contain"

@@ -1,5 +1,4 @@
 import * as Clipboard from 'expo-clipboard';
-import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,6 +27,7 @@ import { ocrService } from '@/services/OcrService';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/format';
+import { DocumentImage } from '@/features/documents/DocumentImage';
 
 const fieldTitles: Record<string, string> = {
   expires: 'Expires',
@@ -317,7 +317,7 @@ export default function DocumentDetailScreen() {
           style={styles.preview}
         >
           {pages[0] ? (
-            <Image
+            <DocumentImage
               source={{ uri: pages[0] }}
               style={styles.previewImage}
               contentFit="contain"
@@ -355,7 +355,7 @@ export default function DocumentDetailScreen() {
                 onPress={() => setViewerIndex(index)}
                 style={styles.pageThumb}
               >
-                <Image source={{ uri }} style={styles.pageThumbImage} contentFit="cover" />
+                <DocumentImage source={{ uri }} style={styles.pageThumbImage} contentFit="cover" />
                 <Text variant="caption" tone="secondary">
                   {index + 1}
                 </Text>

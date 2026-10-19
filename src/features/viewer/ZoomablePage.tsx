@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -12,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
+import { DocumentImage } from '@/features/documents/DocumentImage';
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 5;
@@ -182,7 +182,7 @@ export function ZoomablePage({
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.page, { width, height }, pageStyle]}>
-        <Image
+        <DocumentImage
           source={{ uri }}
           style={styles.image}
           contentFit="contain"

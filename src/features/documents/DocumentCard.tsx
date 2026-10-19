@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
@@ -8,6 +7,7 @@ import type { Document } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/format';
 
 import { categoryIcons, categoryLabel } from './categories';
+import { DocumentImage } from './DocumentImage';
 
 export type DocumentCardProps = {
   document: Document;
@@ -53,7 +53,7 @@ export function DocumentCard({
         {thumbnail === undefined ? (
           <Skeleton width="100%" height={compact ? 96 : 150} borderRadius={0} />
         ) : thumbnail ? (
-          <Image
+          <DocumentImage
             source={{ uri: `file://${thumbnail}` }}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"

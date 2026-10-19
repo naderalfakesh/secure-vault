@@ -1,3 +1,5 @@
+import { Image } from 'expo-image';
+
 import { closeDocumentStore, openDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
@@ -68,6 +70,25 @@ describe('DocumentService', () => {
     expect((await documentService.searchDocuments('rent')).map((d) => d.title)).toEqual(['Lease']);
     expect((await documentService.searchDocuments('home')).map((d) => d.title)).toEqual(['Lease']);
     expect(await documentService.searchDocuments('nothing')).toHaveLength(0);
+  });
+
+  it('empties the image library caches with the decrypted files', async () => {
+    const memory = jest.spyOn(Image, 'clearMemoryCache').mockResolvedValue(true);
+    const disk = jest.spyOn(Image, 'clearDiskCache').mockResolvedValue(true);
+
+    await documentService.clearCache();
+
+    expect(memory).toHaveBeenCalledTimes(1);
+    expect(disk).toHaveBeenCalledTimes(1);
+    memory.mockRestore();
+    disk.mockRestore();
+  });
+
+  it('still clears the decrypted files when the image library cannot clear its cache', async () => {
+    const disk = jest.spyOn(Image, 'clearDiskCache').mockRejectedValue(new Error('busy'));
+
+    await expect(documentService.clearCache()).resolves.toBeUndefined();
+    disk.mockRestore();
   });
 
   it('names shared copies after the document and strips unsafe characters', () => {
