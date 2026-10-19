@@ -25,6 +25,7 @@
       "expo-router",
       "./plugins/withSecureVault.js",
       "./plugins/withMlkitSimulatorFix",
+      "./plugins/withJsiSwift64Fix",
       "expo-font",
       [
         "expo-splash-screen",
@@ -51,7 +52,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "enableSceneSupport": true
+            "enableSceneSupport": true,
+            "usePrecompiledModules": false
           }
         }
       ]
