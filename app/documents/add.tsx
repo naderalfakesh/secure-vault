@@ -1,7 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -124,6 +124,22 @@ export default function AddDocumentScreen() {
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [engine, setEngine] = useState<string | null>(null);
   const sources = useMemo(() => [captureRow(), ...importRows], []);
+  // The picker's copy of an imported file is plaintext: it goes once the
+  // document is saved, and whenever this screen lets go of it unsaved.
+  const held = useRef<PickedFile[]>([]);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    held.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
+    };
+  }, []);
 
   const accept = useCallback(
     async (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
@@ -191,6 +207,10 @@ export default function AddDocumentScreen() {
           // A PDF's first page is rendered so it can be previewed and read
           // like a photo.
           const preview = await documentService.previewForFile(asset.uri, type);
+          if (!mounted.current) {
+            documentService.discardPickedCopy(asset.uri);
+            return;
+          }
           accept(
             [{ uri: asset.uri, name: asset.name, type, size: asset.size }],
             preview,
@@ -247,6 +267,7 @@ export default function AddDocumentScreen() {
   );
 
   const reset = useCallback(() => {
+    for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
     setFiles([]);
     setPreview(null);
     setOcrText(undefined);

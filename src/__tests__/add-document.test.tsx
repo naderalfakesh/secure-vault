@@ -1,4 +1,6 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 
 import AddDocumentScreen from '../../app/documents/add';
@@ -8,6 +10,7 @@ import {
 } from '../../modules/expo-document-scanner/src/index.mock';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider } from '../features/session/SessionProvider';
+import { documentService, PICKER_DIRECTORY } from '../services/DocumentService';
 
 jest.mock('expo-image-picker', () => ({
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
@@ -16,7 +19,11 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: null })),
 }));
 
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
+const pickDocument = DocumentPicker.getDocumentAsync as jest.Mock;
 
 function renderScreen() {
   return render(
@@ -71,5 +78,93 @@ describe('AddDocumentScreen capture row', () => {
     expect(picker.launchCameraAsync).not.toHaveBeenCalled();
     expect(view.getByRole('button', { name: /Choose from Photos/ })).toBeOnTheScreen();
     expect(view.getByRole('button', { name: /Import a file/ })).toBeOnTheScreen();
+  });
+});
+
+describe('AddDocumentScreen file import', () => {
+  const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+
+  // What the picker hands back with copyToCacheDirectory: a plaintext copy in its cache folder.
+  function plantPickedCopy(name = '8F0C2A41-6B3D-4E8A-9F11-2C7D5E0B9A13.jpg') {
+    if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
+    const copy = new File(pickerFolder(), name);
+    copy.write('plaintext');
+    pickDocument.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: copy.uri, name: 'passport.jpg', mimeType: 'image/jpeg', size: 9 }],
+    });
+    return copy;
+  }
+
+  async function importFile() {
+    const view = await renderScreen();
+    await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+    return view;
+  }
+
+  afterEach(() => {
+    if (pickerFolder().exists) pickerFolder().delete();
+    jest.clearAllMocks();
+  });
+
+  it('removes the picked copy once the document is saved', async () => {
+    const copy = plantPickedCopy();
+    const view = await importFile();
+
+    await fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+
+    await waitFor(() => expect(copy.exists).toBe(false));
+    expect(await documentService.getAllDocuments()).not.toHaveLength(0);
+  });
+
+  it('removes the picked copy when the user goes back to the sources', async () => {
+    const copy = plantPickedCopy();
+    const view = await importFile();
+    expect(copy.exists).toBe(true);
+
+    await fireEvent.press(view.getByLabelText('Back to sources'));
+
+    expect(copy.exists).toBe(false);
+    expect(view.getByRole('button', { name: /Import a file/ })).toBeOnTheScreen();
+  });
+
+  it('removes the picked copy when the screen closes without saving', async () => {
+    const copy = plantPickedCopy();
+    const view = await importFile();
+
+    await act(async () => {
+      view.unmount();
+    });
+
+    expect(copy.exists).toBe(false);
+  });
+
+  it('removes a copy the picker hands back after the screen has closed', async () => {
+    if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
+    const copy = new File(pickerFolder(), '5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90.pdf');
+    copy.write('plaintext');
+    let answer: (value: unknown) => void = () => {};
+    pickDocument.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const view = await renderScreen();
+    // The press stays open while the picker is up, so it runs outside this act.
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(pickDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      view.unmount();
+    });
+    await act(async () => {
+      answer({
+        canceled: false,
+        assets: [{ uri: copy.uri, name: 'lease.pdf', mimeType: 'application/pdf', size: 9 }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(copy.exists).toBe(false);
   });
 });
