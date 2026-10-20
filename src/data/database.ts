@@ -383,7 +383,8 @@ async function installDatabaseFile(sourcePath: string): Promise<void> {
   try {
     await vault.put(DATABASE_FILE_ENTRY, name);
   } catch (error) {
-    // Unnamed, the restored file would be taken for a stale one; the restore fails as a whole.
+    // Unnamed, the restored file would be taken for a stale one. The vault's entries are already
+    // replaced, so the restore ends as a partial one with BACKUP_INDEX.
     await target.move(new File(`file://${sourcePath}`)).catch(() => {});
     throw error;
   }
