@@ -19,6 +19,12 @@ const PAGE_MAX_PIXELS = 2048;
 // survive so a tap on a visible Undo always finds them.
 export const UNDO_TOAST_MS = 5000;
 export const UNDO_WINDOW_MS = 8000;
+/**
+ * Where the document picker copies a picked file when asked to: a UUID-named
+ * file in `Caches/DocumentPicker` on iOS and `cacheDir/DocumentPicker` on
+ * Android. An imported document's copy there is plaintext.
+ */
+export const PICKER_DIRECTORY = 'DocumentPicker';
 
 type ChangeListener = () => void;
 
@@ -146,8 +152,36 @@ class DocumentService {
       createdAt: metadata.createdAt ?? now,
     });
     if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
+    // Kept until now so a failed save can be retried from the same pick.
+    for (const source of files) this.discardPickedCopy(source.uri);
     this.notify();
     return document;
+  }
+
+  /**
+   * Removes the document picker's copy of a picked file. Only a file directly
+   * inside the picker's cache folder qualifies; anything else, `..` paths
+   * included, is the user's own file and is left alone.
+   */
+  discardPickedCopy(uri: string): void {
+    let path: string;
+    let folder: string;
+    try {
+      path = decodeURIComponent(this.toPath(uri));
+      folder = decodeURIComponent(this.toPath(new Directory(Paths.cache, PICKER_DIRECTORY).uri));
+    } catch {
+      return;
+    }
+    folder = folder.replace(/\/?$/, '/');
+    if (!path.startsWith(folder)) return;
+    const name = path.slice(folder.length);
+    if (!name || name.includes('/') || name === '.' || name === '..') return;
+    try {
+      const copy = new File(this.toUri(uri));
+      if (copy.exists) copy.delete();
+    } catch {
+      // The lock and launch sweep removes the picker's folder.
+    }
   }
 
   private discardTemp(sourcePath: string, originalUri: string) {

@@ -1,10 +1,11 @@
+import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 
 import { closeDocumentStore, openDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
 import { DocumentCategory } from '../../types';
-import { documentService, shareFileName } from '../DocumentService';
+import { documentService, PICKER_DIRECTORY, shareFileName } from '../DocumentService';
 
 const vaultMock = vault as unknown as { reset(): void };
 
@@ -131,6 +132,87 @@ describe('DocumentService', () => {
       { key: 'expires', value: '2030-01-01', kind: 'date' },
     ]);
     expect(await documentService.getAllDocuments()).toHaveLength(1);
+  });
+
+  describe("the document picker's plaintext copies", () => {
+    const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+    const plantCopy = (name: string) => {
+      if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
+      const copy = new File(pickerFolder(), name);
+      copy.write('plaintext');
+      return copy;
+    };
+
+    afterEach(() => {
+      if (pickerFolder().exists) pickerFolder().delete();
+    });
+
+    it('removes the copy once the document is in the vault', async () => {
+      const pdf = plantCopy('8F0C2A41-6B3D-4E8A-9F11-2C7D5E0B9A13.pdf');
+      const photo = plantCopy('5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90.jpg');
+
+      await documentService.addDocument(
+        { uri: pdf.uri, name: 'lease.pdf', type: 'application/pdf', size: 9 },
+        { title: 'Lease' },
+      );
+      await documentService.addDocument(
+        { uri: photo.uri, name: 'passport.jpg', type: 'image/jpeg', size: 9 },
+        { title: 'Passport' },
+      );
+
+      expect(pdf.exists).toBe(false);
+      expect(photo.exists).toBe(false);
+    });
+
+    it('keeps the copy for a retry when saving fails, and drops it when the screen lets go', async () => {
+      const copy = plantCopy('0B7E3D52-1C4A-4B9F-A6E2-8D5F7C9A1B30.pdf');
+      const spy = jest.spyOn(vault, 'putFile').mockRejectedValueOnce(new Error('disk full'));
+      try {
+        await expect(
+          documentService.addDocument(
+            { uri: copy.uri, name: 'lease.pdf', type: 'application/pdf' },
+            { title: 'Lease' },
+          ),
+        ).rejects.toThrow('disk full');
+      } finally {
+        spy.mockRestore();
+      }
+      expect(copy.exists).toBe(true);
+
+      documentService.discardPickedCopy(copy.uri);
+
+      expect(copy.exists).toBe(false);
+    });
+
+    it('never removes a file outside the picker folder', async () => {
+      const own = new File(Paths.document, 'lease.pdf');
+      own.write('plaintext');
+      const lookalike = new Directory(Paths.cache, `${PICKER_DIRECTORY}-other`);
+      lookalike.create();
+      const neighbour = new File(lookalike, 'other.pdf');
+      neighbour.write('plaintext');
+      const decoy = plantCopy('decoy.pdf');
+      try {
+        await documentService.addDocument(
+          { uri: own.uri, name: 'lease.pdf', type: 'application/pdf' },
+          { title: 'Own file' },
+        );
+        documentService.discardPickedCopy(own.uri);
+        documentService.discardPickedCopy(neighbour.uri);
+        documentService.discardPickedCopy(
+          `${pickerFolder().uri}../${PICKER_DIRECTORY}-other/other.pdf`,
+        );
+        documentService.discardPickedCopy(pickerFolder().uri);
+
+        expect(own.exists).toBe(true);
+        expect(neighbour.exists).toBe(true);
+        expect(pickerFolder().exists).toBe(true);
+        expect(decoy.exists).toBe(true);
+      } finally {
+        own.delete();
+        lookalike.delete();
+      }
+    });
   });
 
   it('previews photos as they are and pdfs through their rendered first page', async () => {
