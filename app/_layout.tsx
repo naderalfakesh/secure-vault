@@ -31,6 +31,10 @@ function RootNavigator() {
   }, [ready]);
 
   useEffect(() => {
+    documentService.sweepLegacyScratch();
+  }, []);
+
+  useEffect(() => {
     // Every decrypted preview, rendered page, and share copy goes when the
     // vault locks, whichever path locked it.
     if (status === 'locked') {

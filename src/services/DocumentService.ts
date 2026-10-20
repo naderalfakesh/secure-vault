@@ -40,6 +40,13 @@ const IMPORT_DIRECTORIES = [PICKER_DIRECTORY, IMAGE_PICKER_DIRECTORY, SCANNER_DI
 const UUID_PATTERN = '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}';
 /** The iOS scanner module's pages in tmp: `scan_<batch UUID>_<index>.jpg`. */
 const SCAN_PAGE = new RegExp(`^scan_${UUID_PATTERN}_\\d+\\.jpg$`);
+/**
+ * Plaintext scratch that builds before the staging folders wrote and could
+ * leave behind when killed. Nothing current writes these names.
+ */
+const LEGACY_APPLE_TMP = [new RegExp(`^backup-${UUID_PATTERN}$`), new RegExp(`^${UUID_PATTERN}$`)];
+const LEGACY_ANDROID_CACHE = /^backup-?\d+\.tmp$/;
+const LEGACY_ANDROID_FILES = /^vault-?\d+\.tmp$/;
 
 /** iOS reports tmp under /private/var and the other folders under /var, the same place. */
 function canonicalPath(path: string): string {
@@ -525,6 +532,30 @@ class DocumentService {
     });
     await this.clearCache();
     this.notify();
+  }
+
+  /**
+   * Launch-only sweep of scratch files older builds left: iOS `tmp/backup-<UUID>`
+   * and `tmp/<UUID>`, Android `cacheDir/backup*.tmp` and `filesDir/vault*.tmp`.
+   * Only plain files directly in those folders with exactly those names go.
+   */
+  sweepLegacyScratch(): void {
+    const sweep = (uri: string, matches: (name: string) => boolean) => {
+      try {
+        for (const entry of new Directory(uri).list()) {
+          if (entry instanceof File && matches(entry.name)) entry.delete();
+        }
+      } catch {
+        // Best effort; the next launch tries again.
+      }
+    };
+    if (Platform.OS === 'ios') {
+      const tmp = this.appleTemporary();
+      if (tmp) sweep(tmp.uri, (name) => LEGACY_APPLE_TMP.some((pattern) => pattern.test(name)));
+    } else if (Platform.OS === 'android') {
+      sweep(this.cacheUri, (name) => LEGACY_ANDROID_CACHE.test(name));
+      sweep(Paths.document.uri, (name) => LEGACY_ANDROID_FILES.test(name));
+    }
   }
 
   /** Remove every decrypted file from the cache directory, and every image the image library cached. */

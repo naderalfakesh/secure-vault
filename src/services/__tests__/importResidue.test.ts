@@ -225,4 +225,53 @@ describe('import copies outside the vault', () => {
       expect(otherApp.exists).toBe(true);
     });
   });
+
+  describe('scratch files older builds left behind', () => {
+    const uuid = '0B7E3D52-1C4A-4B9F-A6E2-8D5F7C9A1B30';
+
+    it('removes the old iOS restore and thumbnail scratch from tmp, and nothing like it', () => {
+      const restore = plant(tmp(), `backup-${uuid}`);
+      const thumbnail = plant(tmp(), uuid);
+      const kept = [
+        plant(tmp(), `backup-${uuid.toLowerCase()}`),
+        plant(tmp(), `${uuid}.jpg`),
+        plant(tmp(), 'backup-notes'),
+        plant(new Directory(tmp(), `backup-${uuid}-dir`), uuid),
+      ];
+      const folder = new Directory(tmp(), uuid.replace('0B7E', '1B7E'));
+      folder.create();
+
+      documentService.sweepLegacyScratch();
+
+      expect(restore.exists).toBe(false);
+      expect(thumbnail.exists).toBe(false);
+      expect(kept.map((file) => file.exists)).toEqual([true, true, true, true]);
+      expect(folder.exists).toBe(true);
+    });
+
+    it('removes the old Android temp files from the cache and vault folders, and nothing like them', () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
+      const cache = new Directory(Paths.cache);
+      const files = Paths.document;
+      const backup = plant(cache, 'backup8237461283746.tmp');
+      const vaultTemp = plant(files, 'vault5521873465.tmp');
+      const kept = [
+        plant(cache, 'vault123.tmp'),
+        plant(cache, 'backup.tmp'),
+        plant(cache, 'backup12.tmp.bak'),
+        plant(files, 'backup123.tmp'),
+        plant(files, 'vault.tmp'),
+        plant(files, 'file_00000000-0000-4000-8000-000000000001'),
+        plant(new Directory(files, 'SQLite'), 'vault1.tmp'),
+        plant(tmp(), `backup-${uuid}`),
+      ];
+
+      documentService.sweepLegacyScratch();
+
+      expect(backup.exists).toBe(false);
+      expect(vaultTemp.exists).toBe(false);
+      expect(kept.map((file) => file.exists)).toEqual(kept.map(() => true));
+      for (const file of kept) removeQuietly(file);
+    });
+  });
 });
