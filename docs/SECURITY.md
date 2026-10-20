@@ -84,8 +84,10 @@ index file and its side files, so the next open after it starts as a first
 run.
 
 A restore moves the index in under a new name and then records it in
-`_database_file`; if recording the name fails, the file is moved back and the
-restore fails as a whole. A vault without that entry uses `securevault.db`.
+`_database_file`. If recording the name fails, the file is moved back out of
+the SQLite folder, but the vault's entries have already been replaced, so the
+restore ends as a partial one with `BACKUP_INDEX`: the documents are back,
+the index is not, and the user restores again. A vault without that entry uses `securevault.db`.
 If the entry is listed but cannot be read or holds no index name, the default
 is used as a guess, and nothing is swept on it. Neither default is used while
 a restored index file exists, and a named file that is missing while another
