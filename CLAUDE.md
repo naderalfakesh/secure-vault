@@ -28,12 +28,11 @@ Required native config. Do not remove any of it:
   `EXCLUDED_ARCHS = arm64`, so `expo run:ios` sees Apple Silicon simulators.
 - `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's `libcrypto.so`,
   which AGP drops when the project path contains spaces.
-- `plugins/withJsiSwift64Fix.js` (with `jsi-interface-patch.py`) backports
-  the ExpoModulesJSI interface strip that Xcode 27.1 (Swift 6.4) needs. SDK 58
-  ships that fix, so the plugin can likely go with that upgrade.
 - `expo-build-properties`: `ios.usePrecompiledModules: false`, because
-  prebuilt Expo frameworks are tied to one Swift version, and
-  `ios.enableSceneSupport: true` for the iOS 27 scene lifecycle.
+  prebuilt Expo frameworks are tied to one Swift version. SDK 58 generates a
+  `SceneDelegate` itself, so `ios.enableSceneSupport` is no longer set, and it
+  ships the ExpoModulesJSI Swift 6.4 interface strip, so the old
+  `withJsiSwift64Fix` backport is gone.
 - `plugins/withSecureVault.js` sets the Face ID string and the biometric
   permission.
 

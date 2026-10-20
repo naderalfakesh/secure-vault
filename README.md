@@ -90,7 +90,7 @@ stored in plain. The
 
 | Area       | Choice                                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------ |
-| Runtime    | Expo SDK 57, React Native 0.86, React 19.2, New Architecture, React Compiler                                 |
+| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                 |
 | Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                   |
 | Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                  |
 | Native     | Two local Expo Modules in Swift and Kotlin: the vault and the document scanner                               |
