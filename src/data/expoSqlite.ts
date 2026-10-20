@@ -71,7 +71,11 @@ class ExpoSqlDatabase implements SqlDatabase {
     });
   }
 
-  /** A failed close cannot be retried: expo-sqlite has already let go of the connection. */
+  /**
+   * Memoized, so a failed close is never sent again: expo-sqlite uncaches the
+   * connection before closing it, and a second closeAsync would report success
+   * on Android (or fail as closed on iOS) while the connection stays open.
+   */
   close() {
     this.closing ??= (async () => {
       this.state = 'closing';
