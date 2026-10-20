@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshControl, TextInput, View } from 'react-native';
+import { RefreshControl, TextInput, type TextInputInstance, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Button, EmptyState, Icon, IconButton, Screen, Skeleton, Text } from '@/components/ui';
@@ -31,7 +31,7 @@ export default function DocumentsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Document[] | null>(null);
-  const searchRef = useRef<TextInput>(null);
+  const searchRef = useRef<TextInputInstance>(null);
 
   // Deep links from Home: pick a category or focus the search field.
   useEffect(() => {

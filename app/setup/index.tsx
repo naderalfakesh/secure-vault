@@ -5,6 +5,7 @@ import {
   type NativeSyntheticEvent,
   Platform,
   ScrollView,
+  type ScrollViewInstance,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -42,7 +43,7 @@ const slides: { icon: IconName; title: string; body: string }[] = [
 export default function OnboardingScreen() {
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const [page, setPage] = useState(0);
   const last = page === slides.length - 1;
 

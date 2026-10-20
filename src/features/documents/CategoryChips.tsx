@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { type LayoutChangeEvent, ScrollView, View } from 'react-native';
+import { type LayoutChangeEvent, ScrollView, type ScrollViewInstance, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Chip } from '@/components/ui';
@@ -17,7 +17,7 @@ export type CategoryChipsProps = {
 };
 
 export function CategoryChips({ selected, onSelect, counts }: CategoryChipsProps) {
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const offsets = useRef<Partial<Record<string, number>>>({});
 
   // A category chosen from Home can sit past the right edge; bring it into view.
