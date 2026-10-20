@@ -9,6 +9,7 @@ import {
   replaceDatabaseFile,
 } from '../database';
 import { deleteEncryptedDatabase, openEncryptedDatabase } from '../expoSqlite';
+import { applyMigrations } from '../schema';
 
 jest.mock('../expoSqlite', () => ({
   databaseFilePath: (name: string) => `/data/SQLite/${name}`,
@@ -637,6 +638,29 @@ describe('index name, erase and legacy import', () => {
     await deleteDocumentStore(removeEntries);
     expect([...files]).toEqual([]);
     expect(await vault.getAllKeys()).toEqual([]);
+  });
+
+  it('closes a connection whose setup failed after it opened, and keeps it for the erase when it stays open', async () => {
+    files = new Set(['securevault.db']);
+    const close = jest.fn(async () => {});
+    openEncrypted.mockResolvedValueOnce({ exec: jest.fn(async () => {}), close });
+    (applyMigrations as jest.Mock).mockRejectedValueOnce(keyLocked());
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    expect(close).toHaveBeenCalledTimes(1);
+
+    const stuck = jest.fn().mockRejectedValue(new Error('database is locked'));
+    openEncrypted.mockResolvedValueOnce({ exec: jest.fn(async () => {}), close: stuck });
+    (applyMigrations as jest.Mock).mockRejectedValueOnce(keyLocked());
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+
+    await expect(deleteDocumentStore(removeEntries)).rejects.toMatchObject({
+      code: 'ERASE_INCOMPLETE',
+    });
+    expect([...files]).toEqual(['securevault.db']);
+    stuck.mockResolvedValue(undefined);
+    await deleteDocumentStore(removeEntries);
+    expect([...files]).toEqual([]);
   });
 
   it('closes the connection a restore replaced before erasing its files', async () => {

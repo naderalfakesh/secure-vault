@@ -234,11 +234,19 @@ async function openStore(): Promise<DocumentStore> {
   const legacy = await readLegacyIndex();
   const db = await openEncryptedDatabase(name, key);
   if (existed && !guessed) sweepStaleDatabases(name);
-  await applyMigrations(db);
   const repository = new DocumentRepository(db);
-  if (legacy) {
-    await migrateLegacyIndex(legacy, repository);
-    await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());
+  try {
+    await applyMigrations(db);
+    if (legacy) {
+      await migrateLegacyIndex(legacy, repository);
+      await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());
+    }
+  } catch (error) {
+    // Left open, expo-sqlite would hand the same connection to the retry, and an erase's close would only release it.
+    await db.close().catch(() => {
+      abandoned.push(Promise.resolve({ db, repository }));
+    });
+    throw error;
   }
   return { db, repository };
 }
