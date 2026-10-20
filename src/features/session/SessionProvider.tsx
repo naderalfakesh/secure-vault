@@ -294,7 +294,19 @@ export function SessionProvider({ children }: PropsWithChildren) {
         if (!vaultExists) await vault.createVault();
         const ok = await vault.unlockWithBiometrics();
         if (!ok) return false;
-        await vault.put(KEY_PROBE_ENTRY, 'ok');
+        try {
+          await vault.put(KEY_PROBE_ENTRY, 'ok');
+        } catch (probeError) {
+          // "Delete everything" keeps the device key; one the system invalidated
+          // can never encrypt again, and an empty vault loses nothing by a new one.
+          const code = (probeError as { code?: unknown } | null)?.code;
+          if (code !== 'KEY_INVALIDATED' || (await vault.getAllKeys()).length > 0) {
+            throw probeError;
+          }
+          await vault.createVault();
+          if (!(await vault.unlockWithBiometrics())) return false;
+          await vault.put(KEY_PROBE_ENTRY, 'ok');
+        }
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
         await sessionStorage.saveSettings(DEFAULT_SETTINGS);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});

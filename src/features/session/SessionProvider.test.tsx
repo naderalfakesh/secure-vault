@@ -56,6 +56,10 @@ describe('SessionProvider', () => {
     secureStoreMock.__reset();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('starts in setup when no vault exists, unlocks after PIN setup, and locks on demand', async () => {
     const view = await renderProbe();
 
@@ -111,6 +115,52 @@ describe('SessionProvider', () => {
     expect(createVault).not.toHaveBeenCalled();
     expect(await vault.get('file_legacy')).toBe('ciphertext');
     createVault.mockRestore();
+  });
+
+  it('replaces an invalidated device key when setting up an emptied vault', async () => {
+    await vault.createVault();
+    const keyInvalidated = () =>
+      Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
+    let replaced = false;
+    const createVault = jest.spyOn(vault, 'createVault').mockImplementation(async () => {
+      replaced = true;
+    });
+    const put = vault.put.bind(vault);
+    jest
+      .spyOn(vault, 'put')
+      .mockImplementation((key, value) =>
+        replaced ? put(key, value) : Promise.reject(keyInvalidated()),
+      );
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+
+    expect(createVault).toHaveBeenCalledTimes(1);
+    expect(await vault.get('_key_probe')).toBe('ok');
+  });
+
+  it('keeps an invalidated device key while the vault still holds entries', async () => {
+    await vault.createVault();
+    await vault.put('file_legacy', 'ciphertext');
+    jest
+      .spyOn(vault, 'put')
+      .mockRejectedValue(
+        Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' }),
+      );
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() =>
+      expect(view.getByTestId('error')).toHaveTextContent('Key permanently invalidated'),
+    );
+
+    expect(view.getByTestId('status')).toHaveTextContent('setup');
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await vault.get('file_legacy')).toBe('ciphertext');
   });
 
   it('starts locked when a vault exists and surfaces biometric failures', async () => {
