@@ -4,7 +4,8 @@ module.exports = {
   moduleNameMapper: {
     '^@/data/database$': '<rootDir>/src/data/database.jest.ts',
   },
-  resolver: 'react-native-worklets/jest/resolver.js',
+  resolver: 'react-native-reanimated/jest/resolver.js',
+  setupFiles: ['react-native-gesture-handler/jestSetup.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   // jest-expo's default list plus the ESM-only noble packages used for PIN hashing.
   transformIgnorePatterns: [
