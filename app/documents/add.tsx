@@ -111,7 +111,7 @@ function stripExtension(name: string): string {
 
 export default function AddDocumentScreen() {
   const toast = useToast();
-  const { withoutAutoLock } = useSession();
+  const { withoutAutoLock, captureSession, postNotice } = useSession();
   const { theme } = useUnistyles();
   const [files, setFiles] = useState<PickedFile[]>([]);
   const file = files[0] ?? null;
@@ -128,6 +128,8 @@ export default function AddDocumentScreen() {
   // document is saved, and whenever this screen lets go of them unsaved.
   const held = useRef<PickedFile[]>([]);
   const mounted = useRef(true);
+  // A save in flight owns the copies: the vault module still has to read them.
+  const saving = useRef(false);
 
   useEffect(() => {
     held.current = files;
@@ -137,6 +139,7 @@ export default function AddDocumentScreen() {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (saving.current) return;
       for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
     };
   }, []);
@@ -295,6 +298,14 @@ export default function AddDocumentScreen() {
       return;
     }
 
+    const session = captureSession();
+    // Outcomes of a save that outlived this screen go to a toast while the
+    // session lasts, and to the next unlock otherwise.
+    const report = (notice: { message: string; tone: 'success' | 'danger' }) => {
+      if (mounted.current || session.current()) toast.show(notice);
+      else postNotice(notice);
+    };
+    saving.current = true;
     try {
       await documentService.initialize();
 
@@ -311,20 +322,31 @@ export default function AddDocumentScreen() {
 
       setStep('index');
       if (fields.length > 0) await documentService.setFields(saved.id, fields);
-      router.back();
-      toast.show({
-        message: ocrText ? 'Saved with searchable text' : 'Saved to your vault',
-        tone: 'success',
-        action: { label: 'View', onPress: () => router.push(`/documents/${saved.id}`) },
-      });
+      const message = ocrText ? 'Saved with searchable text' : 'Saved to your vault';
+      if (mounted.current) {
+        router.back();
+        toast.show({
+          message,
+          tone: 'success',
+          action: { label: 'View', onPress: () => router.push(`/documents/${saved.id}`) },
+        });
+      } else {
+        report({ message, tone: 'success' });
+      }
     } catch (e) {
-      setStep(null);
-      toast.show({
+      if (mounted.current) setStep(null);
+      report({
         message: e instanceof Error ? e.message : 'Could not save the document.',
         tone: 'danger',
       });
+    } finally {
+      saving.current = false;
+      // A failed save keeps the copies for a retry only while the screen is here.
+      if (!mounted.current) {
+        for (const picked of files) documentService.discardPickedCopy(picked.uri);
+      }
     }
-  }, [file, files, title, ocrText, fields, category, tags, toast]);
+  }, [file, files, title, ocrText, fields, category, tags, toast, captureSession, postNotice]);
 
   const header = (
     <View style={styles.header}>

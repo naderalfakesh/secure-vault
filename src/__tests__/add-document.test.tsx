@@ -2,8 +2,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { router } from 'expo-router';
 
 import AddDocumentScreen from '../../app/documents/add';
+import vault from '../../modules/expo-vault';
 import {
   queueScan,
   setCameraAvailable,
@@ -165,6 +167,61 @@ describe('AddDocumentScreen file import', () => {
     });
 
     expect(copy.exists).toBe(false);
+  });
+
+  it('keeps the copy until a save interrupted by closing the screen has encrypted it', async () => {
+    const copy = plantPickedCopy();
+    let release: () => void = () => {};
+    const putFile = jest
+      .spyOn(vault, 'putFile')
+      .mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)));
+    const before = (await documentService.getAllDocuments()).length;
+    const view = await importFile();
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(putFile).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      view.unmount();
+    });
+    expect(copy.exists).toBe(true);
+
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(copy.exists).toBe(false);
+    expect(await documentService.getAllDocuments()).toHaveLength(before + 1);
+    // The screen is gone; going back would pop whatever is under it.
+    expect(router.back).not.toHaveBeenCalled();
+    putFile.mockRestore();
+  });
+
+  it('removes the copy when a save interrupted by closing the screen fails', async () => {
+    const copy = plantPickedCopy();
+    let fail: (error: Error) => void = () => {};
+    const putFile = jest
+      .spyOn(vault, 'putFile')
+      .mockImplementationOnce(() => new Promise<void>((_, reject) => (fail = reject)));
+    const view = await importFile();
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    await act(async () => {
+      view.unmount();
+    });
+    await act(async () => {
+      fail(new Error('disk full'));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(copy.exists).toBe(false);
+    putFile.mockRestore();
   });
 
   it('removes a copy the picker hands back after the screen has closed', async () => {
