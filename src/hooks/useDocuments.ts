@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { documentService } from '../services/DocumentService';
 import type { Document, DocumentCategory, PickedFile } from '../types';
 
+/** "Delete everything" leaves the index closed until setup; the list is simply empty. */
+function isEmptiedVault(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'VAULT_EMPTIED';
+}
+
 // In-memory thumbnail cache for performance
 const thumbnailCache = new Map<string, string>();
 const CACHE_MAX_SIZE = 50;
@@ -48,6 +53,10 @@ export function useDocuments(): UseDocumentsReturn {
 
       setDocuments(docs);
     } catch (e: any) {
+      if (isEmptiedVault(e)) {
+        setDocuments([]);
+        return;
+      }
       setError(e.message || 'Failed to load documents');
       console.error('Failed to load documents:', e);
     } finally {
@@ -71,7 +80,13 @@ export function useDocuments(): UseDocumentsReturn {
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : 'Failed to load documents');
+        if (!active) return;
+        if (isEmptiedVault(e)) {
+          setDocuments([]);
+          setError(null);
+        } else {
+          setError(e instanceof Error ? e.message : 'Failed to load documents');
+        }
       })
       .finally(() => {
         if (active) setLoading(false);

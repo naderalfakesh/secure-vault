@@ -213,6 +213,9 @@ const abandoned: Promise<DocumentStore>[] = [];
 // Set while "Delete everything" runs: an open in between would create a file
 // the erase deletes under it, or one whose key the erase deletes next.
 let erasing = false;
+// Set once "Delete everything" succeeded: only setup may create the next key
+// and index, so a screen refreshing its list in between writes nothing.
+let emptied = false;
 
 function erasingError(): Error {
   return keyError(
@@ -221,8 +224,21 @@ function erasingError(): Error {
   );
 }
 
+function emptiedError(): Error {
+  return keyError(
+    'VAULT_EMPTIED',
+    'The vault was emptied, so the document index stays closed until it is set up again.',
+  );
+}
+
+/** Setup calls this so the next open may create the key and index again after "Delete everything". */
+export function allowDocumentStore(): void {
+  emptied = false;
+}
+
 async function openStore(): Promise<DocumentStore> {
   if (erasing) throw erasingError();
+  if (emptied) throw emptiedError();
   const { name, guessed } = await currentDatabaseName();
   const present = mainIndexFiles();
   const existed = present.includes(name);
@@ -295,7 +311,8 @@ export async function closeDocumentStore(): Promise<void> {
  * `removeEntries` to delete the vault's entries. SQLite only removes the WAL
  * and shared-memory files on a clean close, so a killed session leaves them
  * behind, and earlier restores may have left other names. Opens are turned
- * away until it returns, whatever the outcome.
+ * away until it returns, and after a successful erase until setup calls
+ * `allowDocumentStore`.
  */
 export async function deleteDocumentStore(removeEntries: () => Promise<void>): Promise<void> {
   erasing = true;
@@ -333,6 +350,7 @@ export async function deleteDocumentStore(removeEntries: () => Promise<void>): P
         '"Delete everything" did not finish, so part of the vault is still on this device. Try it again.',
       );
     }
+    emptied = true;
   } finally {
     erasing = false;
   }

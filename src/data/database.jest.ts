@@ -6,9 +6,20 @@ import { openTestDatabase } from './testing/betterSqlite';
 export type DocumentStore = { db: SqlDatabase; repository: DocumentRepository };
 
 let opening: Promise<DocumentStore> | null = null;
+let emptied = false;
+
+/** Like the real index, closed after "Delete everything" until setup allows it. */
+export function allowDocumentStore(): void {
+  emptied = false;
+}
 
 /** Jest double: an in-memory SQLite, no SQLCipher, no vault key, no legacy import. */
 export function openDocumentStore(): Promise<DocumentStore> {
+  if (emptied) {
+    return Promise.reject(
+      Object.assign(new Error('The vault was emptied.'), { code: 'VAULT_EMPTIED' }),
+    );
+  }
   if (!opening) {
     opening = (async () => {
       const db = openTestDatabase();
@@ -29,6 +40,7 @@ export async function closeDocumentStore(): Promise<void> {
 export async function deleteDocumentStore(removeEntries: () => Promise<void>): Promise<void> {
   await closeDocumentStore();
   await removeEntries();
+  emptied = true;
 }
 
 /** Test doubles: the in-memory index has no file to copy or replace. */

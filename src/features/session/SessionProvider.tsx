@@ -21,6 +21,8 @@ import {
   unreadableLockout,
 } from '@/features/auth/lockout';
 
+import { documentService } from '@/services/DocumentService';
+
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
@@ -310,6 +312,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
         await sessionStorage.saveSettings(DEFAULT_SETTINGS);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+        // Only setup creates the index and its key, once the screens behind the gate mount.
+        documentService.allowIndex();
         setSettings(DEFAULT_SETTINGS);
         applyLockout(EMPTY_LOCKOUT);
         setVaultExists(true);

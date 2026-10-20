@@ -6,6 +6,8 @@ import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
 import { hashPasscode } from '../auth/passcode';
 import * as SecureStore from 'expo-secure-store';
 import vault from '../../../modules/expo-vault';
+import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { documentService } from '@/services/DocumentService';
 import {
   type PinUnlockResult,
   type SessionCapture,
@@ -139,6 +141,26 @@ describe('SessionProvider', () => {
 
     expect(createVault).toHaveBeenCalledTimes(1);
     expect(await vault.get('_key_probe')).toBe('ok');
+  });
+
+  it('lets the index open again only once setup after "Delete everything" succeeded', async () => {
+    await closeDocumentStore();
+    allowDocumentStore();
+    await vault.createVault();
+    await documentService.eraseEverything();
+    await expect(documentService.initialize()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    const unlock = jest.spyOn(vault, 'unlockWithBiometrics').mockResolvedValueOnce(false);
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(unlock).toHaveBeenCalledTimes(1));
+    expect(view.getByTestId('status')).toHaveTextContent('setup');
+    await expect(documentService.initialize()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });
+
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    await expect(documentService.initialize()).resolves.toBeUndefined();
   });
 
   it('keeps an invalidated device key while the vault still holds entries', async () => {

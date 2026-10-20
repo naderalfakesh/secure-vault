@@ -2,6 +2,7 @@ import { Directory, File } from 'expo-file-system';
 
 import vault from '../../../modules/expo-vault';
 import {
+  allowDocumentStore,
   closeDocumentStore,
   deleteDocumentStore,
   exportDatabaseFile,
@@ -28,6 +29,7 @@ describe('database file handling', () => {
     await vault.put('_database_key', 'ab'.repeat(32));
     await vault.put('_legacy_index_imported', 'yes');
     await closeDocumentStore();
+    allowDocumentStore();
   });
 
   afterEach(() => {
@@ -190,6 +192,7 @@ describe('database key', () => {
     vaultMock.reset();
     await vault.put('_legacy_index_imported', 'yes');
     await closeDocumentStore();
+    allowDocumentStore();
     openEncrypted.mockClear();
   });
 
@@ -334,6 +337,7 @@ describe('database key', () => {
     await deleteDocumentStore(async () => {});
     expect([...files]).toEqual([]);
 
+    allowDocumentStore();
     await openDocumentStore();
     const created = await vault.get('_database_key');
     expect(created).toMatch(/^[0-9a-f]{64}$/);
@@ -384,6 +388,7 @@ describe('index name, erase and legacy import', () => {
     await vault.put('_database_key', 'ab'.repeat(32));
     await vault.put('_legacy_index_imported', 'yes');
     await closeDocumentStore();
+    allowDocumentStore();
     openEncrypted.mockClear();
     files = new Set();
     jest
@@ -522,6 +527,7 @@ describe('index name, erase and legacy import', () => {
 
     await deleteDocumentStore(removeEntries);
     expect([...files]).toEqual([]);
+    allowDocumentStore();
     await openDocumentStore();
   });
 
@@ -546,6 +552,7 @@ describe('index name, erase and legacy import', () => {
     finishDelete();
     await erasing;
     expect([...files]).toEqual([]);
+    allowDocumentStore();
     await openDocumentStore();
   });
 
@@ -566,6 +573,34 @@ describe('index name, erase and legacy import', () => {
 
     finishEntries();
     await erasing;
+    allowDocumentStore();
+    await openDocumentStore();
+    const created = await vault.get('_database_key');
+    expect(created).toMatch(/^[0-9a-f]{64}$/);
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', created);
+  });
+
+  it('keeps the index closed after "Delete everything", writing no key or file, until setup allows it', async () => {
+    files = new Set(['securevault.db', 'securevault.db-wal']);
+    await openDocumentStore();
+    await deleteDocumentStore(removeEntries);
+    openEncrypted.mockClear();
+    const put = jest.spyOn(vault, 'put');
+    const get = jest.spyOn(vault, 'get');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });
+    await expect(exportDatabaseFile('/cache/backup/index.db')).rejects.toMatchObject({
+      code: 'VAULT_EMPTIED',
+    });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    // Nothing that could need the device key, so no credential prompt either.
+    expect(put).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+    expect(await vault.getAllKeys()).toEqual([]);
+    expect([...files]).toEqual([]);
+
+    allowDocumentStore();
     await openDocumentStore();
     const created = await vault.get('_database_key');
     expect(created).toMatch(/^[0-9a-f]{64}$/);

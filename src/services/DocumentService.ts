@@ -3,7 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 import { Platform } from 'react-native';
 
-import { deleteDocumentStore, openDocumentStore } from '@/data/database';
+import { allowDocumentStore, deleteDocumentStore, openDocumentStore } from '@/data/database';
 import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 
@@ -111,6 +111,11 @@ class DocumentService {
   /** Opens the index; safe to call repeatedly. */
   async initialize(): Promise<void> {
     await openDocumentStore();
+  }
+
+  /** After "Delete everything" the index stays closed; setup reopens it for the new vault. */
+  allowIndex(): void {
+    allowDocumentStore();
   }
 
   /**
