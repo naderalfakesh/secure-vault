@@ -131,8 +131,8 @@ enum VaultCrypto {
   static func encryptData(_ data: Data, to destination: URL, key: SymmetricKey) throws {
     let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     let temp = caches.appendingPathComponent("thumb_encrypt_\(UUID().uuidString)")
-    try data.write(to: temp)
     defer { try? FileManager.default.removeItem(at: temp) }
+    try data.write(to: temp)
     try encryptFile(from: temp, to: destination, key: key)
   }
 
