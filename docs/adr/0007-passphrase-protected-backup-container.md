@@ -67,9 +67,15 @@ sheet closes.
   file opens, then again to write it back. A wrong passphrase or a damaged
   entry anywhere in the file is refused with the vault untouched, at the
   cost of a second pass over the data. The write-back is not a transaction:
-  a disk or key failure there leaves the vault partly restored and is
-  reported as `BACKUP_PARTIAL`; staging the whole vault next to the old one
-  would need as much free space again and was not taken.
+  a disk or key failure there leaves the vault partly restored. Staging the
+  whole vault next to the old one would need as much free space again and was
+  not taken. The two platforms report that failure differently. iOS rejects
+  every failure after the wipe with `BACKUP_PARTIAL`. Android uses
+  `BACKUP_PARTIAL` for disk, I/O and other failures, but a key failure keeps
+  its own code, `KEY_LOCKED` or `KEY_INVALIDATED`, with a message that says
+  the previous vault was removed: a lapsed authentication window lets the
+  key-recovery prompt re-authenticate and run the whole restore again, and an
+  invalidated key names its cause.
 - 600 000 PBKDF2 iterations cost well under a second natively and make
   offline guessing expensive. Argon2 would be stronger per second but has no
   system implementation on either platform.
