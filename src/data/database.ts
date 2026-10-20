@@ -62,7 +62,7 @@ function databaseDirectory(name: string): Directory {
   return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
 }
 
-/** Any main index file, not only `name`: a failed `_database_file` read falls back to the default. */
+/** Any main index file, not only `name`, which may be the default guessed for an unreadable one. */
 function indexFileExists(name: string): boolean {
   try {
     const directory = databaseDirectory(name);
@@ -109,17 +109,58 @@ async function loadDatabaseKey(name: string): Promise<string> {
   return key;
 }
 
-/** The index file in use; restores switch to a fresh file instead of reusing the name. */
-async function currentDatabaseName(): Promise<string> {
+function nameError(cause: unknown): Error {
+  if (isKeyLocked(cause) || codeOf(cause) === 'KEY_INVALIDATED') return unreadableKey(cause);
+  return keyError(
+    'DATABASE_NAME_UNREADABLE',
+    'The document index could not be found, so it stays closed. Nothing was changed. Try again.',
+    cause,
+  );
+}
+
+/** A main index file under a restored name, which only `_database_file` can point at. */
+function restoredIndexExists(): boolean {
+  const directory = databaseDirectory(DEFAULT_DATABASE_NAME);
+  if (!directory.exists) return false;
+  return directory
+    .list()
+    .some((entry) => MAIN_INDEX_FILE.test(entry.name) && entry.name !== DEFAULT_DATABASE_NAME);
+}
+
+type IndexName = { name: string; guessed: boolean };
+
+/**
+ * The index file in use; restores switch to a fresh file instead of reusing
+ * the name. A vault that never stored a name uses the default. A stored name
+ * that cannot be read is only replaced by the default when no restored index
+ * exists, and that guess is `guessed` so nothing is swept on its strength.
+ */
+async function currentDatabaseName(): Promise<IndexName> {
+  let cause: unknown;
   try {
     const name = await vault.get(DATABASE_FILE_ENTRY);
-    if (/^securevault(-\d+)?\.db$/.test(name)) return name;
+    if (MAIN_INDEX_FILE.test(name)) return { name, guessed: false };
+    cause = new Error('The stored index name is malformed.');
   } catch (error) {
     // A locked key says nothing about the name; guessing would point at the wrong file.
-    if (isKeyLocked(error)) throw error;
-    // Never restored: the default file.
+    if (isKeyLocked(error)) throw unreadableKey(error);
+    cause = error;
   }
-  return DEFAULT_DATABASE_NAME;
+  let keys: string[];
+  try {
+    keys = await vault.getAllKeys();
+  } catch (error) {
+    throw unreadableKey(error);
+  }
+  if (!keys.includes(DATABASE_FILE_ENTRY)) return { name: DEFAULT_DATABASE_NAME, guessed: false };
+  let restored: boolean;
+  try {
+    restored = restoredIndexExists();
+  } catch (error) {
+    throw nameError(error);
+  }
+  if (restored) throw nameError(cause);
+  return { name: DEFAULT_DATABASE_NAME, guessed: true };
 }
 
 /** Index files left behind by earlier restores; the current one is kept. */
@@ -165,10 +206,10 @@ let opening: Promise<DocumentStore> | null = null;
 const abandoned: Promise<DocumentStore>[] = [];
 
 async function openStore(): Promise<DocumentStore> {
-  const name = await currentDatabaseName();
+  const { name, guessed } = await currentDatabaseName();
   const key = await loadDatabaseKey(name);
   const db = await openEncryptedDatabase(name, key);
-  sweepStaleDatabases(name);
+  if (!guessed) sweepStaleDatabases(name);
   await applyMigrations(db);
   const repository = new DocumentRepository(db);
   const legacy = await readLegacyIndex();
@@ -210,7 +251,14 @@ export async function closeDocumentStore(): Promise<void> {
  * session leaves them behind, and earlier restores may have left other names.
  */
 export async function deleteDocumentStore(): Promise<void> {
-  const name = await currentDatabaseName();
+  // Only the folder and expo-sqlite's own delete need a name; every index file goes.
+  const name = await currentDatabaseName().then(
+    (current) => current.name,
+    (error: unknown) => {
+      if (isKeyLocked(error)) throw error;
+      return DEFAULT_DATABASE_NAME;
+    },
+  );
   await closeDocumentStore();
   await deleteEncryptedDatabase(name);
   const directory = databaseDirectory(name);
@@ -227,7 +275,8 @@ export async function deleteDocumentStore(): Promise<void> {
 export async function exportDatabaseFile(destPath: string): Promise<void> {
   const { db } = await openDocumentStore();
   await db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
-  const source = new File(`file://${databaseFilePath(await currentDatabaseName())}`);
+  const { name } = await currentDatabaseName();
+  const source = new File(`file://${databaseFilePath(name)}`);
   const target = new File(`file://${destPath}`);
   if (target.exists) target.delete();
   await source.copy(target);

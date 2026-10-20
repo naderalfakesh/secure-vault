@@ -265,13 +265,13 @@ describe('database key', () => {
   });
 
   it('refuses to create a key while a restored index exists under another name', async () => {
-    // `_database_file` could not be read, so the name falls back to the default.
+    // `_database_file` could not be read, so its name is unknown.
     await vault.put('_database_file', 'securevault-1700000000000.db');
     failGet('_database_file', getFailed);
     indexFiles(['securevault-1700000000000.db', 'securevault-1700000000000.db-wal']);
     const put = jest.spyOn(vault, 'put');
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
     expect(put).not.toHaveBeenCalled();
     expect(openEncrypted).not.toHaveBeenCalled();
   });
@@ -353,5 +353,116 @@ describe('database key', () => {
     get.mockRestore();
     await openDocumentStore();
     expect(openEncrypted).toHaveBeenCalledWith('securevault.db', storedKey);
+  });
+});
+
+describe('index name, erase and legacy import', () => {
+  const restored = 'securevault-1700000000000.db';
+  const getFailed = () => Object.assign(new Error('Input/output error'), { code: 'GET_FAILED' });
+  const keyInvalidated = () =>
+    Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
+  let files: Set<string>;
+
+  function failGet(entry: string, error: () => Error) {
+    const get = vault.get.bind(vault);
+    return jest
+      .spyOn(vault, 'get')
+      .mockImplementation((key) => (key === entry ? Promise.reject(error()) : get(key)));
+  }
+
+  beforeEach(async () => {
+    vaultMock.reset();
+    await vault.put('_database_key', 'ab'.repeat(32));
+    await vault.put('_legacy_index_imported', 'yes');
+    await closeDocumentStore();
+    openEncrypted.mockClear();
+    files = new Set();
+    jest
+      .spyOn(Object.getPrototypeOf(Directory.prototype), 'exists', 'get')
+      .mockImplementation(() => true);
+    jest
+      .spyOn(Directory.prototype, 'list')
+      .mockImplementation(() =>
+        [...files].map((name) => ({ name, delete: () => files.delete(name) }) as never),
+      );
+    (deleteEncryptedDatabase as jest.Mock).mockImplementation(async (name: string) => {
+      files.delete(name);
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    (deleteEncryptedDatabase as jest.Mock).mockReset();
+  });
+
+  it('keeps a restored index closed when its name cannot be read', async () => {
+    await vault.put('_database_file', restored);
+    failGet('_database_file', getFailed);
+    files = new Set([restored, `${restored}-wal`, 'securevault.db']);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({
+      code: 'DATABASE_NAME_UNREADABLE',
+      message: expect.stringMatching(/^The document index could not be found/),
+    });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect([...files]).toEqual([restored, `${restored}-wal`, 'securevault.db']);
+  });
+
+  it('keeps a restored index closed when the stored name is not an index name', async () => {
+    await vault.put('_database_file', '../elsewhere.db');
+    files = new Set([restored]);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect([...files]).toEqual([restored]);
+  });
+
+  it('reports an invalidated key when the name of a restored index cannot be read', async () => {
+    await vault.put('_database_file', restored);
+    failGet('_database_file', keyInvalidated);
+    files = new Set([restored]);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_INVALIDATED' });
+    expect([...files]).toEqual([restored]);
+  });
+
+  it('keeps the index closed when the name is unreadable and the folder cannot be listed', async () => {
+    await vault.put('_database_file', restored);
+    failGet('_database_file', getFailed);
+    jest.spyOn(Directory.prototype, 'list').mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+  });
+
+  it('opens the default index without sweeping when an unreadable name leaves no other index', async () => {
+    await vault.put('_database_file', 'securevault.db');
+    failGet('_database_file', getFailed);
+    files = new Set(['securevault.db', `${restored}-wal`]);
+
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
+    expect([...files]).toEqual(['securevault.db', `${restored}-wal`]);
+  });
+
+  it('still opens the default index and sweeps leftovers when the vault was never restored', async () => {
+    files = new Set(['securevault.db', `${restored}-wal`]);
+
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
+    expect([...files]).toEqual(['securevault.db']);
+  });
+
+  it('lets "Delete everything" remove a restored index whose name cannot be read', async () => {
+    await vault.put('_database_file', restored);
+    failGet('_database_file', getFailed);
+    files = new Set([restored, `${restored}-wal`, 'securevault.db']);
+
+    await deleteDocumentStore();
+    expect([...files]).toEqual([]);
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    await openDocumentStore();
   });
 });
