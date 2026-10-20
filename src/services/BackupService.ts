@@ -3,7 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { exportDatabaseFile, replaceDatabaseFile } from '@/data/database';
 
 import vault, { type BackupInfo, type BackupProgress } from '../../modules/expo-vault';
-import { documentService } from './DocumentService';
+import { documentService, PICKER_DIRECTORY } from './DocumentService';
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 const DATABASE_ENTRY = 'database';
@@ -24,8 +24,6 @@ export const BACKUP_STAGING_DIRECTORY = 'backup-staging';
 export const RESTORE_STAGING_DIRECTORY = 'restore-staging';
 /** Cache folder of finished containers, the index copy, and the restore extras. */
 export const BACKUP_DIRECTORY = 'backup';
-/** Where the document picker copies a picked file when asked to (iOS and Android). */
-export const PICKER_DIRECTORY = 'DocumentPicker';
 
 export interface BackupResult {
   uri: string;

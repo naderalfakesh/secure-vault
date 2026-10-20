@@ -212,6 +212,14 @@ describe('DocumentService', () => {
           `${pickerFolder().uri}../${PICKER_DIRECTORY}-other/other.pdf`,
         );
         documentService.discardPickedCopy(pickerFolder().uri);
+        // Percent-encoded traversal decodes to a path with a separator in it.
+        documentService.discardPickedCopy(
+          `${pickerFolder().uri}%2E%2E/${PICKER_DIRECTORY}-other/other.pdf`,
+        );
+        documentService.discardPickedCopy(
+          `${pickerFolder().uri}%2e%2e%2F${PICKER_DIRECTORY}-other%2Fother.pdf`,
+        );
+        documentService.discardPickedCopy(`${pickerFolder().uri}%2E%2E`);
 
         expect(own.exists).toBe(true);
         expect(neighbour.exists).toBe(true);

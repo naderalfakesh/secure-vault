@@ -15,11 +15,10 @@ import {
   backupService,
   describeBackupError,
   describeBackupErrorPlainly,
-  PICKER_DIRECTORY,
   passphraseProblem,
   RESTORE_STAGING_DIRECTORY,
 } from '../BackupService';
-import { documentService } from '../DocumentService';
+import { documentService, PICKER_DIRECTORY } from '../DocumentService';
 
 const vaultMock = vault as unknown as {
   reset(): void;
