@@ -161,3 +161,124 @@ describe('database file handling', () => {
     expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
   });
 });
+
+describe('database key', () => {
+  const storedKey = 'cd'.repeat(32);
+  const keyInvalidated = () =>
+    Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
+  const getFailed = () => Object.assign(new Error('Input/output error'), { code: 'GET_FAILED' });
+
+  function failGet(entry: string, error: () => Error) {
+    const get = vault.get.bind(vault);
+    return jest
+      .spyOn(vault, 'get')
+      .mockImplementation((key) => (key === entry ? Promise.reject(error()) : get(key)));
+  }
+
+  function indexFiles(names: string[]) {
+    jest.spyOn(Object.getPrototypeOf(File.prototype), 'exists', 'get').mockImplementation(function (
+      this: File,
+    ) {
+      return names.some((name) => this.uri === `file:///data/SQLite/${name}`);
+    });
+  }
+
+  beforeEach(async () => {
+    vaultMock.reset();
+    await vault.put('_legacy_index_imported', 'yes');
+    await closeDocumentStore();
+    openEncrypted.mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    ['KEY_LOCKED', keyLocked],
+    ['KEY_INVALIDATED', keyInvalidated],
+  ])('keeps the stored key when reading it fails with %s', async (code, error) => {
+    await vault.put('_database_key', storedKey);
+    failGet('_database_key', error);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code });
+    expect(put).not.toHaveBeenCalledWith('_database_key', expect.anything());
+    expect(openEncrypted).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+    expect(await vault.get('_database_key')).toBe(storedKey);
+  });
+
+  it('keeps the stored key when reading it fails for another reason', async () => {
+    await vault.put('_database_key', storedKey);
+    failGet('_database_key', getFailed);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    expect(put).not.toHaveBeenCalled();
+    expect(openEncrypted).not.toHaveBeenCalled();
+  });
+
+  it('keeps a stored key it cannot use instead of replacing it', async () => {
+    await vault.put('_database_key', 'not a key');
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    expect(put).not.toHaveBeenCalled();
+    expect(await vault.get('_database_key')).toBe('not a key');
+  });
+
+  it('writes no key when the vault cannot list its entries', async () => {
+    jest.spyOn(vault, 'getAllKeys').mockRejectedValueOnce(new Error('EIO'));
+    failGet('_database_key', getFailed);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('creates a key on first run, when there is neither a key nor an index', async () => {
+    indexFiles([]);
+
+    await openDocumentStore();
+    const created = await vault.get('_database_key');
+    expect(created).toMatch(/^[0-9a-f]{64}$/);
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', created);
+  });
+
+  it('refuses to create a key for an index that already exists', async () => {
+    indexFiles(['securevault.db']);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+    expect(put).not.toHaveBeenCalled();
+    expect(openEncrypted).not.toHaveBeenCalled();
+  });
+
+  it('checks the restored index file, not the default one, before creating a key', async () => {
+    await vault.put('_database_file', 'securevault-1700000000000.db');
+    indexFiles(['securevault-1700000000000.db']);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+  });
+
+  it('opens an existing index with its stored key and leaves the key alone', async () => {
+    await vault.put('_database_key', storedKey);
+    indexFiles(['securevault.db']);
+    const put = jest.spyOn(vault, 'put');
+
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', storedKey);
+    expect(put).not.toHaveBeenCalledWith('_database_key', expect.anything());
+  });
+
+  it('opens with the stored key once a locked key is unlocked again', async () => {
+    await vault.put('_database_key', storedKey);
+    const get = failGet('_database_key', keyLocked);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    get.mockRestore();
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', storedKey);
+  });
+});

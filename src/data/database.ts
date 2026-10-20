@@ -21,17 +21,69 @@ function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/** A database key failure, with a sentence a screen can show as is. */
+function keyError(code: string, message: string, cause?: unknown): Error {
+  return Object.assign(new Error(message), { code, cause });
+}
+
+function codeOf(error: unknown): unknown {
+  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
+}
+
+/** Any failure to read a stored key; the key itself is never replaced. */
+function unreadableKey(cause: unknown): Error {
+  if (isKeyLocked(cause)) {
+    return keyError(
+      'KEY_LOCKED',
+      'The device key was not unlocked, so your documents stay closed. Try again.',
+      cause,
+    );
+  }
+  if (codeOf(cause) === 'KEY_INVALIDATED') {
+    return keyError(
+      'KEY_INVALIDATED',
+      'The device key can no longer be used, so the document index cannot be opened.',
+      cause,
+    );
+  }
+  return keyError(
+    'DATABASE_KEY_UNREADABLE',
+    'The document index key could not be read. Nothing was changed. Try again.',
+    cause,
+  );
+}
+
 /**
  * Key hierarchy: the device key in the Keychain or Keystore never leaves the
  * vault module; it encrypts this random database key, which SQLCipher uses
  * for every page of the index. Losing the device key loses both.
+ *
+ * A new key is only written when the entry is absent from the vault's listing
+ * (which needs no device key) and no index file exists yet. Writing one in any
+ * other case would make an existing index unreadable for good.
  */
-async function loadDatabaseKey(): Promise<string> {
+async function loadDatabaseKey(name: string): Promise<string> {
+  let keys: string[];
   try {
-    const existing = await vault.get(DATABASE_KEY_ENTRY);
+    keys = await vault.getAllKeys();
+  } catch (error) {
+    throw unreadableKey(error);
+  }
+  if (keys.includes(DATABASE_KEY_ENTRY)) {
+    let existing: string;
+    try {
+      existing = await vault.get(DATABASE_KEY_ENTRY);
+    } catch (error) {
+      throw unreadableKey(error);
+    }
     if (/^[0-9a-f]{64}$/i.test(existing)) return existing;
-  } catch {
-    // First run: no key yet.
+    throw unreadableKey(new Error('The stored database key is malformed.'));
+  }
+  if (new File(`file://${databaseFilePath(name)}`).exists) {
+    throw keyError(
+      'DATABASE_KEY_MISSING',
+      'The key for the document index is missing, so the index cannot be opened. Nothing was changed.',
+    );
   }
   const key = toHex(Crypto.getRandomBytes(32));
   await vault.put(DATABASE_KEY_ENTRY, key);
@@ -95,8 +147,8 @@ let opening: Promise<DocumentStore> | null = null;
 const abandoned: Promise<DocumentStore>[] = [];
 
 async function openStore(): Promise<DocumentStore> {
-  const key = await loadDatabaseKey();
   const name = await currentDatabaseName();
+  const key = await loadDatabaseKey(name);
   const db = await openEncryptedDatabase(name, key);
   sweepStaleDatabases(name);
   await applyMigrations(db);
