@@ -58,12 +58,15 @@ and its WAL have no readable header, strings, or schema.
 A new key is written only when the vault's entry listing (which reads the
 directory and needs no device key) succeeds without a `_database_key` entry,
 and the SQLite folder holds no index file under any name a restore may have
-given it (`securevault.db`, `securevault-<n>.db`, or their `-wal`, `-shm` or
-`-journal` files). If `_database_key` is listed but cannot be read (a locked
-or invalidated device key, any other read failure, or a value that is not 64
-hex characters), the open stops with a typed error and the entry is left as
-it is. It also stops if either listing fails, or if the key is missing while
-an index file exists. A replaced key would make the existing index unreadable.
+given it (`securevault.db` or `securevault-<n>.db`; a leftover `-wal`, `-shm`
+or `-journal` file without its database does not count). If `_database_key`
+is listed but cannot be read (a locked or invalidated device key, any other
+read failure, or a value that is not 64 hex characters), the open stops with
+a typed error and the entry is left as it is. It also stops if either listing
+fails, or if the key is missing while an index file exists. A replaced key
+would make the existing index unreadable. "Delete everything" removes every
+index file and its side files, so the next open after it starts as a first
+run.
 
 ### App PIN
 
