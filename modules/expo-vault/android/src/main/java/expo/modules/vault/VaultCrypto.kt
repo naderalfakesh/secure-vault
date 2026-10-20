@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -68,14 +69,9 @@ object VaultCrypto {
         }
     }
 
+    /** Streams from memory, so no plaintext file is written next to the vault. */
     fun encryptBytes(bytes: ByteArray, destination: File, key: SecretKey) {
-        val temp = File.createTempFile("vault", null, destination.parentFile)
-        try {
-            temp.writeBytes(bytes)
-            encryptFile(temp, destination, key)
-        } finally {
-            temp.delete()
-        }
+        encrypt(ByteArrayInputStream(bytes), destination, key)
     }
 
     /** Returns true when the file uses the chunked container. */

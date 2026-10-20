@@ -92,6 +92,15 @@ describe('DocumentService', () => {
     disk.mockRestore();
   });
 
+  it("removes the vault module's thumbnail scratch file at lock and launch", async () => {
+    const scratch = new File(Paths.cache, 'thumb_encrypt_0D2C');
+    scratch.write('jpeg');
+
+    await documentService.clearCache();
+
+    expect(scratch.exists).toBe(false);
+  });
+
   it('names shared copies after the document and strips unsafe characters', () => {
     expect(shareFileName('Passport: Jane/Doe?')).toBe('Passport Jane Doe');
     expect(shareFileName('   ')).toBe('document');

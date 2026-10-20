@@ -126,9 +126,12 @@ enum VaultCrypto {
     }
   }
 
+  /// The plaintext passes through a `thumb_` file in Caches, a name the app's
+  /// lock and launch sweep removes, so a kill mid-write leaves nothing in tmp.
   static func encryptData(_ data: Data, to destination: URL, key: SymmetricKey) throws {
-    let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    try data.write(to: temp, options: .atomic)
+    let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    let temp = caches.appendingPathComponent("thumb_encrypt_\(UUID().uuidString)")
+    try data.write(to: temp)
     defer { try? FileManager.default.removeItem(at: temp) }
     try encryptFile(from: temp, to: destination, key: key)
   }
