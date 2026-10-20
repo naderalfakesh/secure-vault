@@ -151,6 +151,18 @@ disabled until it ends.
   export fails on both platforms, also after the container was written, and
   the finished file is removed, so no success is reported next to leftover
   plaintext.
+- A restore decrypts the same way, into the cache's own `restore-staging`
+  folder under the same path check, and nothing it reads or decrypts goes to
+  the system temporary folder. Each entry's plaintext is removed once it is
+  re-encrypted under the device key, and the folder is emptied before and
+  after every restore. A restore killed mid-entry leaves at most a payload
+  copy and one decrypted entry there, until the next launch: the launch sweep
+  removes the folder, and so does any lock with no restore running. A lock
+  during a restore leaves it alone, because the restore goes on and empties
+  it when it ends.
+- Thumbnails are encrypted from memory on Android. On iOS the downsampled
+  JPEG passes through one `thumb_` file in the cache, which the lock and
+  launch sweep removes if the app is killed before the module does.
 - Backup ciphertext is not left behind either. A finished container is
   removed once the share sheet closes, and the document picker's copy of a
   backup chosen for restore is removed after the restore or when its sheet
