@@ -194,22 +194,41 @@ disabled until it ends.
   also empties the cache's `backup-staging` folder, so it fails at its next
   entry, at most the entry being written was staged after the lock, and a
   container it still finishes is deleted unshared.
-- Importing a PDF or image from Files goes through the document picker, which
-  writes a plaintext copy of the file into the same `DocumentPicker` cache
-  folder under a random name. The add screen removes that copy as soon as the
-  document is saved, and whenever it lets go of the file unsaved: back to the
-  sources, closing the screen, or the vault locking. A save that fails keeps
-  the copy only so it can be retried from the same screen. The lock and launch
-  sweep removes the whole folder as well (outside a restore, as above), so a
-  copy left by a crash or a kill goes at the next launch. Only a file directly
-  inside that folder is ever removed this way; the user's own files elsewhere
-  are never touched.
-- Still open, from code reading: on iOS the system file picker hands the app
-  its own copy in the temporary folder before the picker module copies it
-  again; photos chosen from the library or taken with the camera are copied
-  into the cache's `ImagePicker` folder; and scanned pages are written to the
-  temporary folder (iOS) or the scanner's own cache files (Android). The app
-  does not yet remove these.
+- Importing a PDF or image from Files goes through the document picker,
+  which writes a plaintext copy of the file into the same `DocumentPicker`
+  cache folder under a random name. On iOS the system hands the app its own
+  copy first, in `tmp/com.naderalfakesh.securevault-Inbox`; the add screen
+  removes that one, by its exact name, as soon as the picker has made its
+  copy. Photos chosen from the library or taken with the camera are copied
+  into the cache's `ImagePicker` folder. Scanned pages are written to `tmp`
+  as `scan_<batch>_<page>.jpg` on iOS and copied by the ML Kit client into
+  the cache's `mlkit_docscan_ui_client` folder on Android. A PDF's preview is
+  rendered into a `pages_preview_` cache folder.
+- The add screen removes these copies as soon as the document is saved, and
+  whenever it lets go of them unsaved: back to the sources, closing the
+  screen, the vault locking, or a picker or scanner that answers after the
+  screen has gone. A save that is already running when the screen goes keeps
+  its copies until the vault module has read them, then removes them either
+  way, and reports its outcome after the next unlock if the vault locked. A
+  save that fails on screen keeps the copies only so it can be retried.
+- The lock and launch sweep removes the `ImagePicker`, `mlkit_docscan_ui_client`
+  and preview folders, the iOS Inbox folder and scanner pages, and the
+  `DocumentPicker` folder (outside a restore, as above), so a copy left by a
+  crash or a kill goes at the next launch. Every removal is guarded: only an
+  entry directly inside one of those exact folders, or an iOS `tmp` file with
+  exactly the scanner's name pattern, after decoding and with `..` refused,
+  is ever removed; the user's own files elsewhere are never touched.
+- Launch also removes, once, plaintext scratch that earlier builds wrote and
+  could leave when killed: `tmp/backup-<UUID>` and `tmp/<UUID>` on iOS,
+  `backup<n>.tmp` in the cache and `vault<n>.tmp` in the vault folder on
+  Android. Only plain files with exactly those names, directly in those
+  folders, are removed.
+- Still open: a lock while a save is running can sweep a picked copy before
+  the vault module has opened it, so that save fails (and says so after the
+  next unlock) rather than leaving the copy. Google Play services keeps its
+  own copy of scanned pages until the ML Kit client asks it to clean up; that
+  copy is outside the app's storage. These removals are checked by tests;
+  the native QA pass on a simulator and an emulator is still owed.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
