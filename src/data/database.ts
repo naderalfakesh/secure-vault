@@ -204,8 +204,31 @@ let opening: Promise<DocumentStore> | null = null;
 // connection right after the native import crashed inside SQLite's FTS5
 // teardown, and an idle open connection costs nothing until relaunch.
 const abandoned: Promise<DocumentStore>[] = [];
+// Set while "Delete everything" removes the index, and kept until the vault no
+// longer lists the index entries: an open in between would create a file the
+// erase deletes under it, or one whose key the erase deletes next.
+let erasing = false;
+
+function erasingError(): Error {
+  return keyError(
+    'INDEX_ERASING',
+    'The vault is being emptied, so the document index stays closed. Try again in a moment.',
+  );
+}
+
+async function waitForErase(): Promise<void> {
+  let keys: string[];
+  try {
+    keys = await vault.getAllKeys();
+  } catch (error) {
+    throw unreadableKey(error);
+  }
+  if (keys.includes(DATABASE_KEY_ENTRY) || keys.includes(DATABASE_FILE_ENTRY)) throw erasingError();
+  erasing = false;
+}
 
 async function openStore(): Promise<DocumentStore> {
+  if (erasing) await waitForErase();
   const { name, guessed } = await currentDatabaseName();
   const key = await loadDatabaseKey(name);
   const db = await openEncryptedDatabase(name, key);
@@ -251,20 +274,30 @@ export async function closeDocumentStore(): Promise<void> {
  * session leaves them behind, and earlier restores may have left other names.
  */
 export async function deleteDocumentStore(): Promise<void> {
-  // Only the folder and expo-sqlite's own delete need a name; every index file goes.
-  const name = await currentDatabaseName().then(
-    (current) => current.name,
-    (error: unknown) => {
-      if (isKeyLocked(error)) throw error;
-      return DEFAULT_DATABASE_NAME;
-    },
-  );
-  await closeDocumentStore();
-  await deleteEncryptedDatabase(name);
-  const directory = databaseDirectory(name);
-  if (!directory.exists) return;
-  for (const entry of directory.list()) {
-    if (INDEX_FILE.test(entry.name)) entry.delete();
+  // A retry after a failed erase finds the gate still closed; that is fine.
+  const alreadyErasing = erasing;
+  erasing = true;
+  let started = false;
+  try {
+    // Only the folder and expo-sqlite's own delete need a name; every index file goes.
+    const name = await currentDatabaseName().then(
+      (current) => current.name,
+      (error: unknown) => {
+        if (isKeyLocked(error)) throw error;
+        return DEFAULT_DATABASE_NAME;
+      },
+    );
+    started = true;
+    await closeDocumentStore();
+    await deleteEncryptedDatabase(name);
+    const directory = databaseDirectory(name);
+    if (!directory.exists) return;
+    for (const entry of directory.list()) {
+      if (INDEX_FILE.test(entry.name)) entry.delete();
+    }
+  } catch (error) {
+    if (!started) erasing = alreadyErasing;
+    throw error;
   }
 }
 

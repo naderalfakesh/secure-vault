@@ -465,4 +465,57 @@ describe('index name, erase and legacy import', () => {
     for (const key of await vault.getAllKeys()) await vault.delete(key);
     await openDocumentStore();
   });
+
+  it('turns away an open while "Delete everything" removes the index files', async () => {
+    files = new Set(['securevault.db', 'securevault.db-wal']);
+    let finishDelete: () => void = () => {};
+    (deleteEncryptedDatabase as jest.Mock).mockImplementationOnce(
+      (name: string) =>
+        new Promise<void>((resolve) => {
+          finishDelete = () => {
+            files.delete(name);
+            resolve();
+          };
+        }),
+    );
+
+    const erasing = deleteDocumentStore();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'INDEX_ERASING' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+
+    finishDelete();
+    await erasing;
+    expect([...files]).toEqual([]);
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    await openDocumentStore();
+  });
+
+  it('opens a fresh index only once the erase also removed the index entries', async () => {
+    files = new Set(['securevault.db']);
+
+    await deleteDocumentStore();
+    // The old key is still listed until the erase deletes the vault entries.
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'INDEX_ERASING' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect([...files]).toEqual([]);
+
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    await openDocumentStore();
+    const created = await vault.get('_database_key');
+    expect(created).toMatch(/^[0-9a-f]{64}$/);
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', created);
+  });
+
+  it('does not hold opens back after an erase that could not start', async () => {
+    await vault.put('_database_file', restored);
+    files = new Set([restored]);
+    const get = failGet('_database_file', keyLocked);
+
+    await expect(deleteDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    expect([...files]).toEqual([restored]);
+    get.mockRestore();
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith(restored, 'ab'.repeat(32));
+  });
 });
