@@ -318,7 +318,7 @@ export default function AddDocumentScreen() {
     try {
       await documentService.initialize();
 
-      setStep('encrypt');
+      if (mounted.current) setStep('encrypt');
       const saved = await documentService.addDocument(files, {
         title: cleanTitle,
         category,
@@ -329,7 +329,7 @@ export default function AddDocumentScreen() {
         ocrText,
       });
 
-      setStep('index');
+      if (mounted.current) setStep('index');
       if (fields.length > 0) await documentService.setFields(saved.id, fields);
       const message = ocrText ? 'Saved with searchable text' : 'Saved to your vault';
       if (mounted.current) {
