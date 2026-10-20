@@ -40,15 +40,17 @@ if (findProperty('expo.sqlite.useSQLCipher') == 'true') {
         transitive = false
     }
     dependencies.add('sqlCipherOpenSsl', '${coordinate}')
+    def sqlCipherOpenSslJniLibsDir = layout.buildDirectory.dir('generated/sqlCipherOpenSsl/jniLibs').get().asFile
     def sqlCipherOpenSslJniLibs = tasks.register('extractSqlCipherOpenSslJniLibs', Sync) {
         from(configurations.sqlCipherOpenSsl.elements.map { files -> files.collect { zipTree(it.asFile) } })
         include 'prefab/modules/crypto/libs/android.*/libcrypto.so'
         includeEmptyDirs = false
         eachFile { it.path = it.path.replaceFirst(~/^prefab\\/modules\\/crypto\\/libs\\/android\\./, '') }
-        into layout.buildDirectory.dir('generated/sqlCipherOpenSsl/jniLibs')
+        into sqlCipherOpenSslJniLibsDir
     }
-    android.sourceSets.main.jniLibs.srcDir(sqlCipherOpenSslJniLibs)
-    android.packagingOptions.jniLibs.pickFirsts += ['**/libcrypto.so']
+    // AGP 9 rejects a task provider here; preBuild below runs the extract first.
+    android.sourceSets.main.jniLibs.srcDir(sqlCipherOpenSslJniLibsDir)
+    android.packaging.jniLibs.pickFirsts += ['**/libcrypto.so']
     tasks.named('preBuild') { dependsOn(sqlCipherOpenSslJniLibs) }
 }
 `;
