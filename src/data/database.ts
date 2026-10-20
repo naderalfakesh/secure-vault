@@ -57,16 +57,28 @@ function unreadableKey(cause: unknown): Error {
   );
 }
 
+async function vaultEntries(): Promise<string[]> {
+  try {
+    return await vault.getAllKeys();
+  } catch (error) {
+    throw unreadableKey(error);
+  }
+}
+
 function databaseDirectory(name: string): Directory {
   const path = databaseFilePath(name);
   return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
 }
 
-/** Any main index file, not only `name`, which may be the default guessed for an unreadable one. */
-function indexFileExists(name: string): boolean {
+/** The main index files in the SQLite folder, under any name. */
+function mainIndexFiles(): string[] {
   try {
-    const directory = databaseDirectory(name);
-    return directory.exists && directory.list().some((entry) => MAIN_INDEX_FILE.test(entry.name));
+    const directory = databaseDirectory(DEFAULT_DATABASE_NAME);
+    if (!directory.exists) return [];
+    return directory
+      .list()
+      .map((entry) => entry.name)
+      .filter((name) => MAIN_INDEX_FILE.test(name));
   } catch (error) {
     throw unreadableKey(error);
   }
@@ -81,13 +93,8 @@ function indexFileExists(name: string): boolean {
  * (which needs no device key) and no index file of any name exists. Writing
  * one in any other case would make an existing index unreadable for good.
  */
-async function loadDatabaseKey(name: string): Promise<string> {
-  let keys: string[];
-  try {
-    keys = await vault.getAllKeys();
-  } catch (error) {
-    throw unreadableKey(error);
-  }
+async function loadDatabaseKey(): Promise<string> {
+  const keys = await vaultEntries();
   if (keys.includes(DATABASE_KEY_ENTRY)) {
     let existing: string;
     try {
@@ -98,7 +105,8 @@ async function loadDatabaseKey(name: string): Promise<string> {
     if (/^[0-9a-f]{64}$/i.test(existing)) return existing;
     throw unreadableKey(new Error('The stored database key is malformed.'));
   }
-  if (indexFileExists(name)) {
+  // Any main index file, not only `name`, which may be the default guessed for an unreadable one.
+  if (mainIndexFiles().length > 0) {
     throw keyError(
       'DATABASE_KEY_MISSING',
       'The key for the document index is missing, so the index cannot be opened. Nothing was changed.',
@@ -118,22 +126,18 @@ function nameError(cause: unknown): Error {
   );
 }
 
-/** A main index file under a restored name, which only `_database_file` can point at. */
-function restoredIndexExists(): boolean {
-  const directory = databaseDirectory(DEFAULT_DATABASE_NAME);
-  if (!directory.exists) return false;
-  return directory
-    .list()
-    .some((entry) => MAIN_INDEX_FILE.test(entry.name) && entry.name !== DEFAULT_DATABASE_NAME);
+function isRestoredName(name: string): boolean {
+  return MAIN_INDEX_FILE.test(name) && name !== DEFAULT_DATABASE_NAME;
 }
 
 type IndexName = { name: string; guessed: boolean };
 
 /**
  * The index file in use; restores switch to a fresh file instead of reusing
- * the name. A vault that never stored a name uses the default. A stored name
- * that cannot be read is only replaced by the default when no restored index
- * exists, and that guess is `guessed` so nothing is swept on its strength.
+ * the name. A vault that never stored a name uses the default, unless a
+ * restored index exists: then a restore moved its file but failed to record
+ * the name. A stored name that cannot be read is only replaced by the default
+ * when no restored index exists, and that guess is `guessed`.
  */
 async function currentDatabaseName(): Promise<IndexName> {
   let cause: unknown;
@@ -146,21 +150,11 @@ async function currentDatabaseName(): Promise<IndexName> {
     if (isKeyLocked(error)) throw unreadableKey(error);
     cause = error;
   }
-  let keys: string[];
-  try {
-    keys = await vault.getAllKeys();
-  } catch (error) {
-    throw unreadableKey(error);
+  const listed = (await vaultEntries()).includes(DATABASE_FILE_ENTRY);
+  if (mainIndexFiles().some(isRestoredName)) {
+    throw nameError(listed ? cause : new Error('A restored index has no stored name.'));
   }
-  if (!keys.includes(DATABASE_FILE_ENTRY)) return { name: DEFAULT_DATABASE_NAME, guessed: false };
-  let restored: boolean;
-  try {
-    restored = restoredIndexExists();
-  } catch (error) {
-    throw nameError(error);
-  }
-  if (restored) throw nameError(cause);
-  return { name: DEFAULT_DATABASE_NAME, guessed: true };
+  return { name: DEFAULT_DATABASE_NAME, guessed: listed };
 }
 
 /** Index files left behind by earlier restores; the current one is kept. */
@@ -219,12 +213,7 @@ function erasingError(): Error {
 }
 
 async function waitForErase(): Promise<void> {
-  let keys: string[];
-  try {
-    keys = await vault.getAllKeys();
-  } catch (error) {
-    throw unreadableKey(error);
-  }
+  const keys = await vaultEntries();
   if (keys.includes(DATABASE_KEY_ENTRY) || keys.includes(DATABASE_FILE_ENTRY)) throw erasingError();
   erasing = false;
 }
@@ -232,10 +221,17 @@ async function waitForErase(): Promise<void> {
 async function openStore(): Promise<DocumentStore> {
   if (erasing) await waitForErase();
   const { name, guessed } = await currentDatabaseName();
-  const key = await loadDatabaseKey(name);
+  const present = mainIndexFiles();
+  const existed = present.includes(name);
+  // A missing named file next to another index means the name is stale; opening
+  // it would create an empty index and sweep the real one.
+  if (!existed && present.length > 0) {
+    throw nameError(new Error(`The index file ${name} is missing.`));
+  }
+  const key = await loadDatabaseKey();
   const legacy = await readLegacyIndex();
   const db = await openEncryptedDatabase(name, key);
-  if (!guessed) sweepStaleDatabases(name);
+  if (existed && !guessed) sweepStaleDatabases(name);
   await applyMigrations(db);
   const repository = new DocumentRepository(db);
   if (legacy) {
@@ -343,6 +339,14 @@ async function installDatabaseFile(sourcePath: string): Promise<void> {
   const path = databaseFilePath(name);
   const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
   if (!directory.exists) directory.create({ intermediates: true });
-  await new File(`file://${sourcePath}`).move(new File(`file://${path}`));
-  await vault.put(DATABASE_FILE_ENTRY, name);
+  const source = new File(`file://${sourcePath}`);
+  const target = new File(`file://${path}`);
+  await source.move(target);
+  try {
+    await vault.put(DATABASE_FILE_ENTRY, name);
+  } catch (error) {
+    // Unnamed, the restored file would be taken for a stale one; the restore fails as a whole.
+    await target.move(new File(`file://${sourcePath}`)).catch(() => {});
+    throw error;
+  }
 }

@@ -325,7 +325,8 @@ describe('database key', () => {
       files.delete(name);
     });
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+    // A restored index without a stored name keeps the open closed first.
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
     await deleteDocumentStore();
     expect([...files]).toEqual([]);
 
@@ -433,7 +434,7 @@ describe('index name, erase and legacy import', () => {
       throw new Error('EACCES');
     });
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
     expect(openEncrypted).not.toHaveBeenCalled();
   });
 
@@ -452,6 +453,57 @@ describe('index name, erase and legacy import', () => {
 
     await openDocumentStore();
     expect(openEncrypted).toHaveBeenCalledWith('securevault.db', 'ab'.repeat(32));
+    expect([...files]).toEqual(['securevault.db']);
+  });
+
+  it('keeps a restored index closed when no name was ever stored for it', async () => {
+    // A first restore moved the file, then failed to record its name.
+    files = new Set(['securevault.db', restored]);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect([...files]).toEqual(['securevault.db', restored]);
+  });
+
+  it('keeps a restored index closed when the stored name points at a missing file', async () => {
+    // A backup of a restored vault brings that vault's name along.
+    await vault.put('_database_file', 'securevault-1600000000000.db');
+    files = new Set([restored]);
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect([...files]).toEqual([restored]);
+  });
+
+  it('creates the named index when no index file exists yet', async () => {
+    await vault.put('_database_file', restored);
+
+    await openDocumentStore();
+    expect(openEncrypted).toHaveBeenCalledWith(restored, 'ab'.repeat(32));
+  });
+
+  it('moves a restored index back when its name cannot be recorded', async () => {
+    files = new Set(['securevault.db']);
+    const moves: string[][] = [];
+    jest.spyOn(File.prototype, 'move').mockImplementation(async function (this: File, target) {
+      const from = this.uri.split('/').pop()!;
+      const to = (target as File).uri.split('/').pop()!;
+      moves.push([this.uri, (target as File).uri]);
+      files.delete(from);
+      if ((target as File).uri.includes('/data/SQLite/')) files.add(to);
+    });
+    const put = vault.put.bind(vault);
+    jest
+      .spyOn(vault, 'put')
+      .mockImplementation((key, value) =>
+        key === '_database_file' ? Promise.reject(keyLocked()) : put(key, value),
+      );
+
+    await expect(replaceDatabaseFile('/cache/backup/restore/database')).rejects.toMatchObject({
+      code: 'KEY_LOCKED',
+    });
+    expect(moves).toHaveLength(2);
+    expect(moves[1]).toEqual([moves[0][1], moves[0][0]]);
     expect([...files]).toEqual(['securevault.db']);
   });
 
