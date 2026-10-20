@@ -57,11 +57,20 @@ function unreadableKey(cause: unknown): Error {
   );
 }
 
+/** A listing of the vault's entries or of the SQLite folder failed; nothing was read or written. */
+function listingError(cause: unknown): Error {
+  return keyError(
+    'DATABASE_FILES_UNREADABLE',
+    "The vault's files could not be read, so the document index stays closed. Nothing was changed. Try again.",
+    cause,
+  );
+}
+
 async function vaultEntries(): Promise<string[]> {
   try {
     return await vault.getAllKeys();
   } catch (error) {
-    throw unreadableKey(error);
+    throw listingError(error);
   }
 }
 
@@ -80,7 +89,7 @@ function mainIndexFiles(): string[] {
       .map((entry) => entry.name)
       .filter((name) => MAIN_INDEX_FILE.test(name));
   } catch (error) {
-    throw unreadableKey(error);
+    throw listingError(error);
   }
 }
 

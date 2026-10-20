@@ -235,7 +235,10 @@ describe('database key', () => {
     failGet('_database_key', getFailed);
     const put = jest.spyOn(vault, 'put');
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    await expect(openDocumentStore()).rejects.toMatchObject({
+      code: 'DATABASE_FILES_UNREADABLE',
+      message: expect.stringMatching(/^The vault's files could not be read/),
+    });
     expect(put).not.toHaveBeenCalled();
   });
 
@@ -290,7 +293,7 @@ describe('database key', () => {
     });
     const put = jest.spyOn(vault, 'put');
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_FILES_UNREADABLE' });
     expect(put).not.toHaveBeenCalled();
   });
 
@@ -434,7 +437,7 @@ describe('index name, erase and legacy import', () => {
       throw new Error('EACCES');
     });
 
-    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_FILES_UNREADABLE' });
     expect(openEncrypted).not.toHaveBeenCalled();
   });
 
