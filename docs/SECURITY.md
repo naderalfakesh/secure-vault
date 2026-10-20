@@ -81,7 +81,14 @@ a typed error and the entry is left as it is. It also stops if either listing
 fails, or if the key is missing while an index file exists. A replaced key
 would make the existing index unreadable. "Delete everything" removes every
 index file and its side files, so the next open after it starts as a first
-run.
+run. That open waits for setup: after a successful erase every open is
+turned away with `VAULT_EMPTIED`, before it reads or writes any vault entry,
+so a screen that refreshes its list on the erase's change notice neither
+creates `_database_key` and an empty `securevault.db` nor triggers a device
+key prompt. The lists show no documents meanwhile. A successful setup lifts
+this before the app unlocks, and the first screen behind the lock then
+creates the key and the index. The hold lives in memory; after a relaunch
+the cleared PIN record sends the app to setup anyway.
 
 A restore moves the index in under a new name and then records it in
 `_database_file`. If recording the name fails, the file is moved back out of
