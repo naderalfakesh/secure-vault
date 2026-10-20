@@ -1,5 +1,7 @@
 import {
   attemptsLeft,
+  clampLockout,
+  longestPauseMs,
   EMPTY_LOCKOUT,
   isLocked,
   LOCKOUT_BASE_MS,
@@ -65,7 +67,26 @@ describe('lockout', () => {
     ).toEqual({ failures: 7, lockedUntil: now + 10 });
     expect(
       strictestLockout(EMPTY_LOCKOUT, { failures: 5, lockedUntil: now * 1000 }, now).lockedUntil,
+    ).toBe(now + LOCKOUT_BASE_MS);
+    expect(
+      strictestLockout(EMPTY_LOCKOUT, { failures: 500, lockedUntil: now * 1000 }, now).lockedUntil,
     ).toBe(now + LOCKOUT_MAX_MS);
+  });
+
+  it('caps a pause at the longest one its count can have earned', () => {
+    expect(longestPauseMs(0)).toBe(LOCKOUT_BASE_MS);
+    expect(longestPauseMs(5)).toBe(LOCKOUT_BASE_MS);
+    expect(longestPauseMs(9)).toBe(LOCKOUT_BASE_MS);
+    expect(longestPauseMs(10)).toBe(LOCKOUT_BASE_MS * 2);
+    expect(longestPauseMs(1000)).toBe(LOCKOUT_MAX_MS);
+
+    const running = recordFailure({ failures: 4, lockedUntil: 0 }, now);
+    expect(clampLockout(running, now)).toBe(running);
+    const yearBack = now - 365 * 24 * 3_600_000;
+    expect(clampLockout(running, yearBack)).toEqual({
+      failures: 5,
+      lockedUntil: yearBack + LOCKOUT_BASE_MS,
+    });
   });
 
   it('assumes a fresh pause that ends on its own when the state cannot be read', () => {

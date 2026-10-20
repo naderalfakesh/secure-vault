@@ -44,15 +44,36 @@ export function recordFailure(state: LockoutState, now: number): LockoutState {
 }
 
 /**
+ * The longest pause a failure count can have earned: the one set when it last
+ * crossed the threshold. Counts below it allow the base pause.
+ */
+export function longestPauseMs(failures: number): number {
+  const escalation = Math.max(0, Math.floor(failures / LOCKOUT_THRESHOLD) - 1);
+  return Math.min(LOCKOUT_BASE_MS * 2 ** escalation, LOCKOUT_MAX_MS);
+}
+
+/**
+ * Caps a pause at the longest one its count can have earned from `now`, so a
+ * clock moved back or a corrupt value cannot lock the keypad for good. Returns
+ * the same object when nothing needed capping.
+ */
+export function clampLockout(state: LockoutState, now: number): LockoutState {
+  const limit = now + longestPauseMs(state.failures);
+  return state.lockedUntil > limit ? { ...state, lockedUntil: limit } : state;
+}
+
+/**
  * The stricter of two copies of the state, so neither a stale copy nor a lost
- * write hands back attempts. A pause is capped at the longest one the policy
- * can set from `now`, so a clock that jumped back cannot lock the pad for good.
+ * write hands back attempts, capped as in `clampLockout`.
  */
 export function strictestLockout(a: LockoutState, b: LockoutState, now: number): LockoutState {
-  return {
-    failures: Math.max(a.failures, b.failures),
-    lockedUntil: Math.min(Math.max(a.lockedUntil, b.lockedUntil), now + LOCKOUT_MAX_MS),
-  };
+  return clampLockout(
+    {
+      failures: Math.max(a.failures, b.failures),
+      lockedUntil: Math.max(a.lockedUntil, b.lockedUntil),
+    },
+    now,
+  );
 }
 
 /**

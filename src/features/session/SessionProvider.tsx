@@ -12,6 +12,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import {
+  clampLockout,
   EMPTY_LOCKOUT,
   isLocked,
   type LockoutState,
@@ -94,6 +95,19 @@ const friendlyMessages: Record<string, string> = {
 
 const KEY_NOT_UNLOCKED = 'The device key was not unlocked. Enter your PIN to try again.';
 
+/**
+ * The stored lockout with any pause longer than its count earned capped and the
+ * cap written back, so it ends instead of sliding with the clock; null when the
+ * store could not be read.
+ */
+async function loadCappedLockout(): Promise<LockoutState | null> {
+  const stored = await sessionStorage.loadLockout();
+  if (!stored) return null;
+  const capped = clampLockout(stored, Date.now());
+  if (capped !== stored) await sessionStorage.saveLockout(capped).catch(() => {});
+  return capped;
+}
+
 function describeError(e: unknown, fallback: string): string {
   const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
   if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
@@ -155,7 +169,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         sessionStorage.hasPinRecord(),
         // Readable before the device key is authenticated, so a relaunch keeps
         // the attempt counter and any pause that is still running.
-        sessionStorage.loadLockout(),
+        loadCappedLockout(),
       ]);
       if (!active) return;
       setBiometry(type);
@@ -222,7 +236,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (statusRef.current === 'loading') return 'not-unlocked';
       // The stored copy outlives a relaunch and the one in memory outlives a
       // failed write; the attempt is judged against the stricter of the two.
-      const stored = await sessionStorage.loadLockout();
+      const stored = await loadCappedLockout();
       const now = Date.now();
       const current = strictestLockout(lockoutRef.current, stored ?? lockoutRef.current, now);
       applyLockout(current);

@@ -406,6 +406,51 @@ describe('SessionProvider PIN lockout across relaunches', () => {
     expect(await stored()).toEqual({ failures: 0, lockedUntil: 0 });
   });
 
+  it('caps a corrupt far-future pause and writes the cap back', async () => {
+    await lockedVault();
+    await SecureStore.setItemAsync(
+      LOCKOUT_ENTRY,
+      JSON.stringify({ failures: 5, lockedUntil: 1e15 }),
+    );
+
+    const view = await launch();
+    const capped = (await stored()).lockedUntil;
+    expect(capped).toBeLessThanOrEqual(Date.now() + LOCKOUT_BASE_MS);
+    expect(view.getByTestId('locked-until')).toHaveTextContent(String(capped));
+
+    await fireEvent.press(view.getByText('run pin ok'));
+    await act(async () => {});
+    expect(view.getByTestId('status')).toHaveTextContent('locked');
+
+    offset = LOCKOUT_BASE_MS + 1;
+    await fireEvent.press(view.getByText('run pin ok'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+  });
+
+  it('ends a pause on time after the clock was moved back a year', async () => {
+    await lockedVault();
+    const first = await launch();
+    await wrongPins(first, LOCKOUT_THRESHOLD);
+    await first.unmount();
+
+    offset = -365 * 24 * 3_600_000;
+    const second = await launch();
+    const capped = (await stored()).lockedUntil;
+    expect(capped).toBeLessThanOrEqual(Date.now() + LOCKOUT_BASE_MS);
+    expect(second.getByTestId('locked-until')).toHaveTextContent(String(capped));
+
+    // Later attempts judge against the written-back cap, which does not slide.
+    offset += LOCKOUT_BASE_MS / 2;
+    await fireEvent.press(second.getByText('run pin ok'));
+    await act(async () => {});
+    expect(second.getByTestId('status')).toHaveTextContent('locked');
+    expect((await stored()).lockedUntil).toBe(capped);
+
+    offset += LOCKOUT_BASE_MS;
+    await fireEvent.press(second.getByText('run pin ok'));
+    await waitFor(() => expect(second.getByTestId('status')).toHaveTextContent('unlocked'));
+  });
+
   it('ignores PIN attempts until the stored lockout has been read', async () => {
     await lockedVault();
     let finishStartup: (exists: boolean) => void = () => {};
