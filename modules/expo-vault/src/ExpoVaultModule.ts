@@ -72,6 +72,14 @@ export interface SecureVault {
   ): Promise<RenderedPage[]>;
   deleteFile(key: string): Promise<void>;
   getFileSize(key: string): Promise<number>;
+  /**
+   * Removes the file, folder, or link at `path` without following symbolic
+   * links: a link is unlinked, never recursed into, at the top or anywhere
+   * below. A missing entry is fine. Only an entry inside the app's cache
+   * (and, on iOS, its tmp folder) qualifies once its parent's links are
+   * resolved; anything else, or an entry left behind, throws. Synchronous.
+   */
+  removeTreeNoFollow(path: string): void;
 
   // Backup & restore
   /**

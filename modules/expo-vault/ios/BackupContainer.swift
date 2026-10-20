@@ -131,6 +131,39 @@ enum BackupContainer {
     }
   }
 
+  struct RemovalError: LocalizedError {
+    let reason: String
+    var errorDescription: String? { "The cache entry cannot be removed: \(reason)" }
+  }
+
+  /// Removes `requested` for the app's cache sweeps without following
+  /// symbolic links: `removeItem` unlinks a link itself and never recurses
+  /// through one. Its parent is symlink-resolved and must lie inside one of
+  /// `roots`, so neither `..` nor a linked ancestor can carry the removal out
+  /// of them. A missing entry, a dangling link's target included, is fine.
+  static func removeNoFollow(_ requested: String, roots: [URL]) throws {
+    guard requested.hasPrefix("/") else { throw RemovalError(reason: "not an absolute path") }
+    let url = URL(fileURLWithPath: requested).standardizedFileURL
+    let name = url.lastPathComponent
+    guard !name.isEmpty, name != "/", name != ".", name != ".." else {
+      throw RemovalError(reason: "not a single name")
+    }
+    let parent = url.deletingLastPathComponent().resolvingSymlinksInPath().path
+    let inside = roots.contains { root in
+      let base = root.standardizedFileURL.resolvingSymlinksInPath().path
+      return parent == base || parent.hasPrefix(base + "/")
+    }
+    guard inside else { throw RemovalError(reason: "not inside the app's cache") }
+    let target = URL(fileURLWithPath: parent).appendingPathComponent(name)
+    // attributesOfItem does not follow links, so a dangling link still counts as there.
+    guard (try? FileManager.default.attributesOfItem(atPath: target.path)) != nil else { return }
+    do {
+      try FileManager.default.removeItem(at: target)
+    } catch {
+      throw RemovalError(reason: "could not be removed")
+    }
+  }
+
   static func deriveKey(passphrase: String, salt: Data, iterations: Int) throws -> SymmetricKey {
     guard let rounds = UInt32(exactly: iterations), rounds > 0 else { throw BackupError.corrupt("header") }
     var derived = [UInt8](repeating: 0, count: 32)

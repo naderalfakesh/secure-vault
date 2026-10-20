@@ -331,6 +331,12 @@ public class ExpoVaultModule: Module {
         }
     }
 
+    // Mirrors Android, where expo-file-system's delete follows a link.
+    Function("removeTreeNoFollow") { (path: String) throws in
+      let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+      try BackupContainer.removeNoFollow(path, roots: [caches, FileManager.default.temporaryDirectory])
+    }
+
     AsyncFunction("getFileSize") { (key: String, promise: Promise) in
         do {
             let fileURL = try self.getFileURL(for: key)

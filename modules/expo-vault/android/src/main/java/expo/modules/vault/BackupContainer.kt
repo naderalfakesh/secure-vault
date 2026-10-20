@@ -39,6 +39,7 @@ object BackupContainer {
     class UnsupportedException(version: Int) :
         Exception("This backup needs a newer version of the app (format $version).")
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
+    class RemovalException(reason: String) : Exception("The cache entry cannot be removed: $reason")
 
     /**
      * The one folder export plaintext may be staged in, `<cacheDir>/backup-staging`, or restore
@@ -149,6 +150,26 @@ object BackupContainer {
         var removed = true
         if (entryKind(file) == EntryKind.DIRECTORY) file.listFiles()?.forEach { if (!removeTree(it)) removed = false }
         return (file.delete() || entryKind(file) == EntryKind.MISSING) && removed
+    }
+
+    /**
+     * Removes [requested] for the app's cache sweeps without following symbolic links (see
+     * [removeTree]). Its parent is canonicalised and must lie inside one of [roots], so neither
+     * `..` nor a linked ancestor can carry the removal out of them. A missing entry is fine.
+     */
+    fun removeNoFollow(requested: String, roots: List<File>) {
+        if (!requested.startsWith("/")) throw RemovalException("not an absolute path")
+        val file = File(requested)
+        val name = file.name
+        val parent = file.parentFile ?: throw RemovalException("not inside the app's cache")
+        if (name.isEmpty() || name == "." || name == "..") throw RemovalException("not a single name")
+        val canonicalParent = parent.canonicalFile
+        val inside = roots.any { root ->
+            val base = root.canonicalPath
+            canonicalParent.path == base || canonicalParent.path.startsWith("$base/")
+        }
+        if (!inside) throw RemovalException("not inside the app's cache")
+        if (!removeTree(File(canonicalParent, name))) throw RemovalException("could not be removed")
     }
 
     /**

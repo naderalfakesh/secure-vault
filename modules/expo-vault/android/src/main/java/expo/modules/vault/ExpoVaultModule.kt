@@ -449,6 +449,11 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        // expo-file-system's delete follows a link and empties its target first.
+        Function("removeTreeNoFollow") { path: String ->
+            BackupContainer.removeNoFollow(path, listOf(appContext.reactContext!!.cacheDir))
+        }
+
         AsyncFunction("getFileSize") { key: String, promise: Promise ->
             try {
                 val file = vaultFile(key)

@@ -1,4 +1,10 @@
+import { jest } from '@jest/globals';
+import { Directory, File } from 'expo-file-system';
+
 import type { BackupFile, BackupProgress, SecureVault } from './ExpoVaultModule';
+
+const trimSlashes = (path: string) => path.replace(/\/+$/, '');
+const pathOf = (uri: string) => trimSlashes(decodeURIComponent(uri.replace(/^file:\/\//, '')));
 
 /**
  * In-memory stand-in for the native vault, used by Jest. It keeps the same
@@ -21,6 +27,13 @@ export function createVaultMock(): SecureVault & {
   lastImport: VaultMockImport | null;
   /** Paths the last `exportBackup` call was given, for tests of the staging contract. */
   lastExport: VaultMockExport | null;
+  /**
+   * Marks the folder at `path` as a symbolic link to `target`. The mock file
+   * system has no links, so it stands in as an empty folder; see
+   * `followLinksOnDelete` for what the file system API does with it.
+   */
+  plantLink(path: string, target: string): void;
+  linkTarget(path: string): string | null;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
@@ -36,6 +49,7 @@ export function createVaultMock(): SecureVault & {
     }
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
+  const links = new Map<string, string>();
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
 
   return {
@@ -131,6 +145,29 @@ export function createVaultMock(): SecureVault & {
       emit({ phase: 'import', done: total, total });
       return { entries: total - 1, extras };
     },
+    removeTreeNoFollow(path) {
+      if (!path.startsWith('/'))
+        throw new Error('The cache entry cannot be removed: not an absolute path');
+      const key = trimSlashes(path);
+      // A link is unlinked, never followed.
+      links.delete(key);
+      const directory = new Directory(`file://${key}/`);
+      if (directory.exists) {
+        directory.delete();
+        return;
+      }
+      const file = new File(`file://${key}`);
+      if (file.exists) file.delete();
+    },
+    plantLink(path, target) {
+      const key = trimSlashes(path);
+      links.set(key, trimSlashes(target));
+      const standIn = new Directory(`file://${key}/`);
+      if (!standIn.exists) standIn.create({ intermediates: true });
+    },
+    linkTarget(path) {
+      return links.get(trimSlashes(path)) ?? null;
+    },
     addListener(_event, listener) {
       listeners.add(listener);
       return {
@@ -143,10 +180,24 @@ export function createVaultMock(): SecureVault & {
       strings = new Map();
       files = new Map();
       created = false;
+      links.clear();
     },
   };
 }
 
 const vaultMock = createVaultMock();
+
+/**
+ * Makes `Directory.delete` behave as expo-file-system does on Android for a
+ * planted link: it empties the link's target before removing the link.
+ */
+export function followLinksOnDelete(mock: { linkTarget(path: string): string | null } = vaultMock) {
+  const remove = Directory.prototype.delete;
+  return jest.spyOn(Directory.prototype, 'delete').mockImplementation(function (this: Directory) {
+    const target = mock.linkTarget(pathOf(this.uri));
+    if (target) for (const entry of new Directory(`file://${target}/`).list()) entry.delete();
+    return remove.call(this);
+  });
+}
 
 export default vaultMock;
