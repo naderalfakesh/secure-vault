@@ -1,10 +1,13 @@
 import { jest } from '@jest/globals';
-import { Directory, File } from 'expo-file-system';
+import { Directory, File, Paths } from 'expo-file-system';
 
 import type { BackupFile, BackupProgress, SecureVault } from './ExpoVaultModule';
 
 const trimSlashes = (path: string) => path.replace(/\/+$/, '');
 const pathOf = (uri: string) => trimSlashes(decodeURIComponent(uri.replace(/^file:\/\//, '')));
+const isBelow = (path: string, folder: string) => path.startsWith(`${folder}/`);
+// The native roots: the app cache, and on iOS tmp (the mock container's `/mock/tmp`).
+const removalRoots = () => [pathOf(Paths.cache.uri), '/mock/tmp'];
 
 /**
  * In-memory stand-in for the native vault, used by Jest. It keeps the same
@@ -34,6 +37,7 @@ export function createVaultMock(): SecureVault & {
    */
   plantLink(path: string, target: string): void;
   linkTarget(path: string): string | null;
+  links(): string[];
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
@@ -149,8 +153,20 @@ export function createVaultMock(): SecureVault & {
       if (!path.startsWith('/'))
         throw new Error('The cache entry cannot be removed: not an absolute path');
       const key = trimSlashes(path);
-      // A link is unlinked, never followed.
-      links.delete(key);
+      const parent = key.slice(0, key.lastIndexOf('/'));
+      const name = key.slice(parent.length + 1);
+      // The mock never resolves links in the parent, so `.` and `..` segments are refused outright.
+      if (
+        !name ||
+        key.split('/').some((segment) => segment === '.' || segment === '..') ||
+        !removalRoots().some((root) => parent === root || isBelow(parent, root))
+      ) {
+        throw new Error("The cache entry cannot be removed: not inside the app's cache");
+      }
+      // A link is unlinked, never followed, here or anywhere below.
+      for (const link of [...links.keys()]) {
+        if (link === key || isBelow(link, key)) links.delete(link);
+      }
       const directory = new Directory(`file://${key}/`);
       if (directory.exists) {
         directory.delete();
@@ -167,6 +183,9 @@ export function createVaultMock(): SecureVault & {
     },
     linkTarget(path) {
       return links.get(trimSlashes(path)) ?? null;
+    },
+    links() {
+      return [...links.keys()];
     },
     addListener(_event, listener) {
       listeners.add(listener);
@@ -189,13 +208,21 @@ const vaultMock = createVaultMock();
 
 /**
  * Makes `Directory.delete` behave as expo-file-system does on Android for a
- * planted link: it empties the link's target before removing the link.
+ * planted link, at the folder itself or anywhere below it: it empties the
+ * link's target before removing the link.
  */
-export function followLinksOnDelete(mock: { linkTarget(path: string): string | null } = vaultMock) {
+export function followLinksOnDelete(
+  mock: { links(): string[]; linkTarget(path: string): string | null } = vaultMock,
+) {
   const remove = Directory.prototype.delete;
   return jest.spyOn(Directory.prototype, 'delete').mockImplementation(function (this: Directory) {
-    const target = mock.linkTarget(pathOf(this.uri));
-    if (target) for (const entry of new Directory(`file://${target}/`).list()) entry.delete();
+    const self = pathOf(this.uri);
+    for (const link of mock.links()) {
+      const target = mock.linkTarget(link);
+      if (target && (link === self || isBelow(link, self))) {
+        for (const entry of new Directory(`file://${target}/`).list()) entry.delete();
+      }
+    }
     return remove.call(this);
   });
 }

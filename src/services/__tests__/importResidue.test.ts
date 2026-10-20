@@ -380,6 +380,36 @@ describe('import copies outside the vault', () => {
       );
     });
 
+    it('unlinks a link nested inside a swept folder without emptying its target', async () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
+      const share = new Directory(Paths.cache, 'share');
+      const copy = plant(share, 'Passport.pdf');
+      const nested = new Directory(share, 'nested');
+      const kept = plantLinkedFolder(nested);
+
+      await documentService.clearCache();
+
+      expect(kept.exists).toBe(true);
+      expect(vaultMock.linkTarget(toPath(nested))).toBeNull();
+      expect(copy.exists).toBe(false);
+      expect(share.exists).toBe(false);
+    });
+
+    it('never removes anything outside the cache and tmp', () => {
+      const own = plant(Paths.document, 'own.txt');
+
+      for (const path of [
+        toPath(new Directory(Paths.document, 'own.txt')),
+        '/mock/cache',
+        '/mock/cache/../Documents/own.txt',
+        'mock/cache/share',
+      ]) {
+        expect(() => vault.removeTreeNoFollow(path)).toThrow(/cannot be removed/);
+      }
+      expect(own.exists).toBe(true);
+      own.delete();
+    });
+
     it("unlinks iOS's Inbox folder at lock and launch without emptying its target", async () => {
       const inbox = new Directory(tmp(), APPLE_INBOX_DIRECTORY);
       const kept = plantLinkedFolder(inbox);
