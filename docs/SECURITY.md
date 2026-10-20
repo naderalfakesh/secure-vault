@@ -42,6 +42,10 @@ backup passphrase ─── PBKDF2-HMAC-SHA256, 600 000 iterations, per-file sal
   open at a time: a caller that needs the key while a prompt is showing waits
   for that prompt's answer instead of opening a second one, which would take
   over the first one's callback and leave it waiting forever.
+  "Delete everything" keeps the device key. If the system has invalidated it
+  (`KEY_INVALIDATED`, after a biometric or lock screen change), the next setup
+  replaces it with a new one, but only when the vault holds no entries, so
+  nothing still encrypted under the old key is cut off by setup.
 
 Everything the vault stores is encrypted under this key with AES-256-GCM.
 Files are streamed in 1 MiB chunks, each with its own random nonce and the
@@ -67,6 +71,18 @@ fails, or if the key is missing while an index file exists. A replaced key
 would make the existing index unreadable. "Delete everything" removes every
 index file and its side files, so the next open after it starts as a first
 run.
+
+A restore installs the index under a new name and records it in
+`_database_file`. A vault without that entry uses `securevault.db`. If the
+entry is listed but cannot be read or holds no index name, the default is
+used only when no restored index file exists, and nothing is swept on that
+guess; otherwise the open stops with a typed error, so an empty default index
+can never replace a restored one. A locked device key while reading the name
+or checking the prototype's JSON index stops the open with `KEY_LOCKED`,
+which the key-recovery prompt and "Try again" handle. While "Delete
+everything" runs, and until the vault no longer lists `_database_key` or
+`_database_file`, an open is turned away with a plain sentence instead of
+creating a file the erase would delete under it or leave without its key.
 
 ### App PIN
 
