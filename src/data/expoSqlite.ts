@@ -42,6 +42,9 @@ class ExpoSqlDatabase implements SqlDatabase {
   }
 }
 
+/** Every open uses the same options; expo-sqlite shares a connection only between equal ones. */
+export const OPEN_OPTIONS = { finalizeUnusedStatementsBeforeClosing: false } as const;
+
 /**
  * Opens the SQLCipher database. The key is 32 random bytes as hex, generated
  * once and kept encrypted by the vault module; `PRAGMA key` must be the first
@@ -51,7 +54,9 @@ export async function openEncryptedDatabase(name: string, hexKey: string): Promi
   if (!/^[0-9a-f]{64}$/i.test(hexKey)) {
     throw new Error('Database key must be 32 bytes as hex.');
   }
-  const db = await openDatabaseAsync(name);
+  // expo-sqlite 57 otherwise finalizes every statement on the connection,
+  // FTS5's own included, which sqlite3_close then frees again (SDK 58 fixes it).
+  const db = await openDatabaseAsync(name, OPEN_OPTIONS);
   await db.execAsync(`PRAGMA key = "x'${hexKey}'";`);
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   // Any query fails with "file is not a database" when the key is wrong.
