@@ -220,6 +220,16 @@ disabled until it ends.
   entry directly inside one of those exact folders, or an iOS `tmp` file with
   exactly the scanner's name pattern, after decoding and with `..` refused,
   is ever removed; the user's own files elsewhere are never touched.
+- Every whole-folder removal in these sweeps (the two staging folders,
+  `backup` and its restore extras, `DocumentPicker`, `ImagePicker`,
+  `mlkit_docscan_ui_client`, the preview, viewer and share folders, and the
+  iOS Inbox) goes through the vault module, which never follows a symbolic
+  link: a link planted in place of one of these folders, or anywhere inside
+  one, is removed itself and what it points at is left alone. The module
+  only removes entries inside the app's cache (and, on iOS, its `tmp`) once
+  the parent's links are resolved. expo-file-system's own `delete` is not
+  used for these because on Android it empties a link's target before
+  removing the link.
 - Launch also removes, once, plaintext scratch that earlier builds wrote and
   could leave when killed: `tmp/backup-<UUID>` and `tmp/<UUID>` on iOS,
   `backup<n>.tmp` in the cache and `vault<n>.tmp` in the vault folder on
