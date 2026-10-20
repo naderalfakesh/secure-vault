@@ -14,7 +14,7 @@ Every native run below used debug builds on an Android 16 (API 36) arm64
 emulator and an iOS 27 simulator, built with Xcode 27.1 from the commit
 named in each section, over synthetic documents and fixtures. Nothing here
 was run on a physical device. A result is listed as passed only when a run
-at that commit showed it; everything else is listed as open.
+at that commit showed it; everything else is listed under "Not verified".
 
 ## Changes
 
@@ -80,72 +80,94 @@ left it alone on a second run. The iOS build succeeded on Xcode 27.1 and the
 four JSI interface files carry no stripped declarations. Android
 `assembleDebug` succeeded and the APK packages `libcrypto.so`.
 
-### Database key fails closed (`d3d486c`, 2026-10-20)
+### Database key fails closed (`d3d486c`, 2026-10-20): passed, scoped
 
-On both platforms: a corrupted `_database_key` stopped the open with "The
-document index key could not be read. Nothing was changed." and the value was
-left as it was; a deleted key with an index present stopped with the
-missing-key sentence and no new key was written; a planted index file with no
-key did the same; setup after "Delete everything" wrote a fresh key that
-survived a relaunch; and a backup round trip restored the same documents.
-Android also showed an existing vault unlocking after the upgrade with its
-key unchanged, and a cancelled prompt during the open leaving key and index
-untouched, with the next try opening the vault. That cancelled-prompt error
-was shown as the platform's own text, not one of the typed sentences.
+Both builds compiled with the native entry listing change. On both
+platforms:
 
-### PIN lockout across relaunches (`d3d486c`)
+- A first-run key survived a relaunch.
+- A corrupted key file showed a plain sentence, and the file was left as
+  it was.
+- A missing key next to a restored index stopped the open, and the index was
+  not swept.
+- A kill, a missing key, "Delete everything" and a new setup gave a working
+  vault.
+- An export and restore round trip through the service calls restored the
+  same documents.
 
-On both platforms five wrong PINs started a pause that survived a relaunch,
-the correct PIN was refused during it, and the count continued after it. A
-planted pause far in the future was capped, a store that is not JSON was
-treated as a short pause, and failures carried across relaunches. Android
-also covered a second, longer pause, the clock set back a day, a cancelled
-prompt that did not count, and 475 rapid taps that stopped at exactly five
-failures.
+Android also covered two cases. An install over a vault made at `4501838`
+kept its key unchanged. A lapsed key window with a cancelled prompt kept the
+key, and "Try again" recovered.
 
-### Picker copies (`d3d486c`)
+### PIN lockout across relaunches (`d3d486c`): passed
 
-On Android the `DocumentPicker` copy was gone after saving, going back,
-closing, a lock in the background, a kill and relaunch, and an erase; decoy
-files were left alone. On iOS the `DocumentPicker` copy was removed, but the
-system's own copy in `tmp/com.naderalfakesh.securevault-Inbox` stayed in
-every flow. The import residue change (`7891f1d`) removes that copy; it has
-not been run yet.
+On Android:
 
-### Restore staging (`5664458`, 2026-10-20)
+- A pause survived a force-stop with the same end time, and the correct PIN
+  was refused during it.
+- The count continued after the pause and escalated to a 60-second pause.
+- A cancelled prompt was not counted.
+- A stored lockout with five failures and an end time of 10^15 was capped to
+  30 seconds, and the cap was written back.
+- With the clock set back, the pause was 30 seconds and ended on time.
+- A value that is not JSON gave one 30-second pause, then four attempts left.
+- A fast relaunch race never reset the count.
 
-On both platforms a restore watched while it ran put plaintext only in
-`restore-staging`, never in `tmp`, and every hash matched afterwards. A
-restore killed mid-entry left staged files that the next launch removed
-before unlock. A wrong passphrase and a damaged file were refused with the
-vault unchanged and staging empty, and five bad staging paths and a linked
-staging folder were refused natively. A lock during a restore left staging
-in place until the restore ended; the notice after unlock was seen on
-Android.
+iOS passed the same cases, except the two listed under "Not verified". A
+Face ID match also reset the lockout.
+
+### Picker copies (`d3d486c`): passed
+
+On both platforms the `DocumentPicker` folder was empty after each of these:
+saving a PDF, saving a PNG, going back, closing the screen, cancelling, a
+lock on the details form, and a kill followed by a relaunch. A planted
+control file was removed at lock, decoy files elsewhere were kept, and the
+test markers never turned up anywhere else. The system's own copy in the
+iOS `tmp/com.naderalfakesh.securevault-Inbox` folder is a separate finding.
+The import residue change removes it (`7891f1d`), and that is still pending.
+
+### Restore staging (`5664458`, 2026-10-20): passed
+
+All ten cases passed on both platforms.
+
+- Restore scratch and plaintext only ever landed in `restore-staging`. It
+  held at most two files, and nothing landed in `tmp` or the cache root.
+- A kill in the middle of an import served as a positive control. The
+  folder held the decrypted `_database_key` on iOS and a partial plaintext on
+  Android, and both were swept at the relaunch, before unlock.
+- A lock during a restore let it finish. The folder was removed, and the
+  outcome was shown after unlock.
+- A wrong passphrase and a damaged backup gave typed errors.
+- Saving a thumbnail left no file in `tmp` and no `vault*.tmp` file.
+- Six staging path guards refused their inputs.
+- Every document hash matched after the restores.
+- On iOS, a "Delete everything" followed by setup worked.
+
+The run found two Android issues outside this change:
+
+- After a long session, "Delete everything" crashed once in expo-sqlite with
+  a double free while closing the index, and the retry worked. The index
+  close change addresses it.
+- The JavaScript sweep followed a staging folder that had been replaced by a
+  symbolic link. The link-safe sweeps address it.
 
 ## Not verified
 
-- Restore staging (`5664458`): on Android the first "Delete everything" of
-  the run crashed the app inside expo-sqlite while closing the index (a
-  double free in `sqlite3_close`), and the erase did not finish; a second
-  erase did. The same run's Android link test left the link's target empty,
-  which a link-following sweep would explain. The iOS thumbnail scratch file
-  was not checked after a lock, the iOS erase case has only screenshots, and
-  the launch sweep of older builds' scratch had no result on either
-  platform.
-- Restored index name and import residues (`509d08d`): the run was still in
-  progress at the time of writing and iOS had not started. On Android so far,
-  scratch from older builds was removed at launch with look-alike files left
-  alone. An unreadable or deleted `_database_file` kept the index and created
-  no default file, but Home showed an empty vault instead of the error
-  sentence. An erase during an open crashed in the same expo-sqlite close.
-  The picker and camera copies were not run. None of this is a result yet.
-- The index close change (`8415675` to `384a57e`), meant to fix that crash,
-  and the link-safe sweeps (`0f2374a` to `5872e2a`): not yet run on either
-  platform.
-- On iOS, at `d3d486c`: the upgrade over an existing vault, the cancelled
-  prompt during the open, the clock set back, the cancelled prompt during
-  PIN entry, and the rapid-tap race.
+- The restored index name, the erase gate, and the import residues
+  (`509d08d`): their native run was still going at the time of writing.
+  Pending. When an index name cannot be read, Home shows an empty vault
+  instead of an error; that is a known, separate interface item.
+- The index close change (`8415675` to `384a57e`) and the link-safe sweeps
+  (`0f2374a` to `5872e2a`): pending, on both platforms.
+- The iOS Inbox copy removal (`7891f1d`): pending, as part of the import
+  residue run.
+- Database key, on iOS: an install over an existing vault (there was no
+  vault made before this commit).
+- Database key, on both platforms: a key the system invalidates after a new
+  fingerprint, the Keychain refusing an unsigned build, and a listing that
+  returns nothing.
+- PIN lockout, on iOS: a cancelled Keychain prompt, and the clock set back.
+  The cap case exercises the same code as the clock change.
 - The memory-only image cache on Android.
 - Physical devices, for every change above.
 - `npm run validate` fails only on Expo Doctor, which asks for newer Expo
