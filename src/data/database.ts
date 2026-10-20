@@ -16,6 +16,8 @@ const DATABASE_FILE_ENTRY = '_database_file';
 const DATABASE_KEY_ENTRY = '_database_key';
 const LEGACY_INDEX_ENTRY = '_documents_metadata';
 const LEGACY_IMPORTED_ENTRY = '_legacy_index_imported';
+// The index under any name a restore gave it, with its SQLite side files.
+const INDEX_FILE = /^securevault(-\d+)?\.db(-wal|-shm|-journal)?$/;
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -53,14 +55,29 @@ function unreadableKey(cause: unknown): Error {
   );
 }
 
+function databaseDirectory(name: string): Directory {
+  const path = databaseFilePath(name);
+  return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
+}
+
+/** Any index file, not only `name`: a failed `_database_file` read falls back to the default. */
+function indexFileExists(name: string): boolean {
+  try {
+    const directory = databaseDirectory(name);
+    return directory.exists && directory.list().some((entry) => INDEX_FILE.test(entry.name));
+  } catch (error) {
+    throw unreadableKey(error);
+  }
+}
+
 /**
  * Key hierarchy: the device key in the Keychain or Keystore never leaves the
  * vault module; it encrypts this random database key, which SQLCipher uses
  * for every page of the index. Losing the device key loses both.
  *
  * A new key is only written when the entry is absent from the vault's listing
- * (which needs no device key) and no index file exists yet. Writing one in any
- * other case would make an existing index unreadable for good.
+ * (which needs no device key) and no index file of any name exists. Writing
+ * one in any other case would make an existing index unreadable for good.
  */
 async function loadDatabaseKey(name: string): Promise<string> {
   let keys: string[];
@@ -79,7 +96,7 @@ async function loadDatabaseKey(name: string): Promise<string> {
     if (/^[0-9a-f]{64}$/i.test(existing)) return existing;
     throw unreadableKey(new Error('The stored database key is malformed.'));
   }
-  if (new File(`file://${databaseFilePath(name)}`).exists) {
+  if (indexFileExists(name)) {
     throw keyError(
       'DATABASE_KEY_MISSING',
       'The key for the document index is missing, so the index cannot be opened. Nothing was changed.',
@@ -106,12 +123,11 @@ async function currentDatabaseName(): Promise<string> {
 /** Index files left behind by earlier restores; the current one is kept. */
 function sweepStaleDatabases(current: string): void {
   try {
-    const path = databaseFilePath(current);
-    const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
+    const directory = databaseDirectory(current);
     if (!directory.exists) return;
     for (const entry of directory.list()) {
       const { name } = entry;
-      if (/^securevault(-\d+)?\.db(-wal|-shm|-journal)?$/.test(name) && !name.startsWith(current)) {
+      if (INDEX_FILE.test(name) && !name.startsWith(current)) {
         try {
           entry.delete();
         } catch {

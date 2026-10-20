@@ -176,11 +176,12 @@ describe('database key', () => {
   }
 
   function indexFiles(names: string[]) {
-    jest.spyOn(Object.getPrototypeOf(File.prototype), 'exists', 'get').mockImplementation(function (
-      this: File,
-    ) {
-      return names.some((name) => this.uri === `file:///data/SQLite/${name}`);
-    });
+    jest
+      .spyOn(Object.getPrototypeOf(Directory.prototype), 'exists', 'get')
+      .mockReturnValue(names.length > 0);
+    jest
+      .spyOn(Directory.prototype, 'list')
+      .mockImplementation(() => names.map((name) => ({ name, delete: () => {} }) as never));
   }
 
   beforeEach(async () => {
@@ -260,6 +261,36 @@ describe('database key', () => {
     indexFiles(['securevault-1700000000000.db']);
 
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+  });
+
+  it('refuses to create a key while a restored index exists under another name', async () => {
+    // `_database_file` could not be read, so the name falls back to the default.
+    await vault.put('_database_file', 'securevault-1700000000000.db');
+    failGet('_database_file', getFailed);
+    indexFiles(['securevault-1700000000000.db', 'securevault-1700000000000.db-wal']);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+    expect(put).not.toHaveBeenCalled();
+    expect(openEncrypted).not.toHaveBeenCalled();
+  });
+
+  it('creates a key next to files that are not an index', async () => {
+    indexFiles(['other.db', 'securevault.db.bak']);
+
+    await openDocumentStore();
+    expect(await vault.get('_database_key')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('writes no key when the index folder cannot be listed', async () => {
+    jest.spyOn(Object.getPrototypeOf(Directory.prototype), 'exists', 'get').mockReturnValue(true);
+    jest.spyOn(Directory.prototype, 'list').mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
+    expect(put).not.toHaveBeenCalled();
   });
 
   it('opens an existing index with its stored key and leaves the key alone', async () => {
