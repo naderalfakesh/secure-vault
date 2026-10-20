@@ -67,6 +67,12 @@ export function describeBackupError(
       return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
     case 'BACKUP_BUSY':
       return 'A backup or restore is still running. Try again once it has finished.';
+    case 'BACKUP_EXPORT_FAILED':
+      return 'The backup could not be written. Check that the device has free space and try again.';
+    case 'BACKUP_IMPORT_FAILED':
+      return 'The restore could not start, so nothing was changed. Try again.';
+    case 'GET_ALL_KEYS_FAILED':
+      return "The vault's files could not be read. Try again.";
     default:
       return error instanceof Error && error.message ? error.message : fallback;
   }
@@ -81,6 +87,9 @@ const knownBackupErrors = new Set([
   'BACKUP_INDEX',
   'BACKUP_STAGING_INVALID',
   'BACKUP_BUSY',
+  'BACKUP_EXPORT_FAILED',
+  'BACKUP_IMPORT_FAILED',
+  'GET_ALL_KEYS_FAILED',
 ]);
 
 /**

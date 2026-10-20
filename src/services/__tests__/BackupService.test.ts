@@ -40,6 +40,11 @@ describe('passphrase policy', () => {
       /temporary files could not be cleared/,
     );
     expect(describeBackupError({ code: 'BACKUP_BUSY' })).toMatch(/still running/);
+    expect(
+      describeBackupError({ code: 'BACKUP_EXPORT_FAILED', message: 'Could not list files' }),
+    ).toMatch(/backup could not be written/);
+    expect(describeBackupError({ code: 'BACKUP_IMPORT_FAILED' })).toMatch(/nothing was changed/);
+    expect(describeBackupError({ code: 'GET_ALL_KEYS_FAILED' })).toMatch(/files could not be read/);
     expect(describeBackupError(new Error('disk full'))).toBe('disk full');
     expect(describeBackupError(null)).toBe('Could not use this backup.');
     expect(describeBackupError(null, 'Could not create the backup.')).toBe(
