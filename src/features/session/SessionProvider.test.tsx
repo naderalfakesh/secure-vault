@@ -451,6 +451,40 @@ describe('SessionProvider PIN lockout across relaunches', () => {
     await waitFor(() => expect(second.getByTestId('status')).toHaveTextContent('unlocked'));
   });
 
+  it('judges one PIN attempt at a time so none of them is lost', async () => {
+    await lockedVault();
+    let session: ReturnType<typeof useSession> | null = null;
+    function Capture() {
+      const value = useSession();
+      useEffect(() => {
+        session = value;
+      });
+      return <Text testID="status">{value.status}</Text>;
+    }
+    const view = await render(
+      <SessionProvider>
+        <Capture />
+      </SessionProvider>,
+    );
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+
+    let results: PinUnlockResult[] = [];
+    await act(async () => {
+      results = await Promise.all([
+        session!.unlockWithPin('000000'),
+        session!.unlockWithPin('000001'),
+      ]);
+    });
+    expect(results).toEqual(['wrong-pin', 'not-unlocked']);
+    expect(await stored()).toEqual({ failures: 1, lockedUntil: 0 });
+
+    await act(async () => {
+      results = [await session!.unlockWithPin('000000')];
+    });
+    expect(results).toEqual(['wrong-pin']);
+    expect(await stored()).toEqual({ failures: 2, lockedUntil: 0 });
+  });
+
   it('ignores PIN attempts until the stored lockout has been read', async () => {
     await lockedVault();
     let finishStartup: (exists: boolean) => void = () => {};

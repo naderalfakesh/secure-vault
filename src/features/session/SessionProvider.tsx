@@ -138,6 +138,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const waitersRef = useRef(new Set<() => void>());
   // The lockout a PIN attempt is judged against, current within the same tick.
   const lockoutRef = useRef<LockoutState>(EMPTY_LOCKOUT);
+  // One PIN attempt at a time, so two in flight cannot both count from the same state.
+  const attemptingRef = useRef(false);
 
   const applyLockout = useCallback((next: LockoutState) => {
     lockoutRef.current = next;
@@ -229,11 +231,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, [loadProtectedState, applyLockout, changeStatus]);
 
-  const unlockWithPin = useCallback(
+  const checkPin = useCallback(
     async (pin: string): Promise<PinUnlockResult> => {
-      setError(null);
-      // Nothing is judged before the startup read of the stored lockout landed.
-      if (statusRef.current === 'loading') return 'not-unlocked';
       // The stored copy outlives a relaunch and the one in memory outlives a
       // failed write; the attempt is judged against the stricter of the two.
       const stored = await loadCappedLockout();
@@ -269,6 +268,22 @@ export function SessionProvider({ children }: PropsWithChildren) {
       }
     },
     [loadProtectedState, ensureKeyAccess, applyLockout, changeStatus],
+  );
+
+  const unlockWithPin = useCallback(
+    async (pin: string): Promise<PinUnlockResult> => {
+      setError(null);
+      // Nothing is judged before the startup read of the stored lockout landed,
+      // or while another attempt is still being judged.
+      if (statusRef.current === 'loading' || attemptingRef.current) return 'not-unlocked';
+      attemptingRef.current = true;
+      try {
+        return await checkPin(pin);
+      } finally {
+        attemptingRef.current = false;
+      }
+    },
+    [checkPin],
   );
 
   const setUp = useCallback(
