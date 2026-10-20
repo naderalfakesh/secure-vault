@@ -127,6 +127,8 @@ export default function AddDocumentScreen() {
   // Picker, camera, and scanner copies are plaintext: they go once the
   // document is saved, and whenever this screen lets go of them unsaved.
   const held = useRef<PickedFile[]>([]);
+  // A PDF's rendered first page; a photo's preview is its own picked copy.
+  const shown = useRef<string | null>(null);
   const mounted = useRef(true);
   // A save in flight owns the copies: the vault module still has to read them.
   const saving = useRef(false);
@@ -136,9 +138,14 @@ export default function AddDocumentScreen() {
   }, [files]);
 
   useEffect(() => {
+    shown.current = preview;
+  }, [preview]);
+
+  useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (shown.current) documentService.discardPreview(shown.current);
       if (saving.current) return;
       for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
     };
@@ -216,6 +223,7 @@ export default function AddDocumentScreen() {
           // like a photo.
           const preview = await documentService.previewForFile(asset.uri, type);
           if (!mounted.current) {
+            if (preview) documentService.discardPreview(preview);
             documentService.discardPickedCopy(asset.uri);
             return;
           }
@@ -280,6 +288,7 @@ export default function AddDocumentScreen() {
 
   const reset = useCallback(() => {
     for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
+    if (shown.current) documentService.discardPreview(shown.current);
     setFiles([]);
     setPreview(null);
     setOcrText(undefined);

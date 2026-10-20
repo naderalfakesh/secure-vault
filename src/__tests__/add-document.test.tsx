@@ -308,3 +308,89 @@ describe('AddDocumentScreen photo and scan copies', () => {
     expect(photo.exists).toBe(false);
   });
 });
+
+describe('AddDocumentScreen pdf previews', () => {
+  const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+  let rendered: File[] = [];
+  let render_: jest.SpyInstance;
+
+  beforeEach(() => {
+    rendered = [];
+    // Render a real file so the test can see whether it is removed.
+    render_ = jest.spyOn(vault, 'renderPdfPages').mockImplementation(async (_source, _max, dir) => {
+      const folder = new Directory(`file://${dir}`);
+      folder.create({ intermediates: true });
+      const page = new File(folder, 'page_1.jpg');
+      page.write('jpeg');
+      rendered.push(page);
+      return [{ uri: page.uri, width: 10, height: 10 }];
+    });
+  });
+
+  afterEach(() => {
+    render_.mockRestore();
+    for (const page of rendered) {
+      if (page.parentDirectory.exists) page.parentDirectory.delete();
+    }
+    if (pickerFolder().exists) pickerFolder().delete();
+    jest.clearAllMocks();
+  });
+
+  function queuePdf() {
+    if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
+    const copy = new File(pickerFolder(), '5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90.pdf');
+    copy.write('plaintext');
+    return {
+      canceled: false,
+      assets: [{ uri: copy.uri, name: 'lease.pdf', mimeType: 'application/pdf', size: 9 }],
+    };
+  }
+
+  async function importPdf() {
+    pickDocument.mockResolvedValueOnce(queuePdf());
+    const view = await renderScreen();
+    await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+    expect(rendered).toHaveLength(1);
+    expect(rendered[0]?.exists).toBe(true);
+    return view;
+  }
+
+  it('removes the rendered preview when the user goes back to the sources', async () => {
+    const view = await importPdf();
+
+    await fireEvent.press(view.getByLabelText('Back to sources'));
+
+    expect(rendered[0]?.parentDirectory.exists).toBe(false);
+  });
+
+  it('removes the rendered preview when the screen closes', async () => {
+    const view = await importPdf();
+
+    await act(async () => {
+      view.unmount();
+    });
+
+    expect(rendered[0]?.parentDirectory.exists).toBe(false);
+  });
+
+  it('removes a preview rendered for a file picked after the screen closed', async () => {
+    let answer: (value: unknown) => void = () => {};
+    pickDocument.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const view = await renderScreen();
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    await act(async () => {
+      view.unmount();
+    });
+    await act(async () => {
+      answer(queuePdf());
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    expect(rendered).toHaveLength(1);
+    expect(rendered[0]?.parentDirectory.exists).toBe(false);
+  });
+});

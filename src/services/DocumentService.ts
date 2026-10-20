@@ -40,6 +40,9 @@ const IMPORT_DIRECTORIES = [PICKER_DIRECTORY, IMAGE_PICKER_DIRECTORY, SCANNER_DI
 const UUID_PATTERN = '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}';
 /** The iOS scanner module's pages in tmp: `scan_<batch UUID>_<index>.jpg`. */
 const SCAN_PAGE = new RegExp(`^scan_${UUID_PATTERN}_\\d+\\.jpg$`);
+const PREVIEW_PREFIX = 'pages_preview_';
+const PREVIEW_FOLDER = /^pages_preview_\d+$/;
+
 /**
  * Plaintext scratch that builds before the staging folders wrote and could
  * leave behind when killed. Nothing current writes these names.
@@ -313,11 +316,36 @@ class DocumentService {
     if (!mimeType.includes('pdf')) return uri;
     try {
       const path = await this.getLocalFilePath(uri);
-      const { path: directory } = this.getCacheLocation(`pages_preview_${Date.now()}`);
+      const { path: directory } = this.getCacheLocation(`${PREVIEW_PREFIX}${Date.now()}`);
       const [page] = await ExpoVaultModule.renderPdfPages(path, PAGE_MAX_PIXELS, directory);
       return page ? this.toUri(page.uri) : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Removes the folder `previewForFile` rendered a PDF preview into. Only a
+   * file directly in a `pages_preview_<time>` folder directly in the cache
+   * qualifies; a photo's own URI and the viewer's pages are left alone.
+   */
+  discardPreview(uri: string): void {
+    let path: string;
+    let cache: string;
+    try {
+      path = this.comparablePath(uri);
+      cache = this.comparablePath(this.cacheUri).replace(/\/?$/, '/');
+    } catch {
+      return;
+    }
+    const folder = path.slice(0, path.lastIndexOf('/'));
+    const folderName = childName(folder, cache);
+    if (!folderName || !PREVIEW_FOLDER.test(folderName) || childName(path, folder) === null) return;
+    try {
+      const directory = new Directory(this.cacheUri, folderName);
+      if (directory.exists) directory.delete();
+    } catch {
+      // Swept by clearCache.
     }
   }
 

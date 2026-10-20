@@ -274,4 +274,35 @@ describe('import copies outside the vault', () => {
       for (const file of kept) removeQuietly(file);
     });
   });
+
+  describe('rendered PDF previews', () => {
+    it('removes the folder a preview was rendered into, and no other', () => {
+      const preview = plant(
+        new Directory(Paths.cache, 'pages_preview_1760000000000'),
+        'page_1.jpg',
+      );
+      const viewer = plant(
+        new Directory(Paths.cache, 'pages_00000000-0000-4000-8000-1'),
+        'page_1.jpg',
+      );
+      const lookalike = plant(new Directory(Paths.cache, 'pages_preview_x'), 'page_1.jpg');
+      const loose = plant(new Directory(Paths.cache), 'pages_preview_2.jpg');
+
+      documentService.discardPreview(preview.uri);
+      documentService.discardPreview(viewer.uri);
+      documentService.discardPreview(lookalike.uri);
+      documentService.discardPreview(loose.uri);
+      documentService.discardPreview(
+        `${Paths.cache.uri}pages_preview_3/%2E%2E/pages_00000000-0000-4000-8000-1/page_1.jpg`,
+      );
+      documentService.discardPreview('file:///mock/document/pages_preview_4/page_1.jpg');
+
+      expect(preview.parentDirectory.exists).toBe(false);
+      expect(viewer.exists).toBe(true);
+      expect(lookalike.exists).toBe(true);
+      expect(loose.exists).toBe(true);
+      for (const file of [viewer, lookalike]) removeQuietly(file.parentDirectory);
+      removeQuietly(loose);
+    });
+  });
 });
