@@ -205,9 +205,9 @@ async function readLegacyIndex(): Promise<DocumentMetadata | null> {
 export type DocumentStore = { db: SqlDatabase; repository: DocumentRepository };
 
 let opening: Promise<DocumentStore> | null = null;
-// Connections replaced by a restore. They are never closed: closing a
-// connection right after the native import crashed inside SQLite's FTS5
-// teardown, and an idle open connection costs nothing until relaunch.
+// Connections no longer handed out but still open: replaced by a restore (a
+// screen may still be using one), or closed without success. Only an erase
+// closes them; a close that failed stays open until relaunch.
 const abandoned: Promise<DocumentStore>[] = [];
 // Set while "Delete everything" runs: an open in between would create a file
 // the erase deletes under it, or one whose key the erase deletes next.
@@ -258,14 +258,27 @@ export function openDocumentStore(): Promise<DocumentStore> {
   return opening ?? share(openStore());
 }
 
-/** Close the open store, e.g. before the vault is emptied. */
+/**
+ * Closes the open store and every abandoned one, e.g. before the vault is
+ * emptied. Throws if any stays open; that one is kept in `abandoned`.
+ */
 export async function closeDocumentStore(): Promise<void> {
-  const current = opening;
+  if (opening) abandoned.push(opening);
   opening = null;
-  if (current) {
-    const { db } = await current.catch(() => ({ db: null }));
-    await db?.close();
+  let failure: unknown = null;
+  for (const store of [...abandoned]) {
+    const db = await store.then(
+      (open) => open.db,
+      () => null,
+    );
+    try {
+      await db?.close();
+      abandoned.splice(abandoned.indexOf(store), 1);
+    } catch (error) {
+      failure ??= error;
+    }
   }
+  if (failure) throw failure;
 }
 
 /**
@@ -286,7 +299,16 @@ export async function deleteDocumentStore(removeEntries: () => Promise<void>): P
         return DEFAULT_DATABASE_NAME;
       },
     );
-    await closeDocumentStore();
+    try {
+      await closeDocumentStore();
+    } catch (error) {
+      // Deleting the files under a connection still open would leave it writing to an unlinked index.
+      throw keyError(
+        'ERASE_INCOMPLETE',
+        '"Delete everything" did not finish because the document index is still open, so nothing was deleted. Close SecureVault completely, open it again, and try again.',
+        error,
+      );
+    }
     await deleteEncryptedDatabase(name);
     const directory = databaseDirectory(name);
     if (directory.exists) {
@@ -324,8 +346,7 @@ export async function exportDatabaseFile(destPath: string): Promise<void> {
 /**
  * Installs a database file restored from a backup under a new name and
  * points the vault at it. The previous connection is abandoned rather than
- * closed (see `abandoned`): an unlocked screen may still be running a
- * statement on it. Whoever opens the index meanwhile waits for the new file,
+ * closed (see `abandoned`): an unlocked screen may still be using it. Whoever opens the index meanwhile waits for the new file,
  * so nothing reopens the old name or holds a connection the restore drops.
  */
 export async function replaceDatabaseFile(sourcePath: string): Promise<void> {

@@ -609,6 +609,54 @@ describe('index name, erase and legacy import', () => {
     expect(openEncrypted).toHaveBeenCalledWith(restored, 'ab'.repeat(32));
   });
 
+  it('deletes nothing while the index fails to close, and erases once it closes', async () => {
+    files = new Set(['securevault.db', 'securevault.db-wal']);
+    const close = jest
+      .fn()
+      .mockRejectedValue(new Error('unable to close due to unfinalized statements'));
+    openEncrypted.mockResolvedValueOnce({ exec: jest.fn(async () => {}), close });
+    await openDocumentStore();
+
+    await expect(deleteDocumentStore(removeEntries)).rejects.toMatchObject({
+      code: 'ERASE_INCOMPLETE',
+      message: expect.stringMatching(/^"Delete everything" did not finish/),
+    });
+    expect(deleteEncryptedDatabase).not.toHaveBeenCalled();
+    expect([...files]).toEqual(['securevault.db', 'securevault.db-wal']);
+    expect(await vault.getAllKeys()).toContain('_database_key');
+    await expect(openDocumentStore()).resolves.toBeDefined();
+
+    // The connection that stayed open is tried again, not forgotten.
+    await expect(deleteDocumentStore(removeEntries)).rejects.toMatchObject({
+      code: 'ERASE_INCOMPLETE',
+    });
+    expect(close).toHaveBeenCalledTimes(2);
+    expect([...files]).toEqual(['securevault.db', 'securevault.db-wal']);
+
+    close.mockResolvedValue(undefined);
+    await deleteDocumentStore(removeEntries);
+    expect([...files]).toEqual([]);
+    expect(await vault.getAllKeys()).toEqual([]);
+  });
+
+  it('closes the connection a restore replaced before erasing its files', async () => {
+    files = new Set(['securevault.db']);
+    const replacedClose = jest.fn(async () => {});
+    openEncrypted.mockResolvedValueOnce({ exec: jest.fn(async () => {}), close: replacedClose });
+    await openDocumentStore();
+    jest.spyOn(File.prototype, 'move').mockImplementation(async function (this: File, target) {
+      files.add((target as File).uri.split('/').pop()!);
+    });
+
+    await replaceDatabaseFile('/cache/backup/restore/database');
+    await openDocumentStore();
+    expect(replacedClose).not.toHaveBeenCalled();
+
+    await deleteDocumentStore(removeEntries);
+    expect(replacedClose).toHaveBeenCalledTimes(1);
+    expect([...files]).toEqual([]);
+  });
+
   it('reports a locked key while checking the legacy import instead of skipping it', async () => {
     vaultMock.reset();
     await vault.put('_database_key', 'ab'.repeat(32));
