@@ -18,13 +18,24 @@ the nine phases with their scope. Verification notes for finished phases live in
 | Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` |
 
 Local toolchain quirks: CocoaPods needs a UTF-8 locale (`LANG=en_US.UTF-8`),
-Gradle needs `JAVA_HOME` pointing at a JDK 17 or 21 (the JDK 25 Android Studio
-JBR fails AGP's prefab step) and must run with `--max-workers=4` while no
-emulator is booted, `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's
-`libcrypto.so` because AGP drops it when the project path contains spaces, and
-`expo run:ios` only sees Apple Silicon simulators because
-`plugins/withMlkitSimulatorFix.js` strips Google ML Kit's
-`EXCLUDED_ARCHS = arm64`. Do not remove either plugin.
+and Gradle needs `JAVA_HOME` pointing at a JDK 17 or 21 (the JDK 25 Android
+Studio JBR fails AGP's prefab step) and must run with `--max-workers=4` while
+no emulator is booted.
+
+Required native config. Do not remove any of it:
+
+- `plugins/withMlkitSimulatorFix.js` strips Google ML Kit's
+  `EXCLUDED_ARCHS = arm64`, so `expo run:ios` sees Apple Silicon simulators.
+- `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's `libcrypto.so`,
+  which AGP drops when the project path contains spaces.
+- `plugins/withJsiSwift64Fix.js` (with `jsi-interface-patch.py`) backports
+  the ExpoModulesJSI interface strip that Xcode 27.1 (Swift 6.4) needs. SDK 58
+  ships that fix, so the plugin can likely go with that upgrade.
+- `expo-build-properties`: `ios.usePrecompiledModules: false`, because
+  prebuilt Expo frameworks are tied to one Swift version, and
+  `ios.enableSceneSupport: true` for the iOS 27 scene lifecycle.
+- `plugins/withSecureVault.js` sets the Face ID string and the biometric
+  permission.
 
 ## Structure
 
@@ -36,7 +47,7 @@ emulator is booted, `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's
 - `src/features` session provider, document feature pieces; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   Keychain or Keystore key, string and file storage, export and import.
-- `plugins/` config plugins (Face ID string, biometric permission, ML Kit fix).
+- `plugins/` config plugins (listed above).
 - `docs/` plan, security model (`docs/SECURITY.md`), ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 
 ## Rules
