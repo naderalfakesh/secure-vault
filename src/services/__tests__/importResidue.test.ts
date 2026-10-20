@@ -29,6 +29,26 @@ function removeQuietly(entry: File | Directory) {
   if (entry.exists) entry.delete();
 }
 
+/**
+ * The mock file system never resolves `..` or `%2E%2E`, so a traversal input
+ * would not reach a real file there anyway; assert the guard refuses it before
+ * anything is deleted.
+ */
+function expectRefused(discard: () => void) {
+  const spies = [
+    jest.spyOn(File.prototype, 'exists', 'get'),
+    jest.spyOn(File.prototype, 'delete'),
+    jest.spyOn(Directory.prototype, 'exists', 'get'),
+    jest.spyOn(Directory.prototype, 'delete'),
+  ];
+  try {
+    discard();
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
+}
+
 describe('import copies outside the vault', () => {
   let documents: jest.SpyInstance;
 
@@ -91,7 +111,9 @@ describe('import copies outside the vault', () => {
       );
       documentService.discardPickedCopy(other.uri);
       documentService.discardPickedCopy(lower.uri);
-      documentService.discardPickedCopy(`${tmp().uri}%2E%2E/Documents/${scanPage}`);
+      expectRefused(() =>
+        documentService.discardPickedCopy(`${tmp().uri}%2E%2E/Documents/${scanPage}`),
+      );
 
       expect(page.exists).toBe(false);
       expect(other.exists).toBe(true);
@@ -133,7 +155,8 @@ describe('import copies outside the vault', () => {
 
       documentService.discardPickedCopy(lookalike.uri);
       documentService.discardPickedCopy(nested.uri);
-      documentService.discardPickedCopy(`${imagePicker().uri}%2E%2E/own.jpg`);
+      expectRefused(() => documentService.discardPickedCopy(`${imagePicker().uri}%2E%2E/own.jpg`));
+      expectRefused(() => documentService.discardPickedCopy(`${imagePicker().uri}../own.jpg`));
       documentService.discardPickedCopy(imagePicker().uri);
 
       expect(lookalike.exists).toBe(true);
@@ -292,8 +315,13 @@ describe('import copies outside the vault', () => {
       documentService.discardPreview(viewer.uri);
       documentService.discardPreview(lookalike.uri);
       documentService.discardPreview(loose.uri);
-      documentService.discardPreview(
-        `${Paths.cache.uri}pages_preview_3/%2E%2E/pages_00000000-0000-4000-8000-1/page_1.jpg`,
+      expectRefused(() =>
+        documentService.discardPreview(
+          `${Paths.cache.uri}pages_preview_3/%2E%2E/pages_00000000-0000-4000-8000-1/page_1.jpg`,
+        ),
+      );
+      expectRefused(() =>
+        documentService.discardPreview(`${Paths.cache.uri}pages_preview_3/%2E%2E`),
       );
       documentService.discardPreview('file:///mock/document/pages_preview_4/page_1.jpg');
 

@@ -208,18 +208,26 @@ describe('DocumentService', () => {
         );
         documentService.discardPickedCopy(own.uri);
         documentService.discardPickedCopy(neighbour.uri);
-        documentService.discardPickedCopy(
-          `${pickerFolder().uri}../${PICKER_DIRECTORY}-other/other.pdf`,
-        );
-        documentService.discardPickedCopy(pickerFolder().uri);
-        // Percent-encoded traversal decodes to a path with a separator in it.
-        documentService.discardPickedCopy(
-          `${pickerFolder().uri}%2E%2E/${PICKER_DIRECTORY}-other/other.pdf`,
-        );
-        documentService.discardPickedCopy(
-          `${pickerFolder().uri}%2e%2e%2F${PICKER_DIRECTORY}-other%2Fother.pdf`,
-        );
-        documentService.discardPickedCopy(`${pickerFolder().uri}%2E%2E`);
+        // The mock file system never resolves `..` or `%2E%2E`, so assert the
+        // guard refuses these before anything is deleted.
+        const fileExists = jest.spyOn(File.prototype, 'exists', 'get');
+        const fileDelete = jest.spyOn(File.prototype, 'delete');
+        try {
+          for (const uri of [
+            `${pickerFolder().uri}../${PICKER_DIRECTORY}-other/other.pdf`,
+            `${pickerFolder().uri}%2E%2E/${PICKER_DIRECTORY}-other/other.pdf`,
+            `${pickerFolder().uri}%2e%2e%2F${PICKER_DIRECTORY}-other%2Fother.pdf`,
+            `${pickerFolder().uri}%2E%2E`,
+            pickerFolder().uri,
+          ]) {
+            documentService.discardPickedCopy(uri);
+          }
+          expect(fileExists).not.toHaveBeenCalled();
+          expect(fileDelete).not.toHaveBeenCalled();
+        } finally {
+          fileExists.mockRestore();
+          fileDelete.mockRestore();
+        }
 
         expect(own.exists).toBe(true);
         expect(neighbour.exists).toBe(true);
