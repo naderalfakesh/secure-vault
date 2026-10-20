@@ -97,7 +97,7 @@ describe('AddDocumentScreen file import', () => {
   function plantPickedCopy(name = '8F0C2A41-6B3D-4E8A-9F11-2C7D5E0B9A13.jpg') {
     if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
     const copy = new File(pickerFolder(), name);
-    copy.write('plaintext');
+    copy.writeSync('plaintext');
     pickDocument.mockResolvedValueOnce({
       canceled: false,
       assets: [{ uri: copy.uri, name: 'passport.jpg', mimeType: 'image/jpeg', size: 9 }],
@@ -124,7 +124,7 @@ describe('AddDocumentScreen file import', () => {
     const inbox = new Directory(`file:///mock/tmp/${APPLE_INBOX_DIRECTORY}/`);
     inbox.create({ intermediates: true });
     const original = new File(inbox, 'passport.jpg');
-    original.write('plaintext');
+    original.writeSync('plaintext');
     try {
       const copy = plantPickedCopy();
       await importFile();
@@ -227,7 +227,7 @@ describe('AddDocumentScreen file import', () => {
   it('removes a copy the picker hands back after the screen has closed', async () => {
     if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
     const copy = new File(pickerFolder(), '5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90.pdf');
-    copy.write('plaintext');
+    copy.writeSync('plaintext');
     let answer: (value: unknown) => void = () => {};
     pickDocument.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
     const view = await renderScreen();
@@ -260,7 +260,7 @@ describe('AddDocumentScreen photo and scan copies', () => {
   function plant(directory: Directory, name: string) {
     if (!directory.exists) directory.create({ intermediates: true });
     const copy = new File(directory, name);
-    copy.write('plaintext');
+    copy.writeSync('plaintext');
     return copy;
   }
 
@@ -321,7 +321,7 @@ describe('AddDocumentScreen pdf previews', () => {
       const folder = new Directory(`file://${dir}`);
       folder.create({ intermediates: true });
       const page = new File(folder, 'page_1.jpg');
-      page.write('jpeg');
+      page.writeSync('jpeg');
       rendered.push(page);
       return [{ uri: page.uri, width: 10, height: 10 }];
     });
@@ -339,7 +339,7 @@ describe('AddDocumentScreen pdf previews', () => {
   function queuePdf() {
     if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
     const copy = new File(pickerFolder(), '5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90.pdf');
-    copy.write('plaintext');
+    copy.writeSync('plaintext');
     return {
       canceled: false,
       assets: [{ uri: copy.uri, name: 'lease.pdf', mimeType: 'application/pdf', size: 9 }],

@@ -639,7 +639,7 @@ class DocumentService {
     try {
       const response = await fetch(uri, { signal: controller.signal });
       const bytes = await response.arrayBuffer();
-      tempFile.write(new Uint8Array(bytes));
+      await tempFile.write(new Uint8Array(bytes));
       return this.toPath(tempFile.uri);
     } finally {
       clearTimeout(timeout);

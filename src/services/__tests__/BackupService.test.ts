@@ -200,7 +200,7 @@ describe('BackupService', () => {
     const plantResidue = () => {
       const directory = staging();
       if (!directory.exists) directory.create({ intermediates: true });
-      new File(directory, 'plain-left-behind').write('plaintext');
+      new File(directory, 'plain-left-behind').writeSync('plaintext');
     };
 
     it('hands the module an empty staging folder in the cache and removes it afterwards', async () => {
@@ -250,7 +250,7 @@ describe('BackupService', () => {
 
     it('removes a half-written container when the module fails mid-write', async () => {
       const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
-        new File(`file://${destPath}`).write('SVB1 partial');
+        new File(`file://${destPath}`).writeSync('SVB1 partial');
         throw Object.assign(new Error('disk full'), { code: 'BACKUP_EXPORT_FAILED' });
       });
       try {
@@ -265,7 +265,7 @@ describe('BackupService', () => {
 
     it('keeps the container the module finished writing', async () => {
       const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
-        new File(`file://${destPath}`).write('SVB1 complete');
+        new File(`file://${destPath}`).writeSync('SVB1 complete');
         return { entries: 1, bytes: 13 };
       });
       let backup;
@@ -294,7 +294,7 @@ describe('BackupService', () => {
       let called = false;
       const spy = jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
         called = true;
-        new File(`file://${destPath}`).write('SVB1 partial');
+        new File(`file://${destPath}`).writeSync('SVB1 partial');
         throw Object.assign(new Error('Key user not authenticated'), { code: 'KEY_LOCKED' });
       });
       const removal = failStagingRemoval(() => called);
@@ -323,13 +323,13 @@ describe('BackupService', () => {
 
     const indexCopy = () => new File(new Directory(Paths.cache, 'backup'), 'index.db');
     // The Jest database double writes no copy; the real one does before the module runs.
-    const writeIndexCopy = () => indexCopy().write('SQLite format 3');
+    const writeIndexCopy = () => indexCopy().writeSync('SQLite format 3');
 
     const finishedExport = (onCall: () => void) =>
       jest.spyOn(vault, 'exportBackup').mockImplementationOnce(async (destPath) => {
         onCall();
         writeIndexCopy();
-        new File(`file://${destPath}`).write('SVB1 complete');
+        new File(`file://${destPath}`).writeSync('SVB1 complete');
         return { entries: 1, bytes: 13 };
       });
 
@@ -421,7 +421,7 @@ describe('BackupService', () => {
       plantResidue();
       const finished = new Directory(Paths.cache, 'backup');
       if (!finished.exists) finished.create();
-      new File(finished, 'SecureVault backup 2026-10-13.svbackup').write('ciphertext');
+      new File(finished, 'SecureVault backup 2026-10-13.svbackup').writeSync('ciphertext');
 
       await documentService.clearCache();
 
@@ -440,7 +440,7 @@ describe('BackupService', () => {
       const directory = staging();
       if (!directory.exists) directory.create({ intermediates: true });
       const leftover = new File(directory, 'backup-left-behind');
-      leftover.write('plaintext');
+      leftover.writeSync('plaintext');
       return leftover;
     };
 
@@ -485,7 +485,7 @@ describe('BackupService', () => {
       const spy = jest
         .spyOn(vault, 'importBackup')
         .mockImplementationOnce(async (_source, _passphrase, _extraDir, stagingDir) => {
-          new File(`file://${stagingDir}/backup-entry`).write('plaintext');
+          new File(`file://${stagingDir}/backup-entry`).writeSync('plaintext');
           throw Object.assign(new Error('disk full'), { code: 'BACKUP_PARTIAL' });
         });
       try {
@@ -534,7 +534,7 @@ describe('BackupService', () => {
         (source, passphrase, extraDir, stagingDir) =>
           new Promise((resolve, reject) => {
             entry = new File(`file://${stagingDir}/backup-entry`);
-            entry.write('plaintext');
+            entry.writeSync('plaintext');
             finishImport = () => {
               entry!.delete();
               original(source, passphrase, extraDir, stagingDir).then(resolve, reject);
@@ -568,10 +568,10 @@ describe('BackupService', () => {
       for (const folder of [finished(), pickerFolder()]) {
         if (!folder.exists) folder.create({ intermediates: true });
       }
-      new File(finished(), 'SecureVault backup 2026-10-16.svbackup').write('ciphertext');
-      new File(finished(), 'index.db').write('ciphertext');
+      new File(finished(), 'SecureVault backup 2026-10-16.svbackup').writeSync('ciphertext');
+      new File(finished(), 'index.db').writeSync('ciphertext');
       const picked = new File(pickerFolder(), '839E8D63.svbackup');
-      picked.write('ciphertext');
+      picked.writeSync('ciphertext');
       return picked;
     };
 
@@ -624,11 +624,11 @@ describe('BackupService', () => {
     it("removes the picker's copy after use and never a file outside the picker folder", () => {
       const picked = plantCiphertext();
       const own = new File(Paths.document, 'my.svbackup');
-      own.write('ciphertext');
+      own.writeSync('ciphertext');
       const lookalike = new Directory(Paths.cache, `${PICKER_DIRECTORY}-other`);
       lookalike.create();
       const neighbour = new File(lookalike, 'other.svbackup');
-      neighbour.write('ciphertext');
+      neighbour.writeSync('ciphertext');
 
       backupService.discardPickedFile(picked.uri);
       backupService.discardPickedFile(own.uri);
@@ -668,7 +668,7 @@ describe('BackupService', () => {
         );
         await Promise.resolve();
         expect(backupService.activity()).toBe('restore');
-        new File(extras(), 'database').write('index');
+        new File(extras(), 'database').writeSync('index');
 
         await expect(
           backupService.restoreBackup('file:///other.svbackup', 'correct horse battery'),
@@ -727,7 +727,7 @@ describe('BackupService', () => {
         backupService.exportBackup('correct horse battery', async (backup) => {
           handed = backup.uri;
           during = backupService.activity();
-          new File(backup.uri).write('ciphertext');
+          new File(backup.uri).writeSync('ciphertext');
           throw new Error('share sheet failed');
         }),
       ).rejects.toThrow('share sheet failed');
@@ -793,7 +793,7 @@ describe('BackupService', () => {
       const target = sentinel();
       if (!target.exists) target.create({ intermediates: true });
       const kept = new File(target, 'keep.txt');
-      kept.write('not ours');
+      kept.writeSync('not ours');
       const link = new Directory(Paths.cache, name);
       vaultMock.plantLink(toPath(link), toPath(target));
       return { link, kept };

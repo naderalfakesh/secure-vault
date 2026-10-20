@@ -26,7 +26,7 @@ const tmp = () => new Directory(`${container}tmp/`);
 function plant(directory: Directory, name: string): File {
   if (!directory.exists) directory.create({ intermediates: true });
   const file = new File(directory, name);
-  file.write('plaintext');
+  file.writeSync('plaintext');
   return file;
 }
 

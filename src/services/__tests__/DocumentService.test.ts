@@ -94,7 +94,7 @@ describe('DocumentService', () => {
 
   it("removes the vault module's thumbnail scratch file at lock and launch", async () => {
     const scratch = new File(Paths.cache, 'thumb_encrypt_0D2C');
-    scratch.write('jpeg');
+    scratch.writeSync('jpeg');
 
     await documentService.clearCache();
 
@@ -148,7 +148,7 @@ describe('DocumentService', () => {
     const plantCopy = (name: string) => {
       if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
       const copy = new File(pickerFolder(), name);
-      copy.write('plaintext');
+      copy.writeSync('plaintext');
       return copy;
     };
 
@@ -195,11 +195,11 @@ describe('DocumentService', () => {
 
     it('never removes a file outside the picker folder', async () => {
       const own = new File(Paths.document, 'lease.pdf');
-      own.write('plaintext');
+      own.writeSync('plaintext');
       const lookalike = new Directory(Paths.cache, `${PICKER_DIRECTORY}-other`);
       lookalike.create();
       const neighbour = new File(lookalike, 'other.pdf');
-      neighbour.write('plaintext');
+      neighbour.writeSync('plaintext');
       const decoy = plantCopy('decoy.pdf');
       try {
         await documentService.addDocument(
