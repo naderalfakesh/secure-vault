@@ -330,7 +330,7 @@ describe('database key', () => {
 
     // A restored index without a stored name keeps the open closed first.
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
-    await deleteDocumentStore();
+    await deleteDocumentStore(async () => {});
     expect([...files]).toEqual([]);
 
     await openDocumentStore();
@@ -366,6 +366,10 @@ describe('index name, erase and legacy import', () => {
   const keyInvalidated = () =>
     Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
   let files: Set<string>;
+
+  async function removeEntries() {
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+  }
 
   function failGet(entry: string, error: () => Error) {
     const get = vault.get.bind(vault);
@@ -515,9 +519,8 @@ describe('index name, erase and legacy import', () => {
     failGet('_database_file', getFailed);
     files = new Set([restored, `${restored}-wal`, 'securevault.db']);
 
-    await deleteDocumentStore();
+    await deleteDocumentStore(removeEntries);
     expect([...files]).toEqual([]);
-    for (const key of await vault.getAllKeys()) await vault.delete(key);
     await openDocumentStore();
   });
 
@@ -534,7 +537,7 @@ describe('index name, erase and legacy import', () => {
         }),
     );
 
-    const erasing = deleteDocumentStore();
+    const erasing = deleteDocumentStore(removeEntries);
     await new Promise((resolve) => setTimeout(resolve, 0));
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'INDEX_ERASING' });
     expect(openEncrypted).not.toHaveBeenCalled();
@@ -542,24 +545,56 @@ describe('index name, erase and legacy import', () => {
     finishDelete();
     await erasing;
     expect([...files]).toEqual([]);
-    for (const key of await vault.getAllKeys()) await vault.delete(key);
     await openDocumentStore();
   });
 
-  it('opens a fresh index only once the erase also removed the index entries', async () => {
+  it('turns away an open until the erase also removed the index entries', async () => {
     files = new Set(['securevault.db']);
-
-    await deleteDocumentStore();
+    let finishEntries: () => void = () => {};
+    const erasing = deleteDocumentStore(
+      () =>
+        new Promise<void>((resolve) => {
+          finishEntries = () => void removeEntries().then(resolve);
+        }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // The old key is still listed until the erase deletes the vault entries.
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'INDEX_ERASING' });
     expect(openEncrypted).not.toHaveBeenCalled();
     expect([...files]).toEqual([]);
 
-    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    finishEntries();
+    await erasing;
     await openDocumentStore();
     const created = await vault.get('_database_key');
     expect(created).toMatch(/^[0-9a-f]{64}$/);
     expect(openEncrypted).toHaveBeenCalledWith('securevault.db', created);
+  });
+
+  it('reports an erase that left the index entries behind and lets it be retried', async () => {
+    files = new Set(['securevault.db']);
+
+    // Each entry delete failed and was swallowed.
+    await expect(deleteDocumentStore(async () => {})).rejects.toMatchObject({
+      code: 'ERASE_INCOMPLETE',
+      message: expect.stringMatching(/^"Delete everything" did not finish/),
+    });
+    await expect(openDocumentStore()).resolves.toBeDefined();
+    await closeDocumentStore();
+
+    await deleteDocumentStore(removeEntries);
+    expect(await vault.getAllKeys()).toEqual([]);
+  });
+
+  it('clears the gate when removing the entries fails', async () => {
+    files = new Set(['securevault.db']);
+
+    await expect(
+      deleteDocumentStore(async () => {
+        throw new Error('EIO');
+      }),
+    ).rejects.toThrow('EIO');
+    await expect(openDocumentStore()).resolves.toBeDefined();
   });
 
   it('does not hold opens back after an erase that could not start', async () => {
@@ -567,7 +602,7 @@ describe('index name, erase and legacy import', () => {
     files = new Set([restored]);
     const get = failGet('_database_file', keyLocked);
 
-    await expect(deleteDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    await expect(deleteDocumentStore(async () => {})).rejects.toMatchObject({ code: 'KEY_LOCKED' });
     expect([...files]).toEqual([restored]);
     get.mockRestore();
     await openDocumentStore();

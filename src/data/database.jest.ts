@@ -26,8 +26,9 @@ export async function closeDocumentStore(): Promise<void> {
 }
 
 /** Test double for "Delete everything": the in-memory index simply closes. */
-export async function deleteDocumentStore(): Promise<void> {
+export async function deleteDocumentStore(removeEntries: () => Promise<void>): Promise<void> {
   await closeDocumentStore();
+  await removeEntries();
 }
 
 /** Test doubles: the in-memory index has no file to copy or replace. */

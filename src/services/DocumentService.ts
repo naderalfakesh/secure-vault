@@ -420,11 +420,12 @@ class DocumentService {
   async eraseEverything(): Promise<void> {
     for (const timer of this.undoTimers.values()) clearTimeout(timer);
     this.undoTimers.clear();
-    await deleteDocumentStore();
-    for (const key of await ExpoVaultModule.getAllKeys()) {
-      await ExpoVaultModule.delete(key).catch(() => {});
-      await ExpoVaultModule.deleteFile(key).catch(() => {});
-    }
+    await deleteDocumentStore(async () => {
+      for (const key of await ExpoVaultModule.getAllKeys()) {
+        await ExpoVaultModule.delete(key).catch(() => {});
+        await ExpoVaultModule.deleteFile(key).catch(() => {});
+      }
+    });
     await this.clearCache();
     this.notify();
   }

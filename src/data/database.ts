@@ -209,9 +209,8 @@ let opening: Promise<DocumentStore> | null = null;
 // connection right after the native import crashed inside SQLite's FTS5
 // teardown, and an idle open connection costs nothing until relaunch.
 const abandoned: Promise<DocumentStore>[] = [];
-// Set while "Delete everything" removes the index, and kept until the vault no
-// longer lists the index entries: an open in between would create a file the
-// erase deletes under it, or one whose key the erase deletes next.
+// Set while "Delete everything" runs: an open in between would create a file
+// the erase deletes under it, or one whose key the erase deletes next.
 let erasing = false;
 
 function erasingError(): Error {
@@ -221,14 +220,8 @@ function erasingError(): Error {
   );
 }
 
-async function waitForErase(): Promise<void> {
-  const keys = await vaultEntries();
-  if (keys.includes(DATABASE_KEY_ENTRY) || keys.includes(DATABASE_FILE_ENTRY)) throw erasingError();
-  erasing = false;
-}
-
 async function openStore(): Promise<DocumentStore> {
-  if (erasing) await waitForErase();
+  if (erasing) throw erasingError();
   const { name, guessed } = await currentDatabaseName();
   const present = mainIndexFiles();
   const existed = present.includes(name);
@@ -276,15 +269,14 @@ export async function closeDocumentStore(): Promise<void> {
 }
 
 /**
- * Close the index and remove every index file, for "Delete everything". SQLite
- * only removes the WAL and shared-memory files on a clean close, so a killed
- * session leaves them behind, and earlier restores may have left other names.
+ * "Delete everything": closes the index, removes every index file, then runs
+ * `removeEntries` to delete the vault's entries. SQLite only removes the WAL
+ * and shared-memory files on a clean close, so a killed session leaves them
+ * behind, and earlier restores may have left other names. Opens are turned
+ * away until it returns, whatever the outcome.
  */
-export async function deleteDocumentStore(): Promise<void> {
-  // A retry after a failed erase finds the gate still closed; that is fine.
-  const alreadyErasing = erasing;
+export async function deleteDocumentStore(removeEntries: () => Promise<void>): Promise<void> {
   erasing = true;
-  let started = false;
   try {
     // Only the folder and expo-sqlite's own delete need a name; every index file goes.
     const name = await currentDatabaseName().then(
@@ -294,17 +286,24 @@ export async function deleteDocumentStore(): Promise<void> {
         return DEFAULT_DATABASE_NAME;
       },
     );
-    started = true;
     await closeDocumentStore();
     await deleteEncryptedDatabase(name);
     const directory = databaseDirectory(name);
-    if (!directory.exists) return;
-    for (const entry of directory.list()) {
-      if (INDEX_FILE.test(entry.name)) entry.delete();
+    if (directory.exists) {
+      for (const entry of directory.list()) {
+        if (INDEX_FILE.test(entry.name)) entry.delete();
+      }
     }
-  } catch (error) {
-    if (!started) erasing = alreadyErasing;
-    throw error;
+    await removeEntries();
+    const left = await vaultEntries();
+    if (left.includes(DATABASE_KEY_ENTRY) || left.includes(DATABASE_FILE_ENTRY)) {
+      throw keyError(
+        'ERASE_INCOMPLETE',
+        '"Delete everything" did not finish, so part of the vault is still on this device. Try it again.',
+      );
+    }
+  } finally {
+    erasing = false;
   }
 }
 
