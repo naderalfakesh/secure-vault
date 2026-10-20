@@ -73,9 +73,18 @@ run.
 The 6-digit PIN is the fallback door when biometrics are unavailable. It is
 not an encryption key: the vault module keeps its own key, and the PIN only
 gates the app's session. The PIN is stored as a PBKDF2-SHA256 hash with a
-random salt in the platform secure store, together with the lockout state so
-a relaunch cannot reset failed attempts. Lockout escalates from a short pause
-to an hour.
+random salt in the platform secure store, together with the lockout state.
+
+Every fifth consecutive wrong PIN pauses the keypad, starting at 30 seconds and
+doubling up to an hour; a successful unlock, by PIN or by the device key,
+resets the count. The lockout is read at launch, before the lock screen takes
+a PIN, and again before every attempt, which is judged against the stricter of
+the stored copy and the one in memory. A relaunch therefore keeps a running
+pause and continues the count, and a failed write cannot hand attempts back. A
+cancelled device-key prompt after a correct PIN is not a wrong PIN and does not
+count. If the stored lockout cannot be read, the app assumes a fresh 30-second
+pause and does not overwrite the unreadable copy; the pause ends on its own,
+so a broken store slows guessing down without keeping the owner out.
 
 ### Backup key
 
