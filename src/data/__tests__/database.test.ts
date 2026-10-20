@@ -3,11 +3,12 @@ import { Directory, File } from 'expo-file-system';
 import vault from '../../../modules/expo-vault';
 import {
   closeDocumentStore,
+  deleteDocumentStore,
   exportDatabaseFile,
   openDocumentStore,
   replaceDatabaseFile,
 } from '../database';
-import { openEncryptedDatabase } from '../expoSqlite';
+import { deleteEncryptedDatabase, openEncryptedDatabase } from '../expoSqlite';
 
 jest.mock('../expoSqlite', () => ({
   databaseFilePath: (name: string) => `/data/SQLite/${name}`,
@@ -291,6 +292,47 @@ describe('database key', () => {
 
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_UNREADABLE' });
     expect(put).not.toHaveBeenCalled();
+  });
+
+  it('creates a key when only side files of a removed index are left', async () => {
+    indexFiles([
+      'securevault.db-wal',
+      'securevault.db-shm',
+      'securevault-1700000000000.db-journal',
+    ]);
+
+    await openDocumentStore();
+    expect(await vault.get('_database_key')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('lets "Delete everything" clear a missing key, side files included', async () => {
+    const files = new Set([
+      'securevault.db',
+      'securevault.db-wal',
+      'securevault.db-shm',
+      'securevault-1700000000000.db',
+    ]);
+    jest
+      .spyOn(Object.getPrototypeOf(Directory.prototype), 'exists', 'get')
+      .mockImplementation(() => true);
+    jest
+      .spyOn(Directory.prototype, 'list')
+      .mockImplementation(() =>
+        [...files].map((name) => ({ name, delete: () => files.delete(name) }) as never),
+      );
+    // Like expo-sqlite, the delete removes the main file only.
+    (deleteEncryptedDatabase as jest.Mock).mockImplementationOnce(async (name: string) => {
+      files.delete(name);
+    });
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_KEY_MISSING' });
+    await deleteDocumentStore();
+    expect([...files]).toEqual([]);
+
+    await openDocumentStore();
+    const created = await vault.get('_database_key');
+    expect(created).toMatch(/^[0-9a-f]{64}$/);
+    expect(openEncrypted).toHaveBeenCalledWith('securevault.db', created);
   });
 
   it('opens an existing index with its stored key and leaves the key alone', async () => {

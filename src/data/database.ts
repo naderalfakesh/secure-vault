@@ -18,6 +18,8 @@ const LEGACY_INDEX_ENTRY = '_documents_metadata';
 const LEGACY_IMPORTED_ENTRY = '_legacy_index_imported';
 // The index under any name a restore gave it, with its SQLite side files.
 const INDEX_FILE = /^securevault(-\d+)?\.db(-wal|-shm|-journal)?$/;
+// Only these hold an index; a side file left without its database does not.
+const MAIN_INDEX_FILE = /^securevault(-\d+)?\.db$/;
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -60,11 +62,11 @@ function databaseDirectory(name: string): Directory {
   return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
 }
 
-/** Any index file, not only `name`: a failed `_database_file` read falls back to the default. */
+/** Any main index file, not only `name`: a failed `_database_file` read falls back to the default. */
 function indexFileExists(name: string): boolean {
   try {
     const directory = databaseDirectory(name);
-    return directory.exists && directory.list().some((entry) => INDEX_FILE.test(entry.name));
+    return directory.exists && directory.list().some((entry) => MAIN_INDEX_FILE.test(entry.name));
   } catch (error) {
     throw unreadableKey(error);
   }
@@ -202,11 +204,20 @@ export async function closeDocumentStore(): Promise<void> {
   }
 }
 
-/** Close the index and remove its file, for "Delete everything". */
+/**
+ * Close the index and remove every index file, for "Delete everything". SQLite
+ * only removes the WAL and shared-memory files on a clean close, so a killed
+ * session leaves them behind, and earlier restores may have left other names.
+ */
 export async function deleteDocumentStore(): Promise<void> {
   const name = await currentDatabaseName();
   await closeDocumentStore();
   await deleteEncryptedDatabase(name);
+  const directory = databaseDirectory(name);
+  if (!directory.exists) return;
+  for (const entry of directory.list()) {
+    if (INDEX_FILE.test(entry.name)) entry.delete();
+  }
 }
 
 /**
