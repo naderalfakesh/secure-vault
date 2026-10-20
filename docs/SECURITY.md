@@ -79,12 +79,19 @@ Every fifth consecutive wrong PIN pauses the keypad, starting at 30 seconds and
 doubling up to an hour; a successful unlock, by PIN or by the device key,
 resets the count. The lockout is read at launch, before the lock screen takes
 a PIN, and again before every attempt, which is judged against the stricter of
-the stored copy and the one in memory. A relaunch therefore keeps a running
-pause and continues the count, and a failed write cannot hand attempts back. A
-cancelled device-key prompt after a correct PIN is not a wrong PIN and does not
-count. If the stored lockout cannot be read, the app assumes a fresh 30-second
-pause and does not overwrite the unreadable copy; the pause ends on its own,
-so a broken store slows guessing down without keeping the owner out.
+the stored copy and the one in memory. Attempts are judged one at a time. A
+relaunch therefore keeps a running pause and continues the count, and a failed
+write cannot hand attempts back. A cancelled device-key prompt after a correct
+PIN is not a wrong PIN and does not count.
+
+A pause never runs longer than the one its count earned, measured from the
+current clock: a stored pause beyond that, from a clock moved back or a corrupt
+value, is capped and the cap is written back, so it ends on time instead of
+sliding with the clock. If the stored lockout cannot be read, the app assumes a
+30-second pause without inventing failures and does not overwrite the
+unreadable copy; content that is not valid JSON is replaced with that pause.
+Either way the pause ends on its own, so a broken store slows guessing down
+without keeping the owner out.
 
 ### Backup key
 
