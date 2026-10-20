@@ -530,12 +530,16 @@ class ExpoVaultModule : Module() {
         return target
     }
 
-    /** Regular files that are vault entries, in a stable order. */
-    private fun vaultEntryFiles(): List<File> =
-        appContext.reactContext!!.filesDir.listFiles()
-            ?.filter { it.isFile && isVaultEntryName(it.name) }
-            ?.sortedBy { it.name }
-            ?: emptyList()
+    /**
+     * Regular files that are vault entries, in a stable order. A directory that
+     * cannot be read throws: an empty list would read as "no entries" (and, for
+     * the database key, as a first run).
+     */
+    private fun vaultEntryFiles(): List<File> {
+        val dir = appContext.reactContext!!.filesDir
+        val files = dir.listFiles() ?: throw IOException("Could not list ${dir.name}")
+        return files.filter { it.isFile && isVaultEntryName(it.name) }.sortedBy { it.name }
+    }
 
     /** Decrypts one entry with the device key into [plain]; a legacy single GCM box keeps its IV in preferences. */
     private fun decryptEntry(source: File, plain: File, key: SecretKey) {

@@ -398,13 +398,15 @@ public class ExpoVaultModule: Module {
     return target
   }
 
-  /// Regular files that are vault entries, in a stable order.
+  /// Regular files that are vault entries, in a stable order. An entry whose
+  /// type cannot be read throws instead of being dropped, so a name missing
+  /// from the list always means a missing file.
   private func vaultEntryURLs() throws -> [URL] {
     let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
     return try FileManager.default
       .contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey])
       .filter { url in
-        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+        try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true
           && Self.isVaultEntryName(url.lastPathComponent)
       }
       .sorted { $0.lastPathComponent < $1.lastPathComponent }
