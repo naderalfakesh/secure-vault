@@ -42,11 +42,9 @@ describe('expo-sqlite adapter', () => {
     open.mockReset().mockResolvedValue(native);
   });
 
-  it('opens without finalizing statements on close, so FTS5 statements are not freed twice', async () => {
+  it('opens with the default options, which finalize only expo-sqlite statements on close', async () => {
     await openEncryptedDatabase('securevault.db', KEY);
-    expect(open).toHaveBeenCalledWith('securevault.db', {
-      finalizeUnusedStatementsBeforeClosing: false,
-    });
+    expect(open).toHaveBeenCalledWith('securevault.db');
   });
 
   it('closes the native connection when the key does not open the file', async () => {
