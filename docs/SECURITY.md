@@ -181,6 +181,11 @@ disabled until it ends.
   in the app's cache directory while a screen needs them. The cache is swept
   when the vault locks, when the app is deleted, and on the share sheet's and
   the undo window's own timers.
+- Decrypted images are shown through one image component that keeps them in
+  the image library's memory cache only, never its disk cache; a lint rule
+  refuses the library's own image component anywhere else in the app. The
+  lock and launch sweep clears the image library's memory and disk caches as
+  well, so copies an older build left in the iOS disk cache are removed too.
 - While a backup is written, the vault module decrypts one entry at a time
   into a staging folder in the cache and removes it as soon as that entry is
   encrypted under the backup key. The folder is emptied before and after every
