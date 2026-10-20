@@ -30,6 +30,12 @@ export const PICKER_DIRECTORY = 'DocumentPicker';
 export const IMAGE_PICKER_DIRECTORY = 'ImagePicker';
 /** Where the ML Kit scanner client copies each page on Android: `cacheDir/mlkit_docscan_ui_client`. */
 export const SCANNER_DIRECTORY = 'mlkit_docscan_ui_client';
+/**
+ * iOS's own copy of a file imported from Files (the picker runs `asCopy`):
+ * `tmp/<bundle id>-Inbox/<original name>`, made before expo-document-picker
+ * copies it again into its cache folder.
+ */
+export const APPLE_INBOX_DIRECTORY = 'com.naderalfakesh.securevault-Inbox';
 const IMPORT_DIRECTORIES = [PICKER_DIRECTORY, IMAGE_PICKER_DIRECTORY, SCANNER_DIRECTORY];
 const UUID_PATTERN = '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}';
 /** The iOS scanner module's pages in tmp: `scan_<batch UUID>_<index>.jpg`. */
@@ -234,10 +240,38 @@ class DocumentService {
     }
   }
 
-  /** The iOS scanner's pages left in tmp by a kill or a crash. */
-  private sweepScanPages(): void {
+  private appleInbox(): Directory | null {
+    const tmp = this.appleTemporary();
+    return tmp ? new Directory(`${tmp.uri}${APPLE_INBOX_DIRECTORY}/`) : null;
+  }
+
+  /**
+   * Removes iOS's Inbox copy of a file just picked from Files. Only a file
+   * with exactly that name directly in the app's own Inbox qualifies.
+   */
+  discardSystemImportCopy(name: string): void {
+    if (!name || name.includes('/') || name === '.' || name === '..') return;
+    const inbox = this.appleInbox();
+    if (!inbox) return;
+    try {
+      for (const entry of inbox.list()) {
+        if (entry instanceof File && entry.name === name) entry.delete();
+      }
+    } catch {
+      // The lock and launch sweep removes the Inbox folder.
+    }
+  }
+
+  /** iOS's Inbox copies and the scanner's pages left in tmp by a kill or a crash. */
+  private sweepAppleTemporary(): void {
     const tmp = this.appleTemporary();
     if (!tmp) return;
+    try {
+      const inbox = this.appleInbox();
+      if (inbox?.exists) inbox.delete();
+    } catch {
+      // Best effort; retried at the next lock.
+    }
     try {
       for (const entry of new Directory(tmp.uri).list()) {
         if (entry instanceof File && SCAN_PAGE.test(entry.name)) entry.delete();
@@ -526,7 +560,7 @@ class DocumentService {
     } catch {
       // The cache directory may not exist yet.
     }
-    this.sweepScanPages();
+    this.sweepAppleTemporary();
     await images;
   }
 

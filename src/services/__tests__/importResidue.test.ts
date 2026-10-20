@@ -4,7 +4,12 @@ import { Platform } from 'react-native';
 import { closeDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
-import { documentService, IMAGE_PICKER_DIRECTORY, SCANNER_DIRECTORY } from '../DocumentService';
+import {
+  APPLE_INBOX_DIRECTORY,
+  documentService,
+  IMAGE_PICKER_DIRECTORY,
+  SCANNER_DIRECTORY,
+} from '../DocumentService';
 
 const vaultMock = vault as unknown as { reset(): void };
 
@@ -157,6 +162,67 @@ describe('import copies outside the vault', () => {
       expect(iosPage.exists).toBe(false);
       expect(lookalike.exists).toBe(true);
       expect(unrelated.exists).toBe(true);
+    });
+  });
+
+  describe("iOS's own copy of a file imported from Files", () => {
+    const inbox = () => new Directory(tmp(), APPLE_INBOX_DIRECTORY);
+
+    it('is the Inbox folder named after the fixed bundle id', () => {
+      expect(APPLE_INBOX_DIRECTORY).toBe('com.naderalfakesh.securevault-Inbox');
+    });
+
+    it('removes the copy with the picked name, and only that one', () => {
+      const copy = plant(inbox(), 'Lease 2026.pdf');
+      const other = plant(inbox(), 'passport.jpg');
+
+      documentService.discardSystemImportCopy('Lease 2026.pdf');
+
+      expect(copy.exists).toBe(false);
+      expect(other.exists).toBe(true);
+    });
+
+    it('never removes anything for a name that is not a plain file name', () => {
+      const other = plant(inbox(), 'passport.jpg');
+      const outside = plant(tmp(), 'notes.txt');
+      const nested = plant(new Directory(inbox(), 'nested'), 'passport.jpg');
+
+      for (const name of ['', '.', '..', '../notes.txt', 'nested/passport.jpg', 'nested']) {
+        documentService.discardSystemImportCopy(name);
+      }
+
+      expect(other.exists).toBe(true);
+      expect(outside.exists).toBe(true);
+      expect(nested.exists).toBe(true);
+    });
+
+    it('does nothing on Android, which has no such copy', () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
+      const copy = plant(inbox(), 'lease.pdf');
+
+      documentService.discardSystemImportCopy('lease.pdf');
+
+      expect(copy.exists).toBe(true);
+    });
+
+    it('does nothing when the container is not laid out as expected', () => {
+      documents.mockReturnValue(new Directory('file:///mock/elsewhere/'));
+      const copy = plant(inbox(), 'lease.pdf');
+
+      documentService.discardSystemImportCopy('lease.pdf');
+
+      expect(copy.exists).toBe(true);
+    });
+
+    it('sweeps the Inbox folder at lock and launch, and no other Inbox', async () => {
+      const copy = plant(inbox(), 'lease.pdf');
+      const otherApp = plant(new Directory(tmp(), 'com.example.other-Inbox'), 'x.pdf');
+
+      await documentService.clearCache();
+
+      expect(copy.exists).toBe(false);
+      expect(inbox().exists).toBe(false);
+      expect(otherApp.exists).toBe(true);
     });
   });
 });

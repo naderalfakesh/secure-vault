@@ -186,6 +186,7 @@ export default function SettingsScreen() {
       );
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;
+      documentService.discardSystemImportCopy(asset.name);
       picked = asset.uri;
       const info = await backupService.inspectBackup(asset.uri);
       if (!mounted.current || !session.current()) {

@@ -207,6 +207,7 @@ export default function AddDocumentScreen() {
           });
           const asset = result.canceled ? null : result.assets[0];
           if (!asset) return;
+          documentService.discardSystemImportCopy(asset.name);
           const type = asset.mimeType ?? 'application/pdf';
           // A PDF's first page is rendered so it can be previewed and read
           // like a photo.

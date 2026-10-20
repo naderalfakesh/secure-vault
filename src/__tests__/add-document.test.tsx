@@ -12,6 +12,7 @@ import {
 import { ToastProvider } from '../components/ui';
 import { SessionProvider } from '../features/session/SessionProvider';
 import {
+  APPLE_INBOX_DIRECTORY,
   documentService,
   IMAGE_PICKER_DIRECTORY,
   PICKER_DIRECTORY,
@@ -112,6 +113,26 @@ describe('AddDocumentScreen file import', () => {
   afterEach(() => {
     if (pickerFolder().exists) pickerFolder().delete();
     jest.clearAllMocks();
+  });
+
+  it("removes iOS's Inbox copy as soon as the picker has made its own", async () => {
+    const documents = jest
+      .spyOn(Paths, 'document', 'get')
+      .mockReturnValue(new Directory('file:///mock/Documents/'));
+    const inbox = new Directory(`file:///mock/tmp/${APPLE_INBOX_DIRECTORY}/`);
+    inbox.create({ intermediates: true });
+    const original = new File(inbox, 'passport.jpg');
+    original.write('plaintext');
+    try {
+      const copy = plantPickedCopy();
+      await importFile();
+
+      expect(original.exists).toBe(false);
+      expect(copy.exists).toBe(true);
+    } finally {
+      documents.mockRestore();
+      new Directory('file:///mock/tmp/').delete();
+    }
   });
 
   it('removes the picked copy once the document is saved', async () => {
