@@ -8,6 +8,7 @@ import type { DocumentRepository, ExtractedField } from '@/data/DocumentReposito
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 
 import ExpoVaultModule from '../../modules/expo-vault';
+import { removeNoFollow } from './removeNoFollow';
 
 const FILE_PREFIX = 'file_';
 const THUMB_PREFIX = 'thumb_';
@@ -278,7 +279,7 @@ class DocumentService {
     if (!tmp) return;
     try {
       const inbox = this.appleInbox();
-      if (inbox?.exists) inbox.delete();
+      if (inbox) removeNoFollow(inbox);
     } catch {
       // Best effort; retried at the next lock.
     }
@@ -342,8 +343,7 @@ class DocumentService {
     const folderName = childName(folder, cache);
     if (!folderName || !PREVIEW_FOLDER.test(folderName) || childName(path, folder) === null) return;
     try {
-      const directory = new Directory(this.cacheUri, folderName);
-      if (directory.exists) directory.delete();
+      removeNoFollow(new Directory(this.cacheUri, folderName));
     } catch {
       // Swept by clearCache.
     }
@@ -610,7 +610,7 @@ class DocumentService {
           name === 'backup-staging'
         ) {
           try {
-            entry.delete();
+            removeNoFollow(entry);
           } catch {
             // Best effort; the OS also purges the cache directory.
           }

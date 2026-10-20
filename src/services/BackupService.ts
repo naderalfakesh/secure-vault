@@ -4,6 +4,7 @@ import { exportDatabaseFile, replaceDatabaseFile } from '@/data/database';
 
 import vault, { type BackupInfo, type BackupProgress } from '../../modules/expo-vault';
 import { documentService, PICKER_DIRECTORY } from './DocumentService';
+import { removeNoFollow } from './removeNoFollow';
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 const DATABASE_ENTRY = 'database';
@@ -124,7 +125,7 @@ function toPath(uri: string): string {
 
 function removeQuietly(entry: File | Directory): void {
   try {
-    if (entry.exists) entry.delete();
+    removeNoFollow(entry);
   } catch {
     // The caller retries: the next export, or the lock sweep for staging.
   }
@@ -195,7 +196,7 @@ class BackupService {
   /** An empty staging folder; whatever an interrupted export or restore left there goes first. */
   private staging(name = BACKUP_STAGING_DIRECTORY) {
     const directory = new Directory(Paths.cache, name);
-    if (directory.exists) directory.delete();
+    removeNoFollow(directory);
     directory.create({ intermediates: true });
     return directory;
   }
@@ -270,7 +271,7 @@ class BackupService {
     const failures: unknown[] = [];
     for (const leftover of [databaseCopy, staging]) {
       try {
-        if (leftover.exists) leftover.delete();
+        removeNoFollow(leftover);
       } catch (error) {
         failures.push(error);
       }
@@ -345,7 +346,7 @@ class BackupService {
     let staging: Directory | null = null;
     let unsubscribe = () => {};
     try {
-      if (extras.exists) extras.delete();
+      removeNoFollow(extras);
       extras.create({ intermediates: true });
       staging = this.staging(RESTORE_STAGING_DIRECTORY);
       unsubscribe = this.subscribe(onProgress);
@@ -369,7 +370,7 @@ class BackupService {
       unsubscribe();
       // The module has already emptied the staging folder; this and the launch sweep are backstops.
       if (staging) removeQuietly(staging);
-      if (extras.exists) extras.delete();
+      removeNoFollow(extras);
     }
   }
 }

@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { closeDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
+import { followLinksOnDelete } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import {
   APPLE_INBOX_DIRECTORY,
   documentService,
@@ -11,7 +12,11 @@ import {
   SCANNER_DIRECTORY,
 } from '../DocumentService';
 
-const vaultMock = vault as unknown as { reset(): void };
+const vaultMock = vault as unknown as {
+  reset(): void;
+  plantLink(path: string, target: string): void;
+  linkTarget(path: string): string | null;
+};
 
 // The mock file system has no app container; give it the iOS layout so the
 // app's tmp folder is a sibling of Documents, as on a device.
@@ -331,6 +336,68 @@ describe('import copies outside the vault', () => {
       expect(loose.exists).toBe(true);
       for (const file of [viewer, lookalike]) removeQuietly(file.parentDirectory);
       removeQuietly(loose);
+    });
+  });
+
+  describe('folders planted as symbolic links', () => {
+    const sentinel = () => new Directory(Paths.document, 'sentinel');
+    const toPath = (directory: Directory) =>
+      decodeURIComponent(directory.uri.slice('file://'.length));
+    let follow: jest.SpyInstance;
+
+    // A link at `link` pointing at a folder of the user's own files.
+    const plantLinkedFolder = (link: Directory) => {
+      const kept = plant(sentinel(), `keep-${link.name}.txt`);
+      vaultMock.plantLink(toPath(link), toPath(sentinel()));
+      return kept;
+    };
+
+    beforeEach(() => {
+      follow = followLinksOnDelete();
+    });
+
+    afterEach(() => {
+      follow.mockRestore();
+      removeQuietly(sentinel());
+    });
+
+    it('unlinks every swept cache folder at lock and launch without emptying its target', async () => {
+      jest.replaceProperty(Platform, 'OS', 'android');
+      const links = [
+        IMAGE_PICKER_DIRECTORY,
+        SCANNER_DIRECTORY,
+        'share',
+        'pages_00000000-0000-4000-8000-1',
+        'pages_preview_1760000000000',
+      ].map((name) => new Directory(Paths.cache, name));
+      const kept = links.map(plantLinkedFolder);
+
+      await documentService.clearCache();
+
+      expect(kept.map((file) => file.exists)).toEqual(kept.map(() => true));
+      expect(links.map((link) => vaultMock.linkTarget(toPath(link)))).toEqual(
+        links.map(() => null),
+      );
+    });
+
+    it("unlinks iOS's Inbox folder at lock and launch without emptying its target", async () => {
+      const inbox = new Directory(tmp(), APPLE_INBOX_DIRECTORY);
+      const kept = plantLinkedFolder(inbox);
+
+      await documentService.clearCache();
+
+      expect(kept.exists).toBe(true);
+      expect(vaultMock.linkTarget(toPath(inbox))).toBeNull();
+    });
+
+    it('unlinks a preview folder without emptying its target', () => {
+      const preview = new Directory(Paths.cache, 'pages_preview_1760000000001');
+      const kept = plantLinkedFolder(preview);
+
+      documentService.discardPreview(new File(preview, 'page_1.jpg').uri);
+
+      expect(kept.exists).toBe(true);
+      expect(vaultMock.linkTarget(toPath(preview))).toBeNull();
     });
   });
 });

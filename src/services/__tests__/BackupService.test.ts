@@ -3,9 +3,10 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { closeDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
-import type {
-  VaultMockExport,
-  VaultMockImport,
+import {
+  followLinksOnDelete,
+  type VaultMockExport,
+  type VaultMockImport,
 } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import { withKeyRecovery } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DocumentCategory } from '../../types';
@@ -22,6 +23,8 @@ import { documentService, PICKER_DIRECTORY } from '../DocumentService';
 
 const vaultMock = vault as unknown as {
   reset(): void;
+  plantLink(path: string, target: string): void;
+  linkTarget(path: string): string | null;
   lastExport: VaultMockExport | null;
   lastImport: VaultMockImport | null;
 };
@@ -731,6 +734,71 @@ describe('BackupService', () => {
         stop();
       }
       expect(seen).toEqual(['erase', null]);
+    });
+  });
+
+  describe('folders planted as symbolic links', () => {
+    const sentinel = () => new Directory(Paths.document, 'sentinel');
+    const toPath = (directory: Directory) =>
+      decodeURIComponent(directory.uri.slice('file://'.length));
+    let follow: jest.SpyInstance;
+
+    // A link at `name` in the cache pointing at a folder of the user's own files.
+    const plantLinkedFolder = (name: string) => {
+      const target = sentinel();
+      if (!target.exists) target.create({ intermediates: true });
+      const kept = new File(target, 'keep.txt');
+      kept.write('not ours');
+      const link = new Directory(Paths.cache, name);
+      vaultMock.plantLink(toPath(link), toPath(target));
+      return { link, kept };
+    };
+
+    beforeEach(() => {
+      follow = followLinksOnDelete();
+    });
+
+    afterEach(() => {
+      follow.mockRestore();
+      if (sentinel().exists) sentinel().delete();
+    });
+
+    it.each([BACKUP_DIRECTORY, PICKER_DIRECTORY, RESTORE_STAGING_DIRECTORY])(
+      'unlinks %s at lock and launch without emptying its target',
+      (name) => {
+        const { link, kept } = plantLinkedFolder(name);
+
+        backupService.sweepCache();
+
+        expect(kept.exists).toBe(true);
+        expect(vaultMock.linkTarget(toPath(link))).toBeNull();
+        expect(link.exists).toBe(false);
+      },
+    );
+
+    it('unlinks backup-staging in the cache sweep without emptying its target', async () => {
+      const { link, kept } = plantLinkedFolder(BACKUP_STAGING_DIRECTORY);
+
+      await documentService.clearCache();
+
+      expect(kept.exists).toBe(true);
+      expect(vaultMock.linkTarget(toPath(link))).toBeNull();
+    });
+
+    it('unlinks a linked staging folder before an export or a restore stages into it', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const exportLink = plantLinkedFolder(BACKUP_STAGING_DIRECTORY);
+      const backup = await backupService.createBackup('correct horse battery');
+      expect(exportLink.kept.exists).toBe(true);
+
+      const restoreLink = plantLinkedFolder(RESTORE_STAGING_DIRECTORY);
+      const extras = toPath(new Directory(new Directory(Paths.cache, BACKUP_DIRECTORY), 'restore'));
+      vaultMock.plantLink(extras, toPath(sentinel()));
+      await backupService.restoreBackup(backup.uri, 'correct horse battery');
+
+      expect(restoreLink.kept.exists).toBe(true);
+      expect(vaultMock.linkTarget(toPath(restoreLink.link))).toBeNull();
+      expect(vaultMock.linkTarget(extras)).toBeNull();
     });
   });
 });
