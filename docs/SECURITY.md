@@ -55,11 +55,15 @@ generated once, stored as an ordinary vault entry (`_database_key`) under the
 device key, and passed to `PRAGMA key` on every open. On disk the database
 and its WAL have no readable header, strings, or schema.
 
-A new key is written only when the vault's entry listing (which needs no
-device key) has no `_database_key` and no index file exists yet. A locked or
-invalidated device key, a failed read, or a malformed entry stops the open
-with a typed error and leaves the stored key as it is, because a replaced key
-would make the existing index unreadable.
+A new key is written only when the vault's entry listing (which reads the
+directory and needs no device key) succeeds without a `_database_key` entry,
+and the SQLite folder holds no index file under any name a restore may have
+given it (`securevault.db`, `securevault-<n>.db`, or their `-wal`, `-shm` or
+`-journal` files). If `_database_key` is listed but cannot be read (a locked
+or invalidated device key, any other read failure, or a value that is not 64
+hex characters), the open stops with a typed error and the entry is left as
+it is. It also stops if either listing fails, or if the key is missing while
+an index file exists. A replaced key would make the existing index unreadable.
 
 ### App PIN
 
