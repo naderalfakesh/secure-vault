@@ -2,11 +2,11 @@
 
 > Verified: 2026-10-15 (partial, see "Not verified")
 >
-> Scope: the T1/T2 restore validation and the T7a structural checks brought
-> onto the SDK 57 line, plus the remaining hardening that needs no format,
-> key or policy decision: typed I/O and key-storage failures, no partial
-> output, allocation failures typed, the document index required before the
-> vault is cleared
+> Scope: the restore key validation and pre-pass and the backup structural
+> checks brought onto the SDK 57 line, plus the remaining hardening that
+> needs no format, key or policy decision: typed I/O and key-storage
+> failures, no partial output, allocation failures typed, the document index
+> required before the vault is cleared
 
 ## Lineage
 
@@ -125,8 +125,8 @@ Outcomes on the new build, all three runtimes:
   `BACKUP_RESOURCE` and `BACKUP_INDEX` shown by the sheet, the Android key
   probe with a genuinely lapsed window, and the vault and index left
   untouched. The module compiled inside the real Android app build; the iOS
-  pod build is recorded in the evidence folder for this card.
+  pod build is recorded with the rest of this run's evidence.
 - Physical devices.
 - Memory and disk preflight for the restore pass, an iteration-count policy,
-  and the remaining header rules from the D21 design: these need a measured
+  and the remaining header rules from the backup header design: these need a measured
   multiplier or an owner decision and were left out.

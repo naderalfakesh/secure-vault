@@ -1,9 +1,15 @@
-# Expo SDK 57.0.27 and Xcode 27 verification
+# Expo SDK 57 patch and Xcode 27 verification
 
 > Verified: 2026-10-11 (partial, see "Not verified")
 >
 > Scope: latest stable Expo SDK patch, aligned Expo modules, UIKit scene
 > lifecycle for the iOS 27 SDK, iOS build on Xcode 27
+>
+> Later update: `chore: align expo sdk 57 patch versions` moved `expo` to
+> `~57.0.29` with `npx expo install --fix`, and that is the version the
+> repository uses now. The 57.0.27 figures below are what this note verified
+> on 2026-10-11; builds at the later version are recorded in
+> `hardening-and-residue-verification.md`.
 
 ## Target
 
@@ -41,8 +47,8 @@ upgrade target is the 57.0.27 patch, not SDK 58.
   on the Android Gradle Plugin to package the shared library it finds on the
   CMake link line; AGP 8.12 only accepts link fragments that end in `.so`,
   and CMake quotes fragments whose path contains a space, so the library was
-  dropped. The pre-upgrade build made under `/Users/naderalfakesh/projects`
-  packaged it, which is why the two APKs differed by that one file. The plugin
+  dropped. The pre-upgrade build, made from the repository's earlier home
+  on the internal disk in a path without spaces, packaged it, which is why the two APKs differed by that one file. The plugin
   appends a Gradle snippet to `android/app/build.gradle` that extracts
   `libcrypto.so` for every ABI from the same Maven artifact `expo-sqlite`
   links against (coordinate read from its `build.gradle`) and adds it as a
@@ -129,32 +135,34 @@ document, and open the image viewer in both themes to check the status bar.
 
 Install over existing data. Build the base commit from a separate worktree
 with its own install. Do not switch branches or reset in the worktree that
-holds this change. Use a dedicated simulator, and do not erase, reset, or
-uninstall the app on a simulator that holds someone's vault data. The second
+holds this change. Do not create a new simulator: reuse one from
+`xcrun simctl list devices available` that holds no one else's vault data,
+erase it first, and do not erase, reset, or uninstall the app on a simulator
+that holds someone's vault data. The second
 worktree adds its own `node_modules`, Pods, and DerivedData, so check the
 15 GiB disk floor first.
 
 ```sh
-# one-off simulator for this check
-xcrun simctl create "SecureVault upgrade" "iPhone 18 Pro"
+# an existing simulator that holds no one else's data, erased for this check
+xcrun simctl erase <UDID>
 
 # base build, from a new worktree beside this one
 git worktree add ../securevault-base 8068e81
 cd ../securevault-base
 npm ci
 npx expo prebuild --clean --platform ios
-npx expo run:ios --device "SecureVault upgrade"
+npx expo run:ios --device <UDID>
 # set a PIN and add a document, then stop this Metro
 
 # this change, from the original worktree, installed over the base build
 cd -
-npx expo run:ios --device "SecureVault upgrade"
+npx expo run:ios --device <UDID>
 # unlock with the same PIN and open the document
 ```
 
 When done, `git worktree remove ../securevault-base` removes only the base
-worktree. The simulator can be deleted with `xcrun simctl delete` once its
-data is no longer needed.
+worktree. Erase the simulator again with `xcrun simctl erase <UDID>` once
+its data is no longer needed.
 
 Android (needs at least 15 GiB free after the build; no emulator booted
 while Gradle runs, `JAVA_HOME` set to a JDK 17 or 21: the JDK 25 JBR of
