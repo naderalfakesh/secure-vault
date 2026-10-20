@@ -159,10 +159,23 @@ disabled until it ends.
   that is running when the vault locks is not cancelled natively: the lock
   also empties the cache's `backup-staging` folder, so it fails at its next
   entry, at most the entry being written was staged after the lock, and a
-  container it still finishes is deleted unshared. The document import picker
-  writes its plaintext copies into the same `DocumentPicker` folder, so this
-  sweep removes those too at lock and launch; copies left after a save while
-  the vault stays unlocked are a separate open item.
+  container it still finishes is deleted unshared.
+- Importing a PDF or image from Files goes through the document picker, which
+  writes a plaintext copy of the file into the same `DocumentPicker` cache
+  folder under a random name. The add screen removes that copy as soon as the
+  document is saved, and whenever it lets go of the file unsaved: back to the
+  sources, closing the screen, or the vault locking. A save that fails keeps
+  the copy only so it can be retried from the same screen. The lock and launch
+  sweep removes the whole folder as well (outside a restore, as above), so a
+  copy left by a crash or a kill goes at the next launch. Only a file directly
+  inside that folder is ever removed this way; the user's own files elsewhere
+  are never touched.
+- Still open, from code reading: on iOS the system file picker hands the app
+  its own copy in the temporary folder before the picker module copies it
+  again; photos chosen from the library or taken with the camera are copied
+  into the cache's `ImagePicker` folder; and scanned pages are written to the
+  temporary folder (iOS) or the scanner's own cache files (Android). The app
+  does not yet remove these.
 - OCR text is stored only inside the encrypted index.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
