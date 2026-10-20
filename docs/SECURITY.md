@@ -55,6 +55,12 @@ generated once, stored as an ordinary vault entry (`_database_key`) under the
 device key, and passed to `PRAGMA key` on every open. On disk the database
 and its WAL have no readable header, strings, or schema.
 
+A new key is written only when the vault's entry listing (which needs no
+device key) has no `_database_key` and no index file exists yet. A locked or
+invalidated device key, a failed read, or a malformed entry stops the open
+with a typed error and leaves the stored key as it is, because a replaced key
+would make the existing index unreadable.
+
 ### App PIN
 
 The 6-digit PIN is the fallback door when biometrics are unavailable. It is
