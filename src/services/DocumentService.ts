@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
+import { Platform } from 'react-native';
 
 import { deleteDocumentStore, openDocumentStore } from '@/data/database';
 import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
@@ -25,6 +26,28 @@ export const UNDO_WINDOW_MS = 8000;
  * Android. An imported document's copy there is plaintext.
  */
 export const PICKER_DIRECTORY = 'DocumentPicker';
+/** expo-image-picker's copies of chosen and taken photos: `Caches/ImagePicker`, `cacheDir/ImagePicker`. */
+export const IMAGE_PICKER_DIRECTORY = 'ImagePicker';
+/** Where the ML Kit scanner client copies each page on Android: `cacheDir/mlkit_docscan_ui_client`. */
+export const SCANNER_DIRECTORY = 'mlkit_docscan_ui_client';
+const IMPORT_DIRECTORIES = [PICKER_DIRECTORY, IMAGE_PICKER_DIRECTORY, SCANNER_DIRECTORY];
+const UUID_PATTERN = '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}';
+/** The iOS scanner module's pages in tmp: `scan_<batch UUID>_<index>.jpg`. */
+const SCAN_PAGE = new RegExp(`^scan_${UUID_PATTERN}_\\d+\\.jpg$`);
+
+/** iOS reports tmp under /private/var and the other folders under /var, the same place. */
+function canonicalPath(path: string): string {
+  return path.replace(/^\/private\/var\//, '/var/');
+}
+
+/** The name of the entry at `path` when it sits directly inside `folder`, otherwise null. */
+function childName(path: string, folder: string): string | null {
+  const prefix = folder.replace(/\/?$/, '/');
+  if (!path.startsWith(prefix)) return null;
+  const name = path.slice(prefix.length);
+  if (!name || name.includes('/') || name === '.' || name === '..') return null;
+  return name;
+}
 
 type ChangeListener = () => void;
 
@@ -158,29 +181,69 @@ class DocumentService {
     return document;
   }
 
+  /** Decoded, alias-free form of a file URI or path, for comparisons only. */
+  private comparablePath(uriOrPath: string): string {
+    return canonicalPath(decodeURIComponent(this.toPath(uriOrPath)));
+  }
+
   /**
-   * Removes the document picker's copy of a picked file. Only a file directly
-   * inside the picker's cache folder qualifies; anything else, `..` paths
-   * included, is the user's own file and is left alone.
+   * The app container's tmp folder on iOS, the sibling of Documents; null on
+   * Android or when the container does not have the expected layout.
+   */
+  private appleTemporary(): { uri: string; path: string } | null {
+    if (Platform.OS !== 'ios') return null;
+    try {
+      const documentsUri = Paths.document.uri.replace(/\/?$/, '/');
+      if (!documentsUri.endsWith('/Documents/')) return null;
+      const uri = `${documentsUri.slice(0, -'Documents/'.length)}tmp/`;
+      const path = this.comparablePath(uri);
+      const container = path.slice(0, -'tmp/'.length);
+      if (!this.comparablePath(Paths.cache.uri).startsWith(container)) return null;
+      return { uri, path };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Removes a picker's or the scanner's plaintext copy of a picked file. Only
+   * a file directly inside one of their cache folders, or an iOS scanner page
+   * directly in tmp, qualifies; anything else, `..` paths included, is the
+   * user's own file and is left alone.
    */
   discardPickedCopy(uri: string): void {
     let path: string;
-    let folder: string;
+    let cache: string;
     try {
-      path = decodeURIComponent(this.toPath(uri));
-      folder = decodeURIComponent(this.toPath(new Directory(Paths.cache, PICKER_DIRECTORY).uri));
+      path = this.comparablePath(uri);
+      cache = this.comparablePath(Paths.cache.uri).replace(/\/?$/, '/');
     } catch {
       return;
     }
-    folder = folder.replace(/\/?$/, '/');
-    if (!path.startsWith(folder)) return;
-    const name = path.slice(folder.length);
-    if (!name || name.includes('/') || name === '.' || name === '..') return;
+    const tmp = this.appleTemporary();
+    const inImportFolder = IMPORT_DIRECTORIES.some(
+      (directory) => childName(path, `${cache}${directory}`) !== null,
+    );
+    const scanPage = tmp !== null && SCAN_PAGE.test(childName(path, tmp.path) ?? '');
+    if (!inImportFolder && !scanPage) return;
     try {
       const copy = new File(this.toUri(uri));
       if (copy.exists) copy.delete();
     } catch {
-      // The lock and launch sweep removes the picker's folder.
+      // The lock and launch sweep removes these folders and pages.
+    }
+  }
+
+  /** The iOS scanner's pages left in tmp by a kill or a crash. */
+  private sweepScanPages(): void {
+    const tmp = this.appleTemporary();
+    if (!tmp) return;
+    try {
+      for (const entry of new Directory(tmp.uri).list()) {
+        if (entry instanceof File && SCAN_PAGE.test(entry.name)) entry.delete();
+      }
+    } catch {
+      // Best effort; tmp may not exist yet.
     }
   }
 
@@ -448,6 +511,8 @@ class DocumentService {
           name.startsWith('pages_') ||
           name.startsWith('undo_') ||
           name === 'share' ||
+          name === IMAGE_PICKER_DIRECTORY ||
+          name === SCANNER_DIRECTORY ||
           // BackupService's export staging: a killed export can leave one entry here.
           name === 'backup-staging'
         ) {
@@ -461,6 +526,7 @@ class DocumentService {
     } catch {
       // The cache directory may not exist yet.
     }
+    this.sweepScanPages();
     await images;
   }
 

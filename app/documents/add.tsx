@@ -124,8 +124,8 @@ export default function AddDocumentScreen() {
   const [fields, setFields] = useState<ExtractedField[]>([]);
   const [engine, setEngine] = useState<string | null>(null);
   const sources = useMemo(() => [captureRow(), ...importRows], []);
-  // The picker's copy of an imported file is plaintext: it goes once the
-  // document is saved, and whenever this screen lets go of it unsaved.
+  // Picker, camera, and scanner copies are plaintext: they go once the
+  // document is saved, and whenever this screen lets go of them unsaved.
   const held = useRef<PickedFile[]>([]);
   const mounted = useRef(true);
 
@@ -185,6 +185,10 @@ export default function AddDocumentScreen() {
         if (source === 'scan') {
           const pages = await scanDocuments();
           if (pages.length === 0) return;
+          if (!mounted.current) {
+            for (const page of pages) documentService.discardPickedCopy(page.uri);
+            return;
+          }
           accept(
             pages.map((page, index) => ({
               uri: page.uri,
@@ -245,6 +249,10 @@ export default function AddDocumentScreen() {
             : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
         const asset = result.canceled ? null : result.assets[0];
         if (!asset) return;
+        if (!mounted.current) {
+          documentService.discardPickedCopy(asset.uri);
+          return;
+        }
         const name = asset.fileName ?? `scan-${Date.now()}.jpg`;
         accept(
           [{ uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize }],
