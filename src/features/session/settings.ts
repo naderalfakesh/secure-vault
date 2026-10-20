@@ -1,5 +1,5 @@
 import type { LockoutState } from '@/features/auth/lockout';
-import { EMPTY_LOCKOUT, sanitizeLockout } from '@/features/auth/lockout';
+import { EMPTY_LOCKOUT, sanitizeLockout, unreadableLockout } from '@/features/auth/lockout';
 
 import * as SecureStore from 'expo-secure-store';
 
@@ -81,13 +81,25 @@ export const sessionStorage = {
   loadSettings: () => readJson(SETTINGS_ENTRY, sanitizeSettings, DEFAULT_SETTINGS),
   saveSettings: (settings: SecuritySettings) =>
     SecureStore.setItemAsync(SETTINGS_ENTRY, JSON.stringify(settings), options),
-  /** The stored lockout, or null when the store could not be read. */
+  /**
+   * The stored lockout, or null when the store could not be read. Content that
+   * is not JSON is replaced with a base pause, so it is judged once, not anew
+   * on every read.
+   */
   async loadLockout(): Promise<LockoutState | null> {
+    let raw: string | null;
     try {
-      const raw = await SecureStore.getItemAsync(LOCKOUT_ENTRY, options);
-      return raw ? sanitizeLockout(JSON.parse(raw)) : EMPTY_LOCKOUT;
+      raw = await SecureStore.getItemAsync(LOCKOUT_ENTRY, options);
     } catch {
       return null;
+    }
+    if (!raw) return EMPTY_LOCKOUT;
+    try {
+      return sanitizeLockout(JSON.parse(raw));
+    } catch {
+      const replacement = unreadableLockout(Date.now());
+      await sessionStorage.saveLockout(replacement).catch(() => {});
+      return replacement;
     }
   },
   saveLockout: (state: LockoutState) =>

@@ -7,7 +7,6 @@ import {
   LOCKOUT_BASE_MS,
   LOCKOUT_MAX_MS,
   lockRemainingMs,
-  LOCKOUT_THRESHOLD,
   recordFailure,
   sanitizeLockout,
   strictestLockout,
@@ -91,7 +90,7 @@ describe('lockout', () => {
 
   it('assumes a fresh pause that ends on its own when the state cannot be read', () => {
     const state = unreadableLockout(now);
-    expect(state.failures).toBe(LOCKOUT_THRESHOLD);
+    expect(state.failures).toBe(0);
     expect(lockRemainingMs(state, now)).toBe(LOCKOUT_BASE_MS);
     expect(isLocked(state, now + LOCKOUT_BASE_MS)).toBe(false);
   });

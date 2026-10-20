@@ -77,12 +77,13 @@ export function strictestLockout(a: LockoutState, b: LockoutState, now: number):
 }
 
 /**
- * Assumed when the stored state cannot be read: a fresh pause, as if the
- * threshold had just been reached. It ends on its own, so a broken store
- * slows guessing down without ever keeping the owner out.
+ * Assumed when the stored state cannot be read or parsed: a base pause and no
+ * invented failures, so a store that recovers is not left with a padded count.
+ * The pause ends on its own, so a broken store slows guessing down without
+ * ever keeping the owner out.
  */
 export function unreadableLockout(now: number): LockoutState {
-  return { failures: LOCKOUT_THRESHOLD, lockedUntil: now + LOCKOUT_BASE_MS };
+  return { failures: 0, lockedUntil: now + LOCKOUT_BASE_MS };
 }
 
 /** Coerces whatever was persisted into a valid state. */

@@ -386,7 +386,7 @@ describe('SessionProvider PIN lockout across relaunches', () => {
     const save = jest.spyOn(SecureStore, 'setItemAsync');
 
     const view = await launch();
-    expect(view.getByTestId('failures')).toHaveTextContent(String(LOCKOUT_THRESHOLD));
+    expect(view.getByTestId('failures')).toHaveTextContent('0');
     expect(Number(view.getByTestId('locked-until').props.children)).toBeGreaterThan(Date.now());
 
     await fireEvent.press(view.getByText('run pin ok'));
@@ -449,6 +449,43 @@ describe('SessionProvider PIN lockout across relaunches', () => {
     offset += LOCKOUT_BASE_MS;
     await fireEvent.press(second.getByText('run pin ok'));
     await waitFor(() => expect(second.getByTestId('status')).toHaveTextContent('unlocked'));
+  });
+
+  it('does not pad the stored count after a read failure at launch clears up', async () => {
+    await lockedVault();
+    await SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify({ failures: 2, lockedUntil: 0 }));
+    const getItem = SecureStore.getItemAsync;
+    const read = jest
+      .spyOn(SecureStore, 'getItemAsync')
+      .mockImplementation(async (key, options) => {
+        if (key === LOCKOUT_ENTRY) throw new Error('interaction not allowed');
+        return getItem(key, options);
+      });
+
+    const view = await launch();
+    expect(view.getByTestId('failures')).toHaveTextContent('0');
+    expect(Number(view.getByTestId('locked-until').props.children)).toBeGreaterThan(Date.now());
+    read.mockRestore();
+
+    offset = LOCKOUT_BASE_MS + 1;
+    await fireEvent.press(view.getByText('run pin bad'));
+    await waitFor(() => expect(view.getByTestId('failures')).toHaveTextContent('3'));
+    expect(await stored()).toEqual({ failures: 3, lockedUntil: 0 });
+  });
+
+  it('pauses on content that is not JSON and replaces it with the next count', async () => {
+    await lockedVault();
+    await SecureStore.setItemAsync(LOCKOUT_ENTRY, 'not json');
+
+    const view = await launch();
+    expect(view.getByTestId('failures')).toHaveTextContent('0');
+    const pausedUntil = Number(view.getByTestId('locked-until').props.children);
+    expect(pausedUntil).toBeGreaterThan(Date.now());
+    expect(await stored()).toEqual({ failures: 0, lockedUntil: pausedUntil });
+
+    offset = LOCKOUT_BASE_MS + 1;
+    await wrongPins(view, 1);
+    expect(await stored()).toEqual({ failures: 1, lockedUntil: 0 });
   });
 
   it('judges one PIN attempt at a time so none of them is lost', async () => {
