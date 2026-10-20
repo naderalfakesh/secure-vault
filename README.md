@@ -101,8 +101,8 @@ stored in plain. The
 
 ## Quality
 
-CI runs `npm run validate`: formatting, lint, strict types, 14 Jest suites
-with 59 tests, and Expo Doctor. The repository tests run against a real
+CI runs `npm run validate`: formatting, lint, strict types, the Jest suites,
+and Expo Doctor. The repository tests run against a real
 SQLite with FTS5; the vault module ships a Jest double so services and
 screens run unchanged. Native evidence covers iOS and Android development
 builds for every phase, including a backup made on the iPhone simulator and
@@ -120,7 +120,7 @@ src/data/                Repository, schema and migrations, SQLCipher adapter
 src/theme/               Colors, tokens, typography, Unistyles setup
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
-plugins/                 Config plugins, including the ML Kit simulator fix
+plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL, Xcode 27.1 JSI fix
 docs/                    Plan, security model, ADRs, verification records, screenshots
 ```
 
@@ -144,8 +144,9 @@ npm run android
 ```
 
 On the iOS simulator, enrol Face ID under Features before the first unlock;
-VisionKit's scanner needs a physical iPhone, so the simulator offers the
-camera instead. On the Android emulator, set a screen lock first
+VisionKit's scanner needs a physical iPhone, and the simulator has no
+camera, so there the photo row is disabled and documents come from Photos or
+Files. On the Android emulator, set a screen lock first
 (`adb shell locksettings set-pin 1234`) because the vault key requires one.
 
 | Command                           | Purpose                                                    |
