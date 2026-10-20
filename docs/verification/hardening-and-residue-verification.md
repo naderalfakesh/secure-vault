@@ -1,6 +1,6 @@
 # Hardening and plaintext residue verification
 
-> Verified: 2026-10-19 to 2026-10-20 (partial, see "Not verified")
+> Verified: 2026-10-19 to 2026-10-21 (partial, see "Not verified")
 >
 > Scope: everything merged after the native hardening integration note:
 > export staging, the share sheet lock gate, the single backup operation,
@@ -124,7 +124,7 @@ lock on the details form, and a kill followed by a relaunch. A planted
 control file was removed at lock, decoy files elsewhere were kept, and the
 test markers never turned up anywhere else. The system's own copy in the
 iOS `tmp/com.naderalfakesh.securevault-Inbox` folder is a separate finding.
-The import residue change removes it (`7891f1d`), and that is still pending.
+The import residue change removes it (`7891f1d`), verified below.
 
 ### Restore staging (`5664458`, 2026-10-20): passed
 
@@ -151,16 +151,52 @@ The run found two Android issues outside this change:
 - The JavaScript sweep followed a staging folder that had been replaced by a
   symbolic link. The link-safe sweeps address it.
 
+### Restored index name, erase gate, and import residues (`509d08d`, 2026-10-20)
+
+The import residues passed on both platforms. The Inbox copy was gone before
+saving and the picker copy after it. The photo picker, the Android scanner,
+the PDF previews, the lock and launch sweeps, and the sweep of files left by
+earlier builds all removed what they should, and every control file, vault
+entry, and index file was left unchanged. A save that outlived its screen
+still finished and removed its copy.
+
+The restored index name and erase gate passed their own cases on both
+platforms: an unreadable or deleted name kept the restored index closed with
+its contents unchanged, an open during "Delete everything" was turned away,
+a refused key prompt showed its own sentence, and an unfinished erase could
+be retried. One case failed on both platforms: right after "Delete
+everything", the app opened the index again and created a new key and an
+empty index before setup. That was already happening before this change, and
+the change listed below as pending fixes it.
+
+The run also found that closing the index after any search index write
+crashed the app (every time on Android, two of three on iOS), and that
+connections left open by restores let an erased index come back after setup.
+The next run covers both.
+
+### Index close and link-safe sweeps (`5872e2a`, 2026-10-21): passed
+
+- After a search index write, closing the index or running "Delete
+  everything" no longer crashed: none in 54 runs on Android and 17 on iOS.
+  Searches running during an erase, a restore followed by a search and an
+  erase, and three long sessions of restores, locks, exports, and new
+  documents all passed.
+- After several restores, "Delete everything", and setup in one session, no
+  handle to an erased index stayed open, the document list was empty, and a
+  new document was still there after a relaunch.
+- Staging and cache folders replaced by symbolic links were unlinked at
+  launch and lock without touching what they pointed to, on both platforms.
+  An export and a restore with a staging folder replaced that way still
+  worked, and normal exports and restores were unchanged.
+
+Two small gaps are left. An Android export writes its encrypted backup and
+index copy through a `backup` folder replaced by a link before failing with a
+typed error, and a restore in the same situation fails closed with a raw
+error. Both need write access as the app itself.
+
 ## Not verified
 
-- The restored index name, the erase gate, and the import residues
-  (`509d08d`): their native run was still going at the time of writing.
-  Pending. When an index name cannot be read, Home shows an empty vault
-  instead of an error; that is a known, separate interface item.
-- The index close change (`8415675` to `384a57e`) and the link-safe sweeps
-  (`0f2374a` to `5872e2a`): pending, on both platforms.
-- The iOS Inbox copy removal (`7891f1d`): pending, as part of the import
-  residue run.
+- The index staying closed between "Delete everything" and setup: pending.
 - Database key, on iOS: an install over an existing vault (there was no
   vault made before this commit).
 - Database key, on both platforms: a key the system invalidates after a new
