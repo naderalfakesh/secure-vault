@@ -370,7 +370,8 @@ class BackupService {
       unsubscribe();
       // The module has already emptied the staging folder; this and the launch sweep are backstops.
       if (staging) removeQuietly(staging);
-      removeNoFollow(extras);
+      // Never masks the outcome; the lock sweep removes `backup` with whatever is left.
+      removeQuietly(extras);
     }
   }
 }

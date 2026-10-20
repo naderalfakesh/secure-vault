@@ -135,6 +135,51 @@ describe('BackupService', () => {
     }
   });
 
+  describe('when the restore extras cannot be removed afterwards', () => {
+    // Fails only the removal in the restore's cleanup, not the one before the import.
+    const failExtrasCleanup = () => {
+      const remove = vault.removeTreeNoFollow.bind(vault);
+      let calls = 0;
+      return jest.spyOn(vault, 'removeTreeNoFollow').mockImplementation((path) => {
+        if (path.replace(/\/+$/, '').endsWith(`/${BACKUP_DIRECTORY}/restore`)) {
+          calls += 1;
+          if (calls > 1) throw new Error('busy: /mock/cache/backup/restore');
+        }
+        remove(path);
+      });
+    };
+
+    it('still reports a finished restore', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const backup = await backupService.createBackup('correct horse battery');
+      const removal = failExtrasCleanup();
+      try {
+        await expect(
+          backupService.restoreBackup(backup.uri, 'correct horse battery'),
+        ).resolves.toBe(backup.entries);
+      } finally {
+        removal.mockRestore();
+      }
+    });
+
+    it('still reports an index that could not be opened', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const backup = await backupService.createBackup('correct horse battery');
+      const reload = jest
+        .spyOn(documentService, 'reload')
+        .mockRejectedValueOnce(new Error('file is not a database'));
+      const removal = failExtrasCleanup();
+      try {
+        await expect(
+          backupService.restoreBackup(backup.uri, 'correct horse battery'),
+        ).rejects.toMatchObject({ code: 'BACKUP_INDEX', message: 'file is not a database' });
+      } finally {
+        removal.mockRestore();
+        reload.mockRestore();
+      }
+    });
+  });
+
   it('rejects a wrong passphrase without touching the vault', async () => {
     await vault.put('_database_key', 'cd'.repeat(32));
     const backup = await backupService.createBackup('correct horse battery');
