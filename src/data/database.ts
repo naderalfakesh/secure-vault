@@ -187,12 +187,14 @@ async function readLegacyIndex(): Promise<DocumentMetadata | null> {
   try {
     await vault.get(LEGACY_IMPORTED_ENTRY);
     return null;
-  } catch {
+  } catch (error) {
+    if (isKeyLocked(error)) throw unreadableKey(error);
     // Not imported yet.
   }
   try {
     return JSON.parse(await vault.get(LEGACY_INDEX_ENTRY)) as DocumentMetadata;
-  } catch {
+  } catch (error) {
+    if (isKeyLocked(error)) throw unreadableKey(error);
     return null;
   }
 }
@@ -231,11 +233,11 @@ async function openStore(): Promise<DocumentStore> {
   if (erasing) await waitForErase();
   const { name, guessed } = await currentDatabaseName();
   const key = await loadDatabaseKey(name);
+  const legacy = await readLegacyIndex();
   const db = await openEncryptedDatabase(name, key);
   if (!guessed) sweepStaleDatabases(name);
   await applyMigrations(db);
   const repository = new DocumentRepository(db);
-  const legacy = await readLegacyIndex();
   if (legacy) {
     await migrateLegacyIndex(legacy, repository);
     await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());

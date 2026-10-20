@@ -518,4 +518,26 @@ describe('index name, erase and legacy import', () => {
     await openDocumentStore();
     expect(openEncrypted).toHaveBeenCalledWith(restored, 'ab'.repeat(32));
   });
+
+  it('reports a locked key while checking the legacy import instead of skipping it', async () => {
+    vaultMock.reset();
+    await vault.put('_database_key', 'ab'.repeat(32));
+    await vault.put('_legacy_index_imported', 'yes');
+    failGet('_legacy_index_imported', keyLocked);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    expect(openEncrypted).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('reports a locked key while reading the legacy index', async () => {
+    await vault.delete('_legacy_index_imported');
+    await vault.put('_documents_metadata', JSON.stringify({ documents: {} }));
+    failGet('_documents_metadata', keyLocked);
+    const put = jest.spyOn(vault, 'put');
+
+    await expect(openDocumentStore()).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+    expect(put).not.toHaveBeenCalled();
+  });
 });
