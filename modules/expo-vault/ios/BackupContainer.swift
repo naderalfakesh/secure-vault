@@ -76,16 +76,18 @@ enum BackupContainer {
     var errorDescription: String? { "The backup staging folder is not allowed: \(reason)" }
   }
 
-  /// The one folder export plaintext may be staged in: `<caches>/backup-staging`.
-  /// The requested path is standardized and symlink-resolved, then compared
-  /// exactly with the app's own cache location, so a sweep can never reach the
-  /// cache root, the vault, or whatever a planted link points at. Only this
-  /// type can be handed to `write` and `sweep`.
+  /// The one folder export plaintext may be staged in, `<caches>/backup-staging`,
+  /// or restore plaintext, `<caches>/restore-staging`. The requested path is
+  /// standardized and symlink-resolved, then compared exactly with the app's
+  /// own cache location, so a sweep can never reach the cache root, the vault,
+  /// or whatever a planted link points at. Only this type can be handed to
+  /// `write`, `read` and `sweep`.
   struct StagingDirectory {
     static let name = "backup-staging"
+    static let restoreName = "restore-staging"
     let url: URL
 
-    init(requested: String, caches: URL) throws {
+    init(requested: String, caches: URL, name: String = StagingDirectory.name) throws {
       guard requested.hasPrefix("/") else { throw StagingDirectoryError(reason: "not an absolute path") }
       let candidate = URL(fileURLWithPath: requested, isDirectory: true).standardizedFileURL
       // attributesOfItem does not follow links, so a symlink at the path is
@@ -94,16 +96,16 @@ enum BackupContainer {
         guard type == .typeDirectory else { throw StagingDirectoryError(reason: "not a directory") }
       }
       let expected = caches.standardizedFileURL.resolvingSymlinksInPath()
-        .appendingPathComponent(Self.name, isDirectory: true)
+        .appendingPathComponent(name, isDirectory: true)
       guard candidate.resolvingSymlinksInPath().path == expected.path else {
-        throw StagingDirectoryError(reason: "not the app's backup-staging cache folder")
+        throw StagingDirectoryError(reason: "not the app's \(name) cache folder")
       }
       url = expected
     }
   }
 
-  /// Empties the staging directory, creating it if needed. Export plaintext
-  /// only ever lives here, so one sweep is the whole cleanup after a crash.
+  /// Empties the staging directory, creating it if needed. Backup and restore
+  /// plaintext only ever lives there, so one sweep is the whole cleanup after a crash.
   /// `removeItem` deletes a link itself and never follows it. Throws when the
   /// folder cannot be created or something in it could not be removed:
   /// staging must not start next to leftover plaintext.
@@ -323,30 +325,36 @@ enum BackupContainer {
   /// `validate` sees each entry's metadata on every pass; `validateAll` sees
   /// the whole list once, after the pre-pass and before the key is derived,
   /// for rules about which entries must be present.
+  ///
+  /// Every payload copy and plaintext lives in `staging`, which is swept
+  /// before anything is read (a staging error is thrown with the vault
+  /// untouched) and again, best effort, when the read ends either way.
   static func read(
-    from source: URL, passphrase: String, validate: (Meta) throws -> Void,
+    from source: URL, passphrase: String, staging: StagingDirectory, validate: (Meta) throws -> Void,
     validateAll: ([Meta]) throws -> Void = { _ in },
     progress: (ReadPhase, Int, Int) -> Void, handle: (Meta, URL) throws -> Void
   ) throws {
+    try sweep(staging)
+    defer { try? sweep(staging) }
     let metas = try readMetas(from: source)
     for meta in metas { try validate(meta) }
     try validateAll(metas)
     let header = try readHeader(from: source)
     let key = try deriveKey(passphrase: passphrase, salt: try salt(of: header), iterations: header.kdf.iterations)
 
-    try walk(source, validate: validate, progress: { progress(.verify, $0, $1) }) { meta, payload in
+    try walk(source, staging: staging, validate: validate, progress: { progress(.verify, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
-        try verifyCheck(payload, key: key)
+        try verifyCheck(payload, key: key, staging: staging)
       } else {
         do { try VaultCrypto.verifyFile(at: payload, key: key) } catch { throw BackupError.corrupt("entry \(meta.key)") }
       }
     }
-    try walk(source, validate: validate, progress: { progress(.restore, $0, $1) }) { meta, payload in
+    try walk(source, staging: staging, validate: validate, progress: { progress(.restore, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
-        try verifyCheck(payload, key: key)
+        try verifyCheck(payload, key: key, staging: staging)
         return
       }
-      let plain = temporaryFile()
+      let plain = temporaryFile(in: staging)
       do {
         try VaultCrypto.decryptFile(from: payload, to: plain, key: key)
       } catch {
@@ -360,8 +368,8 @@ enum BackupContainer {
 
   /// The check entry must decrypt to the fixed value; anything else means the
   /// passphrase is wrong.
-  private static func verifyCheck(_ payload: URL, key: SymmetricKey) throws {
-    let plain = temporaryFile()
+  private static func verifyCheck(_ payload: URL, key: SymmetricKey, staging: StagingDirectory) throws {
+    let plain = temporaryFile(in: staging)
     defer { try? FileManager.default.removeItem(at: plain) }
     do { try VaultCrypto.decryptFile(from: payload, to: plain, key: key) } catch { throw BackupError.passphrase }
     guard (try? Data(contentsOf: plain)) == checkValue else { throw BackupError.passphrase }
@@ -371,7 +379,7 @@ enum BackupContainer {
   /// its payload is copied to a temporary file that `visit` may read but not
   /// keep, and progress is reported per entry.
   private static func walk(
-    _ source: URL, validate: (Meta) throws -> Void, progress: Progress,
+    _ source: URL, staging: StagingDirectory, validate: (Meta) throws -> Void, progress: Progress,
     visit: (Meta, URL) throws -> Void
   ) throws {
     let input = try FileHandle(forReadingFrom: source)
@@ -381,7 +389,7 @@ enum BackupContainer {
       // Lengths and metadata are checked again in case the file changed since the pre-pass.
       let (meta, size) = try readEntryHead(input, index: index)
       try validate(meta)
-      let payload = temporaryFile()
+      let payload = temporaryFile(in: staging)
       defer { try? FileManager.default.removeItem(at: payload) }
       try copy(from: input, bytes: size, to: payload)
       try visit(meta, payload)
@@ -389,8 +397,8 @@ enum BackupContainer {
     }
   }
 
-  static func temporaryFile() -> URL {
-    FileManager.default.temporaryDirectory.appendingPathComponent("backup-\(UUID().uuidString)")
+  static func temporaryFile(in staging: StagingDirectory) -> URL {
+    staging.url.appendingPathComponent("backup-\(UUID().uuidString)")
   }
 
   private static func append(contentsOf source: URL, to output: FileHandle) throws {

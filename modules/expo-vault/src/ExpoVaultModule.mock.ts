@@ -9,8 +9,16 @@ export interface VaultMockExport {
   stagingDir: string;
 }
 
+export interface VaultMockImport {
+  sourcePath: string;
+  extraDir: string;
+  stagingDir: string;
+}
+
 export function createVaultMock(): SecureVault & {
   reset(): void;
+  /** Paths the last `importBackup` call was given. */
+  lastImport: VaultMockImport | null;
   /** Paths the last `exportBackup` call was given, for tests of the staging contract. */
   lastExport: VaultMockExport | null;
 } {
@@ -32,6 +40,7 @@ export function createVaultMock(): SecureVault & {
 
   return {
     lastExport: null,
+    lastImport: null,
     async hasVault() {
       return created;
     },
@@ -101,7 +110,8 @@ export function createVaultMock(): SecureVault & {
         entries: backup.strings.size + backup.files.size + backup.extras.length,
       };
     },
-    async importBackup(sourcePath, passphrase, extraDir) {
+    async importBackup(sourcePath, passphrase, extraDir, stagingDir) {
+      this.lastImport = { sourcePath, extraDir, stagingDir };
       const backup = backups.get(sourcePath);
       if (!backup)
         throw Object.assign(new Error('The backup file is not valid'), { code: 'BACKUP_INVALID' });

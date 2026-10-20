@@ -14,6 +14,14 @@ const DATABASE_ENTRY = 'database';
  * killed mid-entry leaves at most one entry behind, and only until then.
  */
 export const BACKUP_STAGING_DIRECTORY = 'backup-staging';
+/**
+ * Cache folder for a restore's payload copies and decrypted entries. The
+ * module empties it before and after every restore, `replaceVault` removes
+ * it, and `sweepCache` removes it at launch and at any lock with no restore
+ * running, so a restore killed mid-entry leaves plaintext only until the next
+ * launch.
+ */
+export const RESTORE_STAGING_DIRECTORY = 'restore-staging';
 /** Cache folder of finished containers, the index copy, and the restore extras. */
 export const BACKUP_DIRECTORY = 'backup';
 /** Where the document picker copies a picked file when asked to (iOS and Android). */
@@ -65,6 +73,8 @@ export function describeBackupError(
       return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
     case 'BACKUP_STAGING_INVALID':
       return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
+    case 'BACKUP_RESTORE_STAGING_INVALID':
+      return "The restore's temporary files could not be cleared, so nothing was changed. Try again.";
     case 'BACKUP_BUSY':
       return 'A backup or restore is still running. Try again once it has finished.';
     case 'BACKUP_EXPORT_FAILED':
@@ -86,6 +96,7 @@ const knownBackupErrors = new Set([
   'BACKUP_RESOURCE',
   'BACKUP_INDEX',
   'BACKUP_STAGING_INVALID',
+  'BACKUP_RESTORE_STAGING_INVALID',
   'BACKUP_BUSY',
   'BACKUP_EXPORT_FAILED',
   'BACKUP_IMPORT_FAILED',
@@ -183,9 +194,9 @@ class BackupService {
     return directory;
   }
 
-  /** An empty staging folder; whatever an interrupted export left there goes first. */
-  private staging() {
-    const directory = new Directory(Paths.cache, BACKUP_STAGING_DIRECTORY);
+  /** An empty staging folder; whatever an interrupted export or restore left there goes first. */
+  private staging(name = BACKUP_STAGING_DIRECTORY) {
+    const directory = new Directory(Paths.cache, name);
     if (directory.exists) directory.delete();
     directory.create({ intermediates: true });
     return directory;
@@ -298,16 +309,17 @@ class BackupService {
 
   /**
    * The lock and launch sweep for backup ciphertext: finished containers,
-   * the index copy, and the picker's copies. A restore in progress keeps both
+   * the index copy, and the picker's copies, plus whatever a killed restore
+   * left in its staging folder. A restore in progress keeps all three
    * folders, because it is still reading the picked file and writing its
-   * extras; it removes them itself when it ends. An export in progress is not
+   * extras and plaintext; it removes them itself when it ends. An export in progress is not
    * stopped natively; it fails at its next entry because the lock's
    * `DocumentService.clearCache` removes its staging folder, and the share
    * gate deletes whatever it finished unshared.
    */
   sweepCache(): void {
     if (this.operation === 'restore') return;
-    for (const name of [BACKUP_DIRECTORY, PICKER_DIRECTORY]) {
+    for (const name of [BACKUP_DIRECTORY, PICKER_DIRECTORY, RESTORE_STAGING_DIRECTORY]) {
       removeQuietly(new Directory(Paths.cache, name));
     }
   }
@@ -332,12 +344,19 @@ class BackupService {
     onProgress?: ProgressListener,
   ): Promise<number> {
     const extras = new Directory(this.directory(), 'restore');
+    let staging: Directory | null = null;
     let unsubscribe = () => {};
     try {
       if (extras.exists) extras.delete();
       extras.create({ intermediates: true });
+      staging = this.staging(RESTORE_STAGING_DIRECTORY);
       unsubscribe = this.subscribe(onProgress);
-      const result = await vault.importBackup(toPath(uri), passphrase, toPath(extras.uri));
+      const result = await vault.importBackup(
+        toPath(uri),
+        passphrase,
+        toPath(extras.uri),
+        toPath(staging.uri),
+      );
       const database = result.extras.find((extra) => extra.key === DATABASE_ENTRY);
       if (!database) throw indexError(new Error('The backup has no document index.'));
       try {
@@ -350,6 +369,8 @@ class BackupService {
       return result.entries;
     } finally {
       unsubscribe();
+      // The module has already emptied the staging folder; this and the launch sweep are backstops.
+      if (staging) removeQuietly(staging);
       if (extras.exists) extras.delete();
     }
   }

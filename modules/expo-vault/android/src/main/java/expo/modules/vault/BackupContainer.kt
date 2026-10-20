@@ -41,16 +41,18 @@ object BackupContainer {
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
 
     /**
-     * The one folder export plaintext may be staged in: `<cacheDir>/backup-staging`. The requested
-     * path is canonicalised (symlinks and `..` resolved) and compared exactly with the app's own
-     * cache location, so a sweep can never reach the cache root, the vault, or whatever a planted
-     * link points at. Only this type can be handed to [write] and [sweep].
+     * The one folder export plaintext may be staged in, `<cacheDir>/backup-staging`, or restore
+     * plaintext, `<cacheDir>/restore-staging`. The requested path is canonicalised (symlinks and
+     * `..` resolved) and compared exactly with the app's own cache location, so a sweep can never
+     * reach the cache root, the vault, or whatever a planted link points at. Only this type can be
+     * handed to [write], [read] and [sweep].
      */
     class StagingDirectory private constructor(val dir: File) {
         companion object {
             const val NAME = "backup-staging"
+            const val RESTORE_NAME = "restore-staging"
 
-            fun resolve(requested: String, cacheDir: File): StagingDirectory {
+            fun resolve(requested: String, cacheDir: File, name: String = NAME): StagingDirectory {
                 if (!requested.startsWith("/")) throw StagingException("not an absolute path")
                 val candidate = File(requested)
                 // A link at the path is refused even when it points at the right place; a missing
@@ -59,9 +61,9 @@ object BackupContainer {
                     EntryKind.DIRECTORY, EntryKind.MISSING -> Unit
                     EntryKind.LINK, EntryKind.OTHER -> throw StagingException("not a directory")
                 }
-                val expected = File(cacheDir.canonicalFile, NAME)
+                val expected = File(cacheDir.canonicalFile, name)
                 if (candidate.canonicalPath != expected.path) {
-                    throw StagingException("not the app's backup-staging cache folder")
+                    throw StagingException("not the app's $name cache folder")
                 }
                 return StagingDirectory(expected)
             }
@@ -120,7 +122,7 @@ object BackupContainer {
     }
 
     /**
-     * Empties the staging directory, creating it if needed. Export plaintext only ever lives here,
+     * Empties the staging directory, creating it if needed. Backup and restore plaintext only ever lives there,
      * so one sweep is the whole cleanup after a crash. Throws when the folder cannot be created or
      * something in it could not be removed: staging must not start next to leftover plaintext.
      */
@@ -342,10 +344,31 @@ object BackupContainer {
      * [validate] sees each entry's metadata on every pass; [validateAll] sees the
      * whole list once, after the pre-pass and before the key is derived, for rules
      * about which entries must be present.
+     *
+     * Every payload copy and plaintext lives in [staging], which is swept before anything is read
+     * (a [StagingException] is thrown with the vault untouched) and again, best effort, when the
+     * read ends either way.
      */
     fun read(
-        source: File, passphrase: String, scratch: File, validate: (Meta) -> Unit,
+        source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit = {},
+        progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
+    ) {
+        sweep(staging)
+        try {
+            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, handle)
+        } finally {
+            try {
+                sweep(staging)
+            } catch (cleanup: Exception) {
+                // Each entry's files are already removed; the app's lock and launch sweep retries the folder.
+            }
+        }
+    }
+
+    private fun readEntries(
+        source: File, passphrase: String, scratch: File, validate: (Meta) -> Unit,
+        validateAll: (List<Meta>) -> Unit,
         progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
     ) {
         val metas = readMetas(source)

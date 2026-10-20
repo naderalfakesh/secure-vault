@@ -3,7 +3,10 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { closeDocumentStore } from '@/data/database';
 
 import vault from '../../../modules/expo-vault';
-import type { VaultMockExport } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
+import type {
+  VaultMockExport,
+  VaultMockImport,
+} from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import { withKeyRecovery } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DocumentCategory } from '../../types';
 import {
@@ -14,10 +17,15 @@ import {
   describeBackupErrorPlainly,
   PICKER_DIRECTORY,
   passphraseProblem,
+  RESTORE_STAGING_DIRECTORY,
 } from '../BackupService';
 import { documentService } from '../DocumentService';
 
-const vaultMock = vault as unknown as { reset(): void; lastExport: VaultMockExport | null };
+const vaultMock = vault as unknown as {
+  reset(): void;
+  lastExport: VaultMockExport | null;
+  lastImport: VaultMockImport | null;
+};
 
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
@@ -38,6 +46,9 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);
     expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
       /temporary files could not be cleared/,
+    );
+    expect(describeBackupError({ code: 'BACKUP_RESTORE_STAGING_INVALID' })).toMatch(
+      /restore's temporary files could not be cleared, so nothing was changed/,
     );
     expect(describeBackupError({ code: 'BACKUP_BUSY' })).toMatch(/still running/);
     expect(
@@ -60,6 +71,9 @@ describe('passphrase policy', () => {
       describeBackupErrorPlainly(new Error('/var/mobile/Caches/backup/restore: EIO'), 'fallback'),
     ).toBe('fallback');
     expect(describeBackupErrorPlainly({ code: 'SOMETHING_ELSE' }, 'fallback')).toBe('fallback');
+    expect(
+      describeBackupErrorPlainly({ code: 'BACKUP_RESTORE_STAGING_INVALID' }, 'fallback'),
+    ).toMatch(/nothing was changed/);
   });
 });
 
@@ -368,6 +382,134 @@ describe('BackupService', () => {
       // Finished backups are ciphertext; the backup sweep removes them, not this one.
       expect(finished.exists).toBe(true);
       finished.delete();
+    });
+  });
+
+  describe('restore staging', () => {
+    const staging = () => new Directory(Paths.cache, RESTORE_STAGING_DIRECTORY);
+
+    // What a restore killed mid-entry would leave behind.
+    const plantResidue = () => {
+      const directory = staging();
+      if (!directory.exists) directory.create({ intermediates: true });
+      const leftover = new File(directory, 'backup-left-behind');
+      leftover.write('plaintext');
+      return leftover;
+    };
+
+    const backupOf = async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      return backupService.createBackup('correct horse battery');
+    };
+
+    afterEach(() => {
+      if (staging().exists) staging().delete();
+    });
+
+    it('hands the module an empty restore staging folder in the cache and removes it afterwards', async () => {
+      const backup = await backupOf();
+      plantResidue();
+      let seen: { exists: boolean; entries: number } | null = null;
+      const original = vault.importBackup.bind(vault);
+      const spy = jest
+        .spyOn(vault, 'importBackup')
+        .mockImplementationOnce(async (source, passphrase, extraDir, stagingDir) => {
+          const directory = staging();
+          seen = { exists: directory.exists, entries: directory.list().length };
+          return original(source, passphrase, extraDir, stagingDir);
+        });
+      try {
+        await backupService.restoreBackup(backup.uri, 'correct horse battery');
+      } finally {
+        spy.mockRestore();
+      }
+
+      expect(seen).toEqual({ exists: true, entries: 0 });
+      const { extraDir, stagingDir } = vaultMock.lastImport!;
+      expect(stagingDir).toBe(`/mock/cache/${RESTORE_STAGING_DIRECTORY}`);
+      // Extras are moved out to the backup folder; staging is never inside it or the export's.
+      expect(extraDir.startsWith(`${stagingDir}/`)).toBe(false);
+      expect(stagingDir).not.toBe(`/mock/cache/${BACKUP_STAGING_DIRECTORY}`);
+      expect(staging().exists).toBe(false);
+    });
+
+    it('removes the restore staging folder when the module fails, keeping its error', async () => {
+      const backup = await backupOf();
+      const spy = jest
+        .spyOn(vault, 'importBackup')
+        .mockImplementationOnce(async (_source, _passphrase, _extraDir, stagingDir) => {
+          new File(`file://${stagingDir}/backup-entry`).write('plaintext');
+          throw Object.assign(new Error('disk full'), { code: 'BACKUP_PARTIAL' });
+        });
+      try {
+        await expect(
+          backupService.restoreBackup(backup.uri, 'correct horse battery'),
+        ).rejects.toMatchObject({ code: 'BACKUP_PARTIAL' });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(staging().exists).toBe(false);
+    });
+
+    it("passes on the module's typed refusal of the staging folder", async () => {
+      const backup = await backupOf();
+      const spy = jest.spyOn(vault, 'importBackup').mockRejectedValueOnce(
+        Object.assign(new Error('The backup staging folder is not allowed: not a directory'), {
+          code: 'BACKUP_RESTORE_STAGING_INVALID',
+        }),
+      );
+      try {
+        const failure = await backupService
+          .restoreBackup(backup.uri, 'correct horse battery')
+          .catch((error: unknown) => error);
+        expect(failure).toMatchObject({ code: 'BACKUP_RESTORE_STAGING_INVALID' });
+        expect(describeBackupError(failure)).toMatch(/nothing was changed/);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it("removes a killed restore's plaintext at launch", () => {
+      const leftover = plantResidue();
+
+      backupService.sweepCache();
+
+      expect(leftover.exists).toBe(false);
+      expect(staging().exists).toBe(false);
+    });
+
+    it('is left to a restore that runs through a lock, which removes it when it ends', async () => {
+      const backup = await backupOf();
+      let finishImport: () => void = () => {};
+      let entry: File | null = null;
+      const original = vault.importBackup.bind(vault);
+      const spy = jest.spyOn(vault, 'importBackup').mockImplementationOnce(
+        (source, passphrase, extraDir, stagingDir) =>
+          new Promise((resolve, reject) => {
+            entry = new File(`file://${stagingDir}/backup-entry`);
+            entry.write('plaintext');
+            finishImport = () => {
+              entry!.delete();
+              original(source, passphrase, extraDir, stagingDir).then(resolve, reject);
+            };
+          }),
+      );
+      try {
+        const restoring = backupService.restoreBackup(backup.uri, 'correct horse battery');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // The lock's two sweeps.
+        await documentService.clearCache();
+        backupService.sweepCache();
+        expect(entry!.exists).toBe(true);
+
+        finishImport();
+        await restoring;
+      } finally {
+        spy.mockRestore();
+      }
+      expect(staging().exists).toBe(false);
     });
   });
 

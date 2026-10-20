@@ -276,16 +276,20 @@ class ExpoVaultModule : Module() {
             }
         }
 
-        AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, promise: Promise ->
+        AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise ->
             var cleared = false
             try {
+                // Decrypted entries may only land in the app's restore-staging cache folder.
+                val staging = BackupContainer.StagingDirectory.resolve(
+                    stagingDir, appContext.reactContext!!.cacheDir, BackupContainer.StagingDirectory.RESTORE_NAME
+                )
                 val secretKey = getSecretKey()
                 val extras = File(extraDir).apply { mkdirs() }
                 val restored = mutableListOf<Map<String, String>>()
                 var count = 0
                 // Every key is checked and every entry decrypted once before the
                 // first entry is handled; the vault is only cleared after both.
-                BackupContainer.read(File(sourcePath), passphrase, appContext.reactContext!!.cacheDir, { meta ->
+                BackupContainer.read(File(sourcePath), passphrase, staging, { meta ->
                     if (!isRestoreKeyAllowed(meta)) throw BackupContainer.CorruptException("entry key ${meta.key}")
                 }, { metas ->
                     if (!hasIndex(metas)) throw BackupContainer.CorruptException("no document index")
@@ -345,6 +349,7 @@ class ExpoVaultModule : Module() {
                     VaultErrors.isKeyCode(code) -> promise.reject(code, if (cleared) partial else e.message, e)
                     cleared -> promise.reject("BACKUP_PARTIAL", partial, e)
                     e is OutOfMemoryError -> promise.reject("BACKUP_RESOURCE", RESOURCE_MESSAGE, e)
+                    e is BackupContainer.StagingException -> promise.reject("BACKUP_RESTORE_STAGING_INVALID", e.message, e)
                     e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
                     e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
                     e is BackupContainer.CorruptException -> promise.reject("BACKUP_INVALID", e.message, e)

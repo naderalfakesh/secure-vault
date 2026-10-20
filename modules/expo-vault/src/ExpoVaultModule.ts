@@ -102,12 +102,16 @@ export interface SecureVault {
    * declared length the device cannot hold (BACKUP_RESOURCE, Android only)
    * leaves the vault untouched. A failure from the first removal on rejects
    * with BACKUP_PARTIAL. Extra files land in `extraDir` and are listed in the
-   * result.
+   * result. Payload copies and decrypted entries live only in `stagingDir`,
+   * which must be the app cache's own `restore-staging` folder
+   * (BACKUP_RESTORE_STAGING_INVALID otherwise, before anything is touched) and
+   * is emptied before and after; the caller sweeps it on launch as well.
    */
   importBackup(
     sourcePath: string,
     passphrase: string,
     extraDir: string,
+    stagingDir: string,
   ): Promise<BackupImportResult>;
   addListener(
     event: 'backupProgress',

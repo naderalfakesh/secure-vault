@@ -181,9 +181,14 @@ public class ExpoVaultModule: Module {
         }
     }
 
-    AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, promise: Promise) in
+    AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise) in
         var cleared = false
         do {
+            // Decrypted entries may only land in the app's restore-staging cache folder.
+            let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+            let staging = try BackupContainer.StagingDirectory(
+                requested: stagingDir, caches: caches, name: BackupContainer.StagingDirectory.restoreName
+            )
             let encryptionKey = try self.getEncryptionKey()
             let source = URL(fileURLWithPath: sourcePath)
             let extras = URL(fileURLWithPath: extraDir, isDirectory: true)
@@ -192,7 +197,7 @@ public class ExpoVaultModule: Module {
             // first entry is handled; the vault is only cleared after both.
             var restored: [[String: String]] = []
             var count = 0
-            try BackupContainer.read(from: source, passphrase: passphrase, validate: { meta in
+            try BackupContainer.read(from: source, passphrase: passphrase, staging: staging, validate: { meta in
                 guard Self.isRestoreKeyAllowed(meta) else { throw BackupError.corrupt("entry key \(meta.key)") }
             }, validateAll: { metas in
                 guard Self.hasIndex(metas) else { throw BackupError.corrupt("no document index") }
@@ -230,6 +235,8 @@ public class ExpoVaultModule: Module {
             // is usually disk, I/O or the key, not the file; it is named either
             // way, because the old vault is gone.
             promise.reject("BACKUP_PARTIAL", "The restore stopped after the previous vault was removed: \(error.localizedDescription)")
+        } catch let error as BackupContainer.StagingDirectoryError {
+            promise.reject("BACKUP_RESTORE_STAGING_INVALID", error.localizedDescription)
         } catch let error as BackupError {
             switch error {
             case .passphrase: promise.reject("BACKUP_PASSPHRASE", error.localizedDescription)
