@@ -11,7 +11,14 @@ import {
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
-import { EMPTY_LOCKOUT, isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
+import {
+  EMPTY_LOCKOUT,
+  isLocked,
+  type LockoutState,
+  recordFailure,
+  strictestLockout,
+  unreadableLockout,
+} from '@/features/auth/lockout';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
@@ -115,6 +122,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // earlier session never mistakes a later unlock for its own.
   const generationRef = useRef(0);
   const waitersRef = useRef(new Set<() => void>());
+  // The lockout a PIN attempt is judged against, current within the same tick.
+  const lockoutRef = useRef<LockoutState>(EMPTY_LOCKOUT);
+
+  const applyLockout = useCallback((next: LockoutState) => {
+    lockoutRef.current = next;
+    setLockout(next);
+  }, []);
 
   const settleWaiters = useCallback(() => {
     for (const settle of [...waitersRef.current]) settle();
@@ -135,13 +149,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [exists, type, hasPin] = await Promise.all([
+      const [exists, type, hasPin, storedLockout] = await Promise.all([
         vault.hasVault().catch(() => false),
         vault.biometryType().catch(() => 'none' as const),
         sessionStorage.hasPinRecord(),
+        // Readable before the device key is authenticated, so a relaunch keeps
+        // the attempt counter and any pause that is still running.
+        sessionStorage.loadLockout(),
       ]);
       if (!active) return;
       setBiometry(type);
+      applyLockout(storedLockout ?? unreadableLockout(Date.now()));
       setVaultExists(exists);
       // A key without a PIN record is either the 2025 prototype's vault or an
       // interrupted setup. Both go through setup again, and setUp keeps the
@@ -151,15 +169,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return () => {
       active = false;
     };
-  }, [changeStatus]);
+  }, [changeStatus, applyLockout]);
 
   const loadProtectedState = useCallback(async () => {
-    const [nextSettings, nextLockout] = await Promise.all([
-      sessionStorage.loadSettings(),
-      sessionStorage.loadLockout(),
-    ]);
-    setSettings(nextSettings);
-    setLockout(nextLockout);
+    setSettings(await sessionStorage.loadSettings());
   }, []);
 
   const ensureKeyAccess = useCallback(async () => {
@@ -191,7 +204,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       const ok = await vault.unlockWithBiometrics();
       if (ok) {
         await loadProtectedState();
-        setLockout(EMPTY_LOCKOUT);
+        applyLockout(EMPTY_LOCKOUT);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
         changeStatus('unlocked');
       }
@@ -200,13 +213,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setError(describeError(e, 'Could not unlock the vault.'));
       return false;
     }
-  }, [loadProtectedState, changeStatus]);
+  }, [loadProtectedState, applyLockout, changeStatus]);
 
   const unlockWithPin = useCallback(
-    async (pin: string) => {
+    async (pin: string): Promise<PinUnlockResult> => {
       setError(null);
+      // Nothing is judged before the startup read of the stored lockout landed.
+      if (statusRef.current === 'loading') return 'not-unlocked';
+      // The stored copy outlives a relaunch and the one in memory outlives a
+      // failed write; the attempt is judged against the stricter of the two.
+      const stored = await sessionStorage.loadLockout();
       const now = Date.now();
-      if (isLocked(lockout, now)) return 'not-unlocked';
+      const current = strictestLockout(lockoutRef.current, stored ?? lockoutRef.current, now);
+      applyLockout(current);
+      if (isLocked(current, now)) return 'not-unlocked';
       try {
         // Reading the PIN record needs the device key, which the OS may gate
         // with its own prompt; that is the same gate biometrics use.
@@ -219,21 +239,22 @@ export function SessionProvider({ children }: PropsWithChildren) {
           // A key prompt the user cancelled is not a wrong PIN.
           if (!(await ensureKeyAccess())) return 'not-unlocked';
           await loadProtectedState();
-          setLockout(EMPTY_LOCKOUT);
+          applyLockout(EMPTY_LOCKOUT);
           await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
           changeStatus('unlocked');
           return 'unlocked';
         }
-        const next = recordFailure(lockout, now);
-        setLockout(next);
-        await sessionStorage.saveLockout(next).catch(() => {});
+        const next = recordFailure(current, now);
+        applyLockout(next);
+        // A stored copy that could not be read may be stricter; leave it be.
+        if (stored) await sessionStorage.saveLockout(next).catch(() => {});
         return 'wrong-pin';
       } catch (e) {
         setError(describeError(e, 'Could not check the PIN.'));
         return 'not-unlocked';
       }
     },
-    [lockout, loadProtectedState, ensureKeyAccess, changeStatus],
+    [loadProtectedState, ensureKeyAccess, applyLockout, changeStatus],
   );
 
   const setUp = useCallback(
@@ -247,8 +268,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await vault.put(KEY_PROBE_ENTRY, 'ok');
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
         await sessionStorage.saveSettings(DEFAULT_SETTINGS);
+        await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
         setSettings(DEFAULT_SETTINGS);
-        setLockout(EMPTY_LOCKOUT);
+        applyLockout(EMPTY_LOCKOUT);
         setVaultExists(true);
         changeStatus('unlocked');
         return true;
@@ -257,7 +279,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return false;
       }
     },
-    [vaultExists, changeStatus],
+    [vaultExists, applyLockout, changeStatus],
   );
 
   const changePin = useCallback(async (currentPin: string, nextPin: string) => {
@@ -290,11 +312,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const eraseVault = useCallback(async () => {
     await sessionStorage.clear().catch(() => {});
     setSettings(DEFAULT_SETTINGS);
-    setLockout(EMPTY_LOCKOUT);
+    applyLockout(EMPTY_LOCKOUT);
     setError(null);
     setNotice(null);
     changeStatus('setup');
-  }, [changeStatus]);
+  }, [applyLockout, changeStatus]);
 
   const withoutAutoLock = useCallback(
     async <T,>(work: () => Promise<T>) => {

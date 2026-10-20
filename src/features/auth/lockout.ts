@@ -43,6 +43,27 @@ export function recordFailure(state: LockoutState, now: number): LockoutState {
   return { failures, lockedUntil: now + duration };
 }
 
+/**
+ * The stricter of two copies of the state, so neither a stale copy nor a lost
+ * write hands back attempts. A pause is capped at the longest one the policy
+ * can set from `now`, so a clock that jumped back cannot lock the pad for good.
+ */
+export function strictestLockout(a: LockoutState, b: LockoutState, now: number): LockoutState {
+  return {
+    failures: Math.max(a.failures, b.failures),
+    lockedUntil: Math.min(Math.max(a.lockedUntil, b.lockedUntil), now + LOCKOUT_MAX_MS),
+  };
+}
+
+/**
+ * Assumed when the stored state cannot be read: a fresh pause, as if the
+ * threshold had just been reached. It ends on its own, so a broken store
+ * slows guessing down without ever keeping the owner out.
+ */
+export function unreadableLockout(now: number): LockoutState {
+  return { failures: LOCKOUT_THRESHOLD, lockedUntil: now + LOCKOUT_BASE_MS };
+}
+
 /** Coerces whatever was persisted into a valid state. */
 export function sanitizeLockout(value: unknown): LockoutState {
   if (!value || typeof value !== 'object') return EMPTY_LOCKOUT;

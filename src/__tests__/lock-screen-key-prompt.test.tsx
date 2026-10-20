@@ -46,12 +46,15 @@ function Status() {
   return <Text testID="status">{useSession().status}</Text>;
 }
 
-async function lockedVault() {
+async function lockedVault(storedLockout?: { failures: number; lockedUntil: number }) {
   native.reset();
   secureStoreMock.__reset();
   await native.createVault();
   await native.put('_key_probe', 'ok');
   await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
+  if (storedLockout) {
+    await SecureStore.setItemAsync('securevault.lockout', JSON.stringify(storedLockout));
+  }
   native.unlockWithBiometrics.mockClear();
   state.keyOpen = false;
   const view = await render(
@@ -83,7 +86,7 @@ describe('LockScreen PIN unlock with a locked device key', () => {
     expect(native.unlockWithBiometrics).toHaveBeenCalledTimes(1);
     expect(view.getByTestId('status')).toHaveTextContent('locked');
     expect(view.queryByText(/Wrong PIN/)).toBeNull();
-    expect((await sessionStorage.loadLockout()).failures).toBe(0);
+    expect((await sessionStorage.loadLockout())?.failures).toBe(0);
   });
 
   it('still counts a wrong PIN without prompting', async () => {
@@ -94,7 +97,57 @@ describe('LockScreen PIN unlock with a locked device key', () => {
 
     await waitFor(() => expect(view.getByText(/Wrong PIN\. 4 attempts left/)).toBeOnTheScreen());
     expect(native.unlockWithBiometrics).not.toHaveBeenCalled();
-    expect((await sessionStorage.loadLockout()).failures).toBe(1);
+    expect((await sessionStorage.loadLockout())?.failures).toBe(1);
+  });
+
+  it('keeps the counter from before a relaunch when the key prompt is cancelled', async () => {
+    state.answer = false;
+    const view = await lockedVault({ failures: 2, lockedUntil: 0 });
+
+    await enterPin(view, '123456');
+
+    await waitFor(() =>
+      expect(
+        view.getByText('The device key was not unlocked. Enter your PIN to try again.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(native.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(view.queryByText(/Wrong PIN/)).toBeNull();
+    expect(await sessionStorage.loadLockout()).toEqual({ failures: 2, lockedUntil: 0 });
+
+    await enterPin(view, '000000');
+
+    await waitFor(() => expect(view.getByText(/Wrong PIN\. 2 attempts left/)).toBeOnTheScreen());
+    expect(native.unlockWithBiometrics).toHaveBeenCalledTimes(1);
+    expect(await sessionStorage.loadLockout()).toEqual({ failures: 3, lockedUntil: 0 });
+  });
+
+  it('shows a pause that was running before the relaunch and takes no PIN', async () => {
+    state.answer = true;
+    native.reset();
+    secureStoreMock.__reset();
+    await native.createVault();
+    await native.put('_key_probe', 'ok');
+    await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
+    await SecureStore.setItemAsync(
+      'securevault.lockout',
+      JSON.stringify({ failures: 5, lockedUntil: Date.now() + 20_000 }),
+    );
+    native.unlockWithBiometrics.mockClear();
+    const view = await render(
+      <SessionProvider>
+        <LockScreen />
+        <Status />
+      </SessionProvider>,
+    );
+
+    await waitFor(() =>
+      expect(view.getByText(/Too many attempts\. Try again in (19|20)s\./)).toBeOnTheScreen(),
+    );
+    await enterPin(view, '123456');
+    expect(view.getByTestId('status')).toHaveTextContent('locked');
+    expect(native.unlockWithBiometrics).not.toHaveBeenCalled();
+    expect((await sessionStorage.loadLockout())?.failures).toBe(5);
   });
 
   it('unlocks after one answered prompt', async () => {

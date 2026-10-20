@@ -81,7 +81,15 @@ export const sessionStorage = {
   loadSettings: () => readJson(SETTINGS_ENTRY, sanitizeSettings, DEFAULT_SETTINGS),
   saveSettings: (settings: SecuritySettings) =>
     SecureStore.setItemAsync(SETTINGS_ENTRY, JSON.stringify(settings), options),
-  loadLockout: (): Promise<LockoutState> => readJson(LOCKOUT_ENTRY, sanitizeLockout, EMPTY_LOCKOUT),
+  /** The stored lockout, or null when the store could not be read. */
+  async loadLockout(): Promise<LockoutState | null> {
+    try {
+      const raw = await SecureStore.getItemAsync(LOCKOUT_ENTRY, options);
+      return raw ? sanitizeLockout(JSON.parse(raw)) : EMPTY_LOCKOUT;
+    } catch {
+      return null;
+    }
+  },
   saveLockout: (state: LockoutState) =>
     SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options),
   async loadPinRecord(): Promise<string | null> {
