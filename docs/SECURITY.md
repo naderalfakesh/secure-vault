@@ -88,7 +88,9 @@ reading the name or checking the prototype's JSON index stops the open with
 plain sentence instead of creating a file the erase would delete under it or
 leave without its key. If the erase ends with `_database_key` or
 `_database_file` still listed, it reports that it did not finish, and it can
-be run again.
+be run again. The erase first closes the index and any connection a restore
+replaced; if one of them does not close, it deletes nothing and reports that
+it did not finish, and relaunching the app releases that connection.
 
 ### App PIN
 
