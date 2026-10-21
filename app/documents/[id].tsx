@@ -3,7 +3,15 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -231,22 +239,30 @@ export default function DocumentViewerScreen() {
       return;
     }
     try {
+      const pause = sharePause();
+      // Android's chooser pauses the app and its JavaScript timers; a native
+      // timer deletes the copy once the time away could have locked the vault,
+      // so a target picked later from a chooser left open reads nothing (F7).
+      const limit = settings.autoLockSeconds;
+      if (Platform.OS === 'android' && limit >= 0) {
+        copy.expireAfter(Math.max(pause.maxAwayMs ?? 0, limit * 1000));
+      }
       // The share sheet is system UI; the vault must not lock behind it.
-      // A share that never settles (Android blocked the chooser) stops
-      // holding the copy once the vault locks; the lock sweep removes it too,
-      // and on iOS the lock path dismisses the sheet itself (F7).
-      await Promise.race([
-        withoutAutoLock(
-          () =>
+      // The pause ends with the session even when the sheet never settles
+      // (Android blocked the chooser, or iOS never reports a sheet the lock
+      // dismissed), so it cannot excuse a later session's time away.
+      await withoutAutoLock(
+        () =>
+          Promise.race([
             Sharing.shareAsync(copy.uri, {
               dialogTitle: document.title,
               mimeType: document.fileType === 'pdf' ? 'application/pdf' : 'image/jpeg',
               UTI: document.fileType === 'pdf' ? 'com.adobe.pdf' : 'public.jpeg',
             }),
-          sharePause(),
-        ),
-        session.ended(),
-      ]);
+            session.ended(),
+          ]),
+        pause,
+      );
       if (!session.current()) markShareInterrupted(document.id);
     } catch {
       // Sheet dismissed or sharing unavailable; the copy is discarded either way.
@@ -259,6 +275,7 @@ export default function DocumentViewerScreen() {
     busy,
     confirming,
     settings.biometricsForShare,
+    settings.autoLockSeconds,
     stepUp,
     toast,
     withoutAutoLock,
@@ -278,6 +295,9 @@ export default function DocumentViewerScreen() {
     clearShareInterrupted();
     openShare();
   }, [clearShareInterrupted, openShare]);
+
+  const bannerMark =
+    document && shareInterrupted?.documentId === document.id ? shareInterrupted : null;
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
@@ -460,7 +480,7 @@ export default function DocumentViewerScreen() {
         </View>
       ) : null}
 
-      {document && shareInterrupted?.documentId === document.id ? (
+      {bannerMark ? (
         <View
           style={[styles.bannerSlot, { top: insets.top + (chrome ? 62 : 10) }]}
           pointerEvents="box-none"
@@ -470,7 +490,7 @@ export default function DocumentViewerScreen() {
             lead={shareCopy['interrupted.lead']}
             message={shareCopy['interrupted.body']}
             actions={[{ label: shareCopy['interrupted.again'], onPress: shareAgain }]}
-            onDismiss={clearShareInterrupted}
+            onDismiss={() => clearShareInterrupted()}
           />
         </View>
       ) : null}

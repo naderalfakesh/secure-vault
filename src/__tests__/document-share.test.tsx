@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
-import { AppState, type AppStateStatus, Text } from 'react-native';
+import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { closeDocumentStore } from '@/data/database';
@@ -20,6 +20,11 @@ import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
+// The Android case renders the Android glyphs, whose fonts jest cannot load.
+jest.mock('@expo/vector-icons', () => ({
+  Feather: () => null,
+  MaterialCommunityIcons: () => null,
+}));
 jest.mock('expo-router', () => {
   const params: { id?: string } = {};
   return {
@@ -155,13 +160,11 @@ describe('Document sharing and the lock gate', () => {
 
   it('shares the decrypted copy while the vault stays unlocked, then removes it', async () => {
     const discard = jest.fn();
-    jest
-      .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({
-        uri: 'file:///mock/cache/share/Passport.jpg',
-        discard,
-        expireAfter: jest.fn(),
-      });
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/Passport.jpg',
+      discard,
+      expireAfter: jest.fn(),
+    });
     const view = await renderUnlocked();
 
     await confirmShare(view);
@@ -195,13 +198,11 @@ describe('Document sharing and the lock gate', () => {
 
   it('asks for Face ID from the warning when Confirm before sharing is on', async () => {
     const discard = jest.fn();
-    jest
-      .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({
-        uri: 'file:///mock/cache/share/Passport.jpg',
-        discard,
-        expireAfter: jest.fn(),
-      });
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/Passport.jpg',
+      discard,
+      expireAfter: jest.fn(),
+    });
     const view = await renderUnlocked();
     await act(async () => {
       await session.updateSettings({ biometricsForShare: true });
@@ -303,13 +304,11 @@ describe('Document sharing and the lock gate', () => {
 
   it('says why after the unlock when the vault locked while the share sheet was open', async () => {
     const discard = jest.fn();
-    jest
-      .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({
-        uri: 'file:///mock/cache/share/Passport.jpg',
-        discard,
-        expireAfter: jest.fn(),
-      });
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/Passport.jpg',
+      discard,
+      expireAfter: jest.fn(),
+    });
     share.mockImplementation(() => new Promise(() => {}));
     try {
       const view = await renderUnlocked();
@@ -336,6 +335,102 @@ describe('Document sharing and the lock gate', () => {
       await pressAndSettle(view.getByRole('button', { name: 'Dismiss' }));
       expect(view.queryByText(LEAD)).toBeNull();
       expect(session.shareInterrupted).toBeNull();
+    } finally {
+      share.mockImplementation(async () => {});
+    }
+  });
+
+  it('arms the native copy expiry for the Android chooser, bounded by auto-lock', async () => {
+    const os = Platform.OS;
+    const expireAfter = jest.fn();
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/a/Passport.jpeg',
+      discard: jest.fn(),
+      expireAfter,
+    });
+    try {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      const view = await renderUnlocked();
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: 900 });
+      });
+      await confirmShare(view);
+      expect(expireAfter).toHaveBeenLastCalledWith(900_000);
+
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: 0 });
+      });
+      await confirmShare(view);
+      expect(expireAfter).toHaveBeenLastCalledWith(120_000);
+
+      expireAfter.mockClear();
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: -1 });
+      });
+      await confirmShare(view);
+      expect(expireAfter).not.toHaveBeenCalled();
+
+      // iOS suspends the app instead; the lock dismisses the sheet there.
+      Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: 0 });
+      });
+      await confirmShare(view);
+      expect(expireAfter).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    }
+  });
+
+  it('ends the auto-lock pause with the session when the dismissed sheet never settles', async () => {
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/a/Passport.jpeg',
+      discard: jest.fn(),
+      expireAfter: jest.fn(),
+    });
+    // UIKit may never call the completion handler after a programmatic dismiss.
+    share.mockImplementation(() => new Promise(() => {}));
+    try {
+      const view = await renderUnlocked();
+      await confirmShare(view);
+      await act(async () => session.lock());
+      await act(async () => {
+        await session.unlock();
+      });
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: 0 });
+      });
+
+      const now = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      await moveTo('background');
+      clock.mockReturnValue(now + 90_000);
+      await moveTo('active');
+
+      expect(view.getByText('locked')).toBeOnTheScreen();
+    } finally {
+      share.mockImplementation(async () => {});
+    }
+  });
+
+  it('keeps the mark of a newer share cut short while an older banner was showing', async () => {
+    jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+      uri: 'file:///mock/cache/share/a/Passport.jpeg',
+      discard: jest.fn(),
+      expireAfter: jest.fn(),
+    });
+    share.mockImplementation(() => new Promise(() => {}));
+    try {
+      const view = await renderUnlocked();
+      await act(async () => session.markShareInterrupted(routeParams.id!));
+      await waitFor(() => expect(view.getByText(LEAD)).toBeOnTheScreen());
+      const older = session.shareInterrupted;
+
+      await confirmShare(view);
+      await act(async () => session.lock());
+
+      expect(session.shareInterrupted).toEqual({ documentId: routeParams.id });
+      expect(session.shareInterrupted).not.toBe(older);
     } finally {
       share.mockImplementation(async () => {});
     }
@@ -388,13 +483,11 @@ describe('Document sharing and the lock gate', () => {
       .mockReturnValue({ maxAwayMs: 120_000, endsOnReturn: true });
     try {
       const discard = jest.fn();
-      jest
-        .spyOn(documentService, 'prepareShareFile')
-        .mockResolvedValue({
-          uri: 'file:///mock/cache/share/Passport.jpg',
-          discard,
-          expireAfter: jest.fn(),
-        });
+      jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
+        uri: 'file:///mock/cache/share/Passport.jpg',
+        discard,
+        expireAfter: jest.fn(),
+      });
       // "Background activity launch blocked": the share never settles.
       share.mockImplementation(() => new Promise(() => {}));
       const view = await renderUnlocked();
