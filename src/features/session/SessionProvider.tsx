@@ -290,7 +290,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // so a check between two awaits never sees a stale `unlocked`.
   const changeStatus = useCallback(
     (next: SessionStatus) => {
-      if (statusRef.current === 'unlocked' && next !== 'unlocked') generationRef.current += 1;
+      if (statusRef.current === 'unlocked' && next !== 'unlocked') {
+        generationRef.current += 1;
+        // Pauses belong to the session that took them. System UI that never
+        // settles (a share sheet the lock dismissed) must not excuse the next
+        // session's time away.
+        pausesRef.current.clear();
+      }
       statusRef.current = next;
       setStatus(next);
       settleWaiters();

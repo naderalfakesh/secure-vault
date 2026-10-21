@@ -577,6 +577,29 @@ describe('SessionProvider session capture', () => {
     expect(session.status).toBe('unlocked');
   });
 
+  it('drops pauses left pending by a session that ended, so the next one auto-locks', async () => {
+    await unlocked(0);
+    // System UI that never settles, e.g. a share sheet dismissed by the lock.
+    await act(async () => {
+      void session.withoutAutoLock(() => new Promise<void>(() => {}), sharePause());
+    });
+    await act(async () => {
+      session.lock();
+    });
+    await act(async () => {
+      await session.unlock();
+    });
+
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    await moveTo('background');
+    clock.mockReturnValue(now + 90_000);
+    await moveTo('active');
+
+    expect(session.status).toBe('locked');
+    clock.mockRestore();
+  });
+
   it('keeps a share-interrupted mark across the lock until it is cleared or the vault is erased', async () => {
     await unlocked();
     expect(session.shareInterrupted).toBeNull();
