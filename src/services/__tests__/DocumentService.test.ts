@@ -178,6 +178,19 @@ describe('DocumentService', () => {
     expect(cancel).toHaveBeenCalledWith(folder);
   });
 
+  it('removes a partial share copy when the copy fails', async () => {
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    // A decrypted source that is not there: the copy throws mid-way.
+    jest
+      .spyOn(documentService, 'getDocumentFile')
+      .mockResolvedValue(new File(Paths.cache, 'decrypted_missing.jpg').uri);
+
+    await expect(documentService.prepareShareFile(doc.id)).rejects.toThrow();
+
+    const share = new Directory(Paths.cache, 'share');
+    expect(share.exists ? share.list() : []).toEqual([]);
+  });
+
   it("removes expo-sharing's staged links at lock and launch", async () => {
     const staging = new Directory(Paths.cache, 'expo-sharing-tmp');
     staging.create({ intermediates: true, idempotent: true });

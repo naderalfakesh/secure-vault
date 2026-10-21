@@ -466,7 +466,13 @@ class DocumentService {
         // Swept by clearCache.
       }
     };
-    await new File(this.toUri(source)).copy(target);
+    try {
+      await new File(this.toUri(source)).copy(target);
+    } catch (e) {
+      // A copy cut short is plaintext too.
+      remove();
+      throw e;
+    }
     return {
       uri: target.uri,
       expireAfter: (ms) => ExpoVaultModule.scheduleShareExpiry(folder, ms),
