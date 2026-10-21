@@ -15,8 +15,9 @@ public class ExpoVaultModule: Module {
   /// Folder in Documents the picked backup is moved into, so Caches purging cannot remove it.
   private static let restoreSourceName = "restore-source"
   /// Set by `cancelRestore`, read by the running restore between entries of
-  /// its checking pass. `importBackup` clears it when it starts, so a cancel
-  /// that arrived after an earlier restore ended cannot stop the next one; the
+  /// its checking pass. `importBackup` clears it when it starts and when it
+  /// ends, so a cancel that arrived after an earlier restore ended cannot stop
+  /// the next one or be refused for it; the
   /// JavaScript caller repeats a cancel on the restore's first progress event
   /// in case it landed before that.
   private let restoreCancel = RestoreCancelFlag()
@@ -203,15 +204,17 @@ public class ExpoVaultModule: Module {
     // Asks the running restore to stop before it removes anything. It is
     // cooperative: the restore checks the flag between entries while it is
     // still checking, so a cancel during the key derivation takes effect once
-    // that ends, and one after the checking pass has no effect at all. Returns
-    // at once; the restore rejects with BACKUP_CANCELLED if it stopped.
-    Function("cancelRestore") {
+    // that ends. Returns at once: true when the request will be honoured (the
+    // restore then rejects with BACKUP_CANCELLED), false once the restore has
+    // passed its last cancel point and goes on to replace the vault.
+    Function("cancelRestore") { () -> Bool in
         self.restoreCancel.request()
     }
 
     AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise) in
         var cleared = false
         self.restoreCancel.reset()
+        defer { self.restoreCancel.reset() }
         do {
             // Decrypted entries may only land in the app's restore-staging cache folder.
             let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -236,6 +239,8 @@ public class ExpoVaultModule: Module {
                 try self.preflightRestore(layout)
             }, isCancelled: {
                 self.restoreCancel.isRequested
+            }, commit: {
+                self.restoreCancel.commit()
             }) { meta, plain in
                 // Registered first, so a wipe failure cannot leave the decrypted entry behind.
                 defer { try? FileManager.default.removeItem(at: plain) }

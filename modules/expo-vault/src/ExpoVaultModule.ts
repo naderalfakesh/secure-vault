@@ -137,11 +137,13 @@ export interface SecureVault {
    * checking (the `verify` phase), and once more before the wipe, then
    * rejects with BACKUP_CANCELLED with the vault, its staging folder and the
    * index untouched. A request during the key derivation takes effect when
-   * that ends; one after the checking pass is ignored. `importBackup` clears
-   * the request when it starts, so a caller that may have asked before the
-   * native call began asks again on the first progress event.
+   * that ends. True when the request will be honoured; false once the
+   * restore has passed that last check, which it does in the same atomic
+   * step that refuses later requests. `importBackup` clears the request when
+   * it starts and ends, so a caller that may have asked before the native
+   * call began asks again on the first progress event.
    */
-  cancelRestore(): void;
+  cancelRestore(): boolean;
 
   // Sharing
   /**

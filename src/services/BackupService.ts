@@ -519,17 +519,19 @@ class BackupService {
   }
 
   /**
-   * Asks the running restore to stop. True when the request went to the
-   * module: a restore is running and has not reached its first Restoring
-   * event. The module honours it between entries of its checking pass and
-   * the restore then rejects with BACKUP_CANCELLED, with nothing changed; if
-   * the checking pass ends first, the restore goes on and this has no effect.
+   * Asks the running restore to stop. True only when the request will be
+   * honoured: a restore is running, has not reached its first Restoring
+   * event, and the module has not passed its last cancel point (it answers
+   * that itself, because its progress events reach JavaScript late). The
+   * restore then rejects with BACKUP_CANCELLED, with nothing changed. False
+   * from the boundary on: the restore goes on and the request has no effect.
    */
   cancelRestore(): boolean {
     const run = this.restoreRun;
     if (!run || run.wiped) return false;
+    // A build whose module answers nothing is taken at its word, as before.
+    if (vault.cancelRestore() === false) return false;
     run.cancelRequested = true;
-    vault.cancelRestore();
     return true;
   }
 

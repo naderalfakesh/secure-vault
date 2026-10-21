@@ -683,6 +683,7 @@ describe('Backup hub restore phases and outcomes', () => {
     });
     jest.spyOn(vault, 'cancelRestore').mockImplementation(() => {
       cancelled = true;
+      return true;
     });
     const view = await renderUnlocked();
 

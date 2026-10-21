@@ -35,26 +35,43 @@ enum BackupError: LocalizedError {
 
 /// The cancel request for the running restore: set from the JavaScript thread
 /// by `cancelRestore`, read by the restore between entries of its checking
-/// pass on the module's queue.
+/// pass on the module's queue. A request and the restore passing its last
+/// cancel point exclude each other under one lock, so a request that is
+/// answered true is always honoured.
 final class RestoreCancelFlag {
+  private enum State { case open, cancel, committed }
   private let lock = NSLock()
-  private var requested = false
+  private var state = State.open
 
   var isRequested: Bool {
     lock.lock()
     defer { lock.unlock() }
-    return requested
+    return state == .cancel
   }
 
-  func request() {
+  /// True when the running restore will honour the request; false once it
+  /// has passed its last cancel point.
+  @discardableResult
+  func request() -> Bool {
     lock.lock()
-    requested = true
-    lock.unlock()
+    defer { lock.unlock() }
+    if state == .committed { return false }
+    state = .cancel
+    return true
+  }
+
+  /// Marks the last cancel point passed; false when a cancel was asked first.
+  func commit() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    if state == .cancel { return false }
+    state = .committed
+    return true
   }
 
   func reset() {
     lock.lock()
-    requested = false
+    state = .open
     lock.unlock()
   }
 }
@@ -570,9 +587,11 @@ enum BackupContainer {
   /// `isCancelled` is asked once the key is derived (the KDF itself cannot be
   /// interrupted), before every entry of the verify pass, and before the
   /// preflight and the restore pass. A true answer throws
-  /// `BackupError.cancelled` before `handle` has run. It is never asked once
-  /// the restore pass has started, because `handle` may already have begun
-  /// replacing the vault.
+  /// `BackupError.cancelled` before `handle` has run. The last check, after
+  /// the preflight, is `commit` instead: it answers false for a cancel already
+  /// asked and otherwise marks the point passed in the same step, so a cancel
+  /// can never be accepted after it. Nothing is asked once the restore pass
+  /// has started, because `handle` may already have begun replacing the vault.
   static func read(
     from source: URL, passphrase: String, staging: StagingDirectory, validate: (Meta) throws -> Void,
     validateAll: ([Meta]) throws -> Void = { _ in },
@@ -580,6 +599,7 @@ enum BackupContainer {
     preflight: ([EntryInfo]) throws -> Void = { _ in },
     memory: MemoryProbe = availableMemory,
     isCancelled: () -> Bool = { false },
+    commit: (() -> Bool)? = nil,
     handle: (Meta, URL) throws -> Void
   ) throws {
     try sweep(staging)
@@ -607,7 +627,7 @@ enum BackupContainer {
     try stopIfCancelled()
     try preflight(layout)
     // The last point a cancel is honoured: from here on `handle` may replace the vault.
-    try stopIfCancelled()
+    if !(commit?() ?? !isCancelled()) { throw BackupError.cancelled }
     try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.restore, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
         try verifyCheck(payload, key: key, staging: staging)

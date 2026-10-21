@@ -553,8 +553,11 @@ object BackupContainer {
      *
      * [cancelled] is asked once the key is derived (the KDF itself cannot be interrupted), before
      * every entry of the verify pass, and before the preflight and the restore pass. A true answer
-     * throws [CancelledException] before [handle] has run. It is never asked once the restore
-     * pass has started, because [handle] may already have begun replacing the vault.
+     * throws [CancelledException] before [handle] has run. The last check, after the preflight,
+     * is [commit] instead: it answers false for a cancel already asked and otherwise marks the
+     * point passed in the same step, so a cancel can never be accepted after it. Nothing is asked
+     * once the restore pass has started, because [handle] may already have begun replacing the
+     * vault.
      */
     fun read(
         source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
@@ -562,11 +565,12 @@ object BackupContainer {
         progress: (ReadPhase, Int, Int) -> Unit,
         preflight: (List<EntryInfo>) -> Unit = {},
         cancelled: () -> Boolean = { false },
+        commit: () -> Boolean = { !cancelled() },
         handle: (Meta, File) -> Unit
     ) {
         sweep(staging)
         try {
-            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, preflight, cancelled, handle)
+            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, preflight, cancelled, commit, handle)
         } finally {
             try {
                 sweep(staging)
@@ -582,6 +586,7 @@ object BackupContainer {
         progress: (ReadPhase, Int, Int) -> Unit,
         preflight: (List<EntryInfo>) -> Unit,
         cancelled: () -> Boolean,
+        commit: () -> Boolean,
         handle: (Meta, File) -> Unit
     ) {
         val stopIfCancelled = { if (cancelled()) throw CancelledException() }
@@ -606,7 +611,7 @@ object BackupContainer {
         stopIfCancelled()
         preflight(layout)
         // The last point a cancel is honoured: from here on [handle] may replace the vault.
-        stopIfCancelled()
+        if (!commit()) throw CancelledException()
         walk(source, scratch, validate, { done, total -> progress(ReadPhase.RESTORE, done, total) }) { meta, payload ->
             if (meta.kind == "c") {
                 verifyCheck(payload, key, scratch)

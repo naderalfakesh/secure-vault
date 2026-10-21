@@ -58,8 +58,11 @@ export function createVaultMock(): SecureVault & {
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
   const links = new Map<string, string>();
-  // The native flag: cleared when an import starts, read after its checking pass.
-  let cancelRequested = false;
+  // The native cancel state: opened when an import starts and ends, read after its checking
+  // pass, which also passes the last cancel point.
+  let restoreState: 'open' | 'cancel' | 'committed' = 'open';
+  // Read through a call: a cancel lands while the import awaits.
+  const isCancelRequested = () => restoreState === 'cancel';
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
 
   return {
@@ -135,39 +138,49 @@ export function createVaultMock(): SecureVault & {
       };
     },
     async importBackup(sourcePath, passphrase, extraDir, stagingDir) {
-      cancelRequested = false;
-      this.lastImport = { sourcePath, extraDir, stagingDir };
-      const backup = backups.get(sourcePath);
-      if (!backup)
-        throw Object.assign(new Error('The backup file is not valid'), { code: 'BACKUP_INVALID' });
-      if (backup.passphrase !== passphrase) {
-        throw Object.assign(new Error('That passphrase does not match this backup.'), {
-          code: 'BACKUP_PASSPHRASE',
-        });
+      restoreState = 'open';
+      try {
+        this.lastImport = { sourcePath, extraDir, stagingDir };
+        const backup = backups.get(sourcePath);
+        if (!backup)
+          throw Object.assign(new Error('The backup file is not valid'), {
+            code: 'BACKUP_INVALID',
+          });
+        if (backup.passphrase !== passphrase) {
+          throw Object.assign(new Error('That passphrase does not match this backup.'), {
+            code: 'BACKUP_PASSPHRASE',
+          });
+        }
+        const total = backup.strings.size + backup.files.size + backup.extras.length + 1;
+        emit({ phase: 'verify', done: total, total });
+        // Natively the request is read between entries; here once, after the checking pass,
+        // where the last cancel point is passed in the same step.
+        await Promise.resolve();
+        if (isCancelRequested()) {
+          throw Object.assign(new Error('The restore was cancelled before anything was changed.'), {
+            code: 'BACKUP_CANCELLED',
+          });
+        }
+        restoreState = 'committed';
+        strings = new Map(backup.strings);
+        files = new Map(backup.files);
+        const extras = backup.extras.map((file) => ({
+          key: file.key,
+          path: `${extraDir}/${file.key}`,
+        }));
+        emit({ phase: 'import', done: total, total });
+        return { entries: total - 1, extras };
+      } finally {
+        restoreState = 'open';
       }
-      const total = backup.strings.size + backup.files.size + backup.extras.length + 1;
-      emit({ phase: 'verify', done: total, total });
-      // Natively the request is read between entries; here once, after the checking pass.
-      await Promise.resolve();
-      if (cancelRequested) {
-        throw Object.assign(new Error('The restore was cancelled before anything was changed.'), {
-          code: 'BACKUP_CANCELLED',
-        });
-      }
-      strings = new Map(backup.strings);
-      files = new Map(backup.files);
-      const extras = backup.extras.map((file) => ({
-        key: file.key,
-        path: `${extraDir}/${file.key}`,
-      }));
-      emit({ phase: 'import', done: total, total });
-      return { entries: total - 1, extras };
     },
     emitProgress(progress) {
       emit(progress);
     },
     cancelRestore() {
-      cancelRequested = true;
+      if (restoreState === 'committed') return false;
+      restoreState = 'cancel';
+      return true;
     },
     async dismissShareSheet() {
       return false;

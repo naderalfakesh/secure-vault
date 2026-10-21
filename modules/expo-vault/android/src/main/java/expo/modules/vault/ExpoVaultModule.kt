@@ -18,7 +18,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.IOException
 import java.security.KeyStore
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -38,6 +38,9 @@ class ExpoVaultModule : Module() {
      */
     private val STRING_ENTRY_COPIES = 4
     private val AUTH_VALIDITY_SECONDS = 300
+    private val RESTORE_OPEN = 0
+    private val RESTORE_CANCEL = 1
+    private val RESTORE_COMMITTED = 2
     /** Folder in `filesDir` the picked backup is moved into, so low storage cannot purge it. */
     private val RESTORE_SOURCE_NAME = "restore-source"
     private val keystoreProvider = "AndroidKeyStore"
@@ -49,11 +52,13 @@ class ExpoVaultModule : Module() {
     // stops JavaScript timers.
     private val mainHandler = Handler(Looper.getMainLooper())
     private var shareExpiry: Pair<String, Runnable>? = null
-    // Set by cancelRestore and read by the running restore between entries of its checking pass.
-    // importBackup clears it when it starts, so a cancel that arrived after an earlier restore
-    // ended cannot stop the next one; the JavaScript caller repeats a cancel on the restore's
-    // first progress event in case it landed before that.
-    private val restoreCancel = AtomicBoolean(false)
+    // The running restore's cancel state: RESTORE_OPEN until cancelRestore asks (RESTORE_CANCEL)
+    // or the restore passes its last cancel point (RESTORE_COMMITTED), whichever comes first; the
+    // compare-and-set makes the two exclusive, so a cancel that is answered true is honoured.
+    // importBackup opens it when it starts and when it ends, so a cancel that arrived after an
+    // earlier restore ended cannot stop the next one; the JavaScript caller repeats a cancel on
+    // the restore's first progress event in case it landed before that.
+    private val restoreState = AtomicInteger(RESTORE_OPEN)
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
     }
@@ -302,16 +307,17 @@ class ExpoVaultModule : Module() {
         }
 
         // Asks the running restore to stop before it removes anything. It is cooperative: the
-        // restore checks the flag between entries while it is still checking, so a cancel during
-        // the key derivation takes effect once that ends, and one after the checking pass has no
-        // effect at all. Returns at once; the restore rejects with BACKUP_CANCELLED if it stopped.
+        // restore checks the request between entries while it is still checking, so a cancel
+        // during the key derivation takes effect once that ends. Returns at once: true when the
+        // request will be honoured (the restore then rejects with BACKUP_CANCELLED), false once
+        // the restore has passed its last cancel point and goes on to replace the vault.
         Function("cancelRestore") {
-            restoreCancel.set(true)
+            restoreState.compareAndSet(RESTORE_OPEN, RESTORE_CANCEL) || restoreState.get() == RESTORE_CANCEL
         }
 
         AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise ->
             var cleared = false
-            restoreCancel.set(false)
+            restoreState.set(RESTORE_OPEN)
             try {
                 // Decrypted entries may only land in the app's restore-staging cache folder.
                 val staging = BackupContainer.StagingDirectory.resolve(
@@ -336,7 +342,8 @@ class ExpoVaultModule : Module() {
                     // untouched and no Restoring event sent, so JavaScript never reads it as a
                     // failure after the wipe. The probe in the handler stays as a backstop.
                     probeKey(secretKey)
-                }, cancelled = { restoreCancel.get() }) { meta, plain ->
+                }, cancelled = { restoreState.get() == RESTORE_CANCEL },
+                    commit = { restoreState.compareAndSet(RESTORE_OPEN, RESTORE_COMMITTED) }) { meta, plain ->
                     // The whole handler runs with the plaintext's removal guaranteed, so a
                     // key probe or wipe failure cannot leave a decrypted entry in the cache.
                     try {
@@ -400,6 +407,8 @@ class ExpoVaultModule : Module() {
                     e is InvalidKeyException -> promise.reject("BACKUP_INVALID", e.message, e)
                     else -> promise.reject(code, e.message, e)
                 }
+            } finally {
+                restoreState.set(RESTORE_OPEN)
             }
         }
 

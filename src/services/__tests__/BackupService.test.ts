@@ -397,6 +397,44 @@ describe('BackupService', () => {
       expect(backupService.cancelRestore()).toBe(false);
     });
 
+    it('says false once the module has passed its last cancel point, before the first Restoring event arrives', async () => {
+      const { backup } = await vaultWithBackup();
+      let settle: () => void = () => {};
+      const importing = new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+      jest
+        .spyOn(vault, 'importBackup')
+        .mockImplementation(async (_source, _passphrase, extraDir) => {
+          emitProgress({ phase: 'verify', done: 20, total: 20 });
+          await importing;
+          return { entries: 19, extras: [{ key: 'database', path: `${extraDir}/database` }] };
+        });
+      // The module is wiping already; its Restoring event has not reached JavaScript yet.
+      const cancel = jest.spyOn(vault, 'cancelRestore').mockReturnValue(false);
+
+      const restore = backupService.restoreBackup(backup.uri, 'correct horse battery');
+      await Promise.resolve();
+
+      expect(backupService.cancelRestore()).toBe(false);
+      expect(cancel).toHaveBeenCalledTimes(1);
+      settle();
+      await restore.catch(() => {});
+    });
+
+    it('lets the mock module refuse a cancel after its last cancel point, like the native one', async () => {
+      const { backup } = await vaultWithBackup();
+      const answers: boolean[] = [];
+
+      await backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+        if (event.phase === 'import') answers.push(vault.cancelRestore());
+      });
+
+      expect(answers).toEqual([false]);
+      // Opened again when the restore ended.
+      expect(vault.cancelRestore()).toBe(true);
+    });
+
     it('names any failure after the first Restoring event a partial restore, with where it stopped', async () => {
       const { backup } = await vaultWithBackup();
       jest.spyOn(vault, 'importBackup').mockImplementationOnce(async () => {
