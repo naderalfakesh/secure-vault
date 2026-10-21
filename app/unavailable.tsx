@@ -9,13 +9,16 @@ import { t } from '@/i18n';
 
 /**
  * The device key or the PIN record could not be read (handover §7.2). The
- * only way on is to read them again: no setup, erase, restore or settings,
- * and nothing is written. The session also tries again on its own each time
- * the app returns to the foreground.
+ * way on is to read them again: no erase, restore or settings, and nothing is
+ * written. The session also tries again on its own each time the app returns
+ * to the foreground. When the PIN record is gone although it was written and
+ * the device key is there, the device key's own gate also opens setup, to add
+ * a new PIN to the vault as it is.
  */
 export default function VaultUnavailableScreen() {
-  const { retry } = useSession();
+  const { retry, pinLost, resetLostPin, error } = useSession();
   const [trying, setTrying] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -23,7 +26,9 @@ export default function VaultUnavailableScreen() {
       mounted.current = false;
     };
   }, []);
-  useAnnouncement(trying ? t('unavailable.trying') : null);
+  useAnnouncement(
+    trying ? t('unavailable.trying') : resetting ? t('unavailable.pinLost.resetting') : null,
+  );
 
   const tryAgain = () => {
     setTrying(true);
@@ -31,6 +36,15 @@ export default function VaultUnavailableScreen() {
       .catch(() => {})
       .finally(() => {
         if (mounted.current) setTrying(false);
+      });
+  };
+
+  const resetPin = () => {
+    setResetting(true);
+    resetLostPin()
+      .catch(() => {})
+      .finally(() => {
+        if (mounted.current) setResetting(false);
       });
   };
 
@@ -44,18 +58,35 @@ export default function VaultUnavailableScreen() {
           {t('unavailable.title')}
         </Text>
         <Text variant="body" tone="secondary" align="center">
-          {t('unavailable.body')}
+          {pinLost ? t('unavailable.pinLost.body') : t('unavailable.body')}
         </Text>
         <Text variant="subheadline" tone="tertiary" align="center">
-          {t('unavailable.hint')}
+          {pinLost ? t('unavailable.pinLost.hint') : t('unavailable.hint')}
         </Text>
+        {pinLost && error ? (
+          <Text variant="subheadline" tone="danger" align="center">
+            {error}
+          </Text>
+        ) : null}
       </ScrollView>
       <View style={styles.footer} accessibilityLiveRegion="polite">
+        {pinLost ? (
+          <Button
+            label={t('unavailable.pinLost.reset')}
+            icon="lock"
+            loading={resetting}
+            loadingLabel={t('unavailable.pinLost.resetting')}
+            disabled={trying}
+            onPress={resetPin}
+          />
+        ) : null}
         <Button
+          variant={pinLost ? 'secondary' : 'primary'}
           label={t('unavailable.tryAgain')}
           icon="refresh"
           loading={trying}
           loadingLabel={t('unavailable.trying')}
+          disabled={resetting}
           onPress={tryAgain}
         />
       </View>
@@ -82,6 +113,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.sm,
   },
   footer: {
+    gap: theme.spacing.sm,
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.lg,
   },

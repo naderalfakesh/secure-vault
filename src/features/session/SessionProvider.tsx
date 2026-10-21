@@ -123,6 +123,18 @@ export type SessionContextValue = {
   finishSetup: () => void;
   /** Reads the key and PIN again after `unavailable`; resolves the new status. */
   retry: () => Promise<SessionStatus>;
+  /**
+   * True while `unavailable` because the PIN record is gone although it was
+   * written, and the device key is there (M1). `resetLostPin` is then the way on.
+   */
+  pinLost: boolean;
+  /**
+   * After a lost PIN record: asks for the device key's own gate (biometrics or
+   * the device passcode, the same door the lock screen offers) and, once it
+   * opens, goes to setup to add a new PIN to the existing vault. Resolves
+   * false when the prompt was cancelled or failed, with the reason in `error`.
+   */
+  resetLostPin: () => Promise<boolean>;
   changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
   updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
@@ -188,8 +200,16 @@ async function loadCappedLockout(): Promise<LockoutState | null> {
 
 type KeyRead = 'present' | 'absent' | 'unreadable';
 
-/** Everything launch reads before it picks a status; none of it needs the device key. */
-async function readLaunchState() {
+/**
+ * Everything launch reads before it picks a status; none of it needs the
+ * device key. A PIN record its marker says was written but that the store no
+ * longer returns is `unreadable` (`pinLost`) while a device key exists: a
+ * vault, and a PIN guarding it, that the app cannot see. Without a key there
+ * is no vault for it to guard (a device backup restored the marker without
+ * the key), so it is absent. `allowLostPin` treats it as absent too, after
+ * the owner passed the device key's own gate to set a new PIN.
+ */
+async function readLaunchState(allowLostPin = false) {
   const [key, type, pin, storedLockout, entries] = await Promise.all([
     vault.hasVault().then(
       (exists): KeyRead => (exists ? 'present' : 'absent'),
@@ -207,7 +227,16 @@ async function readLaunchState() {
       () => null,
     ),
   ]);
-  return { key, type, pin: pin.state, storedLockout, entries };
+  const lost = pin.state === 'unreadable' && pin.lost === true;
+  const pinState: KeyRead = lost && (key === 'absent' || allowLostPin) ? 'absent' : pin.state;
+  return {
+    key,
+    type,
+    pin: pinState,
+    pinLost: lost && key === 'present' && pinState === 'unreadable',
+    storedLockout,
+    entries,
+  };
 }
 
 /**
@@ -258,6 +287,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [shareInterrupted, setShareInterrupted] = useState<ShareInterruption | null>(null);
   const [setupHeld, setSetupHeld] = useState(false);
   const setupHeldRef = useRef(false);
+  const [pinLost, setPinLost] = useState(false);
+  // Set once the device key's gate opened for a lost PIN record; in memory only.
+  const lostPinResetRef = useRef(false);
+  // True while that gate's prompt is up, so a foreground return does not relaunch under it.
+  const resettingPinRef = useRef(false);
   // One launch read at a time, so a retry and a foreground return never race.
   const launchingRef = useRef<Promise<SessionStatus> | null>(null);
   const backgroundedAt = useRef<number | null>(null);
@@ -320,9 +354,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const launch = useCallback((): Promise<SessionStatus> => {
     launchingRef.current ??= (async () => {
       try {
-        const { key, type, pin, storedLockout, entries } = await readLaunchState();
+        const {
+          key,
+          type,
+          pin,
+          pinLost: lost,
+          storedLockout,
+          entries,
+        } = await readLaunchState(lostPinResetRef.current);
         if (!activeRef.current) return statusRef.current;
         setBiometry(type);
+        setPinLost(lost);
         applyLockout(storedLockout ?? unreadableLockout(Date.now()));
         const next = launchStatus(key, pin);
         if (next !== 'unavailable') {
@@ -354,6 +396,28 @@ export function SessionProvider({ children }: PropsWithChildren) {
     if (statusRef.current !== 'unavailable') return statusRef.current;
     return launch();
   }, [launch]);
+
+  const resetLostPin = useCallback(async () => {
+    if (!pinLost || statusRef.current !== 'unavailable' || resettingPinRef.current) return false;
+    setError(null);
+    resettingPinRef.current = true;
+    try {
+      if (!(await vault.unlockWithBiometrics())) {
+        setError(KEY_NOT_UNLOCKED);
+        return false;
+      }
+      lostPinResetRef.current = true;
+      // Read everything again: only a lost PIN with its key present goes on to setup.
+      const next = await launch();
+      if (next !== 'setup') lostPinResetRef.current = false;
+      return next === 'setup';
+    } catch (e) {
+      setError(describeError(e, t('session.unlockKeyFailed')));
+      return false;
+    } finally {
+      resettingPinRef.current = false;
+    }
+  }, [launch, pinLost]);
 
   const loadProtectedState = useCallback(async () => {
     setSettings(await sessionStorage.loadSettings());
@@ -460,8 +524,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       try {
         // Launch may have been a while ago, or wrong: read the key and PIN
         // again so setup never creates a key over a vault it cannot see.
-        const fresh = await readLaunchState();
+        const fresh = await readLaunchState(lostPinResetRef.current);
         if (launchStatus(fresh.key, fresh.pin) === 'unavailable') {
+          setPinLost(fresh.pinLost);
           changeStatus('unavailable');
           return false;
         }
@@ -492,6 +557,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
           await vault.put(KEY_PROBE_ENTRY, 'ok');
         }
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
+        lostPinResetRef.current = false;
         await sessionStorage.saveSettings(DEFAULT_SETTINGS);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
         // Only setup creates the index and its key, once the screens behind the gate mount.
@@ -570,6 +636,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setVaultEmpty(true);
     setupHeldRef.current = false;
     setSetupHeld(false);
+    setPinLost(false);
+    lostPinResetRef.current = false;
     changeStatus('setup');
     return cleared;
   }, [applyLockout, changeStatus]);
@@ -707,7 +775,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const onChange = (next: AppStateStatus) => {
       // Vault unavailable: try once more on each return to the foreground.
       if (statusRef.current === 'unavailable') {
-        if (next === 'active') void launch();
+        if (next === 'active' && !resettingPinRef.current) void launch();
         return;
       }
       const pauses = pausesRef.current;
@@ -777,6 +845,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setupHeld,
       finishSetup,
       retry,
+      pinLost,
+      resetLostPin,
       changePin,
       updateSettings,
       lock,
@@ -805,6 +875,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setupHeld,
       finishSetup,
       retry,
+      pinLost,
+      resetLostPin,
       changePin,
       updateSettings,
       lock,

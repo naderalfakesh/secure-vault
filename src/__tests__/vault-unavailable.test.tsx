@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { File, Paths } from 'expo-file-system';
 import { Text } from 'react-native';
 
 import vault from '../../modules/expo-vault';
@@ -113,5 +114,24 @@ describe('Vault unavailable', () => {
 
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeOnTheScreen();
     expect(screen.getByText(TITLE)).toBeOnTheScreen();
+  });
+
+  it('offers a new PIN behind the device key when the PIN record was lost', async () => {
+    // The record was written (its marker is there) and the secure store dropped it.
+    new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
+    await SecureStore.deleteItemAsync('securevault.pin');
+    await renderRouter(routes, { initialUrl: '/' });
+
+    await screen.findByText(TITLE);
+    expect(
+      screen.getByText(
+        'SecureVault can’t read your PIN. Your documents are still there, encrypted with your phone’s key.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('Welcome')).toBeNull();
+
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Set a new PIN' })));
+
+    expect(await screen.findByText('Welcome')).toBeOnTheScreen();
   });
 });

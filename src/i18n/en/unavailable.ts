@@ -7,4 +7,10 @@ export const unavailable = {
     'Try again. If this keeps happening, restart your phone and open SecureVault again.',
   'unavailable.tryAgain': 'Try again',
   'unavailable.trying': 'Trying again…',
+  'unavailable.pinLost.body':
+    'SecureVault can’t read your PIN. Your documents are still there, encrypted with your phone’s key.',
+  'unavailable.pinLost.hint':
+    'Unlock with Face ID, your fingerprint or your phone’s passcode to set a new PIN.',
+  'unavailable.pinLost.reset': 'Set a new PIN',
+  'unavailable.pinLost.resetting': 'Unlocking…',
 } as const;

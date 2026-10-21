@@ -150,6 +150,26 @@ unreadable copy; content that is not valid JSON is replaced with that pause.
 Either way the pause ends on its own, so a broken store slows guessing down
 without keeping the owner out.
 
+A missing record is not taken at its word. On Android, expo-secure-store
+deletes an entry it can no longer decrypt ("out of sync with the keystore")
+and returns nothing, so a damaged PIN record would read as no PIN, and a
+damaged lockout as no failures. Each record therefore has a plain marker
+file, `securevault-session/pin` and `securevault-session/lockout` in the
+documents folder next to the vault's entries. The markers hold nothing
+secret, are not vault entry names (so listings, backups and restores never
+see them), are written right after their record, and are written again
+whenever the record is read, which also marks records from builds before
+markers. A lockout record that is gone while its marker exists is the
+30-second fail-safe pause above, written back, never a reset. A PIN record
+that is gone while its marker exists reads as unreadable, and with the
+device key present the session is `unavailable`, not setup (see Session).
+Without a device key the marker guards nothing, for example after a device
+backup brought the documents folder back without the Keychain or Keystore,
+and setup runs as before. "Delete everything" removes the markers before
+the records; if a marker cannot be removed, no record is deleted and the
+erase reports that the old PIN could not be removed. iOS's Keychain does not
+drop entries like this, but the same rule applies there.
+
 ### Backup key
 
 A backup is the only way the whole vault leaves the device. Its key is
@@ -221,10 +241,17 @@ so no deep link or navigation call can reach them while locked.
 Launch reads the device key's presence and the PIN record as three states:
 present, absent, or unreadable. A key and a PIN open the lock screen; no
 PIN sends the app to setup, which keeps any key it finds. If either read
-fails, the session is `unavailable`: a screen of its own that only offers
+fails, the session is `unavailable`: a screen of its own that offers
 "Try again" (and tries again on each return to the foreground), writes
 nothing, and never falls back to setup, which would create a new key over a
-vault it could not see. Setup reads both again right before it creates a
+vault it could not see. When the cause is a PIN record that its marker says
+was written (see App PIN) and the device key is there, the screen also
+offers "Set a new PIN": it asks for the device key's own gate (biometrics or
+the device passcode, the same door the lock screen's device-unlock button
+opens) and only then goes to setup, which keeps the key and the documents
+and adds a new PIN. Nobody who cannot already open the vault with the
+device key can replace the PIN this way, and a relaunch forgets that the
+gate was opened. Setup reads both again right before it creates a
 key: an unreadable one ends in `unavailable`, and a key with a PIN and
 entries ends on the lock screen with the PIN untouched. An unreadable PIN
 record while unlocking is not a wrong PIN and does not count towards the

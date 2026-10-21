@@ -1,10 +1,13 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Text } from 'react-native';
 
+import { LOCKOUT_BASE_MS } from '../auth/lockout';
 import { hashPasscode } from '../auth/passcode';
 import vault from '../../../modules/expo-vault';
 import { SessionProvider, useSession } from './SessionProvider';
+import { SESSION_MARKER_DIRECTORY, sessionStorage } from './settings';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as { reset(): void };
@@ -18,6 +21,9 @@ function Probe() {
       <Text testID="error">{session.error ?? ''}</Text>
       <Text testID="failures">{String(session.lockout.failures)}</Text>
       <Text testID="held">{String(session.setupHeld)}</Text>
+      <Text testID="pin-lost">{String(session.pinLost)}</Text>
+      <Text testID="locked-until">{String(session.lockout.lockedUntil)}</Text>
+      <Text onPress={() => void session.resetLostPin()}>run reset pin</Text>
       <Text onPress={() => void session.retry()}>run retry</Text>
       <Text onPress={() => void session.setUp('123456')}>run setup</Text>
       <Text onPress={() => void session.setUp('123456', { holdForOnboarding: true })}>
@@ -293,5 +299,202 @@ describe('SessionProvider setup re-check', () => {
     await act(async () => {});
 
     expect(view.getByTestId('status')).toHaveTextContent('setup');
+  });
+});
+
+describe('SessionProvider PIN and lockout markers (M1)', () => {
+  const LOCKOUT_ENTRY = 'securevault.lockout';
+  const marker = (name: string) => new File(Paths.document, SESSION_MARKER_DIRECTORY, name);
+
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  /** Sets up a vault through the session, so the PIN and lockout markers are written as in the app. */
+  async function setUpVault() {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    await view.unmount();
+  }
+
+  /** What expo-secure-store does on Android with an entry it cannot decrypt: deletes it, returns null. */
+  const corrupt = (entry: string) => SecureStore.deleteItemAsync(entry);
+
+  it('writes the markers when setup stores the PIN and the lockout', async () => {
+    await setUpVault();
+
+    expect(marker('pin').exists).toBe(true);
+    expect(marker('lockout').exists).toBe(true);
+  });
+
+  it('is unavailable, not setup, when a PIN record that was written reads as absent', async () => {
+    await setUpVault();
+    await corrupt(PIN_ENTRY);
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(view.getByTestId('pin-lost')).toHaveTextContent('true');
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).toBeNull();
+  });
+
+  it('stops setup when the PIN record vanishes after launch', async () => {
+    await vault.createVault();
+    await vault.put('_key_probe', 'ok');
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    // Written and lost between launch and the setup press.
+    await sessionStorage.savePinRecord('record');
+    await corrupt(PIN_ENTRY);
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).toBeNull();
+  });
+
+  it('sends a first run with no marker to setup', async () => {
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    expect(view.getByTestId('pin-lost')).toHaveTextContent('false');
+    expect(new Directory(Paths.document, SESSION_MARKER_DIRECTORY).exists).toBe(false);
+  });
+
+  it('sends a marker without a device key to setup: there is no vault for it to guard', async () => {
+    await setUpVault();
+    await corrupt(PIN_ENTRY);
+    // A device backup restored the documents folder, not the Keychain or Keystore.
+    vaultMock.reset();
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+  });
+
+  it('marks a PIN record written before markers existed when it is read', async () => {
+    await lockedVault();
+    expect(marker('pin').exists).toBe(false);
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(marker('pin').exists).toBe(true);
+  });
+
+  it('clears the markers on "Delete everything", so the next launch is a first run', async () => {
+    await setUpVault();
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    await act(async () => {
+      await fireEvent.press(view.getByText('run erase'));
+    });
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    expect(marker('pin').exists).toBe(false);
+    expect(marker('lockout').exists).toBe(false);
+    await view.unmount();
+
+    const relaunch = await renderProbe();
+    await waitFor(() => expect(relaunch.getByTestId('status')).toHaveTextContent('setup'));
+    expect(relaunch.getByTestId('pin-lost')).toHaveTextContent('false');
+  });
+
+  it('keeps the PIN marker when the erase cannot remove it, and deletes no record then', async () => {
+    await setUpVault();
+    const remove = SecureStore.deleteItemAsync;
+    const deleteItem = jest.spyOn(SecureStore, 'deleteItemAsync').mockImplementation(remove);
+    jest.spyOn(File.prototype, 'delete').mockImplementation(() => {
+      throw new Error('EACCES');
+    });
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('run erase'));
+    });
+
+    expect(deleteItem).not.toHaveBeenCalled();
+    expect(marker('pin').exists).toBe(true);
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBeNull();
+  });
+
+  it('pauses instead of resetting when a lockout record that was written reads as absent', async () => {
+    await setUpVault();
+    await SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify({ failures: 4, lockedUntil: 0 }));
+    await corrupt(LOCKOUT_ENTRY);
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(view.getByTestId('locked-until')).toHaveTextContent(String(now + LOCKOUT_BASE_MS));
+    // Written back, so the pause is judged once and ends on time.
+    expect(JSON.parse((await SecureStore.getItemAsync(LOCKOUT_ENTRY))!)).toEqual({
+      failures: 0,
+      lockedUntil: now + LOCKOUT_BASE_MS,
+    });
+  });
+
+  it('reads no pause when no lockout was ever written', async () => {
+    await lockedVault();
+
+    expect(await sessionStorage.loadLockout()).toEqual({ failures: 0, lockedUntil: 0 });
+  });
+
+  it('opens setup for a new PIN once the device key gate opens after a lost PIN record', async () => {
+    await setUpVault();
+    await vault.put('file_kept', 'ciphertext');
+    await corrupt(PIN_ENTRY);
+    const createVault = jest.spyOn(vault, 'createVault');
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await fireEvent.press(view.getByText('run reset pin'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await vault.get('file_kept')).toBe('ciphertext');
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBeNull();
+  });
+
+  it('stays unavailable when the device key prompt for a new PIN is cancelled', async () => {
+    await setUpVault();
+    await corrupt(PIN_ENTRY);
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    jest.spyOn(vault, 'unlockWithBiometrics').mockResolvedValue(false);
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('run reset pin'));
+    });
+
+    expect(view.getByTestId('status')).toHaveTextContent('unavailable');
+    expect(view.getByTestId('error')).toHaveTextContent(/.+/);
+  });
+
+  it('offers no new PIN for an unreadable store that lost nothing', async () => {
+    await lockedVault();
+    failPinReads();
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(view.getByTestId('pin-lost')).toHaveTextContent('false');
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('run reset pin'));
+    });
+
+    expect(view.getByTestId('status')).toHaveTextContent('unavailable');
   });
 });

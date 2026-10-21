@@ -2,6 +2,7 @@ import type { LockoutState } from '@/features/auth/lockout';
 import { EMPTY_LOCKOUT, sanitizeLockout, unreadableLockout } from '@/features/auth/lockout';
 import { t, tp } from '@/i18n';
 
+import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
 export const AUTO_LOCK_OPTIONS = [0, 60, 300, 900, -1] as const;
@@ -73,9 +74,53 @@ export function sanitizeSettings(value: unknown): SecuritySettings {
 // SharedPreferences) rather than behind the vault's device key: the PIN record
 // and lockout must be readable before that key has been authenticated, and the
 // record is only a stretched hash.
-/** A secure-store read that tells "not there" apart from "could not be read". */
+/**
+ * A secure-store read that tells "not there" apart from "could not be read".
+ * `lost` marks a record whose marker says it was written but that the store
+ * no longer returns (or whose marker could not be checked).
+ */
 export type StoredRead<T> =
-  { state: 'present'; value: T } | { state: 'absent' } | { state: 'unreadable' };
+  { state: 'present'; value: T } | { state: 'absent' } | { state: 'unreadable'; lost?: boolean };
+
+/**
+ * expo-secure-store on Android deletes an entry it can no longer decrypt
+ * ("out of sync with the keystore") and returns null, so a missing record
+ * alone does not prove none was written. Each record therefore has a plain,
+ * non-secret marker file next to the vault's entries, written after the
+ * record and removed before it: a marker without its record means the record
+ * was lost, never that there is none. The markers hold no data, and their
+ * names are not vault entry names, so the vault's listing, backups and
+ * restores never see them.
+ */
+export const SESSION_MARKER_DIRECTORY = 'securevault-session';
+const PIN_MARKER = 'pin';
+const LOCKOUT_MARKER = 'lockout';
+
+const markerDirectory = () => new Directory(Paths.document, SESSION_MARKER_DIRECTORY);
+const markerFile = (name: string) => new File(markerDirectory(), name);
+
+/** Whether the marker exists; throws when that cannot be told. */
+const hasMarker = (name: string) => markerFile(name).exists;
+
+/**
+ * Writes the marker after its record was stored. A failure is left for the
+ * next read of the record to repair, so it never fails the write it follows.
+ */
+function markWritten(name: string) {
+  try {
+    const file = markerFile(name);
+    if (!file.exists) file.create({ intermediates: true });
+  } catch {
+    // Repaired by the next read that finds the record.
+  }
+}
+
+/** Removes the marker before its record goes; throws when it stays. */
+function removeMarker(name: string) {
+  const file = markerFile(name);
+  if (file.exists) file.delete();
+  if (file.exists) throw new Error(`The ${name} marker could not be removed.`);
+}
 
 const SETTINGS_ENTRY = 'securevault.settings';
 const PIN_ENTRY = 'securevault.pin';
@@ -114,7 +159,21 @@ export const sessionStorage = {
     } catch {
       return null;
     }
-    if (!raw) return EMPTY_LOCKOUT;
+    if (!raw) {
+      let lost: boolean;
+      try {
+        lost = hasMarker(LOCKOUT_MARKER);
+      } catch {
+        lost = true;
+      }
+      if (!lost) return EMPTY_LOCKOUT;
+      // Written once and gone now: a pause that ends on its own, written back
+      // so it is judged once, never a reset of the count.
+      const replacement = unreadableLockout(Date.now());
+      await sessionStorage.saveLockout(replacement).catch(() => {});
+      return replacement;
+    }
+    markWritten(LOCKOUT_MARKER);
     try {
       return sanitizeLockout(JSON.parse(raw));
     } catch {
@@ -123,19 +182,32 @@ export const sessionStorage = {
       return replacement;
     }
   },
-  saveLockout: (state: LockoutState) =>
-    SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options),
+  async saveLockout(state: LockoutState): Promise<void> {
+    await SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options);
+    markWritten(LOCKOUT_MARKER);
+  },
   /**
    * Whether a PIN record exists, kept apart from a store that refused the
    * read: an unreadable record is not a missing one, and setup must never
-   * replace a PIN it could not see.
+   * replace a PIN it could not see. A record its marker says was written is
+   * `unreadable` and `lost` when the store returns nothing for it.
    */
   async readPinRecord(): Promise<StoredRead<string>> {
+    let record: string | null;
     try {
-      const record = await SecureStore.getItemAsync(PIN_ENTRY, options);
-      return record === null ? { state: 'absent' } : { state: 'present', value: record };
+      record = await SecureStore.getItemAsync(PIN_ENTRY, options);
     } catch {
       return { state: 'unreadable' };
+    }
+    if (record !== null) {
+      // Also marks a record written before markers existed.
+      markWritten(PIN_MARKER);
+      return { state: 'present', value: record };
+    }
+    try {
+      return hasMarker(PIN_MARKER) ? { state: 'unreadable', lost: true } : { state: 'absent' };
+    } catch {
+      return { state: 'unreadable', lost: true };
     }
   },
   /** The PIN record, or null when there is none; rejects with `PIN_UNREADABLE` when the store refused. */
@@ -148,8 +220,17 @@ export const sessionStorage = {
     }
     return read.state === 'present' ? read.value : null;
   },
-  savePinRecord: (record: string) => SecureStore.setItemAsync(PIN_ENTRY, record, options),
+  async savePinRecord(record: string): Promise<void> {
+    await SecureStore.setItemAsync(PIN_ENTRY, record, options);
+    markWritten(PIN_MARKER);
+  },
+  /**
+   * Removes the markers first, so a record whose delete fails still has its
+   * marker, and a marker never outlives a record that is gone.
+   */
   clear: async () => {
+    removeMarker(PIN_MARKER);
+    removeMarker(LOCKOUT_MARKER);
     await Promise.all(
       [SETTINGS_ENTRY, PIN_ENTRY, LOCKOUT_ENTRY].map((entry) =>
         SecureStore.deleteItemAsync(entry, options),

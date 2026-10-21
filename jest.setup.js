@@ -1,4 +1,4 @@
-const { jest } = require('@jest/globals');
+const { beforeEach, jest } = require('@jest/globals');
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -78,4 +78,12 @@ jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock
 jest.mock('react-native-reanimated', () => {
   const reanimatedMock = require('react-native-reanimated/mock');
   return { ...reanimatedMock, useReducedMotion: () => false };
+});
+
+// The PIN and lockout markers sit in the in-memory document folder, which no
+// test resets; every test starts without them, like a fresh install.
+beforeEach(() => {
+  const { Directory, Paths } = require('expo-file-system');
+  const markers = new Directory(Paths.document, 'securevault-session');
+  if (markers.exists) markers.delete();
 });
