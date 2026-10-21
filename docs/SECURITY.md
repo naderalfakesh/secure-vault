@@ -267,7 +267,11 @@ disabled until it ends.
   only removes entries inside the app's cache (and, on iOS, its `tmp`) once
   the parent's links are resolved. expo-file-system's own `delete` is not
   used for these because on Android it empties a link's target before
-  removing the link.
+  removing the link. An export starts by removing the cache's `backup`
+  folder the same way and creating it anew, so a link planted there is
+  unlinked before the index copy or the container is written; if it cannot
+  be removed, the export stops with `BACKUP_STAGING_INVALID` before writing
+  anything.
 - Launch also removes, once, plaintext scratch that earlier builds wrote and
   could leave when killed: `tmp/backup-<UUID>` and `tmp/<UUID>` on iOS,
   `backup<n>.tmp` in the cache and `vault<n>.tmp` in the vault folder on

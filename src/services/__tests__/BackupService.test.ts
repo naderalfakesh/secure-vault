@@ -805,6 +805,7 @@ describe('BackupService', () => {
 
     afterEach(() => {
       follow.mockRestore();
+      jest.restoreAllMocks();
       if (sentinel().exists) sentinel().delete();
     });
 
@@ -844,6 +845,43 @@ describe('BackupService', () => {
       expect(restoreLink.kept.exists).toBe(true);
       expect(vaultMock.linkTarget(toPath(restoreLink.link))).toBeNull();
       expect(vaultMock.linkTarget(extras)).toBeNull();
+    });
+
+    it('unlinks a linked backup folder before an export writes its index copy or container', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const { link, kept } = plantLinkedFolder(BACKUP_DIRECTORY);
+      let linkedWhenWritten: string | null = 'not called';
+      const exportBackup = vault.exportBackup.bind(vault);
+      jest.spyOn(vault, 'exportBackup').mockImplementation((...args) => {
+        linkedWhenWritten = vaultMock.linkTarget(toPath(link));
+        return exportBackup(...args);
+      });
+
+      const backup = await backupService.createBackup('correct horse battery');
+
+      expect(linkedWhenWritten).toBeNull();
+      expect(kept.exists).toBe(true);
+      backupService.discardBackup(backup.uri);
+    });
+
+    it('refuses an export with a typed error when the backup folder cannot be cleared', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const backupFolder = toPath(new Directory(Paths.cache, BACKUP_DIRECTORY));
+      const remove = vault.removeTreeNoFollow.bind(vault);
+      jest.spyOn(vault, 'removeTreeNoFollow').mockImplementation((path) => {
+        if (path.replace(/\/$/, '') === backupFolder.replace(/\/$/, '')) {
+          throw Object.assign(new Error("removeTreeNoFollow: not inside the app's cache"), {
+            code: 'ERR_UNEXPECTED',
+          });
+        }
+        return remove(path);
+      });
+      const exportBackup = jest.spyOn(vault, 'exportBackup');
+
+      await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+        code: 'BACKUP_STAGING_INVALID',
+      });
+      expect(exportBackup).not.toHaveBeenCalled();
     });
   });
 });

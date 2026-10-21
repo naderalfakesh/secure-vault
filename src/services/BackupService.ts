@@ -131,6 +131,14 @@ function removeQuietly(entry: File | Directory): void {
   }
 }
 
+/** The staging folders could not be prepared, so nothing was written or replaced. */
+function stagingError(code: string, cause: unknown): Error {
+  return Object.assign(new Error('The backup staging folders could not be prepared.'), {
+    code,
+    cause,
+  });
+}
+
 /**
  * A failure after the native import has replaced the vault: the documents
  * are back, the index is not. It gets its own code so the sentence never
@@ -193,6 +201,19 @@ class BackupService {
     return directory;
   }
 
+  /**
+   * An empty `backup` folder for an export. Nothing else uses it while an
+   * export holds the slot, so whatever is there goes first, a link planted in
+   * its place included (unlinked, never followed), before the index copy or
+   * the container is written into it.
+   */
+  private freshDirectory() {
+    const directory = new Directory(Paths.cache, BACKUP_DIRECTORY);
+    removeNoFollow(directory);
+    directory.create({ intermediates: true });
+    return directory;
+  }
+
   /** An empty staging folder; whatever an interrupted export or restore left there goes first. */
   private staging(name = BACKUP_STAGING_DIRECTORY) {
     const directory = new Directory(Paths.cache, name);
@@ -238,12 +259,18 @@ class BackupService {
   ): Promise<BackupResult> {
     const problem = passphraseProblem(passphrase);
     if (problem) throw new Error(problem);
-    const directory = this.directory();
+    let directory: Directory;
+    let staging: Directory;
+    try {
+      directory = this.freshDirectory();
+      staging = this.staging();
+    } catch (error) {
+      // Nothing was written yet; the platform error names a cache path.
+      throw stagingError('BACKUP_STAGING_INVALID', error);
+    }
     const name = backupFileName();
     const target = new File(directory, name);
-    if (target.exists) target.delete();
     const databaseCopy = new File(directory, 'index.db');
-    const staging = this.staging();
     const unsubscribe = this.subscribe(onProgress);
     let summary: { entries: number; bytes: number };
     try {
