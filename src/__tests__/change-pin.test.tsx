@@ -46,17 +46,23 @@ async function renderScreen() {
 }
 
 async function enter(view: Awaited<ReturnType<typeof renderScreen>>, pin: string) {
-  for (const digit of pin) await fireEvent.press(view.getByRole('button', { name: digit }));
-  // The keypad submits a beat after the sixth digit, and a wrong entry flashes.
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  // A wrong entry flashes before the dots clear; digits typed meanwhile are dropped.
+  await waitFor(() => expect(view.getByLabelText('0 of 6 digits entered')).toBeOnTheScreen(), {
+    timeout: 3000,
   });
+  for (const digit of pin) await fireEvent.press(view.getByRole('button', { name: digit }));
 }
+
+const shows = (view: Awaited<ReturnType<typeof renderScreen>>, text: string) =>
+  waitFor(() => expect(view.getByText(text)).toBeOnTheScreen(), { timeout: 3000 });
 
 async function storedPinIs(pin: string) {
   const record = await sessionStorage.loadPinRecord();
   return record !== null && verifyPasscodeAsync(pin, record);
 }
+
+// Each PIN check runs the real key stretching, so these tests take a few seconds.
+jest.setTimeout(30_000);
 
 describe('Change PIN', () => {
   beforeEach(() => {
@@ -69,26 +75,25 @@ describe('Change PIN', () => {
     const view = await renderScreen();
 
     await enter(view, '123456');
-    expect(view.getByText('Step 2 of 3')).toBeOnTheScreen();
+    await shows(view, 'Step 2 of 3');
     expect(
       view.getByText('Your documents aren’t touched. Only the way in changes.'),
     ).toBeOnTheScreen();
 
     await enter(view, '123456');
-    expect(
-      view.getByText('Choose a PIN that’s different from your current one.'),
-    ).toBeOnTheScreen();
+    await shows(view, 'Choose a PIN that’s different from your current one.');
 
     await enter(view, '654321');
-    expect(view.getByText('Step 3 of 3')).toBeOnTheScreen();
+    await shows(view, 'Step 3 of 3');
     await enter(view, '111111');
-    expect(view.getByText('The PINs didn’t match. Start again.')).toBeOnTheScreen();
-    expect(view.getByText('Step 2 of 3')).toBeOnTheScreen();
+    await shows(view, 'The PINs didn’t match. Start again.');
+    await shows(view, 'Step 2 of 3');
 
     await enter(view, '654321');
+    await shows(view, 'Step 3 of 3');
     await enter(view, '654321');
 
-    await waitFor(() => expect(view.getByText('PIN changed')).toBeOnTheScreen());
+    await shows(view, 'PIN changed');
     expect(router.back).toHaveBeenCalled();
     expect(await storedPinIs('654321')).toBe(true);
   });
@@ -97,12 +102,12 @@ describe('Change PIN', () => {
     const view = await renderScreen();
 
     await enter(view, '000000');
+    await shows(view, 'Step 2 of 3');
     await enter(view, '654321');
+    await shows(view, 'Step 3 of 3');
     await enter(view, '654321');
 
-    await waitFor(() =>
-      expect(view.getByText('Wrong PIN. Nothing was changed.')).toBeOnTheScreen(),
-    );
+    await shows(view, 'Wrong PIN. Nothing was changed.');
     expect(view.getByText('Step 1 of 3')).toBeOnTheScreen();
     expect(router.back).not.toHaveBeenCalled();
     expect(await storedPinIs('123456')).toBe(true);
@@ -112,6 +117,7 @@ describe('Change PIN', () => {
     const view = await renderScreen();
 
     await enter(view, '123456');
+    await shows(view, 'Step 2 of 3');
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
 
     expect(router.back).toHaveBeenCalled();
