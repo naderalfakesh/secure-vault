@@ -5,13 +5,16 @@ import Foundation
 enum BackupError: LocalizedError {
   case corrupt(String)
   case passphrase
-  case unsupported(Int)
+  /// A header setting no committed exporter writes: a newer format, or KDF or
+  /// cipher settings outside the verified set.
+  case unsupported(String)
 
   var errorDescription: String? {
     switch self {
     case .corrupt(let reason): return "The backup file is not valid: \(reason)"
     case .passphrase: return "That passphrase does not match this backup."
-    case .unsupported(let version): return "This backup needs a newer version of the app (format \(version))."
+    case .unsupported(let reason):
+      return "This backup uses settings this version of the app does not support: \(reason)."
     }
   }
 }
@@ -32,6 +35,18 @@ enum BackupContainer {
   static let iterations = 600_000
   static let checkKey = "_check"
   static let checkValue = Data("SecureVault backup check".utf8)
+  static let kdfName = "pbkdf2-hmac-sha256"
+  static let cipher = "aes-256-gcm"
+
+  /// Every iteration count a committed exporter has written (all of them
+  /// write `iterations`). A reader refuses anything else before the key
+  /// derivation runs, so a crafted header cannot make PBKDF2 run for hours.
+  /// An exporter that changes the count must bump `version`.
+  static let supportedIterations: Set<Int> = [iterations]
+
+  /// The check entry, the database key string and the index extra: the
+  /// smallest backup the app writes.
+  static let minEntries = 3
 
   struct Header: Codable {
     var version: Int
@@ -217,8 +232,8 @@ enum BackupContainer {
     let formatter = ISO8601DateFormatter()
     let header = Header(
       version: version, app: "SecureVault", created: formatter.string(from: Date()),
-      kdf: .init(name: "pbkdf2-hmac-sha256", iterations: iterations, salt: salt.base64EncodedString()),
-      cipher: "aes-256-gcm", entries: entries.count + 1
+      kdf: .init(name: kdfName, iterations: iterations, salt: salt.base64EncodedString()),
+      cipher: cipher, entries: entries.count + 1
     )
 
     FileManager.default.createFile(atPath: destination.path, contents: nil)
@@ -267,10 +282,20 @@ enum BackupContainer {
     return try readHeader(input)
   }
 
+  /// Only the version, read first so a newer format is named as such even
+  /// when the rest of its header has another shape.
+  private struct VersionField: Decodable {
+    var version: Int
+  }
+
   /// Expects `input` at the start of the file. The header length is checked
-  /// against the bytes left in the file, and the entry count and iterations
-  /// must fit the types they are used as, before anything is allocated or
-  /// derived.
+  /// against the bytes left in the file before it is read. Then, in the same
+  /// order as on Android: the version must be an integer (above 1 is a newer
+  /// format, below 1 a damaged header); every field the exporter writes must be
+  /// present with its JSON type and the counts must fit their types
+  /// (otherwise `corrupt`); and the KDF name, cipher and iteration count must
+  /// be the ones a committed exporter wrote (otherwise `unsupported`). All of
+  /// it runs before any key is derived.
   private static func readHeader(_ input: FileHandle) throws -> Header {
     guard try VaultCrypto.read(input, count: magic.count) == magic else {
       throw BackupError.corrupt("not a SecureVault backup")
@@ -279,14 +304,26 @@ enum BackupContainer {
     guard lengthData.count == 4 else { throw BackupError.corrupt("header") }
     let length = Int(readBe32(lengthData))
     guard length <= (try remaining(input)) else { throw BackupError.corrupt("truncated") }
-    guard let header = try? JSONDecoder().decode(Header.self, from: VaultCrypto.read(input, count: length)) else {
+    let data = try VaultCrypto.read(input, count: length)
+    guard let field = try? JSONDecoder().decode(VersionField.self, from: data) else {
       throw BackupError.corrupt("header")
     }
-    guard header.version <= version else { throw BackupError.unsupported(header.version) }
-    guard header.entries >= 0, let rounds = UInt32(exactly: header.kdf.iterations), rounds > 0 else {
+    guard field.version <= version else { throw BackupError.unsupported("format \(field.version)") }
+    guard field.version >= version else { throw BackupError.corrupt("header") }
+    guard let header = try? JSONDecoder().decode(Header.self, from: data) else {
+      throw BackupError.corrupt("header")
+    }
+    guard header.kdf.iterations >= 1, header.kdf.iterations <= Int(Int32.max),
+      header.entries >= minEntries, header.entries <= Int(Int32.max)
+    else {
       throw BackupError.corrupt("header")
     }
     _ = try salt(of: header)
+    guard header.kdf.name == kdfName else { throw BackupError.unsupported("key derivation \(header.kdf.name)") }
+    guard header.cipher == cipher else { throw BackupError.unsupported("cipher \(header.cipher)") }
+    guard supportedIterations.contains(header.kdf.iterations) else {
+      throw BackupError.unsupported("\(header.kdf.iterations) iterations")
+    }
     return header
   }
 

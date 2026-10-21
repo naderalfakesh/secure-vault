@@ -36,8 +36,9 @@ import javax.crypto.spec.SecretKeySpec
 object BackupContainer {
     class CorruptException(reason: String) : Exception("The backup file is not valid: $reason")
     class PassphraseException : Exception("That passphrase does not match this backup.")
-    class UnsupportedException(version: Int) :
-        Exception("This backup needs a newer version of the app (format $version).")
+    /** A header setting no committed exporter writes: a newer format, or KDF or cipher settings outside the verified set. */
+    class UnsupportedException(reason: String) :
+        Exception("This backup uses settings this version of the app does not support: $reason.")
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
     class RemovalException(reason: String) : Exception("The cache entry cannot be removed: $reason")
 
@@ -92,6 +93,18 @@ object BackupContainer {
     private const val ITERATIONS = 600_000
     private const val CHECK_KEY = "_check"
     private val CHECK_VALUE = "SecureVault backup check".toByteArray(Charsets.UTF_8)
+    private const val KDF_NAME = "pbkdf2-hmac-sha256"
+    private const val CIPHER = "aes-256-gcm"
+
+    /**
+     * Every iteration count a committed exporter has written (all of them write [ITERATIONS]).
+     * A reader refuses anything else before the key derivation runs, so a crafted header cannot
+     * make PBKDF2 run for hours. An exporter that changes the count must bump [VERSION].
+     */
+    val SUPPORTED_ITERATIONS = setOf(ITERATIONS)
+
+    /** The check entry, the database key string and the index extra: the smallest backup the app writes. */
+    private const val MIN_ENTRIES = 3
 
     fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): SecretKey {
         val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
@@ -208,9 +221,9 @@ object BackupContainer {
             .put("version", VERSION)
             .put("app", "SecureVault")
             .put("created", created)
-            .put("kdf", JSONObject().put("name", "pbkdf2-hmac-sha256").put("iterations", ITERATIONS)
+            .put("kdf", JSONObject().put("name", KDF_NAME).put("iterations", ITERATIONS)
                 .put("salt", android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP)))
-            .put("cipher", "aes-256-gcm")
+            .put("cipher", CIPHER)
             .put("entries", entries.size + 1)
             .toString().toByteArray(Charsets.UTF_8)
 
@@ -252,8 +265,14 @@ object BackupContainer {
 
     /**
      * Expects [input] at the start of the file. The header length is checked
-     * against the bytes left in the file, and the entry count and iterations
-     * must fit the types they are used as, before anything is allocated or
+     * against the bytes left in the file before it is allocated (an allocation
+     * the device refuses is an OutOfMemoryError the module reports as
+     * BACKUP_RESOURCE). Then, in the same order as on iOS: the version must be
+     * an integer (above 1 is a newer format, below 1 a damaged header); every
+     * field the exporter writes must be present with its JSON type and the
+     * counts must fit their types (otherwise CorruptException); and the KDF
+     * name, cipher and iteration count must be the ones a committed exporter
+     * wrote (otherwise UnsupportedException). All of it runs before any key is
      * derived.
      */
     private fun readHeader(input: RandomAccessFile): Header {
@@ -276,28 +295,61 @@ object BackupContainer {
         } catch (e: Exception) {
             throw CorruptException("header")
         }
-        val version = json.optInt("version", 0)
-        if (version > VERSION) throw UnsupportedException(version)
-        val kdf = json.optJSONObject("kdf") ?: throw CorruptException("header")
-        val iterations = kdf.optLong("iterations", ITERATIONS.toLong())
+        val version = integral(json.opt("version")) ?: throw CorruptException("header")
+        if (version > VERSION) throw UnsupportedException("format $version")
+        if (version < VERSION) throw CorruptException("header")
+        val kdf = json.opt("kdf") as? JSONObject ?: throw CorruptException("header")
+        val kdfName = kdf.opt("name") as? String ?: throw CorruptException("header")
+        val cipher = json.opt("cipher") as? String ?: throw CorruptException("header")
+        val app = json.opt("app") as? String ?: throw CorruptException("header")
+        val created = json.opt("created") as? String ?: throw CorruptException("header")
+        val iterations = integral(kdf.opt("iterations")) ?: throw CorruptException("header")
         if (iterations < 1 || iterations > Int.MAX_VALUE) throw CorruptException("header")
-        val entries = json.optLong("entries", 0)
-        if (entries < 0 || entries > Int.MAX_VALUE) throw CorruptException("header")
+        val entries = integral(json.opt("entries")) ?: throw CorruptException("header")
+        if (entries < MIN_ENTRIES || entries > Int.MAX_VALUE) throw CorruptException("header")
+        val encodedSalt = kdf.opt("salt") as? String ?: throw CorruptException("salt")
         val salt = try {
-            android.util.Base64.decode(kdf.optString("salt", ""), android.util.Base64.DEFAULT)
+            android.util.Base64.decode(encodedSalt, android.util.Base64.DEFAULT)
         } catch (e: IllegalArgumentException) {
             throw CorruptException("salt")
         }
         if (salt.isEmpty()) throw CorruptException("salt")
+        if (kdfName != KDF_NAME) throw UnsupportedException("key derivation $kdfName")
+        if (cipher != CIPHER) throw UnsupportedException("cipher $cipher")
+        if (iterations.toInt() !in SUPPORTED_ITERATIONS) throw UnsupportedException("$iterations iterations")
         return Header(
-            version = version,
-            app = json.optString("app", ""),
-            created = json.optString("created", ""),
+            version = version.toInt(),
+            app = app,
+            created = created,
             iterations = iterations.toInt(),
             salt = salt,
             entries = entries.toInt(),
         )
     }
+
+    /**
+     * A JSON number read as an integer the way Swift's `JSONDecoder` reads one into `Int`, so both
+     * platforms accept and refuse the same headers: `600000`, `600000.0` and `6e5` all count, a
+     * fraction, a string or a boolean does not, and nor does a number outside a 64-bit integer.
+     * The number class depends on the org.json build (Android's parses decimals as Double, the
+     * Maven one as BigDecimal), so every one is handled.
+     */
+    private fun integral(value: Any?): Long? = when (value) {
+        is Int, is Long, is Short, is Byte -> (value as Number).toLong()
+        is java.math.BigInteger -> if (value.bitLength() < 64) value.toLong() else null
+        is java.math.BigDecimal -> try {
+            value.toBigIntegerExact().let { if (it.bitLength() < 64) it.toLong() else null }
+        } catch (e: ArithmeticException) {
+            null
+        }
+        is Double, is Float -> (value as Number).toDouble().let {
+            if (it == Math.rint(it) && Math.abs(it) < LONG_LIMIT) it.toLong() else null
+        }
+        else -> null
+    }
+
+    /** 2^63: a whole double below it in magnitude converts to a Long without clamping. */
+    private const val LONG_LIMIT = 9.223372036854775807E18
 
     /** Both fields must be JSON strings, as on iOS; `getString` would coerce numbers. */
     private fun parseMeta(bytes: ByteArray, index: Int): Meta {

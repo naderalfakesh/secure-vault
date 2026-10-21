@@ -174,8 +174,11 @@ public class ExpoVaultModule: Module {
                 "version": header.version, "app": header.app, "created": header.created,
                 "entries": max(0, header.entries - 1),
             ])
-        } catch BackupError.unsupported(let version) {
-            promise.reject("BACKUP_UNSUPPORTED", BackupError.unsupported(version).localizedDescription)
+        } catch let error as BackupError {
+            switch error {
+            case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
+            default: promise.reject("BACKUP_INVALID", error.localizedDescription)
+            }
         } catch {
             promise.reject("BACKUP_INVALID", error.localizedDescription)
         }

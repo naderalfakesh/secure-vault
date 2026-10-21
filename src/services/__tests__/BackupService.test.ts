@@ -42,7 +42,9 @@ describe('passphrase policy', () => {
   it('turns native error codes into sentences', () => {
     expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toMatch(/does not match/);
     expect(describeBackupError({ code: 'BACKUP_INVALID' })).toMatch(/not a SecureVault backup/);
-    expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toMatch(/newer version/);
+    expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toBe(
+      "This backup uses settings this version of the app doesn't support. Nothing was changed.",
+    );
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
     expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toMatch(/enough memory/);
     expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);

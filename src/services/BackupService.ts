@@ -63,7 +63,7 @@ export function describeBackupError(
     case 'BACKUP_INVALID':
       return 'This file is not a SecureVault backup, or it is damaged.';
     case 'BACKUP_UNSUPPORTED':
-      return 'This backup was made by a newer version of the app.';
+      return "This backup uses settings this version of the app doesn't support. Nothing was changed.";
     case 'BACKUP_PARTIAL':
       return 'The restore stopped after the previous vault was removed. Restore the backup again.';
     case 'BACKUP_RESOURCE':
