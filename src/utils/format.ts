@@ -62,8 +62,3 @@ export function formatExpiry(
 export function joinParts(parts: readonly (string | null | undefined | false)[]): string {
   return parts.filter(Boolean).join(t('format.separator'));
 }
-
-/** @deprecated Use `tp` with a `format.*` plural key; removed once every caller moves. */
-export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
