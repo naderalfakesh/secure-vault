@@ -54,7 +54,9 @@ backup passphrase ─── PBKDF2-HMAC-SHA256, 600 000 iterations, per-file sal
   invalidated it (`KEY_INVALIDATED`, after a biometric or lock screen change;
   iOS has no such state), the next setup replaces it with a new one, but only
   when the vault holds no entries, so nothing still encrypted under the old
-  key is cut off by setup.
+  key is cut off by setup. With entries left, setup stops and says in a plain
+  sentence that the screen lock or biometrics changed and those documents
+  cannot be opened on this device.
 
 Everything the vault stores is encrypted under this key with AES-256-GCM.
 Files are streamed in 1 MiB chunks, each with its own random nonce and the

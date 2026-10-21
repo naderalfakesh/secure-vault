@@ -22,6 +22,7 @@ import {
 } from '@/features/auth/lockout';
 
 import { documentService } from '@/services/DocumentService';
+import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
@@ -98,6 +99,8 @@ const friendlyMessages: Record<string, string> = {
   BIOMETRIC_NOT_AVAILABLE: 'Biometrics are not available right now. Enter your PIN.',
   NO_AUTH_ENROLLED: 'Set up a screen lock in your device settings first.',
   KEY_RETRIEVAL_FAILED: 'The vault key could not be read. Restart the app and try again.',
+  // Android only: setup keeps an invalidated key while the vault still holds entries.
+  KEY_INVALIDATED: KEY_INVALIDATED_MESSAGE,
 };
 
 const KEY_NOT_UNLOCKED = 'The device key was not unlocked. Enter your PIN to try again.';

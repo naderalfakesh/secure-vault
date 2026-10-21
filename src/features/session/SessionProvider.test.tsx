@@ -177,8 +177,11 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
     await fireEvent.press(view.getByText('run setup'));
     await waitFor(() =>
-      expect(view.getByTestId('error')).toHaveTextContent('Key permanently invalidated'),
+      expect(view.getByTestId('error')).toHaveTextContent(
+        "This device's screen lock or biometrics changed, so the vault key can no longer be used. The documents already in this vault cannot be opened on this device.",
+      ),
     );
+    expect(view.getByTestId('error')).not.toHaveTextContent(/permanently invalidated/);
 
     expect(view.getByTestId('status')).toHaveTextContent('setup');
     expect(createVault).not.toHaveBeenCalled();
