@@ -110,6 +110,16 @@ describe('lock navigation', () => {
     expect(errors.filter((message) => message.includes('Maximum update depth'))).toEqual([]);
   });
 
+  it('dismisses a share sheet left open when the vault locks', async () => {
+    await openUnlockedVault();
+    const dismiss = jest.spyOn(vault, 'dismissShareSheet');
+
+    await act(async () => session.lock());
+
+    await screen.findByText(/enter your PIN/);
+    expect(dismiss).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the lock screen when the vault locks under an open modal', async () => {
     await openUnlockedVault();
     await act(async () => router.push('/documents/add'));

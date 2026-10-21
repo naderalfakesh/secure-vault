@@ -14,6 +14,8 @@ import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
 import { loadAppearance } from '@/theme/appearance';
 
+import vault from '../modules/expo-vault';
+
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden during a fast refresh; nothing to do.
 });
@@ -48,6 +50,9 @@ function RootNavigator() {
     // vault locks, whichever path locked it.
     if (status === 'locked') {
       toast.hide();
+      // F7: a share sheet left up (iOS) closes with the vault, before its copy
+      // goes, so it never sits over the lock screen offering a deleted file.
+      vault.dismissShareSheet().catch(() => false);
       documentService.clearCache().catch(() => {});
       // Backup ciphertext too: finished containers and the picker's copies.
       backupService.sweepCache();
