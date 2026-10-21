@@ -94,7 +94,6 @@ export function Button({
         <Text
           variant={size === 'lg' ? 'headline' : 'subheadline'}
           style={[styles.label, { color: foreground }]}
-          numberOfLines={2}
         >
           {shownLabel}
         </Text>

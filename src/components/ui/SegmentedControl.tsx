@@ -51,7 +51,6 @@ export function SegmentedControl<T extends string>({
               variant="subheadline"
               tone={selected ? 'primary' : 'secondary'}
               style={styles.label(selected)}
-              numberOfLines={1}
             >
               {option.label}
             </Text>

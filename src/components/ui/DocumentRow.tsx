@@ -66,14 +66,12 @@ export function DocumentRow({
       ) : null}
       <PaperThumbnail>{thumbnail}</PaperThumbnail>
       <View style={styles.body}>
-        <Text variant="headline" numberOfLines={2}>
-          {isolate(title)}
-        </Text>
-        <Text variant="footnote" tone="secondary" numberOfLines={1}>
+        <Text variant="headline">{isolate(title)}</Text>
+        <Text variant="footnote" tone="secondary">
           {meta}
         </Text>
         {snippet?.length ? (
-          <Text variant="footnote" tone="secondary" numberOfLines={2}>
+          <Text variant="footnote" tone="secondary">
             {snippet.map((part, index) =>
               part.match ? (
                 <Text key={index} variant="footnote" style={styles.mark} testID="snippet-match">

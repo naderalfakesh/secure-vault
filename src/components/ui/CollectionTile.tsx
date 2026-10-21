@@ -34,7 +34,7 @@ export function CollectionTile({ name, count, icon, onPress, testID }: Collectio
         <Icon name={icon} size={20} tone="accent" />
       </View>
       <View style={styles.footer}>
-        <Text variant="subheadline" style={styles.name} numberOfLines={2}>
+        <Text variant="subheadline" style={styles.name}>
           {name}
         </Text>
         <Text variant="subheadline" tone="secondary">

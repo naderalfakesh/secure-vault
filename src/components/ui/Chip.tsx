@@ -61,15 +61,13 @@ export function Chip({
   const content = (
     <>
       {leading ? <Icon name={leading} size={16} color={ink} /> : null}
-      <Text variant="subheadline" style={[styles.label, { color: ink }]} numberOfLines={1}>
+      <Text variant="subheadline" style={[styles.label, { color: ink }]}>
         {text}
       </Text>
       {count !== undefined ? (
         <Text
           variant="footnote"
-          style={{
-            color: on ? theme.colors.onPrimary : theme.colors.textTertiary,
-          }}
+          style={{ color: on ? theme.colors.onPrimary : theme.colors.textTertiary }}
         >
           {count}
         </Text>
@@ -111,12 +109,7 @@ export function Chip({
       // The chip is one element to a screen reader, so removing is a custom action.
       accessibilityActions={
         onRemove
-          ? [
-              {
-                name: 'remove',
-                label: t('ui.chip.remove', { label: isolate(label) }),
-              },
-            ]
+          ? [{ name: 'remove', label: t('ui.chip.remove', { label: isolate(label) }) }]
           : undefined
       }
       onAccessibilityAction={(event) => {

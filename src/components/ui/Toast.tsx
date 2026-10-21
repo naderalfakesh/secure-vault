@@ -124,7 +124,6 @@ function ToastView({ toast, onHide }: { toast: ToastState; onHide: () => void })
           accessibilityLiveRegion={danger ? 'assertive' : 'polite'}
           variant="subheadline"
           style={[styles.message, { color: ink }]}
-          numberOfLines={3}
         >
           {toast.message}
         </Text>

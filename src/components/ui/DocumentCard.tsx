@@ -56,15 +56,15 @@ export function DocumentCard({
         </PaperThumbnail>
       </View>
       <View style={styles.body}>
-        <Text variant="callout" numberOfLines={1} style={styles.title}>
+        <Text variant="callout" style={styles.title}>
           {isolate(title)}
         </Text>
         {expiry ? (
-          <Text variant="footnote" tone="warning" numberOfLines={1} style={styles.expiry}>
+          <Text variant="footnote" tone="warning" style={styles.expiry}>
             {expiry}
           </Text>
         ) : meta ? (
-          <Text variant="footnote" tone="secondary" numberOfLines={1}>
+          <Text variant="footnote" tone="secondary">
             {meta}
           </Text>
         ) : null}

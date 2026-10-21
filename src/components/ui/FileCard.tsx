@@ -29,9 +29,7 @@ export function FileCard({ name, meta, icon = 'archive', testID }: FileCardProps
         <Icon name={icon} size={22} tone="accent" />
       </View>
       <View style={styles.body}>
-        <Text variant="headline" numberOfLines={2}>
-          {isolate(name)}
-        </Text>
+        <Text variant="headline">{isolate(name)}</Text>
         {meta ? (
           <Text variant="footnote" tone="secondary">
             {meta}

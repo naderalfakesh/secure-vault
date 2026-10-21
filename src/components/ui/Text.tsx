@@ -28,7 +28,8 @@ const toneToColor = {
 
 /**
  * The only text primitive screens should use. Variants map to the platform
- * text styles so font scaling stays on; tones map to semantic theme colors.
+ * text styles so font scaling stays on, uncapped, up to the largest
+ * accessibility size (AX5, §10.2); tones map to semantic theme colors.
  */
 export function Text({
   children,
@@ -43,7 +44,6 @@ export function Text({
 
   return (
     <NativeText
-      maxFontSizeMultiplier={2}
       {...props}
       style={[theme.typography[variant], { color }, align ? { textAlign: align } : null, style]}
     >
