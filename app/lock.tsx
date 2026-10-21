@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, Mark, PinDots, PinPad, Screen, Text } from '@/components/ui';
+import { useAnnouncement } from '@/components/ui/announce';
 import {
   biometricKeyLabel,
   biometricSubtitle,
@@ -16,6 +17,7 @@ import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
+import { t } from '@/i18n';
 
 export default function LockScreen() {
   const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
@@ -68,7 +70,9 @@ export default function LockScreen() {
   const showError = Boolean(error) && !lockedOut && !showWrong;
   const alerting = showWrong || showError;
 
-  const title = lockedOut ? `Try again in ${formatCountdown(lockLeft)}` : 'SecureVault is locked';
+  const title = lockedOut
+    ? t('lock.lockoutTitle', { time: formatCountdown(lockLeft) })
+    : t('lock.title');
   const subtitle = lockedOut
     ? LOCKOUT_BODY
     : showWrong
@@ -77,7 +81,11 @@ export default function LockScreen() {
         ? (error as string)
         : hasBiometrics && pin.length === 0
           ? biometricSubtitle(biometry)
-          : 'Enter your PIN';
+          : t('lock.enterPin');
+
+  // iOS ignores live regions: speak a wrong PIN or an error, and the lockout
+  // once when it begins (its body stays the same while the countdown ticks).
+  useAnnouncement(lockedOut ? LOCKOUT_BODY : alerting ? subtitle : null);
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -90,7 +98,7 @@ export default function LockScreen() {
           style={styles.subtitle}
           accessible
           accessibilityRole={alerting ? 'alert' : undefined}
-          accessibilityLiveRegion="polite"
+          accessibilityLiveRegion={alerting ? 'assertive' : 'polite'}
           accessibilityLabel={subtitle}
         >
           {alerting ? <Icon name="warning" size={16} tone="danger" /> : null}
@@ -114,7 +122,7 @@ export default function LockScreen() {
           <View style={styles.banner} accessibilityRole="alert">
             <Icon name="warning" size={16} tone="warning" />
             <Text variant="caption" tone="secondary" style={styles.bannerText}>
-              This device looks rooted or modified. Your vault still works, but be careful.
+              {t('lock.insecureDevice')}
             </Text>
           </View>
         )}
