@@ -156,9 +156,24 @@ decision. Dark mode is unchanged. Both new colours also pass on `surface`,
   use `Button` (new `plainDestructive` variant). The viewer's glass Details
   pill stays a `Pressable`: no glass text-button primitive exists yet.
 
+## Review round 3
+
+- **Pause ending in the background**: a pause that ends while the app is away
+  (an iOS share handed to another app) now starts the auto-lock clock at that
+  moment, so the rest of the time away is judged on return. It does not carry
+  the pause's own start: that would also count the time inside an Android
+  picker, whose result lands just before the app is active again, and lock
+  after every pick with Immediately. A pause that ends less than 1 s before the
+  return is treated as part of coming back. Both cases are tested.
+- **Open, not fixed (needs F7, Share step)**: after an iOS share sheet has been
+  open for more than 2 minutes while the app was away, the vault locks on
+  return but the sheet stays up over the lock screen. It still shows the title
+  and preview, although its file is already deleted. Dismissing it needs
+  native work.
+
 ## Checks
 
-- `npm run validate`: exit 0 (prettier, expo lint, tsc, jest 60 suites / 415
+- `npm run validate`: exit 0 (prettier, expo lint, tsc, jest 60 suites / 417
   tests, expo-doctor 20/20).
 - iOS and Android native runs: **not run**; the native milestone QA is next.
 - Physical devices: not run.
