@@ -117,6 +117,8 @@ describe('onboarding', () => {
     await press('Use Face ID');
 
     await screen.findByText('Vault home');
+    // Cancelling the prompt (its button also reads "Not now") is a no.
+    expect((await storedSettings()).biometricUnlock).toBe(false);
   });
 
   it('skips the biometrics step when no biometrics are set up', async () => {

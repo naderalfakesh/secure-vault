@@ -12,8 +12,8 @@ import { useSession } from '@/features/session/SessionProvider';
 /**
  * J0 Enable biometrics, after the PIN is saved (handover §6, §7.5). "Use Face
  * ID" asks the OS for a biometric check, which on iOS is also where the Face
- * ID permission is asked; whatever the answer, and after "Not now", the vault
- * opens. Settings shows the reason later if biometrics stay unavailable.
+ * ID permission is asked; only a passed check turns biometric unlock on.
+ * Whatever the answer, and after "Not now", the vault opens. Settings shows the reason later if biometrics stay unavailable.
  */
 export default function BiometricsStepScreen() {
   const { status, setupHeld, finishSetup, updateSettings, biometry } = useSession();
@@ -33,16 +33,19 @@ export default function BiometricsStepScreen() {
 
   const enableBiometrics = async () => {
     setBusy(true);
+    let allowed = false;
     try {
-      await LocalAuthentication.authenticateAsync({
+      const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Unlock SecureVault',
         cancelLabel: 'Not now',
         disableDeviceFallback: true,
       });
+      allowed = result.success;
     } catch {
-      // A prompt that could not be shown changes nothing; the PIN still works.
+      // A prompt that could not be shown is a no; the PIN still works.
     }
-    await updateSettings({ biometricUnlock: true });
+    // Only a passed check turns it on: the prompt's own "Not now" means no.
+    await updateSettings({ biometricUnlock: allowed });
     finishSetup();
   };
 
