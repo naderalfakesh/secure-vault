@@ -7,7 +7,13 @@ import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
 export type ButtonVariant =
-  'primary' | 'tinted' | 'plain' | 'secondary' | 'destructive' | 'destructiveSoft';
+  | 'primary'
+  | 'tinted'
+  | 'plain'
+  | 'plainDestructive'
+  | 'secondary'
+  | 'destructive'
+  | 'destructiveSoft';
 export type ButtonSize = 'md' | 'lg';
 
 export type ButtonProps = Omit<PressableProps, 'style' | 'children'> & {
@@ -29,6 +35,8 @@ const fills: Record<ButtonVariant | 'disabled', Fill> = {
   primary: { background: 'primary', foreground: 'onPrimary' },
   tinted: { background: 'primaryMuted', foreground: 'primary' },
   plain: { background: 'transparent', foreground: 'primary' },
+  /** Text-only destructive action, e.g. "Delete 3" in a toolbar. */
+  plainDestructive: { background: 'transparent', foreground: 'danger' },
   secondary: { background: 'surfaceMuted', foreground: 'textPrimary' },
   destructive: { background: 'danger', foreground: 'onDanger' },
   destructiveSoft: { background: 'dangerMuted', foreground: 'danger' },
@@ -49,7 +57,14 @@ export function Button({
   const { theme } = useUnistyles();
   const isDisabled = Boolean(disabled) || loading;
   // A busy button keeps its colours so the spinner reads as progress, not as "off".
-  const fill = disabled && !loading ? fills.disabled : fills[variant];
+  const plain = variant === 'plain' || variant === 'plainDestructive';
+  // A disabled text button stays unfilled; only its label greys out.
+  const fill =
+    disabled && !loading
+      ? plain
+        ? { background: 'transparent' as const, foreground: 'textTertiary' as const }
+        : fills.disabled
+      : fills[variant];
   const foreground = theme.colors[fill.foreground];
   const shownLabel = loading ? (loadingLabel ?? label) : label;
 
@@ -62,7 +77,7 @@ export function Button({
       {...props}
       disabled={isDisabled}
       style={({ pressed }) => [
-        styles.base(size, variant === 'plain'),
+        styles.base(size, plain),
         {
           backgroundColor:
             fill.background === 'transparent' ? 'transparent' : theme.colors[fill.background],

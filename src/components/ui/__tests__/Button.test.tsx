@@ -72,4 +72,26 @@ describe('Button', () => {
     expect(view.getByRole('button', { name: 'Large' })).toHaveStyle({ minHeight: 52 });
     expect(view.getByRole('button', { name: 'Medium' })).toHaveStyle({ minHeight: 44 });
   });
+
+  it('has a plain destructive variant for text actions such as "Delete 3"', async () => {
+    const view = await render(
+      <Button label="Delete 3" variant="plainDestructive" onPress={jest.fn()} />,
+    );
+
+    expect(view.getByText('Delete 3')).toHaveStyle({ color: lightColors.danger });
+    expect(view.getByRole('button', { name: 'Delete 3' })).toHaveStyle({
+      backgroundColor: 'transparent',
+    });
+  });
+
+  it('keeps a disabled plain button unfilled', async () => {
+    const view = await render(
+      <Button label="Cancel" variant="plain" disabled onPress={jest.fn()} />,
+    );
+
+    expect(view.getByRole('button', { name: 'Cancel' })).toHaveStyle({
+      backgroundColor: 'transparent',
+    });
+    expect(view.getByText('Cancel')).toHaveStyle({ color: lightColors.textTertiary });
+  });
 });
