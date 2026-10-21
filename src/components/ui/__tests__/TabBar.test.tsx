@@ -55,4 +55,19 @@ describe('TabBar', () => {
     expect(scan.props.accessibilityHint).toBe('Opens the scanner');
     expect(view.queryAllByRole('button')).toHaveLength(0);
   });
+
+  it('lets tab labels take the room they need instead of a fixed width', async () => {
+    const view = await render(
+      <TabBar
+        tabs={[
+          { key: 'library', label: 'Library', icon: 'library', selected: true, onPress: jest.fn() },
+        ]}
+        onScan={jest.fn()}
+      />,
+    );
+    const tab = view.getByRole('tab', { name: 'Library' });
+
+    expect(tab).toHaveStyle({ flex: 1 });
+    expect(tab).not.toHaveStyle({ width: 104 });
+  });
 });
