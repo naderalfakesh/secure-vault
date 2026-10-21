@@ -113,11 +113,8 @@ const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0], ms: numb
 
 async function runExport(view: Awaited<ReturnType<typeof renderUnlocked>>) {
   await fireEvent.press(view.getByText('Create a backup'));
-  await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-  await fireEvent.changeText(
-    view.getByLabelText('Repeat the backup passphrase'),
-    'correct horse battery',
-  );
+  await fireEvent.changeText(view.getByLabelText('Passphrase'), 'correct horse battery');
+  await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'correct horse battery');
   await pressAndSettle(view.getByText('Create backup'), 1200);
 }
 
@@ -397,11 +394,8 @@ describe('Backup hub and the lock gate', () => {
       const view = await renderUnlocked();
 
       await fireEvent.press(view.getByText('Create a backup'));
-      await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-      await fireEvent.changeText(
-        view.getByLabelText('Repeat the backup passphrase'),
-        'correct horse battery',
-      );
+      await fireEvent.changeText(view.getByLabelText('Passphrase'), 'correct horse battery');
+      await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'correct horse battery');
       await pressAndSettle(view.getByText('Create backup'), 50);
       await lockAndUnlock();
 
@@ -769,5 +763,136 @@ describe('Backup hub restore phases and outcomes', () => {
 
     expect(view.queryByLabelText('Backup passphrase')).toBeNull();
     expect(view.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('Backup hub create flow', () => {
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    share.mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  async function openCreate() {
+    const view = await renderUnlocked();
+    await fireEvent.press(view.getByText('Create a backup'));
+    return view;
+  }
+
+  it('explains the passphrase and enables Create only for a valid, repeated passphrase', async () => {
+    const view = await openCreate();
+
+    expect(
+      view.getByText(
+        'Choose a passphrase. You’ll need it to restore, and SecureVault can’t recover it for you.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'A few unrelated words are easier to remember than a short, complex password.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      view.getByText('Type it exactly the same way when you restore, on any phone.'),
+    ).toBeOnTheScreen();
+    const create = view.getByRole('button', { name: 'Create backup' });
+    expect(create).toBeDisabled();
+    expect(view.getByLabelText('At least 8 characters, not met')).toBeOnTheScreen();
+    expect(view.getByLabelText('Not the same character repeated, not met')).toBeOnTheScreen();
+
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), 'aaaaaaaa');
+    expect(view.getByLabelText('At least 8 characters, met')).toBeOnTheScreen();
+    expect(view.getByLabelText('Not the same character repeated, not met')).toBeOnTheScreen();
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'aaaaaaaa');
+    expect(create).toBeDisabled();
+
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), 'correct horse battery');
+    expect(create).toBeDisabled();
+    expect(view.getByText('The passphrases don’t match yet.')).toBeOnTheScreen();
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'correct horse battery');
+    expect(view.getByLabelText('Passphrases match')).toBeOnTheScreen();
+    expect(create).toBeEnabled();
+  });
+
+  it('shows strength as a soft hint and never blocks a weak passphrase that meets the rules', async () => {
+    const view = await openCreate();
+
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), 'abcdefgh');
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'abcdefgh');
+
+    expect(view.getByLabelText('Passphrase strength: Weak')).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Create backup' })).toBeEnabled();
+  });
+
+  it('accepts a passphrase in any script', async () => {
+    const view = await openCreate();
+    const arabic = 'قمر فوق جبل الشيخ ٢٠٢٦';
+
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), arabic);
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), arabic);
+
+    expect(view.getByRole('button', { name: 'Create backup' })).toBeEnabled();
+  });
+
+  it('shows a busy sheet that cannot be dismissed while encrypting', async () => {
+    const exporting = pending<{ entries: number; bytes: number }>();
+    jest.spyOn(vault, 'exportBackup').mockImplementation(() => {
+      (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress({
+        phase: 'export',
+        done: 12,
+        total: 48,
+      });
+      return exporting.promise;
+    });
+    const view = await openCreate();
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), 'correct horse battery');
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'correct horse battery');
+
+    await pressAndSettle(view.getByRole('button', { name: 'Create backup' }), 20);
+
+    expect(view.getByText('Creating backup')).toBeOnTheScreen();
+    expect(view.getByText('Encrypting 12 of 48')).toBeOnTheScreen();
+    expect(view.getByText('25%')).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'Keep SecureVault open until this finishes. Your vault isn’t changed by creating a backup.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.queryByRole('button', { name: 'Close' })).toBeNull();
+
+    await act(async () => {
+      exporting.settle({ entries: 19, bytes: 1024 });
+    });
+    await settleFor(600);
+    expect(share).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a failed backup in the same sheet with Try again and Close', async () => {
+    jest
+      .spyOn(vault, 'exportBackup')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('/var/mobile/x: ENOSPC'), { code: 'BACKUP_EXPORT_FAILED' }),
+      );
+    const view = await openCreate();
+    await fireEvent.changeText(view.getByLabelText('Passphrase'), 'correct horse battery');
+    await fireEvent.changeText(view.getByLabelText('Repeat passphrase'), 'correct horse battery');
+
+    await pressAndSettle(view.getByRole('button', { name: 'Create backup' }), 20);
+
+    expect(
+      view.getByText(
+        'The backup couldn’t be created. There may not be enough free space. Your vault wasn’t changed.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.queryByText(/ENOSPC/)).toBeNull();
+    expect(share).not.toHaveBeenCalled();
+
+    nativeExport();
+    await pressAndSettle(view.getByRole('button', { name: 'Try again' }), 1200);
+    expect(share).toHaveBeenCalledTimes(1);
   });
 });
