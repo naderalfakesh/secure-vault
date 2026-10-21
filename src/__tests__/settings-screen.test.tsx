@@ -2,7 +2,8 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { Linking, Text } from 'react-native';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
@@ -53,6 +54,8 @@ describe('Settings', () => {
     (router.push as jest.Mock).mockClear();
   });
 
+  afterEach(() => jest.restoreAllMocks());
+
   it('groups the security rows and keeps exactly one restore entry', async () => {
     const view = await renderUnlocked('settings');
 
@@ -63,6 +66,49 @@ describe('Settings', () => {
     expect(view.getAllByLabelText(/^Restore from backup/)).toHaveLength(1);
     expect(view.getByRole('button', { name: 'Lock now' })).toBeOnTheScreen();
     expect(view.getByText('Detail suggestions')).toBeOnTheScreen();
+  });
+
+  it('turns biometric unlock off and on from the Face ID switch', async () => {
+    const view = await renderUnlocked('settings');
+
+    const row = await view.findByRole('switch', { name: /^Face ID/ });
+    expect(row).toBeChecked();
+    expect(view.getByText('Unlock without typing your PIN')).toBeOnTheScreen();
+    await act(async () =>
+      fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } }),
+    );
+
+    await waitFor(() => expect(session.settings.biometricUnlock).toBe(false));
+    const stored = JSON.parse((await SecureStore.getItemAsync('securevault.settings')) ?? '{}');
+    expect(stored.biometricUnlock).toBe(false);
+  });
+
+  it('disables the Face ID row with the reason when Face ID is not set up', async () => {
+    jest.spyOn(LocalAuthentication, 'isEnrolledAsync').mockResolvedValue(false);
+    const view = await renderUnlocked('settings');
+
+    expect(
+      await view.findByText(
+        'Face ID isn’t set up on this phone. Set it up in the Settings app, then come back.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.getByRole('switch', { name: /^Face ID/ })).toBeDisabled();
+    expect(view.queryByRole('button', { name: 'Open Settings' })).toBeNull();
+  });
+
+  it('offers the Settings app when SecureVault was refused Face ID', async () => {
+    jest.spyOn(LocalAuthentication, 'isEnrolledAsync').mockResolvedValue(false);
+    jest.spyOn(LocalAuthentication, 'hasHardwareAsync').mockResolvedValue(false);
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    const view = await renderUnlocked('settings');
+
+    expect(
+      await view.findByText(
+        'SecureVault isn’t allowed to use Face ID. You can allow it in Settings.',
+      ),
+    ).toBeOnTheScreen();
+    await fireEvent.press(view.getByRole('button', { name: 'Open Settings' }));
+    expect(openSettings).toHaveBeenCalled();
   });
 
   it('opens the Auto-lock page from its row, which shows the current choice', async () => {

@@ -22,7 +22,11 @@ import {
 } from '@/components/ui';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { autoLockLabel } from '@/features/session/settings';
-import { biometryName } from '@/features/auth/lockCopy';
+import {
+  biometricUnavailableReason,
+  useBiometricAvailability,
+} from '@/features/auth/biometricAvailability';
+import { biometryIcon, biometryName } from '@/features/auth/lockCopy';
 import { selectIntelligence } from '@/features/intelligence';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import {
@@ -89,6 +93,8 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const bottomSpace = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insets.bottom + 24;
   const [engine, setEngine] = useState<string>('');
+  const biometrics = useBiometricAvailability();
+  const biometricReason = biometrics ? biometricUnavailableReason(biometrics) : null;
   // The lock unmounts this screen while an export or restore may still be running.
   const mounted = useRef(true);
 
@@ -356,6 +362,27 @@ export default function SettingsScreen() {
         </Text>
 
         <Group header="Security" separatorInset="content">
+          {biometrics && biometrics.state !== 'unavailable' ? (
+            <ListRow
+              icon={biometryIcon(biometrics.kind)}
+              title={Platform.OS === 'ios' ? biometryName(biometrics.kind) : 'Biometric unlock'}
+              subtitle={biometricReason ?? 'Unlock without typing your PIN'}
+              disabled={biometrics.state !== 'available'}
+              toggle={{
+                value: biometrics.state === 'available' && settings.biometricUnlock,
+                onValueChange: (value) => void updateSettings({ biometricUnlock: value }),
+              }}
+            />
+          ) : null}
+          {biometrics?.state === 'denied' ? (
+            <ListRow
+              icon="settings"
+              tint="neutral"
+              title="Open Settings"
+              onPress={() => void Linking.openSettings().catch(() => {})}
+              trailing={null}
+            />
+          ) : null}
           <ListRow
             icon="clock"
             title="Auto-lock"
