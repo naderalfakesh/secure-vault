@@ -144,7 +144,21 @@ monochrome layers.
 
 ## Checks
 
-BUILD_RESULTS
+| Check                       | Result                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm run validate`          | Pass: prettier, eslint, tsc, jest 80 suites and 667 tests, expo-doctor 20/20                     |
+| Design paths                | All 43 design paths in `iconPaths.ts` match `Main.dc.html` exactly (script compare)              |
+| `npx expo prebuild --clean` | Pass; `AppIcon.appiconset` has light, dark and tinted; the adaptive icon has a monochrome layer  |
+| iOS Debug simulator build   | `** BUILD SUCCEEDED **` from the spaced SSD path (RNSVG and ExpoGlassEffect pods compile)        |
+| Android `assembleDebug`     | `BUILD SUCCESSFUL` (arm64-v8a, JDK 17, `--max-workers=4`); the APK has `libcrypto.so` and splash |
+
+iOS: `xcodebuild -workspace SecureVault.xcworkspace -scheme SecureVault
+-configuration Debug -sdk iphonesimulator -destination "generic/platform=iOS
+Simulator" CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO`, DerivedData on the
+SSD. The `ios/` and `android/` folders and the build output were deleted
+afterwards. Jest still prints the existing "worker process has failed to exit
+gracefully" notice; the new suites show no open handles under
+`--detectOpenHandles`.
 
 ## Native QA owed
 
