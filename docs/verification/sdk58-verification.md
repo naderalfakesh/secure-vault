@@ -121,8 +121,9 @@ the `lint {}` and `compileSdk` spellings.
 
 - expo-secure-store 58 on iOS rejects `deleteItemAsync` when the Keychain
   refuses a delete, where 57 resolved. `sessionStorage.clear()` passes the
-  rejection on, so an erase whose PIN record delete fails now reports a
-  failure instead of a silent success.
+  rejection on, but the erase still ignores it, so a refused PIN record
+  delete stays silent and the app moves to setup as before. Setup then
+  overwrites the PIN, settings, and lockout.
 - expo-sqlite 58 on Android moved to Expo Modules API 2.0, and reloading the
   app now closes databases that are still open. The index swap and reload
   paths (M1, L1) need a rerun.
