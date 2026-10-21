@@ -137,6 +137,14 @@ monochrome layers.
   glyph), or on screens without the mark (setup, vault unavailable) it only
   cross-fades in 200 ms. It never takes touches, is hidden from assistive
   tech, and sits under the privacy cover.
+- Review fixes: the handoff starts once and keeps the root size in a ref, so
+  a resize mid-handoff (Split View, Stage Manager, multi-window, a foldable)
+  can no longer cancel its timer and leave the opaque overlay up; a hard
+  fallback clears it 1.5 s after release regardless. The squircle scales
+  72 to 64 while the glyph carries its own scale, so it lands at exactly
+  38 pt, not 39.1. The lock screen reads the lockout on its first render and
+  re-reports when it changes, so a late lockout withdraws the target and the
+  handoff fades instead of gliding onto the clock squircle.
 - The native splash follows the system appearance, the handoff follows the
   app's Appearance setting. With an override that differs from the system
   the colours change at the handoff (one frame). Native splash code cannot
