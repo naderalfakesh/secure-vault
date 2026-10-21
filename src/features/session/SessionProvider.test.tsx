@@ -249,6 +249,16 @@ describe('SessionProvider', () => {
     );
   });
 
+  it('keeps the standard setup copy when the vault listing fails at launch', async () => {
+    await vault.createVault();
+    jest.spyOn(vault, 'getAllKeys').mockRejectedValue(new Error('listing failed'));
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+
+    expect(view.getByTestId('vault-empty')).toHaveTextContent('false');
+  });
+
   it('starts locked when a vault exists and surfaces biometric failures', async () => {
     await vault.createVault();
     await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));

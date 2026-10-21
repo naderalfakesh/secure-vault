@@ -70,6 +70,19 @@ describe('PIN setup copy', () => {
     expect(view.getByText('Choose a 6-digit PIN')).toBeOnTheScreen();
   });
 
+  it('keeps the standard copy when the vault listing fails at launch', async () => {
+    await vault.createVault();
+    await vault.put('file_legacy', 'ciphertext');
+    const listing = jest.spyOn(vault, 'getAllKeys').mockRejectedValue(new Error('listing failed'));
+
+    const view = await renderSetup();
+
+    await waitFor(() => expect(view.getByText(KEPT)).toBeOnTheScreen());
+    expect(view.queryByText(EMPTY)).toBeNull();
+    expect(session.vaultEmpty).toBe(false);
+    listing.mockRestore();
+  });
+
   it('does not promise documents after a relaunch into setup with an emptied vault', async () => {
     await vault.createVault();
 
