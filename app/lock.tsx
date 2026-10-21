@@ -90,7 +90,7 @@ export default function LockScreen() {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.hero}>
-        <Mark size={64} muted={lockedOut} />
+        <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
         <Text variant="title2" align="center" accessibilityRole="header" style={styles.title}>
           {title}
         </Text>
