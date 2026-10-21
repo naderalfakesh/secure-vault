@@ -4,9 +4,10 @@ import { useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { type DeletedDocument, documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import type { Document } from '@/types';
+import { t, tp } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 
-const quoted = (title: string) => `“${isolate(title)}”`;
+const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });
 
 /**
  * Delete without a confirmation, then offer Undo with a countdown (handover
@@ -41,14 +42,14 @@ export function useDeleteWithUndo() {
         const kept = documents.length - deleted.length;
         if (deleted.length === 0) {
           postNotice({
-            message: 'The vault locked before anything was deleted. Nothing was changed.',
+            message: t('library.delete.lockedNothing'),
           });
           return 0;
         }
         postNotice({
           message:
-            `The vault locked while deleting. ${deleted.length === 1 ? '1 document was' : `${deleted.length} documents were`} deleted and can’t be brought back.` +
-            (kept > 0 ? ` The ${kept === 1 ? 'other is' : 'others are'} still in your vault.` : ''),
+            tp('library.delete.lockedSome', deleted.length) +
+            (kept > 0 ? tp('library.delete.othersKept', kept) : ''),
         });
         return deleted.length;
       }
@@ -57,8 +58,8 @@ export function useDeleteWithUndo() {
         toast.show({
           message:
             failed.length === 1
-              ? `Couldn’t delete ${quoted(failed[0].title)}. It’s still in your vault.`
-              : `Couldn’t delete ${failed.length} documents. They’re still in your vault.`,
+              ? t('library.delete.failedOne', { title: quoted(failed[0].title) })
+              : t('library.delete.failedMany', { count: failed.length }),
           tone: 'danger',
         });
         if (deleted.length === 0) return 0;
@@ -67,12 +68,14 @@ export function useDeleteWithUndo() {
 
       const single = deleted.length === 1 ? deleted[0].document.title : null;
       toast.show({
-        message: single ? `${quoted(single)} deleted` : `${deleted.length} documents deleted`,
+        message: single
+          ? t('library.delete.doneOne', { title: quoted(single) })
+          : t('library.delete.doneMany', { count: deleted.length }),
         icon: 'trash',
         countdown: true,
         durationMs: UNDO_TOAST_MS,
         action: {
-          label: 'Undo',
+          label: t('library.delete.undo'),
           onPress: () => {
             void (async () => {
               const missing: string[] = [];
@@ -87,16 +90,16 @@ export function useDeleteWithUndo() {
                 toast.show({
                   message:
                     missing.length === 1
-                      ? `Couldn’t bring back ${quoted(missing[0])}.`
-                      : `Couldn’t bring back ${missing.length} documents.`,
+                      ? t('library.delete.restoreFailedOne', { title: quoted(missing[0]) })
+                      : t('library.delete.restoreFailedMany', { count: missing.length }),
                   tone: 'danger',
                 });
                 return;
               }
               toast.show({
                 message: single
-                  ? `${quoted(single)} is back`
-                  : `${deleted.length} documents are back`,
+                  ? t('library.delete.backOne', { title: quoted(single) })
+                  : t('library.delete.backMany', { count: deleted.length }),
                 tone: 'success',
               });
             })();

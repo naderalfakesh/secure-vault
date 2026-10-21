@@ -1,6 +1,8 @@
 import { DocumentCard as CardView, DocumentRow } from '@/components/ui';
 import type { SnippetPart } from '@/components/ui';
+import { t } from '@/i18n';
 import type { Document } from '@/types';
+import { isolate } from '@/utils/bidi';
 
 import { categoryLabel } from './categories';
 import { thumbnailContent, useThumbnail } from './DocumentThumbnail';
@@ -25,7 +27,11 @@ export function LibraryCard({ document, expiry, onPress, getThumbnail }: Library
       title={document.title}
       expiry={expiry}
       layout="rail"
-      accessibilityLabel={`${document.title}, ${categoryLabel(document.category)}, ${expiry}`}
+      accessibilityLabel={t('library.card.label', {
+        title: isolate(document.title),
+        collection: categoryLabel(document.category),
+        expiry,
+      })}
       onPress={() => onPress(document)}
       thumbnail={thumbnailContent(uri, 92)}
     />

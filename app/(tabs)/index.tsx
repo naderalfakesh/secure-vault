@@ -38,18 +38,20 @@ import {
   NO_FILTER,
   recentDocuments,
   resultLine,
-  SORT_BUTTON_LABELS,
-  SORT_LABELS,
   type SortOrder,
+  sortButtonLabel,
   sortByTitle,
+  sortLabel,
 } from '@/features/documents/library';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDocuments } from '@/hooks/useDocuments';
 import { documentService } from '@/services/DocumentService';
 import type { DocumentOrder, SearchHit } from '@/data/DocumentRepository';
+import { t, tp } from '@/i18n';
 import type { Document, DocumentCategory } from '@/types';
-import { formatExpiry, pluralize } from '@/utils/format';
+import { isolate } from '@/utils/bidi';
+import { formatExpiry } from '@/utils/format';
 
 /** Every recorded expiry date, so sorting and filtering can use them. */
 const ALL_EXPIRY_DAYS = 365 * 200;
@@ -57,9 +59,6 @@ const ALL_EXPIRY_DAYS = 365 * 200;
 const SKELETON_DELAY_MS = 300;
 const SEARCH_DEBOUNCE_MS = 150;
 const SORTS: SortOrder[] = ['newest', 'oldest', 'title', 'expiry'];
-
-const LOAD_FAILED =
-  'Your documents weren’t changed. Try again. If this keeps happening, close and reopen SecureVault.';
 
 export default function LibraryScreen() {
   const toast = useToast();
@@ -93,7 +92,7 @@ export default function LibraryScreen() {
   const showSkeleton = useDelayed(loading, SKELETON_DELAY_MS);
 
   useHideTabBar(selecting);
-  useAnnouncement(loading && showSkeleton ? 'Opening your vault' : null);
+  useAnnouncement(loading && showSkeleton ? t('library.loading') : null);
 
   // Re-query whenever the list changes; fields are written right after a save.
   useEffect(() => {
@@ -192,7 +191,7 @@ export default function LibraryScreen() {
   }, [picked, documents]);
 
   // The live region on the count speaks on Android only; iOS is told directly.
-  useAnnouncement(selecting ? `${selected.size} selected` : null);
+  useAnnouncement(selecting ? t('library.selected', { count: selected.size }) : null);
 
   const openDocument = useCallback((document: Document) => {
     router.push(`/documents/${document.id}`);
@@ -246,14 +245,21 @@ export default function LibraryScreen() {
       setSheet(null);
       if (failed > 0) {
         toast.show({
-          message: `Couldn’t move ${failed} of ${pluralize(ids.length, 'document')}. The rest are in ${categoryLabel(category)}.`,
+          message: t('library.move.failed', {
+            failed,
+            documents: tp('format.documents', ids.length),
+            collection: categoryLabel(category),
+          }),
           tone: 'danger',
         });
         return;
       }
       stopSelecting();
       toast.show({
-        message: `Moved ${pluralize(ids.length, 'document')} to ${categoryLabel(category)}`,
+        message: t('library.move.done', {
+          documents: tp('format.documents', ids.length),
+          collection: categoryLabel(category),
+        }),
         tone: 'success',
       });
     },
@@ -284,15 +290,20 @@ export default function LibraryScreen() {
             <Icon name="warning" size={28} tone="danger" />
           </View>
           <Text variant="title3" align="center">
-            Couldn’t load your documents
+            {t('library.loadFailed.title')}
           </Text>
           <Text variant="subheadline" tone="secondary" align="center">
-            {LOAD_FAILED}
+            {t('library.loadFailed.body')}
           </Text>
           <Text variant="footnote" tone="tertiary" align="center">
             {error}
           </Text>
-          <Button label="Try again" variant="tinted" icon="refresh" onPress={refreshDocuments} />
+          <Button
+            label={t('common.tryAgain')}
+            variant="tinted"
+            icon="refresh"
+            onPress={refreshDocuments}
+          />
         </View>
       </Screen>
     );
@@ -329,11 +340,11 @@ export default function LibraryScreen() {
         <View style={[styles.center, { paddingBottom: bottomSpace }]}>
           <EmptyState
             icon="scan"
-            title="Your vault is empty"
-            description="Scan a passport, a lease or a receipt. Each page is encrypted on this device before it’s saved."
-            actionLabel="Scan a document"
+            title={t('library.empty.title')}
+            description={t('library.empty.body')}
+            actionLabel={t('library.empty.scan')}
             onAction={openAdd}
-            secondaryActionLabel="Import from Files or Photos"
+            secondaryActionLabel={t('library.empty.import')}
             onSecondaryAction={openAdd}
           />
         </View>
@@ -348,27 +359,32 @@ export default function LibraryScreen() {
       <Button
         variant="plain"
         size="md"
-        label={allSelected ? 'Deselect all' : 'Select all'}
+        label={allSelected ? t('library.deselectAll') : t('library.selectAll')}
         onPress={() =>
           setSelected(allSelected ? new Set() : new Set(shown.map((document) => document.id)))
         }
       />
       <Text variant="headline" accessibilityRole="header" accessibilityLiveRegion="polite">
-        {`${selected.size} selected`}
+        {t('library.selected', { count: selected.size })}
       </Text>
-      <Button label="Done" variant="plain" size="md" onPress={stopSelecting} />
+      <Button label={t('common.done')} variant="plain" size="md" onPress={stopSelecting} />
     </View>
   ) : (
     <View style={styles.headerBlock}>
       {listMode ? null : (
         <View style={styles.titleRow}>
           <Text variant="largeTitle" accessibilityRole="header" style={styles.titleText}>
-            Library
+            {t('library.title')}
           </Text>
-          <Button label="Select" variant="plain" size="md" onPress={() => startSelecting()} />
+          <Button
+            label={t('library.select')}
+            variant="plain"
+            size="md"
+            onPress={() => startSelecting()}
+          />
           <IconButton
             icon="sort"
-            accessibilityLabel="Sort and filter"
+            accessibilityLabel={t('library.sortAndFilter')}
             onPress={() => setSheet('sort')}
           />
         </View>
@@ -384,14 +400,14 @@ export default function LibraryScreen() {
           />
         </View>
         {listMode && !focused ? (
-          <Button label="Cancel" variant="plain" size="md" onPress={leaveList} />
+          <Button label={t('common.cancel')} variant="plain" size="md" onPress={leaveList} />
         ) : null}
       </View>
       {listMode ? null : (
         <View style={styles.trustLine}>
           <Icon name="lock" size={14} tone="secondary" />
           <Text variant="footnote" tone="secondary">
-            {`${pluralize(documents.length, 'document')}, encrypted on this device`}
+            {t('library.trustLine', { documents: tp('format.documents', documents.length) })}
           </Text>
         </View>
       )}
@@ -424,7 +440,7 @@ export default function LibraryScreen() {
           style={styles.chipScroll}
         >
           <Chip
-            label="All"
+            label={t('library.all')}
             selected={filter.collections.length === 0}
             onPress={() => setFilter((value) => ({ ...value, collections: [] }))}
           />
@@ -452,8 +468,8 @@ export default function LibraryScreen() {
             {resultLine(shown.length, searching, filter)}
           </Text>
           <Button
-            label={SORT_BUTTON_LABELS[sort]}
-            accessibilityLabel={`Sort and filter, ${SORT_BUTTON_LABELS[sort]}`}
+            label={sortButtonLabel(sort)}
+            accessibilityLabel={t('library.sortButton.label', { sort: sortButtonLabel(sort) })}
             variant="plain"
             size="md"
             icon="sort"
@@ -471,15 +487,20 @@ export default function LibraryScreen() {
         </View>
         <Text variant="title3" align="center" accessibilityRole="header">
           {searching
-            ? `No matches for “${query.trim()}”${scope ? ` in ${scope}` : ''}`
-            : `No documents${scope ? ` in ${scope}` : ''}`}
+            ? t(scope ? 'library.noMatchesIn' : 'library.noMatches', {
+                query: isolate(query.trim()),
+                scope: scope ?? '',
+              })
+            : scope
+              ? t('library.noDocumentsIn', { scope })
+              : t('library.noDocuments')}
         </Text>
         <Text variant="subheadline" tone="secondary" align="center">
-          Search looks at titles, tags and text read from your documents on this device.
+          {t('library.searchHint')}
         </Text>
         {isFiltering(filter) ? (
           <Button
-            label="Search all collections"
+            label={t('library.searchAll')}
             variant="tinted"
             onPress={() => setFilter(NO_FILTER)}
           />
@@ -521,15 +542,17 @@ export default function LibraryScreen() {
         {selecting ? (
           <SelectionBar bottom={insets.bottom}>
             <Button
-              label="Move to…"
+              label={t('library.moveTo')}
               variant="plain"
               icon="folder"
               disabled={selected.size === 0 || deleting}
               onPress={() => setSheet('move')}
             />
             <Button
-              label={`Delete ${selected.size}`}
-              accessibilityLabel={`Delete ${pluralize(selected.size, 'document')}`}
+              label={t('library.deleteCount', { count: selected.size })}
+              accessibilityLabel={t('library.deleteLabel', {
+                documents: tp('format.documents', selected.size),
+              })}
               variant="plainDestructive"
               icon="trash"
               disabled={selected.size === 0 || deleting}
@@ -561,7 +584,7 @@ export default function LibraryScreen() {
       >
         {expiring.length > 0 ? (
           <View style={styles.section}>
-            <SectionHeader title="Expiring soon" trailing={String(expiring.length)} />
+            <SectionHeader title={t('library.expiringSoon')} trailing={String(expiring.length)} />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -581,7 +604,10 @@ export default function LibraryScreen() {
         ) : null}
 
         <View style={styles.section}>
-          <SectionHeader title="Recent" action={{ label: 'See all', onPress: () => browse() }} />
+          <SectionHeader
+            title={t('library.recent')}
+            action={{ label: t('library.seeAll'), onPress: () => browse() }}
+          />
           <View style={styles.inset}>
             <Group>
               {recent.map((document) => (
@@ -598,7 +624,7 @@ export default function LibraryScreen() {
         </View>
 
         <View style={styles.section}>
-          <SectionHeader title="Collections" />
+          <SectionHeader title={t('library.collections')} />
           <View style={styles.inset}>
             <CollectionGrid>
               {allCategories
@@ -640,7 +666,7 @@ function LargeTitle() {
   return (
     <View style={styles.titleRow}>
       <Text variant="largeTitle" accessibilityRole="header" style={styles.titleText}>
-        Library
+        {t('library.title')}
       </Text>
     </View>
   );
@@ -708,10 +734,10 @@ function SortSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
-      title="Sort and filter"
+      title={t('library.sortAndFilter')}
       detent="large"
       headerAction={{
-        label: 'Reset',
+        label: t('library.sheet.reset'),
         onPress: () => {
           onSort('newest');
           onFilter(NO_FILTER);
@@ -719,11 +745,11 @@ function SortSheet({
       }}
     >
       <ScrollView contentContainerStyle={styles.sheetBody}>
-        <Group header="Sort by">
+        <Group header={t('library.sheet.sortBy')}>
           {SORTS.map((option) => (
             <ListRow
               key={option}
-              title={SORT_LABELS[option]}
+              title={sortLabel(option)}
               checked={sort === option}
               onPress={() => onSort(option)}
             />
@@ -731,7 +757,7 @@ function SortSheet({
         </Group>
         <View style={styles.sheetSection}>
           <Text variant="label" tone="tertiary" accessibilityRole="header" style={styles.label}>
-            Collections
+            {t('library.collections')}
           </Text>
           <View style={styles.wrapChips}>
             {allCategories.map((category) => {
@@ -756,14 +782,17 @@ function SortSheet({
         </View>
         <Group>
           <ListRow
-            title="Only with an expiry date"
+            title={t('library.sheet.onlyWithExpiry')}
             toggle={{
               value: filter.onlyWithExpiry,
               onValueChange: (onlyWithExpiry) => onFilter({ ...filter, onlyWithExpiry }),
             }}
           />
         </Group>
-        <Button label={`Show ${pluralize(resultCount, 'document')}`} onPress={onClose} />
+        <Button
+          label={t('library.sheet.show', { documents: tp('format.documents', resultCount) })}
+          onPress={onClose}
+        />
       </ScrollView>
     </Sheet>
   );
@@ -786,12 +815,12 @@ function MoveSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
-      title={`Move ${pluralize(count, 'document')} to…`}
+      title={t('library.move.title', { documents: tp('format.documents', count) })}
       dismissable={!busy}
       detent="large"
     >
       <ScrollView contentContainerStyle={styles.sheetBody}>
-        <Group header="Collection" separatorInset="content">
+        <Group header={t('library.move.collection')} separatorInset="content">
           {allCategories.map((category) => (
             <ListRow
               key={category}
@@ -919,12 +948,12 @@ const styles = StyleSheet.create((theme) => ({
     overflow: 'hidden',
   },
   listRowFirst: {
-    borderTopLeftRadius: theme.radii.group,
-    borderTopRightRadius: theme.radii.group,
+    borderTopStartRadius: theme.radii.group,
+    borderTopEndRadius: theme.radii.group,
   },
   listRowLast: {
-    borderBottomLeftRadius: theme.radii.group,
-    borderBottomRightRadius: theme.radii.group,
+    borderBottomStartRadius: theme.radii.group,
+    borderBottomEndRadius: theme.radii.group,
   },
   separator: {
     height: StyleSheet.hairlineWidth,

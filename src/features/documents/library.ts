@@ -1,6 +1,7 @@
 import type { DocumentOrder } from '@/data/DocumentRepository';
+import { t, tp } from '@/i18n';
 import type { Document, DocumentCategory } from '@/types';
-import { formatRelativeDate } from '@/utils/format';
+import { formatRelativeDate, joinParts } from '@/utils/format';
 
 import { allCategories, categoryLabel } from './categories';
 
@@ -11,20 +12,15 @@ export const EXPIRING_WINDOW_DAYS = 90;
 
 export type SortOrder = 'newest' | 'oldest' | 'title' | 'expiry';
 
-export const SORT_LABELS: Record<SortOrder, string> = {
-  newest: 'Newest added',
-  oldest: 'Oldest added',
-  title: 'Title A–Z',
-  expiry: 'Expiry date, soonest',
-};
+/** A sort's name in the Sort and filter sheet. */
+export function sortLabel(order: SortOrder): string {
+  return t(`library.sort.${order}`);
+}
 
 /** The short label on the sort button above the results. */
-export const SORT_BUTTON_LABELS: Record<SortOrder, string> = {
-  newest: 'Newest first',
-  oldest: 'Oldest first',
-  title: 'Title A–Z',
-  expiry: 'Expiring first',
-};
+export function sortButtonLabel(order: SortOrder): string {
+  return t(`library.sortButton.${order}`);
+}
 
 export type LibraryFilter = {
   /** Empty means every collection. */
@@ -85,27 +81,26 @@ export function countByCollection(
 
 /** "Legal · PDF · Yesterday". Page counts are not in the list query yet. */
 export function documentMeta(document: Document, now: Date = new Date()): string {
-  return [
+  return joinParts([
     categoryLabel(document.category),
-    document.fileType === 'pdf' ? 'PDF' : null,
+    document.fileType === 'pdf' ? t('library.meta.pdf') : null,
     formatRelativeDate(document.updatedAt, now),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  ]);
 }
 
 /** "3 results in Legal", "12 documents", "1 result in Legal and Finance". */
 export function resultLine(count: number, searching: boolean, filter: LibraryFilter): string {
-  const noun = searching
-    ? `${count} ${count === 1 ? 'result' : 'results'}`
-    : `${count} ${count === 1 ? 'document' : 'documents'}`;
+  const noun = searching ? tp('library.results', count) : tp('format.documents', count);
   const scope = collectionScope(filter.collections);
-  return scope ? `${noun} in ${scope}` : noun;
+  return scope ? t('library.resultsIn', { count: noun, scope }) : noun;
 }
 
 export function collectionScope(collections: readonly DocumentCategory[]): string | null {
   if (collections.length === 0) return null;
   const names = collections.map(categoryLabel);
   if (names.length === 1) return names[0];
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return t('library.scope.list', {
+    names: names.slice(0, -1).join(t('library.scope.join')),
+    last: names[names.length - 1],
+  });
 }

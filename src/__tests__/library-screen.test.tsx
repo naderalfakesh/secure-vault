@@ -13,6 +13,7 @@ import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
+import { isolate } from '../utils/bidi';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
 
@@ -149,7 +150,10 @@ describe('Library', () => {
     expect(view.getByTestId('snippet-match')).toHaveTextContent('March');
 
     await fireEvent.press(view.getByRole('button', { name: 'ID & Personal' }));
-    expect(view.getByText('No matches for “march” in ID & Personal')).toBeOnTheScreen();
+    // The query is the reader's own text, isolated so its direction can't reorder the sentence.
+    expect(
+      view.getByText(`No matches for “${isolate('march')}” in ID & Personal`),
+    ).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Search all collections' }));
     expect(view.getByText('1 result')).toBeOnTheScreen();
   });

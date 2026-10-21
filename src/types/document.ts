@@ -8,16 +8,6 @@ export enum DocumentCategory {
   OTHER = 'other',
 }
 
-export const DocumentCategoryLabels: Record<DocumentCategory, string> = {
-  [DocumentCategory.ID]: 'ID & Personal',
-  [DocumentCategory.MEDICAL]: 'Medical',
-  [DocumentCategory.FINANCE]: 'Finance',
-  [DocumentCategory.LEGAL]: 'Legal',
-  [DocumentCategory.INSURANCE]: 'Insurance',
-  [DocumentCategory.RECEIPTS]: 'Receipts',
-  [DocumentCategory.OTHER]: 'Other',
-};
-
 export type FileType = 'image' | 'pdf';
 
 export interface Document {
