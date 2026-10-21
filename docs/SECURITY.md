@@ -201,7 +201,27 @@ name, and the entry count in the header is what the reader trusts.
 ## Session
 
 The root layout mounts document routes only while the session is unlocked,
-so no deep link or navigation call can reach them while locked. Auto-lock
+so no deep link or navigation call can reach them while locked.
+
+Launch reads the device key's presence and the PIN record as three states:
+present, absent, or unreadable. A key and a PIN open the lock screen; no
+PIN sends the app to setup, which keeps any key it finds. If either read
+fails, the session is `unavailable`: a screen of its own that only offers
+"Try again" (and tries again on each return to the foreground), writes
+nothing, and never falls back to setup, which would create a new key over a
+vault it could not see. Setup reads both again right before it creates a
+key: an unreadable one ends in `unavailable`, and a key with a PIN and
+entries ends on the lock screen with the PIN untouched. An unreadable PIN
+record while unlocking is not a wrong PIN and does not count towards the
+lockout. On iOS the key check reports a key whenever the Keychain says
+anything but "not found", so there `unavailable` comes from the PIN record
+read (for example before the phone's first unlock).
+
+The "Face ID" (biometric unlock) setting decides only whether the lock screen
+opens the biometric prompt by itself and shows the biometric key. Turned
+off, the lock screen asks for the PIN first; the device-unlock button stays,
+and the device key keeps its own OS gate, so iOS can still ask for Face ID or
+the passcode when the PIN path reads the key. Auto-lock
 runs on a timer after the app leaves the foreground, with system pickers and
 share sheets excluded so the vault does not lock behind them. The privacy
 screen blurs the app in the switcher and blocks screenshots and recording
