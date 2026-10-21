@@ -229,8 +229,10 @@ Auto-lock does not time that step, and the privacy cover is not shown
 there: it is only offered for a new or emptied vault, so the vault holds no
 documents at that point. A kill or relaunch during the step opens the lock
 screen, because the key and the PIN record already exist. Auto-lock
-runs on a timer after the app leaves the foreground, with system pickers and
-share sheets excluded so the vault does not lock behind them. The privacy
+runs on a timer after the app leaves the foreground. System pickers and share
+sheets pause it for a bounded time (2 minutes for a share sheet, 10 for other
+system UI); a trip longer than that is judged against auto-lock as usual, and
+a pause ends with the session that took it. The privacy
 screen blurs the app in the switcher and blocks screenshots and recording
 while unlocked. Sharing can require a second biometric check.
 
@@ -239,7 +241,21 @@ opens one only for the unlocked session that asked for it. A backup export or
 a document share that is still being prepared when the vault locks, or when
 its screen goes away, is deleted without being shared. If the app left the
 foreground meanwhile, the share waits until it is back and auto-lock has
-judged the time away. The outcome of such an export or share is shown as one
+judged the time away.
+
+When the vault locks while a share sheet is open, the share ends with it. On
+iOS the lock dismisses the share sheet, together with anything it presented,
+and deletes the copy. Android's chooser is an activity of its own, which the
+app cannot close, and while it is up the app is paused and its JavaScript
+timers stop. So before the chooser opens, a native main-looper timer is armed
+to delete the copy's folder once the time away could have locked the vault (the
+longer of 2 minutes and the auto-lock setting; none with auto-lock off). A
+target picked after that from a chooser still on screen opens a content URI
+whose file is gone and receives nothing; the vault itself locks on return. A
+target picked before that, on either platform, has the file, and SecureVault
+cannot control what that app keeps. After the unlock the document's viewer
+says the share was interrupted and the copy removed. The outcome of an export or
+an interrupted preparation is shown as one
 plain sentence after the next unlock, with no file name, size, or entry count;
 toasts are cleared when the vault locks. A restore is not stopped by the lock,
 so the vault is never left half replaced; it finishes and reports after the
