@@ -20,6 +20,12 @@ stricter (see "Pause expiry while away").
 | `5ab850e` | The root layout's lock effect calls it on every lock, next to the existing cache and backup sweeps.                                                                                                      |
 | `b237178` | Viewer: the warning sheet (§7.4 copy, file card, Share or "Confirm with Face ID", Cancel), the preparing step after 400 ms with Cancel, and the banner. The lock outcome now sets the mark, not a toast. |
 | `4c23862` | After the unlock that follows a lock, the root layout pushes `/documents/<id>` when the mark is set, so the banner is seen in the viewer.                                                                |
+| `7b48569` | Review M1: `scheduleShareExpiry(path, ms)` / `cancelShareExpiry(path)` in expo-vault; Android deletes the copy folder on a main-looper `Handler`, guarded to folders directly inside `cache/share`.      |
+| `abd75f7` | Review L2: a copy that fails mid-way is removed before the error is rethrown.                                                                                                                            |
+| `e146263` | Review M2: pauses are dropped when the session that took them ends, for every `withoutAutoLock` caller.                                                                                                  |
+| `e784179` | `clearShareInterrupted(mark)` clears only that same mark, so a newer one survives.                                                                                                                       |
+| `d9eea3d` | Review M1/M2 in the viewer: Android arms the native expiry before the chooser; the share races `session.ended()` inside the pause.                                                                       |
+| `00eb827` | Review L1: a banner that was seen is cleared when its viewer closes (Back or lock), so later unlocks don't reopen it.                                                                                    |
 
 Share stays single-document: the Library's multi-select has only Move to… and
 Delete, and this branch adds no share there.
@@ -66,32 +72,44 @@ and while it is up the app counts as away. Before this branch, a chooser left
 open meant no lock until the user came back, and the copy stayed readable
 through its grant all that time. Now:
 
-- A share pause that has been away longer than both its 2 minute limit and the
-  auto-lock setting locks the vault then, from a JS timer. The lock sweep
-  deletes the copy.
+- Before the chooser opens, the viewer arms `copy.expireAfter(max(2 min,
+auto-lock))` (none with auto-lock Never). This posts the deletion of the
+  copy's folder on the main looper with `Handler.postDelayed`, which keeps
+  running while the chooser pauses the activity. A JS timer would not: RN
+  0.88's timer manager stops in `onHostPause` (review M1; the first version
+  of this note claimed a JS timer locked the vault there, which was wrong).
+  `discard` cancels the expiry for that path only.
 - A target picked from the lingering chooser afterwards opens a content URI
   whose file is gone. `FileProvider.openFile` fails, so the target gets
   nothing.
-- With auto-lock set to Never, nothing locks, as before.
+- The vault itself locks on return, as before. The JS pause-expiry timer from
+  `d9e1ad0` stays as a backstop for whenever JS does run while away.
 - The banner shows after the unlock.
 
 Limits:
 
 - The chooser stays on screen until the user closes it.
 - A target picked before the lock has the content.
-- JS timers only run while the process is alive. If Android kills the process,
-  the cache is swept at the next launch.
+- The native timer runs only while the process is alive. If Android kills the
+  process, the cache is swept at the next launch.
+- One expiry at a time; a new share replaces the previous one's.
 - Grants aren't revoked (that would need native work). They point at deleted
   paths.
 - `Activity.finishActivity(8524)` would close the chooser, but 8524 is
   expo-sharing's private request code, and after a pick it is forwarded to the
   target app's activity. So it isn't used.
 
-**Pause expiry while away.** The timer only ever locks earlier than the return
-check would have, with the same result: on return, a trip longer than the pause
-limit is judged against auto-lock. If the user returns first, or the pause ends,
-the timer does nothing. iOS suspends JS in the background, so there the return
-check (or a timer firing on resume) does the work.
+**Pause expiry while away.** The JS timer only ever locks earlier than the
+return check would have, with the same result. It does not fire behind
+Android's chooser (JS timers are paused there), nor on iOS in the background
+(JS is suspended); there the return check does the work.
+
+**Pauses end with the session (review M2).** The share used to race
+`session.ended()` outside `withoutAutoLock`, so a sheet that never settles
+(iOS may not call the completion handler after a programmatic dismiss) kept its
+pause forever and the next session skipped the normal return check. Now the
+race is inside the paused work, and leaving `unlocked` clears every pause, so
+no `withoutAutoLock` caller can leak one.
 
 ## Deviations
 
@@ -140,7 +158,7 @@ check (or a timer firing on resume) does the work.
 
 ## Checks
 
-- `npm run validate`: exit 0 (prettier, eslint, tsc, 71 suites / 594 tests,
+- `npm run validate`: exit 0 (prettier, eslint, tsc, 71 suites / 602 tests after the review fixes,
   expo-doctor 20/20). The "worker failed to exit gracefully" line also appears
   on fe4bf73.
 - Android: `expo prebuild --platform android` then
@@ -149,6 +167,15 @@ check (or a timer firing on resume) does the work.
 - iOS: the `dismissShareSheet` body typechecks against the iOS simulator SDK
   with Swift 6.4, in both Swift 5 and Swift 6 language modes, with no
   warnings. A full pod and Xcode build of the app was not run.
+- After the review fixes: `compileDebugKotlin` passed again with the
+  `Handler` expiry (no other build running, 68% memory free); `android/`
+  removed. The iOS expiry functions are empty stubs; no Xcode build was run.
+- Review-fix tests (each seen failing first): native expiry armed and
+  cancelled with the copy folder; partial copy removed on failure; Android
+  arms `max(2 min, auto-lock)`, Never and iOS arm nothing; a pause left by a
+  sheet that never settles no longer stops the next session's auto-lock (both
+  in the session and through the viewer); a seen banner is cleared when its
+  viewer closes, a newer mark is kept.
 - Simulators, emulators and physical devices: not run.
 
 ## Native QA still owed
@@ -163,7 +190,9 @@ check (or a timer firing on resume) does the work.
    There is no sheet over the lock screen and no Main Thread Checker warning.
 5. Android, auto-lock Immediately: open the chooser, wait more than 2 minutes
    without leaving it, then pick a target. The target gets no file (or an
-   error), and on return the vault is locked and the banner follows the unlock.
+   error) because `cache/share/<uuid>` is already gone; on return the vault is
+   locked and the banner follows the unlock. Picking within 2 minutes still
+   shares.
 6. Android: two shares of the same document get different content URIs.
 7. Confirm before sharing on: Face ID cancel keeps the warning, and success
    shares.
