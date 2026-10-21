@@ -255,7 +255,8 @@ disabled until it ends.
   screen, the vault locking, or a picker or scanner that answers after the
   screen has gone. A save that is already running when the screen goes keeps
   its copies until the vault module has read them, then removes them either
-  way, and reports its outcome after the next unlock if the vault locked. A
+  way, and reports its outcome after the next unlock if the vault locked,
+  also when it settles after the lock but before the screen has gone. A
   save that fails on screen keeps the copies only so it can be retried.
 - The lock and launch sweep removes the `ImagePicker`, `mlkit_docscan_ui_client`
   and preview folders, the iOS Inbox folder and scanner pages, any

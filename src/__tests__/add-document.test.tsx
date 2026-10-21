@@ -2,7 +2,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
+import { Text } from 'react-native';
 
 import AddDocumentScreen from '../../app/documents/add';
 import vault from '../../modules/expo-vault';
@@ -12,7 +15,7 @@ import {
   setScannerSupported,
 } from '../../modules/expo-document-scanner/src/index.mock';
 import { ToastProvider } from '../components/ui';
-import { SessionProvider } from '../features/session/SessionProvider';
+import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
   documentService,
@@ -222,6 +225,70 @@ describe('AddDocumentScreen file import', () => {
 
     expect(copy.exists).toBe(false);
     putFile.mockRestore();
+  });
+
+  describe('a save the lock interrupts', () => {
+    let session: ReturnType<typeof useSession>;
+
+    beforeEach(() => {
+      (vault as unknown as { reset(): void }).reset();
+      (SecureStore as unknown as { __reset(): void }).__reset();
+    });
+
+    afterEach(() => {
+      (vault as unknown as { reset(): void }).reset();
+      (SecureStore as unknown as { __reset(): void }).__reset();
+    });
+
+    // The lock gate as the root layout applies it: no add screen while locked.
+    function Gate() {
+      const value = useSession();
+      useEffect(() => {
+        session = value;
+      });
+      return value.status === 'unlocked' ? <AddDocumentScreen /> : <Text>{value.status}</Text>;
+    }
+
+    async function importUnlocked() {
+      const view = await render(
+        <SessionProvider>
+          <ToastProvider>
+            <Gate />
+          </ToastProvider>
+        </SessionProvider>,
+      );
+      await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
+      await act(async () => {
+        await session.setUp('123456');
+      });
+      await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+      await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+      return view;
+    }
+
+    it.each([
+      ['finishes', { message: 'Saved to your vault', tone: 'success' }],
+      ['fails', { message: 'Could not save the document.', tone: 'danger' }],
+    ])('reports after the next unlock when it %s as the vault locks', async (outcome, notice) => {
+      plantPickedCopy();
+      const view = await importUnlocked();
+      // The vault locks while the module is still reading the copy; the save
+      // settles before the screen behind the gate has gone.
+      const putFile = jest.spyOn(vault, 'putFile').mockImplementationOnce(async () => {
+        session.lock();
+        if (outcome === 'fails') throw 'swept';
+      });
+
+      await act(async () => {
+        void fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+
+      expect(view.getByText('locked')).toBeOnTheScreen();
+      expect(session.notice).toEqual(notice);
+      expect(router.back).not.toHaveBeenCalled();
+      putFile.mockRestore();
+    });
   });
 
   it('removes a copy the picker hands back after the screen has closed', async () => {

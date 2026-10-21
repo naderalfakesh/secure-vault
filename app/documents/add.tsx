@@ -309,10 +309,14 @@ export default function AddDocumentScreen() {
     }
 
     const session = captureSession();
-    // Outcomes of a save that outlived this screen go to a toast while the
-    // session lasts, and to the next unlock otherwise.
+    const startedUnlocked = session.current();
+    // The lock ends the session before the gate takes this screen away, so a
+    // save that settles in between would show a toast the lock then clears.
+    const lockedMeanwhile = () => startedUnlocked && !session.current();
+    // Outcomes of a save that outlived this screen or its session go to a
+    // toast while the session lasts, and to the next unlock otherwise.
     const report = (notice: { message: string; tone: 'success' | 'danger' }) => {
-      if (mounted.current || session.current()) toast.show(notice);
+      if (!lockedMeanwhile() && (mounted.current || session.current())) toast.show(notice);
       else postNotice(notice);
     };
     saving.current = true;
@@ -333,7 +337,7 @@ export default function AddDocumentScreen() {
       if (mounted.current) setStep('index');
       if (fields.length > 0) await documentService.setFields(saved.id, fields);
       const message = ocrText ? 'Saved with searchable text' : 'Saved to your vault';
-      if (mounted.current) {
+      if (mounted.current && !lockedMeanwhile()) {
         router.back();
         toast.show({
           message,
