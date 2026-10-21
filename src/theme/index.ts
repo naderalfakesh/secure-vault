@@ -1,3 +1,12 @@
+export {
+  APPEARANCE_OPTIONS,
+  applyAppearance,
+  getAppearance,
+  loadAppearance,
+  setAppearance,
+  useAppearance,
+} from './appearance';
+export type { AppearancePreference } from './appearance';
 export { breakpoints } from './breakpoints';
 export { darkColors, lightColors } from './colors';
 export type { ColorName, Palette } from './colors';

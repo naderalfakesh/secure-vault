@@ -12,6 +12,7 @@ import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import { loadAppearance } from '@/theme/appearance';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden during a fast refresh; nothing to do.
@@ -32,6 +33,8 @@ function RootNavigator() {
 
   useEffect(() => {
     documentService.sweepLegacyScratch();
+    // The stored Appearance setting overrides the system theme, lock screen included.
+    void loadAppearance();
   }, []);
 
   useEffect(() => {

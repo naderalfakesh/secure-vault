@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform, ScrollView, Switch, TextInput, View } from 'react-native';
-import { StyleSheet, UnistylesRuntime } from 'react-native-unistyles';
+import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
@@ -18,9 +18,8 @@ import {
 } from '@/services/BackupService';
 import type { BackupProgress } from '../../modules/expo-vault';
 import { documentService } from '@/services/DocumentService';
+import { setAppearance, useAppearance } from '@/theme/appearance';
 import { formatFileSize } from '@/utils/format';
-
-type Appearance = 'system' | 'light' | 'dark';
 
 const APP_VERSION = '2.0.0';
 
@@ -65,13 +64,7 @@ export default function SettingsScreen() {
       active = false;
     };
   }, []);
-  const [appearance, setAppearanceState] = useState<Appearance>(() =>
-    UnistylesRuntime.hasAdaptiveThemes
-      ? 'system'
-      : UnistylesRuntime.themeName === 'dark'
-        ? 'dark'
-        : 'light',
-  );
+  const appearance = useAppearance();
 
   const [exportSheet, setExportSheet] = useState(false);
   const [passphrase, setPassphrase] = useState('');
@@ -96,16 +89,6 @@ export default function SettingsScreen() {
   const running = useBackupActivity();
   const blocked = busy !== null || running !== null;
   const earlier = busy === null ? running : null;
-
-  const setAppearance = useCallback((next: Appearance) => {
-    setAppearanceState(next);
-    if (next === 'system') {
-      UnistylesRuntime.setAdaptiveThemes(true);
-      return;
-    }
-    UnistylesRuntime.setAdaptiveThemes(false);
-    UnistylesRuntime.setTheme(next);
-  }, []);
 
   const openExport = useCallback(() => {
     setPassphrase('');
@@ -357,7 +340,7 @@ export default function SettingsScreen() {
                 label={option === 'system' ? 'System' : option === 'light' ? 'Light' : 'Dark'}
                 icon={option === 'dark' ? 'moon' : option === 'light' ? 'eye' : 'settings'}
                 selected={appearance === option}
-                onPress={() => setAppearance(option)}
+                onPress={() => void setAppearance(option)}
               />
             ))}
           </View>
