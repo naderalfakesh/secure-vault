@@ -25,7 +25,9 @@ describe('LockScreen', () => {
     );
 
     await waitFor(() => expect(view.getByText(/Use Face ID or enter your PIN/)).toBeOnTheScreen());
-    expect(view.getByRole('button', { name: 'Use biometrics' })).toBeOnTheScreen();
+    expect(view.getByText('SecureVault is locked')).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Unlock with Face ID' })).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Use device passcode' })).toBeOnTheScreen();
     expect(view.getByRole('button', { name: '5' })).toBeOnTheScreen();
     expect(view.queryByText(/rooted or modified/)).toBeNull();
   });

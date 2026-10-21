@@ -141,9 +141,14 @@ describe('LockScreen PIN unlock with a locked device key', () => {
       </SessionProvider>,
     );
 
-    await waitFor(() =>
-      expect(view.getByText(/Too many attempts\. Try again in (19|20)s\./)).toBeOnTheScreen(),
-    );
+    await waitFor(() => expect(view.getByText(/^Try again in 0:(19|20)$/)).toBeOnTheScreen());
+    expect(
+      view.getByText(
+        'Too many wrong PINs. Each further run of wrong attempts makes the pause longer.',
+      ),
+    ).toBeOnTheScreen();
+    // The pause covers the PIN only; the device's own unlock stays offered.
+    expect(view.getByRole('button', { name: 'Use device passcode' })).toBeEnabled();
     await enterPin(view, '123456');
     expect(view.getByTestId('status')).toHaveTextContent('locked');
     expect(native.unlockWithBiometrics).not.toHaveBeenCalled();

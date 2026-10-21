@@ -7,10 +7,10 @@ import { PrivacyCover } from '@/components/ui';
 import { useSession } from './SessionProvider';
 
 /**
- * Privacy cover: hides the app behind a solid cover while it is inactive (app
- * switcher, incoming call) and blocks screenshots and screen recording while
- * unlocked. Both
- * follow the "privacy screen" setting; the lock screen itself needs neither.
+ * Privacy cover: hides the app behind a solid cover (never a blur, which can
+ * leak the shapes of documents) while it is inactive (app switcher, incoming
+ * call) and blocks screenshots and screen recording while unlocked. Both
+ * follow the "Privacy cover" setting; the lock screen itself needs neither.
  */
 export function SecurityOverlay() {
   const { status, settings } = useSession();

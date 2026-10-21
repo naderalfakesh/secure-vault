@@ -6,6 +6,8 @@ import { Icon } from './Icon';
 export type MarkProps = {
   /** Squircle size; the glyph is about 60% of it. */
   size?: number;
+  /** Quiet variant for a paused state, such as the PIN lockout. */
+  muted?: boolean;
 };
 
 /**
@@ -14,7 +16,7 @@ export type MarkProps = {
  * splash, the lock screen, and the privacy cover share it. The glyph is the
  * nearest system symbol until the mark ships as an image asset.
  */
-export function Mark({ size = 72 }: MarkProps) {
+export function Mark({ size = 72, muted = false }: MarkProps) {
   const { theme, rt } = useUnistyles();
   const dark = rt.themeName === 'dark';
 
@@ -26,7 +28,11 @@ export function Mark({ size = 72 }: MarkProps) {
         borderRadius: size / 4,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: dark ? theme.colors.primaryMuted : theme.colors.primary,
+        backgroundColor: muted
+          ? theme.colors.surfaceMuted
+          : dark
+            ? theme.colors.primaryMuted
+            : theme.colors.primary,
       }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -34,7 +40,9 @@ export function Mark({ size = 72 }: MarkProps) {
       <Icon
         name="mark"
         size={Math.round(size * 0.6)}
-        color={dark ? theme.colors.primary : theme.colors.onPrimary}
+        color={
+          muted ? theme.colors.textTertiary : dark ? theme.colors.primary : theme.colors.onPrimary
+        }
       />
     </View>
   );
