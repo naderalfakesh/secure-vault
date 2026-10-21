@@ -128,3 +128,47 @@ No simulator, emulator or device run. Targeted native re-QA:
    BACKUP_CANCELLED with the vault unchanged, or no "Cancelling" state and
    the restore completes.
 8. A backup made just after local midnight carries the local date.
+
+## Review round (qa/final-fixes)
+
+| Item                                                    | Outcome                        | Commit    |
+| ------------------------------------------------------- | ------------------------------ | --------- |
+| L1 cancel before the native call, re-ask answer ignored | Fixed (native keeps it, JS)    | `68631f9` |
+| L4 restore source and markers in device backups         | Fixed on iOS; Android excluded | `5288315` |
+| L3 lost PIN with an invalidated key and entries         | Delete everything way out      | `c826fec` |
+| L2                                                      | Left as is (errs safe)         |           |
+
+**L1.** The native modules no longer clear a cancel when `importBackup`
+starts. They clear it when the call ends, so a Cancel pressed before the call
+began is honoured at the first check and nothing is removed. This was chosen
+over a JavaScript-only fix because it is the safer one: the user's Cancel
+always wins before the wipe. The worst a late request can do is stop the
+next restore with nothing changed. The service also reads the re-ask's
+answer: false drops the request, and progress events carry `cancelling`,
+which the sheet uses to leave Cancelling for the normal restoring and
+outcome path. "Cancelled" is only ever shown for a BACKUP_CANCELLED rejection.
+
+**L4.** iOS sets `isExcludedFromBackup` on `Documents/restore-source` and
+`Documents/securevault-session` when they are created, through a new
+`excludeFromBackup` module function limited to those two folders. The
+prebuilt Android manifest has `allowBackup="true"` with expo-secure-store's
+rules, which include only shared preferences, so `files` (the vault entries,
+the markers and the restore source) is never backed up, and no change was
+needed. After a device restore the markers are absent: a PIN record that
+came back reads as present and is marked again, and one that did not is a
+first run, as before M1 (tested).
+
+**L3.** In "Set a new PIN", after the device prompt, an `_key_probe` read
+that fails with KEY_INVALIDATED while entries remain sets `keyInvalidated`.
+Vault unavailable then shows the plain sentence and only "Delete everything",
+behind a native confirmation. The erase is the same one Settings runs, and
+setup then replaces the key. An empty vault goes on to setup, whose existing
+KEY_INVALIDATED recovery replaces the key (tested).
+
+Checks: `npm run validate` exit 0 (762 tests, doctor 20/20);
+`:expo-vault:compileDebugKotlin` exit 0; `swiftc -typecheck` of
+`BackupContainer.swift` with `VaultCrypto.swift` and `swiftc -parse` of
+`ExpoVaultModule.swift` clean. A full iOS build is still owed, together with
+on-device checks: the exclusion flag (`xattr`/backup listing), a cancel pressed
+at once on a tiny backup, and the invalidated-key path after a screen lock
+change.
