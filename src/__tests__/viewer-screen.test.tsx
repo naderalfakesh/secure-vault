@@ -148,6 +148,8 @@ describe('Document viewer', () => {
     expect(view.getByText('•••• 4821')).toBeOnTheScreen();
     expect(view.getByText(/^Expires .*2099$/)).toBeOnTheScreen();
     expect(view.getByText(/Encrypted on this device$/)).toBeOnTheScreen();
+    // The date is isolated, so a month in another script cannot pull the page count into it.
+    expect(view.getByText(/^Added \u2068[^\u2069]+\u2069 · /)).toBeOnTheScreen();
 
     await fireEvent.press(view.getByRole('button', { name: 'Show document number' }));
     expect(view.getByText('X12344821')).toBeOnTheScreen();

@@ -722,7 +722,8 @@ export default function DocumentViewerScreen() {
 
                 <Text variant="footnote" tone="tertiary" style={styles.footer}>
                   {joinParts([
-                    t('viewer.added', { date: formatDate(document.createdAt) }),
+                    // Isolated: a month in another script would pull the page count into the date.
+                    t('viewer.added', { date: isolate(formatDate(document.createdAt)) }),
                     pages.length > 0 ? tp('format.pages', pages.length) : null,
                     formatFileSize(document.fileSize),
                     t('viewer.encrypted'),

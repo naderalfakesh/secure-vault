@@ -39,6 +39,21 @@ describe('Chip', () => {
     expect(view.getByLabelText('# travel')).toBeOnTheScreen();
   });
 
+  it('keeps the # before a tag in any layout, whatever the tag starts with', async () => {
+    const view = await render(
+      <>
+        <Chip label="2026" variant="tag" />
+        <Chip label="عقد" variant="tag" />
+      </>,
+    );
+
+    // A left-to-right isolate around "# " and a first-strong isolate around the tag:
+    // a digit-only tag no longer flips to "2026 #" in a right-to-left layout.
+    expect(view.getByText('\u2066# \u20682026\u2069\u2069')).toBeOnTheScreen();
+    expect(view.getByText('\u2066# \u2068عقد\u2069\u2069')).toBeOnTheScreen();
+    expect(view.getByLabelText('# 2026')).toBeOnTheScreen();
+  });
+
   it('offers a named remove control', async () => {
     const onRemove = jest.fn();
     const view = await render(<Chip label="1234" variant="tag" onRemove={onRemove} />);

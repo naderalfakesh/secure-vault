@@ -1,6 +1,9 @@
 /** First strong isolate and pop directional isolate (Unicode bidi controls). */
 const FSI = '⁨';
 const PDI = '⁩';
+/** Left-to-right isolate; closed by the same PDI. */
+export const LRI = '⁦';
+export { PDI };
 
 /**
  * Wraps user text such as a file name or document title so its direction

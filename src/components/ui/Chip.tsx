@@ -3,7 +3,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 import type { Palette } from '@/theme/colors';
-import { isolate } from '@/utils/bidi';
+import { isolate, LRI, PDI } from '@/utils/bidi';
 
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
@@ -54,6 +54,9 @@ export function Chip({
       ? 'transparent'
       : theme.colors[scheme.fill];
   const text = variant === 'tag' ? `# ${label}` : label;
+  // "# " in a left-to-right isolate with the tag in its own: a tag of digits
+  // only would otherwise read "2026 #" in a right-to-left layout.
+  const shown = variant === 'tag' ? `${LRI}# ${isolate(label)}${PDI}` : label;
   const spoken = accessibilityLabel ?? (count === undefined ? text : `${text}, ${count}`);
   const leading: IconName | undefined = icon ?? (on ? 'check' : undefined);
   const pressable = Boolean(onPress);
@@ -62,7 +65,7 @@ export function Chip({
     <>
       {leading ? <Icon name={leading} size={16} color={ink} /> : null}
       <Text variant="subheadline" style={[styles.label, { color: ink }]}>
-        {text}
+        {shown}
       </Text>
       {count !== undefined ? (
         <Text

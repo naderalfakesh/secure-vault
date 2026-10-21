@@ -20,10 +20,14 @@ describe('InlineAlert', () => {
 
   it('keeps info callouts quiet and without the alert role', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
-    const view = await render(<InlineAlert message="Runs on this device. Your pages and their text aren’t uploaded." />);
+    const view = await render(
+      <InlineAlert message="Runs on this device. Your pages and their text aren’t uploaded." />,
+    );
 
     expect(view.queryByRole('alert')).toBeNull();
-    expect(view.getByLabelText('Runs on this device. Your pages and their text aren’t uploaded.')).toBeOnTheScreen();
+    expect(
+      view.getByLabelText('Runs on this device. Your pages and their text aren’t uploaded.'),
+    ).toBeOnTheScreen();
     expect(announce).not.toHaveBeenCalled();
   });
 
