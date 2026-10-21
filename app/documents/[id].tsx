@@ -281,11 +281,13 @@ export default function DocumentViewerScreen() {
     setDetails(false);
     setBusy('delete');
     const removed = await deleteWithUndo([document]);
+    // A lock during the delete has already taken this screen away.
+    if (!mounted.current) return;
     if (removed > 0) {
       goToLibrary();
       return;
     }
-    if (mounted.current) setBusy(null);
+    setBusy(null);
   }, [document, deleteWithUndo, goToLibrary]);
 
   if (failure) {

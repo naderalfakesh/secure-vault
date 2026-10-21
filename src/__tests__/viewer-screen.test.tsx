@@ -220,4 +220,29 @@ describe('Document viewer', () => {
     );
     expect(router.back).not.toHaveBeenCalled();
   });
+
+  it('reports a delete that the lock interrupted after the next unlock, without Undo', async () => {
+    const document = await addPassport('Passport text');
+    const realDelete = documentService.deleteDocumentWithUndo.bind(documentService);
+    jest.spyOn(documentService, 'deleteDocumentWithUndo').mockImplementation(async (id) => {
+      const result = await realDelete(id);
+      session.lock();
+      return result;
+    });
+    const clearCache = jest.spyOn(documentService, 'clearCache');
+    const view = await renderViewer(document.id);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Details' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Details' }));
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete' }));
+    });
+
+    expect(view.getByText('locked')).toBeOnTheScreen();
+    expect(clearCache).toHaveBeenCalled();
+    expect(view.queryByRole('button', { name: 'Undo' })).toBeNull();
+    expect(session.notice?.message).toBe(
+      'The vault locked while deleting. 1 document was deleted and can’t be brought back.',
+    );
+  });
 });

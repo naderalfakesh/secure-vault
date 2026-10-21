@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { useToast } from '@/components/ui';
+import { useSession } from '@/features/session/SessionProvider';
 import { type DeletedDocument, documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import type { Document } from '@/types';
 import { isolate } from '@/utils/bidi';
@@ -14,18 +15,42 @@ const quoted = (title: string) => `“${isolate(title)}”`;
  */
 export function useDeleteWithUndo() {
   const toast = useToast();
+  const { captureSession, postNotice } = useSession();
 
   return useCallback(
     async (documents: readonly Document[]): Promise<number> => {
+      const session = captureSession();
       const deleted: DeletedDocument[] = [];
       const failed: Document[] = [];
       for (const document of documents) {
+        // Each delete decrypts an undo copy; none may be written once the vault locked.
+        if (!session.current()) break;
         try {
           const result = await documentService.deleteDocumentWithUndo(document.id);
           if (result) deleted.push(result);
         } catch {
           failed.push(document);
         }
+      }
+
+      if (!session.current()) {
+        // The lock sweep may have run before the last undo copy was written;
+        // sweep again unless a new session has already been unlocked. Undo is
+        // gone with the copies, so the outcome waits for the next unlock.
+        if (!captureSession().current()) documentService.clearCache().catch(() => {});
+        const kept = documents.length - deleted.length;
+        if (deleted.length === 0) {
+          postNotice({
+            message: 'The vault locked before anything was deleted. Nothing was changed.',
+          });
+          return 0;
+        }
+        postNotice({
+          message:
+            `The vault locked while deleting. ${deleted.length === 1 ? '1 document was' : `${deleted.length} documents were`} deleted and can’t be brought back.` +
+            (kept > 0 ? ` The ${kept === 1 ? 'other is' : 'others are'} still in your vault.` : ''),
+        });
+        return deleted.length;
       }
 
       if (failed.length > 0) {
@@ -80,6 +105,6 @@ export function useDeleteWithUndo() {
       });
       return deleted.length;
     },
-    [toast],
+    [toast, captureSession, postNotice],
   );
 }

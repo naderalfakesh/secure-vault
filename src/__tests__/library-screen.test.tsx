@@ -1,5 +1,7 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
@@ -8,12 +10,25 @@ import LibraryScreen from '../../app/(tabs)/index';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
+import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
 
 const vaultMock = vault as unknown as { reset(): void };
+const secureStoreMock = SecureStore as unknown as { __reset(): void };
+
+let session: ReturnType<typeof useSession>;
+
+// The lock gate as the root layout applies it: no Library while locked.
+function Gate() {
+  const value = useSession();
+  useEffect(() => {
+    session = value;
+  });
+  return value.status === 'unlocked' ? <LibraryScreen /> : <Text>{value.status}</Text>;
+}
 const CLOSED =
   'The document index could not be found, so it stays closed. Nothing was changed. Try again.';
 
@@ -23,11 +38,17 @@ function TabBarProbe() {
 
 async function renderLibrary() {
   const view = await render(
-    <ToastProvider>
-      <LibraryScreen />
-      <TabBarProbe />
-    </ToastProvider>,
+    <SessionProvider>
+      <ToastProvider>
+        <Gate />
+        <TabBarProbe />
+      </ToastProvider>
+    </SessionProvider>,
   );
+  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
+  await act(async () => {
+    await session.setUp('123456');
+  });
   return view;
 }
 
@@ -46,6 +67,7 @@ const settle = (ms = 250) =>
 describe('Library', () => {
   beforeEach(async () => {
     vaultMock.reset();
+    secureStoreMock.__reset();
     await closeDocumentStore();
     (router.push as jest.Mock).mockClear();
   });
@@ -179,5 +201,39 @@ describe('Library', () => {
     await waitFor(() => expect(view.getByText('2 documents are back')).toBeOnTheScreen());
     expect((await documentService.getDocument(lease.id))?.title).toBe('Lease agreement');
     expect((await documentService.getDocument(passport.id))?.title).toBe('Passport');
+  });
+
+  it('stops deleting when the vault locks and reports it after the next unlock', async () => {
+    const docs = [];
+    for (let index = 1; index <= 4; index += 1) {
+      docs.push(await add(`Receipt ${index}`, DocumentCategory.RECEIPTS));
+    }
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+    await fireEvent.press(view.getByRole('button', { name: 'Select' }));
+    await fireEvent.press(view.getByRole('button', { name: 'Select all' }));
+    const realDelete = documentService.deleteDocumentWithUndo.bind(documentService);
+    const remove = jest
+      .spyOn(documentService, 'deleteDocumentWithUndo')
+      .mockImplementation(async (id) => {
+        const result = await realDelete(id);
+        // The vault locks (auto-lock: Immediately) while the first one is deleted.
+        if (remove.mock.calls.length === 1) session.lock();
+        return result;
+      });
+    const clearCache = jest.spyOn(documentService, 'clearCache');
+
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete 4 documents' }));
+    });
+
+    expect(view.getByText('locked')).toBeOnTheScreen();
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(clearCache).toHaveBeenCalled();
+    expect(view.queryByText(/documents deleted|deleted$/)).toBeNull();
+    expect(view.queryByRole('button', { name: 'Undo' })).toBeNull();
+    expect(session.notice?.message).toBe(
+      'The vault locked while deleting. 1 document was deleted and can’t be brought back. The others are still in your vault.',
+    );
   });
 });
