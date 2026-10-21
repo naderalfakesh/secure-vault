@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Icon, Screen, Text, useToast } from '@/components/ui';
-import { PinDots, PinKeypad } from '@/features/auth/PinPad';
+import { Icon, PinDots, PinPad, Screen, Text, useToast } from '@/components/ui';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 
@@ -92,7 +91,7 @@ export default function ChangePinScreen() {
         </View>
       </View>
       <View style={styles.pad}>
-        <PinKeypad onKey={press} disabled={stage === 'saving'} />
+        <PinPad onKey={press} disabled={stage === 'saving'} />
       </View>
     </Screen>
   );

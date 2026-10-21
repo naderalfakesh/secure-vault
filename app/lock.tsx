@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, type IconName, Screen, Text } from '@/components/ui';
+import { Button, Icon, type IconName, PinDots, PinPad, Screen, Text } from '@/components/ui';
 import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
-import { PinDots, PinKeypad } from '@/features/auth/PinPad';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
@@ -117,7 +116,7 @@ export default function LockScreen() {
         </View>
       )}
       <View style={[styles.pad, lockedOut && styles.dimmed]}>
-        <PinKeypad
+        <PinPad
           onKey={(key) => {
             setWrong(false);
             press(key);
