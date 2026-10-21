@@ -20,7 +20,7 @@ import {
   describeBackupErrorPlainly,
   type RestoreProgress,
 } from '@/services/BackupService';
-import { pluralize } from '@/utils/format';
+import { t, tp } from '@/i18n';
 
 import {
   backupCopy as copy,
@@ -99,7 +99,7 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
         if (mounted.current) setStage({ name: 'running', progress: event });
       });
       backupService.discardPickedFile(backup.uri);
-      const message = `Vault restored: ${entries} entries`;
+      const message = t('backup.restore.done', { count: entries });
       if (stillHere()) {
         setPassphrase('');
         toast.show({ message, tone: 'success' });
@@ -181,7 +181,7 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
 
           {stage.name === 'running' ? (
             <>
-              <FileCard name={backup.name} meta={pluralize(backup.entries, 'entry', 'entries')} />
+              <FileCard name={backup.name} meta={tp('format.entries', backup.entries)} />
               <ProgressBlock
                 label={restoreProgressLabel(
                   stage.progress.phase === 'import' ? 'import' : 'verify',
@@ -261,7 +261,10 @@ function OutcomeView({
           name={backup.name}
           meta={
             outcome.stoppedAt
-              ? `Stopped at entry ${outcome.stoppedAt.entry} of ${outcome.stoppedAt.total}`
+              ? t('backup.restore.stoppedAt', {
+                  entry: outcome.stoppedAt.entry,
+                  total: outcome.stoppedAt.total,
+                })
               : undefined
           }
         />

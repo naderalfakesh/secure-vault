@@ -1,5 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { t } from '@/i18n';
 import { exportDatabaseFile, replaceDatabaseFile } from '@/data/database';
 
 import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
@@ -64,56 +65,53 @@ export type BackupOperation = 'export' | 'restore' | 'erase';
 /** A sentence explaining why a passphrase is not acceptable, or null when it is. */
 export function passphraseProblem(passphrase: string, confirmation?: string): string | null {
   if (passphrase.length < MIN_PASSPHRASE_LENGTH) {
-    return `Use at least ${MIN_PASSPHRASE_LENGTH} characters.`;
+    return t('backup.passphrase.tooShort', { count: MIN_PASSPHRASE_LENGTH });
   }
-  if (/^(.)\1+$/.test(passphrase)) return 'Use more than one character.';
+  if (/^(.)\1+$/.test(passphrase)) return t('backup.passphrase.oneCharacter');
   if (confirmation !== undefined && confirmation !== passphrase) {
-    return 'The two passphrases do not match.';
+    return t('backup.passphrase.mismatch');
   }
   return null;
 }
 
 /** Plain-language message for a failed export or restore. */
-export function describeBackupError(
-  error: unknown,
-  fallback = 'Could not use this backup.',
-): string {
+export function describeBackupError(error: unknown, fallback = t('backup.error.fallback')): string {
   const code =
     typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
   switch (code) {
     case 'BACKUP_PASSPHRASE':
-      return 'That passphrase does not match this backup. Nothing was changed.';
+      return t('backup.error.passphrase');
     case 'BACKUP_INVALID':
-      return 'This file is not a SecureVault backup, or it is damaged. Nothing was changed.';
+      return t('backup.error.invalid');
     case 'BACKUP_UNSUPPORTED':
-      return "This backup uses settings this version of the app doesn't support. Nothing was changed.";
+      return t('backup.error.unsupported');
     case 'BACKUP_PARTIAL':
-      return 'The restore stopped after the previous vault was removed. Restore the backup again.';
+      return t('backup.error.partial');
     case 'BACKUP_RESOURCE':
-      return "This device doesn't have enough free space or memory to restore this backup. Nothing was changed.";
+      return t('backup.error.resource');
     case 'BACKUP_NO_SPACE':
-      return "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.";
+      return t('backup.error.noSpace');
     case 'BACKUP_INDEX':
-      return 'Your documents were restored but the index could not be opened. Restore the backup again.';
+      return t('backup.error.index');
     case 'BACKUP_CANCELLED':
-      return 'Restore cancelled. Nothing was changed.';
+      return t('backup.error.cancelled');
     // Only ever seen before the wipe: the service names one after it BACKUP_PARTIAL.
     case 'KEY_LOCKED':
-      return 'The device key was not unlocked, so nothing was changed. Try again.';
+      return t('backup.error.keyLocked');
     case 'KEY_INVALIDATED':
-      return `${KEY_INVALIDATED_MESSAGE} Nothing was changed.`;
+      return t('backup.error.keyInvalidated', { message: KEY_INVALIDATED_MESSAGE });
     case 'BACKUP_STAGING_INVALID':
-      return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
+      return t('backup.error.staging');
     case 'BACKUP_RESTORE_STAGING_INVALID':
-      return "The restore's temporary files could not be cleared, so nothing was changed. Try again.";
+      return t('backup.error.restoreStaging');
     case 'BACKUP_BUSY':
-      return 'A backup or restore is still running. Try again once it has finished.';
+      return t('backup.error.busy');
     case 'BACKUP_EXPORT_FAILED':
-      return 'The backup could not be written. Check that the device has free space and try again.';
+      return t('backup.error.exportFailed');
     case 'BACKUP_IMPORT_FAILED':
-      return 'The restore could not start, so nothing was changed. Try again.';
+      return t('backup.error.importFailed');
     case 'GET_ALL_KEYS_FAILED':
-      return "The vault's files could not be read. Try again.";
+      return t('backup.error.keysFailed');
     default:
       return error instanceof Error && error.message ? error.message : fallback;
   }
@@ -152,7 +150,7 @@ export function describeBackupErrorPlainly(error: unknown, fallback: string): st
 }
 
 function backupFileName(date = new Date()): string {
-  return `SecureVault backup ${date.toISOString().slice(0, 10)}.svbackup`;
+  return t('backup.fileName', { date: date.toISOString().slice(0, 10) });
 }
 
 function toPath(uri: string): string {

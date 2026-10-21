@@ -21,18 +21,17 @@ import {
   MIN_PASSPHRASE_LENGTH,
   passphraseProblem,
 } from '@/services/BackupService';
+import { t } from '@/i18n';
 import { formatFileSize } from '@/utils/format';
 
 import { backupCopy as copy } from './backupCopy';
 import { recordLastBackup } from './lastBackup';
 
 // The vault locked while the share sheet was still open or never appeared.
-const SHARE_INTERRUPTED =
-  'SecureVault locked while you were sharing. The temporary copy was removed.';
+const SHARE_INTERRUPTED = copy['create.shareInterrupted'];
 
 // Shown once the vault is unlocked; it names nothing about the vault.
-const EXPORT_STOPPED =
-  'The backup was cancelled before it could be shared. Nothing left the vault.';
+const EXPORT_STOPPED = copy['create.exportStopped'];
 
 // Codes whose own sentence says more than the sheet's general failure line.
 const SPECIFIC_EXPORT_ERRORS = new Set([
@@ -168,7 +167,10 @@ export function CreateBackupSheet({ visible, onClose, onShared }: CreateBackupSh
           await recordLastBackup(made);
           if (mounted.current) onShared(made);
           toast.show({
-            message: `Backup of ${backup.entries} entries (${formatFileSize(backup.bytes)}) shared`,
+            message: t('backup.create.shared', {
+              count: backup.entries,
+              size: formatFileSize(backup.bytes),
+            }),
             tone: 'success',
           });
         },
@@ -209,8 +211,8 @@ export function CreateBackupSheet({ visible, onClose, onShared }: CreateBackupSh
       {stage.name === 'busy' ? (
         <View style={styles.body}>
           <ProgressBlock
-            label={`Encrypting ${stage.done} of ${stage.total}`}
-            detail={`${percent}%`}
+            label={t('backup.create.progress', { done: stage.done, total: stage.total })}
+            detail={t('backup.create.percent', { percent })}
             progress={stage.total ? stage.done / stage.total : 0}
           />
           <Text variant="subheadline" tone="secondary">
