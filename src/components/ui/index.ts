@@ -1,11 +1,12 @@
 export { Button } from './Button';
-export type { ButtonProps, ButtonVariant } from './Button';
+export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Card } from './Card';
 export { Chip } from './Chip';
 export { EmptyState } from './EmptyState';
 export { Icon, icons } from './Icon';
 export type { IconName } from './Icon';
 export { IconButton } from './IconButton';
+export type { IconButtonProps, IconButtonVariant } from './IconButton';
 export { ListRow } from './ListRow';
 export { Screen } from './Screen';
 export { Sheet } from './Sheet';

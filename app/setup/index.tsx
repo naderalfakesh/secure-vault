@@ -62,7 +62,7 @@ export default function OnboardingScreen() {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.skipRow}>
-        <Button label="Skip" variant="ghost" size="md" onPress={() => router.push('/setup/pin')} />
+        <Button label="Skip" variant="plain" size="md" onPress={() => router.push('/setup/pin')} />
       </View>
       <ScrollView
         ref={scrollRef}

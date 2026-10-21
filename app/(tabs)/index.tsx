@@ -101,11 +101,7 @@ export default function HomeScreen() {
             />
           </Card>
         ) : (
-          <Button
-            label="Scan a document"
-            onPress={openAdd}
-            leading={<Icon name="scan" size={18} tone="inverse" />}
-          />
+          <Button label="Scan a document" onPress={openAdd} icon="scan" />
         )}
 
         {expiring.length > 0 ? (

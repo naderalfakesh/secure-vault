@@ -109,10 +109,10 @@ export default function LockScreen() {
         <View style={styles.passcodeRow}>
           <Button
             label={Platform.OS === 'ios' ? 'Use device passcode' : 'Use screen lock'}
-            variant="ghost"
+            variant="plain"
             size="md"
             onPress={() => unlock()}
-            leading={<Icon name="unlock" size={16} tone="accent" />}
+            icon="unlock"
           />
         </View>
       )}

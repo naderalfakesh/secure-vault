@@ -497,11 +497,7 @@ export default function AddDocumentScreen() {
           </Field>
         </ScrollView>
         <View style={styles.actions}>
-          <Button
-            label="Save to vault"
-            onPress={save}
-            leading={<Icon name="lock" size={18} tone="inverse" />}
-          />
+          <Button label="Save to vault" onPress={save} icon="lock" />
         </View>
       </KeyboardAvoidingView>
 

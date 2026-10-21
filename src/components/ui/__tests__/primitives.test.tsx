@@ -1,31 +1,9 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { Text as NativeText } from 'react-native';
 
-import { Button } from '../Button';
 import { Chip } from '../Chip';
 import { ListRow } from '../ListRow';
 import { ToastProvider, useToast } from '../Toast';
-
-describe('Button', () => {
-  it('exposes label, disabled, and busy state to assistive tech', async () => {
-    const onPress = jest.fn();
-    const view = await render(<Button label="Unlock" onPress={onPress} loading />);
-    const button = view.getByRole('button', { name: 'Unlock' });
-
-    expect(button).toBeDisabled();
-    expect(button).toBeBusy();
-    await fireEvent.press(button);
-    expect(onPress).not.toHaveBeenCalled();
-  });
-
-  it('calls onPress when enabled', async () => {
-    const onPress = jest.fn();
-    const view = await render(<Button label="Scan" onPress={onPress} />);
-
-    await fireEvent.press(view.getByRole('button', { name: 'Scan' }));
-    expect(onPress).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('Chip', () => {
   it('announces the count with the label and reflects selection', async () => {

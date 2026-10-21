@@ -451,11 +451,11 @@ export default function DocumentDetailScreen() {
                       variant="secondary"
                       size="md"
                       onPress={copyText}
-                      leading={<Icon name="copy" size={16} tone="accent" />}
+                      icon="copy"
                     />
                     <Button
                       label="Read again"
-                      variant="ghost"
+                      variant="plain"
                       size="md"
                       onPress={runOcr}
                       loading={busy === 'ocr'}
