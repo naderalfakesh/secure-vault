@@ -577,6 +577,33 @@ describe('SessionProvider session capture', () => {
     expect(session.status).toBe('unlocked');
   });
 
+  it('keeps a share-interrupted mark across the lock until it is cleared or the vault is erased', async () => {
+    await unlocked();
+    expect(session.shareInterrupted).toBeNull();
+    await act(async () => {
+      session.markShareInterrupted('doc-1');
+      session.lock();
+    });
+    expect(session.shareInterrupted).toEqual({ documentId: 'doc-1' });
+    await act(async () => {
+      await session.unlock();
+    });
+    expect(session.shareInterrupted).toEqual({ documentId: 'doc-1' });
+
+    await act(async () => {
+      session.clearShareInterrupted();
+    });
+    expect(session.shareInterrupted).toBeNull();
+
+    await act(async () => {
+      session.markShareInterrupted('doc-2');
+    });
+    await act(async () => {
+      await session.eraseVault();
+    });
+    expect(session.shareInterrupted).toBeNull();
+  });
+
   it('ends a share pause on return only on Android, and bounds it on both', () => {
     const os = Platform.OS;
     try {

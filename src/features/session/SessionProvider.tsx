@@ -86,6 +86,9 @@ export type PinChangeResult = 'changed' | 'wrong-pin' | 'failed';
 
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
+/** A share the lock cut short; the viewer of that document says so after unlock (F7). */
+export type ShareInterruption = { documentId: string };
+
 // A tiny vault entry whose read proves the device key is currently usable.
 const KEY_PROBE_ENTRY = '_key_probe';
 
@@ -135,6 +138,13 @@ export type SessionContextValue = {
   notice: SessionNotice | null;
   postNotice: (notice: SessionNotice) => void;
   dismissNotice: () => void;
+  /**
+   * Set when the vault locked while a share of this document was running.
+   * In memory only, so a relaunch forgets it; cleared by erase.
+   */
+  shareInterrupted: ShareInterruption | null;
+  markShareInterrupted: (documentId: string) => void;
+  clearShareInterrupted: () => void;
   /**
    * Forget the PIN, settings, and lockout after the vault was emptied; returns
    * to setup. Resolves false when the secure store refused to delete them,
@@ -243,6 +253,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SessionNotice | null>(null);
+  const [shareInterrupted, setShareInterrupted] = useState<ShareInterruption | null>(null);
   const [setupHeld, setSetupHeld] = useState(false);
   const setupHeldRef = useRef(false);
   // One launch read at a time, so a retry and a foreground return never race.
@@ -544,6 +555,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     applyLockout(EMPTY_LOCKOUT);
     setError(null);
     setNotice(null);
+    setShareInterrupted(null);
     setVaultEmpty(true);
     setupHeldRef.current = false;
     setSetupHeld(false);
@@ -622,6 +634,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const postNotice = useCallback((next: SessionNotice) => setNotice(next), []);
   const dismissNotice = useCallback(() => setNotice(null), []);
+  const markShareInterrupted = useCallback(
+    (documentId: string) => setShareInterrupted({ documentId }),
+    [],
+  );
+  const clearShareInterrupted = useCallback(() => setShareInterrupted(null), []);
 
   const stepUp = useCallback(
     () =>
@@ -743,6 +760,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       notice,
       postNotice,
       dismissNotice,
+      shareInterrupted,
+      markShareInterrupted,
+      clearShareInterrupted,
       eraseVault,
       error,
     }),
@@ -768,6 +788,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       notice,
       postNotice,
       dismissNotice,
+      shareInterrupted,
+      markShareInterrupted,
+      clearShareInterrupted,
       eraseVault,
       error,
     ],
