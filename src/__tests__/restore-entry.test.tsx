@@ -98,6 +98,11 @@ describe('the one restore entry', () => {
       /restoreBackup|inspectBackup|cancelRestore/.test(readFileSync(join(ROOT, path), 'utf8')),
     );
     expect(callers).toEqual([join('app', 'settings', 'backup.tsx')]);
+    // Nor does any other route mount the restore sheet.
+    const mounts = routeFiles().filter((path) =>
+      /RestoreSheet/.test(readFileSync(join(ROOT, path), 'utf8')),
+    );
+    expect(mounts).toEqual([join('app', 'settings', 'backup.tsx')]);
     // The hub takes no parameters, so no URL can hand it a file or start a restore.
     const hub = readFileSync(join(ROOT, 'app', 'settings', 'backup.tsx'), 'utf8');
     expect(hub).not.toMatch(/useLocalSearchParams|useGlobalSearchParams|Linking/);
