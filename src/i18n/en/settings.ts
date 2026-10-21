@@ -72,7 +72,8 @@ export const settings = {
     'Your PIN is stored only as a salted hash, never as the PIN itself.',
   'settings.protection.fact.backup':
     'Backups are encrypted with a key made from your passphrase. SecureVault doesn’t keep the passphrase.',
-  'settings.protection.fact.account': 'There is no account, and SecureVault collects no analytics.',
+  'settings.protection.fact.account':
+    'There is no account, and SecureVault itself collects no analytics. Google ML Kit, which reads text on this phone, may send Google anonymous usage metrics such as the device model and how long a scan took. Google says it doesn’t send the pages or the text it reads.',
   'settings.protection.limit.pin':
     'Someone who knows your PIN, or holds your phone while the vault is unlocked.',
   'settings.protection.limit.share':

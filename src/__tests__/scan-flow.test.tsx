@@ -443,7 +443,9 @@ describe('Add a document: processing', () => {
     expect(view.getByText('Reading the document')).toBeOnTheScreen();
     expect(view.getByLabelText('Reading the text, in progress')).toBeOnTheScreen();
     expect(view.getByLabelText('Encrypting, not started')).toBeOnTheScreen();
-    expect(view.getByText('Runs on this device. Nothing is uploaded.')).toBeOnTheScreen();
+    expect(
+      view.getByText('Runs on this device. Your pages and their text aren’t uploaded.'),
+    ).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
 
     // The pages were chosen in review; Cancel stops the reading, not the scan.

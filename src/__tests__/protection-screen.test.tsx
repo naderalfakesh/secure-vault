@@ -15,9 +15,16 @@ describe('How your data is protected', () => {
       view.getByText(/kept by the iOS Keychain\. It is never put in a backup\./),
     ).toBeOnTheScreen();
     expect(view.getByText(/stored only as a salted hash/)).toBeOnTheScreen();
+    // ML Kit sends Google usage metrics that cannot be turned off, so no "no analytics" claim.
     expect(
-      view.getByText('There is no account, and SecureVault collects no analytics.'),
+      view.getByText(/There is no account, and SecureVault itself collects no analytics\./),
     ).toBeOnTheScreen();
+    expect(
+      view.getByText(/Google ML Kit, .* may send Google anonymous usage metrics/),
+    ).toBeOnTheScreen();
+    expect(
+      view.queryByText(/^There is no account, and SecureVault collects no analytics\.$/),
+    ).toBeNull();
     expect(view.getByText('What it can’t protect against')).toBeOnTheScreen();
     expect(view.getByText(/A lost backup passphrase/)).toBeOnTheScreen();
     // The index is SQLCipher, not AES-256-GCM, so the sentence does not say so.

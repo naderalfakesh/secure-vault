@@ -34,7 +34,7 @@ export const scan = {
   'scan.review.doneMoving': 'Done',
   'scan.processing.reading': 'Reading the document',
   'scan.processing.saving': 'Saving the document',
-  'scan.processing.footer': 'Runs on this device. Nothing is uploaded.',
+  'scan.processing.footer': 'Runs on this device. Your pages and their text aren’t uploaded.',
   'scan.processing.cancel': 'Cancel',
   'scan.processing.done': 'Done',
   'scan.processing.working': 'Working…',
