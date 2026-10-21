@@ -5,12 +5,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { Button, Icon, Screen, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { useSession } from '@/features/session/SessionProvider';
-
-const UNAVAILABLE_TITLE = 'SecureVault can’t open right now';
-const BODY =
-  'Your phone didn’t give SecureVault access to its key. Nothing in the vault was touched.';
-const HINT = 'Try again. If this keeps happening, restart your phone and open SecureVault again.';
-const TRYING = 'Trying again…';
+import { t } from '@/i18n';
 
 /**
  * The device key or the PIN record could not be read (handover §7.2). The
@@ -28,7 +23,7 @@ export default function VaultUnavailableScreen() {
       mounted.current = false;
     };
   }, []);
-  useAnnouncement(trying ? TRYING : null);
+  useAnnouncement(trying ? t('unavailable.trying') : null);
 
   const tryAgain = () => {
     setTrying(true);
@@ -46,21 +41,21 @@ export default function VaultUnavailableScreen() {
           <Icon name="lock" size={32} tone="secondary" />
         </View>
         <Text variant="title2" align="center" accessibilityRole="header">
-          {UNAVAILABLE_TITLE}
+          {t('unavailable.title')}
         </Text>
         <Text variant="body" tone="secondary" align="center">
-          {BODY}
+          {t('unavailable.body')}
         </Text>
         <Text variant="subheadline" tone="tertiary" align="center">
-          {HINT}
+          {t('unavailable.hint')}
         </Text>
       </ScrollView>
       <View style={styles.footer} accessibilityLiveRegion="polite">
         <Button
-          label="Try again"
+          label={t('unavailable.tryAgain')}
           icon="refresh"
           loading={trying}
-          loadingLabel={TRYING}
+          loadingLabel={t('unavailable.trying')}
           onPress={tryAgain}
         />
       </View>
