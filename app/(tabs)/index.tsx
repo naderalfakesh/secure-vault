@@ -152,6 +152,9 @@ export default function LibraryScreen() {
     return new Set([...picked].filter((id) => present.has(id)));
   }, [picked, documents]);
 
+  // The live region on the count speaks on Android only; iOS is told directly.
+  useAnnouncement(selecting ? `${selected.size} selected` : null);
+
   const openDocument = useCallback((document: Document) => {
     router.push(`/documents/${document.id}`);
   }, []);

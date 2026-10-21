@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { Text } from 'react-native';
+import { AccessibilityInfo, Text } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
 
@@ -235,5 +235,17 @@ describe('Library', () => {
     expect(session.notice?.message).toBe(
       'The vault locked while deleting. 1 document was deleted and can’t be brought back. The others are still in your vault.',
     );
+  });
+
+  it('announces the selection count on iOS too', async () => {
+    const lease = await add('Lease agreement', DocumentCategory.LEGAL);
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Select' }));
+    await fireEvent.press(view.getByTestId(`document-row-${lease.id}`));
+
+    expect(announce).toHaveBeenCalledWith('1 selected');
   });
 });
