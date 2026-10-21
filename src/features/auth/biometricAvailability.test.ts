@@ -17,7 +17,10 @@ function onAndroid<T>(run: () => T): T {
   }
 }
 
-function device(hasHardware: boolean, enrolled: boolean, types: number[]) {
+function device(hasHardware: boolean, enrolled: boolean, types: number[], level = 3) {
+  jest
+    .spyOn(LocalAuthentication, 'getEnrolledLevelAsync')
+    .mockResolvedValue(level as LocalAuthentication.SecurityLevel);
   jest.spyOn(LocalAuthentication, 'hasHardwareAsync').mockResolvedValue(hasHardware);
   jest.spyOn(LocalAuthentication, 'isEnrolledAsync').mockResolvedValue(enrolled);
   jest
@@ -72,6 +75,20 @@ describe('biometric availability', () => {
     device(true, false, [FINGER, FACE]);
     await expect(onAndroid(() => readBiometricAvailability())).resolves.toEqual({
       state: 'notEnrolled',
+      kind: 'biometrics',
+    });
+  });
+
+  it('is unavailable on Android when only weak (class 2) biometrics are enrolled', async () => {
+    // The vault key accepts strong biometrics only, so weak face unlock cannot open it.
+    device(true, true, [FACE], 2);
+    await expect(onAndroid(() => readBiometricAvailability())).resolves.toEqual({
+      state: 'unavailable',
+      kind: 'biometrics',
+    });
+    device(true, true, [FINGER], 3);
+    await expect(onAndroid(() => readBiometricAvailability())).resolves.toEqual({
+      state: 'available',
       kind: 'biometrics',
     });
   });

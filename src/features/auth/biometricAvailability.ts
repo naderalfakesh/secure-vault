@@ -24,10 +24,11 @@ const UNAVAILABLE: BiometricAvailability = { state: 'unavailable', kind: 'none' 
 export async function readBiometricAvailability(): Promise<BiometricAvailability> {
   const ios = Platform.OS === 'ios';
   try {
-    const [hasHardware, enrolled, types] = await Promise.all([
+    const [hasHardware, enrolled, types, level] = await Promise.all([
       LocalAuthentication.hasHardwareAsync(),
       LocalAuthentication.isEnrolledAsync(),
       LocalAuthentication.supportedAuthenticationTypesAsync(),
+      LocalAuthentication.getEnrolledLevelAsync(),
     ]);
     const { FACIAL_RECOGNITION, FINGERPRINT } = LocalAuthentication.AuthenticationType;
     // Android does not say which biometric is enrolled; "biometrics" keeps the copy honest.
@@ -38,6 +39,12 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
         : types.includes(FINGERPRINT)
           ? 'touchId'
           : 'biometrics';
+    // expo-local-authentication counts weak (class 2) biometrics as enrolled,
+    // but the Android vault key accepts strong ones only, so weak face unlock
+    // can never open it: nothing to offer there.
+    if (!ios && enrolled && level < LocalAuthentication.SecurityLevel.BIOMETRIC_STRONG) {
+      return { state: 'unavailable', kind };
+    }
     if (enrolled) return { state: 'available', kind };
     if (hasHardware) return { state: 'notEnrolled', kind };
     if (ios && types.length > 0) return { state: 'denied', kind };

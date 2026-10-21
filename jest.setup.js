@@ -17,6 +17,8 @@ jest.mock('expo-device', () => ({ isDevice: true }));
 // spies on one of these to say otherwise.
 jest.mock('expo-local-authentication', () => ({
   AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
+  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
+  getEnrolledLevelAsync: async () => 3,
   hasHardwareAsync: async () => true,
   isEnrolledAsync: async () => true,
   supportedAuthenticationTypesAsync: async () => [2],
