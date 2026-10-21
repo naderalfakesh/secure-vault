@@ -188,6 +188,10 @@ let opening: Promise<DocumentStore> | null = null;
 // screen may still be using one), or closed without success. Only an erase
 // closes them; a close that failed stays open until relaunch.
 const abandoned: Promise<DocumentStore>[] = [];
+// Connections whose setup failed and whose close failed too. Nobody uses them,
+// so the next open closes them first: expo-sqlite would otherwise hand the
+// retry ("Try again") the same broken connection, and only a relaunch helped.
+const failedSetups: Promise<DocumentStore>[] = [];
 // Set while "Delete everything" runs: an open in between would create a file
 // the erase deletes under it, or one whose key the erase deletes next.
 let erasing = false;
@@ -233,7 +237,9 @@ async function openStore(): Promise<DocumentStore> {
   } catch (error) {
     // Left open, expo-sqlite would hand the same connection to the retry, and an erase's close would only release it.
     await db.close().catch(() => {
-      abandoned.push(Promise.resolve({ db, repository }));
+      const store = Promise.resolve({ db, repository });
+      abandoned.push(store);
+      failedSetups.push(store);
     });
     throw error;
   }
@@ -252,7 +258,26 @@ function share(store: Promise<DocumentStore>): Promise<DocumentStore> {
 
 /** Opens (once) the encrypted index, migrating schema and the prototype's JSON index. */
 export function openDocumentStore(): Promise<DocumentStore> {
-  return opening ?? share(openStore());
+  return opening ?? share(releaseFailedSetups().then(openStore));
+}
+
+function forget(list: Promise<DocumentStore>[], store: Promise<DocumentStore>): void {
+  const index = list.indexOf(store);
+  if (index >= 0) list.splice(index, 1);
+}
+
+/** Best effort: one that still will not close stays for the erase, as before. */
+async function releaseFailedSetups(): Promise<void> {
+  for (const store of [...failedSetups]) {
+    const { db } = await store;
+    try {
+      await db.close();
+      forget(failedSetups, store);
+      forget(abandoned, store);
+    } catch {
+      // Still open; the open goes ahead as it did before.
+    }
+  }
 }
 
 /**
@@ -270,7 +295,8 @@ export async function closeDocumentStore(): Promise<void> {
     );
     try {
       await db?.close();
-      abandoned.splice(abandoned.indexOf(store), 1);
+      forget(abandoned, store);
+      forget(failedSetups, store);
     } catch (error) {
       failure ??= error;
     }

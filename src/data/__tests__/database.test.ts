@@ -745,6 +745,25 @@ describe('index name, erase and legacy import', () => {
     expect([...files]).toEqual([]);
   });
 
+  it('closes a connection whose setup failed and stayed open before the next open retries', async () => {
+    files = new Set(['securevault.db']);
+    const stuck = jest.fn().mockRejectedValueOnce(new Error('database is locked'));
+    openEncrypted.mockResolvedValueOnce({ exec: jest.fn(async () => {}), close: stuck });
+    (applyMigrations as jest.Mock).mockRejectedValueOnce(new Error('disk I/O error'));
+    await expect(openDocumentStore()).rejects.toThrow('disk I/O error');
+    expect(stuck).toHaveBeenCalledTimes(1);
+
+    // "Try again": the stuck connection is released first, so the retry opens afresh.
+    stuck.mockResolvedValue(undefined);
+    let closedBeforeOpen = false;
+    openEncrypted.mockImplementationOnce(async () => {
+      closedBeforeOpen = stuck.mock.calls.length === 2;
+      return { exec: jest.fn(async () => {}), close: jest.fn() };
+    });
+    await expect(openDocumentStore()).resolves.toBeDefined();
+    expect(closedBeforeOpen).toBe(true);
+  });
+
   it('closes the connection a restore replaced before erasing its files', async () => {
     files = new Set(['securevault.db']);
     const replacedClose = jest.fn(async () => {});
