@@ -13,6 +13,8 @@ export type PinPadProps = {
   biometricLabel?: string;
   /** Lockout or busy: the pad dims to 32% and ignores presses. */
   disabled?: boolean;
+  /** A PIN check is running: presses are ignored, but the pad keeps its look. */
+  busy?: boolean;
 };
 
 const ROWS = [
@@ -32,7 +34,9 @@ export function PinPad({
   biometricIcon = 'faceId',
   biometricLabel = 'Use biometrics',
   disabled = false,
+  busy = false,
 }: PinPadProps) {
+  const blocked = disabled || busy;
   return (
     <View style={[styles.pad, disabled && styles.disabled]} testID="pin-pad">
       {ROWS.map((row, rowIndex) => (
@@ -46,8 +50,8 @@ export function PinPad({
                 key={key}
                 accessibilityRole="button"
                 accessibilityLabel={label}
-                accessibilityState={{ disabled }}
-                disabled={disabled}
+                accessibilityState={{ disabled, busy }}
+                disabled={blocked}
                 onPress={() => (key === 'bio' ? onBiometric?.() : onKey(key))}
                 style={({ pressed }) => [styles.key(action), pressed && styles.pressed(action)]}
               >

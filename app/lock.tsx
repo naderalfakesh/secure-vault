@@ -126,7 +126,8 @@ export default function LockScreen() {
         onBiometric={hasBiometrics && !lockedOut ? () => unlock() : undefined}
         biometricIcon={biometryIcon(biometry)}
         biometricLabel={`Unlock with ${name}`}
-        disabled={lockedOut || checking}
+        disabled={lockedOut}
+        busy={checking}
       />
       <View style={styles.footer}>
         {lockedOut ? (

@@ -44,6 +44,15 @@ describe('PinPad', () => {
     await fireEvent.press(view.getByRole('button', { name: '1' }));
     expect(onKey).not.toHaveBeenCalled();
   });
+
+  it('ignores presses while busy without dimming', async () => {
+    const onKey = jest.fn();
+    const view = await render(<PinPad onKey={onKey} busy />);
+
+    expect(view.getByTestId('pin-pad')).not.toHaveStyle({ opacity: 0.32 });
+    await fireEvent.press(view.getByRole('button', { name: '1' }));
+    expect(onKey).not.toHaveBeenCalled();
+  });
 });
 
 describe('PinDots', () => {

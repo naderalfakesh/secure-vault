@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import LockScreen from '../../app/lock';
 import { hashPasscode } from '../features/auth/passcode';
@@ -7,7 +7,7 @@ import vault from '../../modules/expo-vault';
 import { SessionProvider } from '../features/session/SessionProvider';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
+const vaultMock = vault as unknown as { reset(): void; unlockWithBiometrics(): Promise<boolean> };
 
 describe('LockScreen', () => {
   beforeEach(() => {
@@ -30,5 +30,50 @@ describe('LockScreen', () => {
     expect(view.getByRole('button', { name: 'Use device passcode' })).toBeOnTheScreen();
     expect(view.getByRole('button', { name: '5' })).toBeOnTheScreen();
     expect(view.queryByText(/rooted or modified/)).toBeNull();
+  });
+
+  async function lockedVault(lockout?: { failures: number; lockedUntil: number }) {
+    await vault.createVault();
+    await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
+    if (lockout) await SecureStore.setItemAsync('securevault.lockout', JSON.stringify(lockout));
+    // The automatic prompt is declined, so the keypad is what is left.
+    jest.spyOn(vaultMock, 'unlockWithBiometrics').mockResolvedValue(false);
+    const view = await render(
+      <SessionProvider>
+        <LockScreen />
+      </SessionProvider>,
+    );
+    await waitFor(() =>
+      expect(view.getByText(/^(SecureVault is locked|Try again in)/)).toBeOnTheScreen(),
+    );
+    return view;
+  }
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('fills the dots from the keypad and switches to the PIN subtitle', async () => {
+    const view = await lockedVault();
+
+    await fireEvent.press(view.getByRole('button', { name: '1' }));
+    await fireEvent.press(view.getByRole('button', { name: '2' }));
+
+    expect(view.getByLabelText('2 of 6 digits entered')).toBeOnTheScreen();
+    expect(view.getByText('Enter your PIN')).toBeOnTheScreen();
+    await fireEvent.press(view.getByRole('button', { name: 'Delete' }));
+    expect(view.getByLabelText('1 of 6 digits entered')).toBeOnTheScreen();
+  });
+
+  it('dims the keypad to 32% once during a lockout and takes no digits', async () => {
+    const view = await lockedVault({ failures: 5, lockedUntil: Date.now() + 30_000 });
+
+    await waitFor(() => expect(view.getByText(/^Try again in 0:(29|30)$/)).toBeOnTheScreen());
+    // The pad's own dim is the only one; no wrapper stacks another on top.
+    expect(view.getByTestId('pin-pad')).toHaveStyle({ opacity: 0.32 });
+    expect(view.getByTestId('pin-pad').parent?.props.style).not.toEqual(
+      expect.objectContaining({ opacity: expect.any(Number) }),
+    );
+    expect(view.getByRole('button', { name: '1' })).toBeDisabled();
+    expect(view.queryByRole('button', { name: 'Unlock with Face ID' })).toBeNull();
+    expect(view.getByRole('button', { name: 'Use Face ID or passcode' })).toBeEnabled();
   });
 });
