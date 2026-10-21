@@ -413,6 +413,17 @@ describe('Document sharing and the lock gate', () => {
     }
   });
 
+  it('forgets a banner that was seen once its viewer closes', async () => {
+    const view = await renderUnlocked();
+    await act(async () => session.markShareInterrupted(routeParams.id!));
+    await waitFor(() => expect(view.getByText(LEAD)).toBeOnTheScreen());
+
+    // Back to the Library (here: the lock takes the viewer away).
+    await act(async () => session.lock());
+
+    expect(session.shareInterrupted).toBeNull();
+  });
+
   it('keeps the mark of a newer share cut short while an older banner was showing', async () => {
     jest.spyOn(documentService, 'prepareShareFile').mockResolvedValue({
       uri: 'file:///mock/cache/share/a/Passport.jpeg',
