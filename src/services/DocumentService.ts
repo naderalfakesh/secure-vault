@@ -272,15 +272,25 @@ class DocumentService {
 
   /**
    * Removes iOS's Inbox copy of a file just picked from Files. Only a file
-   * with exactly that name directly in the app's own Inbox qualifies.
+   * directly in the app's own Inbox qualifies, named exactly as picked or as
+   * the system renames a copy whose name is taken: a space or a hyphen and a
+   * number before the extension ("scan 2.pdf" for "scan.pdf"). Everything in
+   * that folder is a plaintext import copy, and the lock and launch sweep
+   * removes the whole folder anyway.
    */
   discardSystemImportCopy(name: string): void {
     if (!name || name.includes('/') || name === '.' || name === '..') return;
     const inbox = this.appleInbox();
     if (!inbox) return;
+    const dot = name.lastIndexOf('.');
+    const [base, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+    const literal = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const renamed = new RegExp(`^${literal(base)}[ -]\\d+${literal(extension)}$`);
     try {
       for (const entry of inbox.list()) {
-        if (entry instanceof File && entry.name === name) entry.delete();
+        if (entry instanceof File && (entry.name === name || renamed.test(entry.name))) {
+          entry.delete();
+        }
       }
     } catch {
       // The lock and launch sweep removes the Inbox folder.

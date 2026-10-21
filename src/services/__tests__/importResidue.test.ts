@@ -297,6 +297,32 @@ describe('import copies outside the vault', () => {
       expect(other.exists).toBe(true);
     });
 
+    it('removes the copy iOS renamed for a duplicate name, and no other file', () => {
+      const renamed = plant(inbox(), 'scan 2.pdf');
+      const hyphenated = plant(inbox(), 'scan-3.pdf');
+      const kept = [
+        plant(inbox(), 'scan 2.jpg'),
+        plant(inbox(), 'scanner 2.pdf'),
+        plant(inbox(), 'scan 2 copy.pdf'),
+        plant(inbox(), 'my scan 2.pdf'),
+      ];
+
+      documentService.discardSystemImportCopy('scan.pdf');
+
+      expect(renamed.exists).toBe(false);
+      expect(hyphenated.exists).toBe(false);
+      expect(kept.map((file) => file.exists)).toEqual([true, true, true, true]);
+    });
+
+    it('treats regular expression characters in the picked name literally', () => {
+      const kept = plant(inbox(), 'scanXpdf 2.pdf');
+
+      documentService.discardSystemImportCopy('scan.(pdf).pdf');
+      documentService.discardSystemImportCopy('scan.pdf');
+
+      expect(kept.exists).toBe(true);
+    });
+
     it('never removes anything for a name that is not a plain file name', () => {
       const other = plant(inbox(), 'passport.jpg');
       const outside = plant(tmp(), 'notes.txt');

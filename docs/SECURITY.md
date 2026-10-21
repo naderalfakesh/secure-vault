@@ -240,8 +240,9 @@ disabled until it ends.
   which writes a plaintext copy of the file into the same `DocumentPicker`
   cache folder under a random name. On iOS the system hands the app its own
   copy first, in `tmp/com.naderalfakesh.securevault-Inbox`; the add screen
-  removes that one, by its exact name, as soon as the picker has made its
-  copy. Photos chosen from the library or taken with the camera are copied
+  removes that one, by its exact name or the name the system gives a
+  duplicate (a space or hyphen and a number before the extension), as soon
+  as the picker has made its copy. Photos chosen from the library or taken with the camera are copied
   into the cache's `ImagePicker` folder. Scanned pages are written to `tmp`
   as `scan_<batch>_<page>.jpg` on iOS and copied by the ML Kit client into
   the cache's `mlkit_docscan_ui_client` folder on Android. A PDF's preview is
