@@ -3,11 +3,12 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
+import { router } from 'expo-router';
 import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import vault from '../../modules/expo-vault';
+import vault, { type BackupProgress } from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
@@ -17,7 +18,7 @@ type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), back: jest.fn() },
+  router: { push: jest.fn(), back: jest.fn(), navigate: jest.fn() },
   Stack: { Screen: () => null },
 }));
 
@@ -123,7 +124,7 @@ async function runExport(view: Awaited<ReturnType<typeof renderUnlocked>>) {
 async function startRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
   await openRestore(view);
   await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-  await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
+  await pressAndSettle(view.getByRole('button', { name: 'Restore and replace vault' }), 50);
 }
 
 async function lockAndUnlock() {
@@ -304,7 +305,7 @@ describe('Backup hub and the lock gate', () => {
 
     await openRestore(view);
     await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-    await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
+    await pressAndSettle(view.getByRole('button', { name: 'Restore and replace vault' }), 50);
 
     expect(discardPicked).toHaveBeenCalledWith(PICKED);
     expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
@@ -319,7 +320,7 @@ describe('Backup hub and the lock gate', () => {
 
     await openRestore(view);
     await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-    await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
+    await pressAndSettle(view.getByRole('button', { name: 'Restore and replace vault' }), 50);
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(view.queryByText('Vault restored: 19 entries')).toBeNull();
@@ -516,22 +517,26 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
     [
       'BACKUP_UNSUPPORTED',
       "This backup uses settings this version of the app doesn't support. Nothing was changed.",
+      'Close',
     ],
     [
       'BACKUP_RESOURCE',
       "This device doesn't have enough free space or memory to restore this backup. Nothing was changed.",
+      'Close',
     ],
     [
       'BACKUP_NO_SPACE',
       "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.",
+      'Close',
     ],
     [
       'BACKUP_INVALID',
       'This file is not a SecureVault backup, or it is damaged. Nothing was changed.',
+      'Choose another file',
     ],
   ])(
-    'shows %s in the restore sheet as a plain sentence and keeps Restore available',
-    async (code, sentence) => {
+    'shows %s in the restore sheet as a plain sentence with its one button',
+    async (code, sentence, button) => {
       jest
         .spyOn(vault, 'importBackup')
         .mockRejectedValueOnce(
@@ -543,7 +548,8 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
 
       expect(view.getByText(sentence)).toBeOnTheScreen();
       expect(view.queryByText(/native text/)).toBeNull();
-      expect(view.getByRole('button', { name: 'Restore' })).toBeOnTheScreen();
+      expect(view.getAllByRole('button', { name: button }).length).toBeGreaterThan(0);
+      expect(view.queryByRole('button', { name: 'Restore and replace vault' })).toBeNull();
       expect(backupService.activity()).toBeNull();
     },
   );
@@ -571,5 +577,197 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
     );
     expect(view.queryByLabelText('Backup passphrase')).toBeNull();
     expect(discardPicked).toHaveBeenCalledWith(PICKED);
+  });
+});
+
+describe('Backup hub restore phases and outcomes', () => {
+  const emitProgress = (event: BackupProgress) =>
+    (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);
+
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    pick.mockReset();
+    (router.navigate as jest.Mock).mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('opens on the inspect step: file, warning, explainer and a destructive restore button', async () => {
+    const view = await renderUnlocked();
+
+    await openRestore(view);
+
+    expect(view.getByText(/^19 entries · made .*2026$/)).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'Everything currently in this vault will be replaced by this backup, including documents added after it was made.',
+      ),
+    ).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'SecureVault checks the whole file first. Nothing changes until every entry has been checked.',
+      ),
+    ).toBeOnTheScreen();
+    const restore = view.getByRole('button', { name: 'Restore and replace vault' });
+    expect(restore).toBeDisabled();
+    await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'x');
+    expect(restore).toBeEnabled();
+  });
+
+  it('keeps the passphrase and Restore after a wrong passphrase, with no counter', async () => {
+    jest
+      .spyOn(vault, 'importBackup')
+      .mockRejectedValue(Object.assign(new Error('native'), { code: 'BACKUP_PASSPHRASE' }));
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+    await pressAndSettle(view.getByRole('button', { name: 'Restore and replace vault' }), 50);
+
+    expect(
+      view.getAllByText('That passphrase does not match this backup. Nothing was changed.'),
+    ).toHaveLength(1);
+    expect(view.getByLabelText('Backup passphrase').props.value).toBe('correct horse battery');
+    expect(view.getByRole('button', { name: 'Restore and replace vault' })).toBeEnabled();
+    expect(view.queryByText(/attempt/i)).toBeNull();
+  });
+
+  it('shows Checking with Cancel, and a cancel leaves the vault as it was', async () => {
+    const importing = pending<never>();
+    let cancelled = false;
+    jest.spyOn(vault, 'importBackup').mockImplementation(() => {
+      emitProgress({ phase: 'verify', done: 3, total: 20 });
+      return importing.promise;
+    });
+    jest.spyOn(vault, 'cancelRestore').mockImplementation(() => {
+      cancelled = true;
+    });
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+
+    expect(view.getByText('Checking 3 of 20')).toBeOnTheScreen();
+    expect(view.getByText('Step 1 of 2')).toBeOnTheScreen();
+    expect(view.getByText('Nothing has been changed yet.')).toBeOnTheScreen();
+    // Not dismissable while it runs.
+    expect(view.queryByRole('button', { name: 'Close' })).toBeNull();
+
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
+    });
+    expect(cancelled).toBe(true);
+    expect(view.getByText('Cancelling…')).toBeOnTheScreen();
+
+    await act(async () => {
+      importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
+    });
+    await settleFor(20);
+
+    expect(view.getByText('Restore cancelled. Nothing was changed.')).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Restore and replace vault' })).toBeEnabled();
+    expect(backupService.activity()).toBeNull();
+  });
+
+  it('swaps Cancel for "This can\'t be stopped" at the first Restoring event', async () => {
+    const importing = pending<never>();
+    jest.spyOn(vault, 'importBackup').mockImplementation(() => {
+      emitProgress({ phase: 'verify', done: 20, total: 20 });
+      return importing.promise;
+    });
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+    expect(view.getByRole('button', { name: 'Cancel' })).toBeOnTheScreen();
+
+    await act(async () => {
+      emitProgress({ phase: 'import', done: 1, total: 20 });
+    });
+
+    expect(view.getByText('Restoring 1 of 20')).toBeOnTheScreen();
+    expect(view.getByText('Step 2 of 2')).toBeOnTheScreen();
+    expect(view.getByTestId('restore-cant-stop').props.accessibilityLabel).toBe(
+      'This can’t be stopped. The previous vault has been removed. Keep SecureVault open until this finishes.',
+    );
+    expect(view.queryByRole('button', { name: 'Cancel' })).toBeNull();
+    expect(view.queryByText('Nothing has been changed yet.')).toBeNull();
+    expect(backupService.cancelRestore()).toBe(false);
+
+    await act(async () => {
+      importing.fail(Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }));
+    });
+    await settleFor(20);
+
+    expect(view.getByText('The restore didn’t finish')).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'The restore stopped after the previous vault was removed. Restore the backup again.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.getByText('Stopped at entry 1 of 20')).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Restore again' })).toBeOnTheScreen();
+    expect(view.queryByText(/Nothing was changed/)).toBeNull();
+  });
+
+  it('offers Restore again when the index could not be opened', async () => {
+    jest.spyOn(vault, 'importBackup').mockImplementationOnce(async (_s, _p, extraDir) => {
+      emitProgress({ phase: 'import', done: 20, total: 20 });
+      return { entries: 19, extras: [{ key: 'database', path: `${extraDir}/database` }] };
+    });
+    jest
+      .spyOn(backupService as unknown as { replaceVault: () => Promise<number> }, 'replaceVault')
+      .mockImplementationOnce(async () => {
+        emitProgress({ phase: 'import', done: 20, total: 20 });
+        throw Object.assign(new Error('file is not a database'), { code: 'BACKUP_INDEX' });
+      });
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+
+    expect(
+      view.getByText(
+        'Your documents were restored but the index could not be opened. Restore the backup again.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Restore again' })).toBeOnTheScreen();
+  });
+
+  it('closes the sheet on success and goes to the reloaded Library', async () => {
+    jest.spyOn(backupService, 'restoreBackup').mockResolvedValue(19);
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+
+    expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
+    expect(view.queryByLabelText('Backup passphrase')).toBeNull();
+    expect(router.navigate).toHaveBeenCalledWith('/');
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('shows a picked file that is not a backup as a danger toast and opens no sheet', async () => {
+    pick.mockResolvedValue({ canceled: false, assets: [{ uri: PICKED, name: 'photo.jpg' }] });
+    const view = await renderUnlocked();
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('Restore from a backup…'));
+    });
+
+    await waitFor(() =>
+      expect(view.getByText('That file isn’t a SecureVault backup.')).toBeOnTheScreen(),
+    );
+    expect(view.queryByLabelText('Backup passphrase')).toBeNull();
+  });
+
+  it('does nothing when the picker is cancelled', async () => {
+    pick.mockResolvedValue({ canceled: true, assets: null });
+    const view = await renderUnlocked();
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('Restore from a backup…'));
+    });
+
+    expect(view.queryByLabelText('Backup passphrase')).toBeNull();
+    expect(view.queryByRole('alert')).toBeNull();
   });
 });

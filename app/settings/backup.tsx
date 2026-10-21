@@ -9,16 +9,11 @@ import { Button, Card, Group, Icon, ListRow, Screen, Sheet, Text, useToast } fro
 import { loadLastBackup, recordLastBackup } from '@/features/backup/lastBackup';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
-import {
-  backupService,
-  describeBackupError,
-  describeBackupErrorPlainly,
-  passphraseProblem,
-} from '@/services/BackupService';
+import { backupCopy as copy } from '@/features/backup/backupCopy';
+import { type PickedBackup, RestoreSheet } from '@/features/backup/RestoreSheet';
+import { backupService, describeBackupError, passphraseProblem } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
 import { formatDate, formatFileSize } from '@/utils/format';
-
-import type { BackupProgress } from '../../modules/expo-vault';
 
 // The vault locked while the share sheet was still open or never appeared.
 const SHARE_INTERRUPTED =
@@ -55,21 +50,11 @@ export default function BackupScreen() {
   const [exportSheet, setExportSheet] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [restore, setRestore] = useState<{
-    uri: string;
-    name: string;
-    entries: number;
-    created: string;
-  } | null>(null);
-  const [restorePassphrase, setRestorePassphrase] = useState('');
-  const [progress, setProgress] = useState<{
-    phase?: BackupProgress['phase'];
-    done: number;
-    total: number;
-  } | null>(null);
+  const [restore, setRestore] = useState<PickedBackup | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   // Shown inside the open sheet; a toast would sit behind it.
   const [sheetError, setSheetError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [busy, setBusy] = useState<'export' | null>(null);
   // An export or restore started before the last lock may still be running
   // after this screen mounts again; nothing else may start until it ends.
   const running = useBackupActivity();
@@ -180,8 +165,6 @@ export default function BackupScreen() {
         backupService.discardPickedFile(asset.uri);
         return;
       }
-      setRestorePassphrase('');
-      setSheetError(null);
       setRestore({
         uri: asset.uri,
         name: asset.name,
@@ -191,7 +174,12 @@ export default function BackupScreen() {
     } catch (e) {
       if (picked) backupService.discardPickedFile(picked);
       if (mounted.current && session.current()) {
-        toast.show({ message: describeBackupError(e), tone: 'danger' });
+        const code = (e as { code?: unknown } | null)?.code;
+        toast.show({
+          // A file the picker returned that is not a backup at all: a toast, no sheet.
+          message: code === 'BACKUP_INVALID' ? copy['picker.notBackup'] : describeBackupError(e),
+          tone: 'danger',
+        });
       }
     }
   }, [toast, withoutAutoLock, captureSession]);
@@ -201,46 +189,16 @@ export default function BackupScreen() {
     setRestore(null);
   }, [restore]);
 
-  // A restore is never cancelled by the lock: it keeps running so the vault is
-  // never left half replaced, and reports its outcome after the next unlock.
-  // The service refuses any other backup work until it ends.
-  const importVault = useCallback(async () => {
-    if (!restore || !restorePassphrase) return;
-    const session = captureSession();
-    const stillHere = () => mounted.current && session.current();
-    setSheetError(null);
-    setBusy('import');
-    setProgress({ phase: 'verify', done: 0, total: 1 });
-    try {
-      const entries = await backupService.restoreBackup(restore.uri, restorePassphrase, (event) => {
-        if (mounted.current) setProgress(event);
-      });
-      backupService.discardPickedFile(restore.uri);
-      const message = `Vault restored: ${entries} entries`;
-      if (stillHere()) {
-        setRestore(null);
-        setRestorePassphrase('');
-        toast.show({ message, tone: 'success' });
-      } else {
-        postNotice({ message, tone: 'success' });
-      }
-    } catch (e) {
-      if (stillHere()) {
-        setSheetError(describeBackupError(e));
-      } else {
-        backupService.discardPickedFile(restore.uri);
-        postNotice({
-          message: describeBackupErrorPlainly(e, 'The restore did not finish. Try it again.'),
-          tone: 'danger',
-        });
-      }
-    } finally {
-      if (mounted.current) {
-        setProgress(null);
-        setBusy(null);
-      }
-    }
-  }, [restore, restorePassphrase, toast, captureSession, postNotice]);
+  const chooseAnother = useCallback(() => {
+    closeRestore();
+    void pickBackup();
+  }, [closeRestore, pickBackup]);
+
+  const restored = useCallback(() => {
+    setRestore(null);
+    // The reloaded list is the outcome; the vault stays unlocked.
+    router.navigate('/');
+  }, []);
 
   return (
     <Screen>
@@ -358,52 +316,13 @@ export default function BackupScreen() {
         />
       </Sheet>
 
-      <Sheet
-        visible={restore !== null}
+      <RestoreSheet
+        key={restore?.uri ?? 'none'}
+        backup={restore}
         onClose={closeRestore}
-        title="Restore from backup"
-        dismissable={busy !== 'import'}
-      >
-        {restore ? (
-          <>
-            <Text variant="subheadline" tone="secondary">
-              {restore.name}: {restore.entries} entries
-              {restore.created ? `, made ${restore.created.slice(0, 10)}` : ''}. Everything
-              currently in the vault is replaced.
-            </Text>
-            <TextInput
-              style={styles.passphraseInput}
-              value={restorePassphrase}
-              onChangeText={setRestorePassphrase}
-              placeholder="Backup passphrase"
-              accessibilityLabel="Backup passphrase"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={busy !== 'import'}
-              returnKeyType="go"
-              onSubmitEditing={importVault}
-            />
-            {sheetError ? (
-              <Text variant="footnote" tone="danger" accessibilityRole="alert">
-                {sheetError}
-              </Text>
-            ) : null}
-            {progress && busy === 'import' ? (
-              <Text variant="footnote" tone="secondary" accessibilityLiveRegion="polite">
-                {progress.phase === 'verify' ? 'Checking' : 'Restoring'} {progress.done} of{' '}
-                {progress.total}
-              </Text>
-            ) : null}
-            <Button
-              label="Restore"
-              onPress={importVault}
-              loading={busy === 'import'}
-              disabled={!restorePassphrase}
-            />
-          </>
-        ) : null}
-      </Sheet>
+        onChooseAnother={chooseAnother}
+        onRestored={restored}
+      />
     </Screen>
   );
 }
