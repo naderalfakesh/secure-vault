@@ -8,7 +8,7 @@ under `docs/adr`; this page is the map.
 
 SecureVault protects documents at rest on a phone that may be lost, stolen,
 or handed to someone else for a moment. It assumes the operating system is
-intact and the secure hardware works. It does not defend against a jailbroken
+intact and its Keychain and Keystore work as documented. It does not defend against a jailbroken
 or rooted device with a debugger attached, a malicious OS update, or someone
 who knows the app PIN and has the unlocked phone in hand. Nothing is sent
 anywhere: there is no account, no analytics, and no network access.
@@ -333,8 +333,8 @@ disabled until it ends.
 - Biometric prompts and the Keystore window are the platform's; the app
   cannot verify a real fingerprint or face, only the system's answer.
 - On iOS the vault key is a Keychain item, and the code that encrypts holds
-  the raw key in memory while it runs. The Secure Enclave protects the
-  Keychain itself; it does not generate or hold this key.
+  the raw key in memory while it runs. iOS data protection guards the
+  Keychain itself; no dedicated key hardware generates or holds this key.
 - A device backup (iCloud, Google) does not include the device key, so the
   vault does not restore from it. That is intended: the passphrase backup is
   the supported path.

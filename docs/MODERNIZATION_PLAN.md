@@ -5,7 +5,7 @@ Portfolio goal: make this the third senior-level React Native showcase next to
 i18n, accessibility, testing) and
 [Nadir Wallet](https://github.com/naderalfakesh/nadir-wallet) (native plugins,
 crypto, monorepo). SecureVault's distinct story is **privacy-first, on-device
-everything**: hardware-backed encryption, native document scanning, on-device
+everything**: on-device encryption with a Keychain or Keystore key, native document scanning, on-device
 OCR, and on-device AI that never uploads a document.
 
 Written 2026-09-07 against the codebase at commit `fix: resolve crypto and file
