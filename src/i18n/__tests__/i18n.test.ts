@@ -1,8 +1,11 @@
 import { I18nManager } from 'react-native';
 
+import { formatDate } from '@/utils/format';
+
 import { applyLayoutDirection, wantsRTL } from '../direction';
 import { displayDigit } from '../digits';
 import { en, namespaces } from '../en';
+
 import { appLocale, isRTLLanguage, resolveLocale, setAppLocaleForTesting, t, tp } from '../index';
 
 const english = [{ languageTag: 'en-US', languageCode: 'en' }];
@@ -49,6 +52,22 @@ describe('locale', () => {
   it('falls back to English when no table matches, keeping the layout left to right', () => {
     const locale = resolveLocale([{ languageTag: 'ar-SA', languageCode: 'ar' }]);
     expect(locale).toMatchObject({ language: 'en', direction: 'ltr' });
+  });
+
+  it('keeps the phone region with English when the phone language has no table', () => {
+    expect(
+      resolveLocale([{ languageTag: 'de-DE', languageCode: 'de', regionCode: 'DE' }]).tag,
+    ).toBe('en-DE');
+    expect(resolveLocale([{ languageTag: 'fr-CA', languageCode: 'fr' }]).tag).toBe('en-CA');
+    expect(resolveLocale([{ languageTag: 'ar', languageCode: 'ar', regionCode: null }]).tag).toBe(
+      'en',
+    );
+    expect(resolveLocale([]).tag).toBe('en');
+  });
+
+  it('formats dates in the phone region, not as US English', () => {
+    const tag = resolveLocale([{ languageTag: 'de-DE', languageCode: 'de', regionCode: 'DE' }]).tag;
+    expect(formatDate('2026-10-09T12:00:00Z', tag)).toBe('9 Oct 2026');
   });
 
   it('keeps the phone region for an English locale', () => {
