@@ -4,12 +4,12 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, Mark, PinDots, PinPad, Screen, Text } from '@/components/ui';
 import {
+  biometricKeyLabel,
+  biometricSubtitle,
   biometryIcon,
-  biometryName,
+  deviceUnlockLabel,
   formatCountdown,
   LOCKOUT_BODY,
-  lockoutUnlockLabel,
-  passcodeLabel,
   wrongPinMessage,
 } from '@/features/auth/lockCopy';
 import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
@@ -25,7 +25,6 @@ export default function LockScreen() {
   const [lockLeft, setLockLeft] = useState(0);
   const [wrong, setWrong] = useState(false);
   const hasBiometrics = biometry !== 'none';
-  const name = biometryName(biometry);
 
   // Returning users get the biometric prompt once, as soon as the screen appears.
   useEffect(() => {
@@ -75,7 +74,7 @@ export default function LockScreen() {
       : showError
         ? (error as string)
         : hasBiometrics && pin.length === 0
-          ? `Use ${name} or enter your PIN`
+          ? biometricSubtitle(biometry)
           : 'Enter your PIN';
 
   return (
@@ -125,7 +124,7 @@ export default function LockScreen() {
         }}
         onBiometric={hasBiometrics && !lockedOut ? () => unlock() : undefined}
         biometricIcon={biometryIcon(biometry)}
-        biometricLabel={`Unlock with ${name}`}
+        biometricLabel={biometricKeyLabel(biometry)}
         disabled={lockedOut}
         busy={checking}
       />
@@ -133,13 +132,19 @@ export default function LockScreen() {
         {lockedOut ? (
           // The pause covers the PIN only; the device's own unlock stays open.
           <Button
-            label={lockoutUnlockLabel(biometry)}
+            label={deviceUnlockLabel(biometry)}
             variant="tinted"
             icon={hasBiometrics ? biometryIcon(biometry) : 'unlock'}
             onPress={() => unlock()}
           />
         ) : (
-          <Button label={passcodeLabel()} variant="plain" size="md" onPress={() => unlock()} />
+          // The device prompt takes biometrics or the passcode; the label says both.
+          <Button
+            label={deviceUnlockLabel(biometry)}
+            variant="plain"
+            size="md"
+            onPress={() => unlock()}
+          />
         )}
       </View>
     </Screen>

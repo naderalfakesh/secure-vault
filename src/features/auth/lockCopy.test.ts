@@ -1,4 +1,22 @@
-import { formatCountdown, lockoutUnlockLabel, wrongPinMessage } from './lockCopy';
+import { Platform } from 'react-native';
+
+import {
+  biometricKeyLabel,
+  biometricSubtitle,
+  deviceUnlockLabel,
+  formatCountdown,
+  wrongPinMessage,
+} from './lockCopy';
+
+function onAndroid(run: () => void) {
+  const os = Platform.OS;
+  Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+  try {
+    run();
+  } finally {
+    Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+  }
+}
 
 describe('lock copy', () => {
   it('formats the lockout countdown as m:ss', () => {
@@ -14,8 +32,23 @@ describe('lock copy', () => {
     expect(wrongPinMessage(1)).toBe('Wrong PIN. 1 attempt left before a pause.');
   });
 
-  it('keeps the device unlock on offer during a lockout', () => {
-    expect(lockoutUnlockLabel('faceId')).toBe('Use Face ID or passcode');
-    expect(lockoutUnlockLabel('none')).toBe('Use device passcode');
+  it('names what the device prompt really accepts: biometrics or the passcode', () => {
+    expect(deviceUnlockLabel('faceId')).toBe('Use Face ID or passcode');
+    expect(deviceUnlockLabel('touchId')).toBe('Use Touch ID or passcode');
+    expect(deviceUnlockLabel('none')).toBe('Use device passcode');
+    expect(biometricSubtitle('faceId')).toBe('Use Face ID or enter your PIN');
+    expect(biometricKeyLabel('faceId')).toBe('Unlock with Face ID');
+  });
+
+  it('never doubles "or" on Android', () => {
+    onAndroid(() => {
+      expect(biometricSubtitle('biometrics')).toBe('Use biometric unlock or enter your PIN');
+      expect(deviceUnlockLabel('biometrics')).toBe('Use biometric unlock or screen lock');
+      expect(deviceUnlockLabel('none')).toBe('Use screen lock');
+      expect(biometricKeyLabel('biometrics')).toBe('Unlock with fingerprint or face');
+      for (const text of [biometricSubtitle('biometrics'), deviceUnlockLabel('biometrics')]) {
+        expect(text.split(' or ')).toHaveLength(2);
+      }
+    });
   });
 });
