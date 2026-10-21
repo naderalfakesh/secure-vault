@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
-import LockScreen from '../../app/index';
+import LockScreen from '../../app/lock';
 import { hashPasscode } from '../features/auth/passcode';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';

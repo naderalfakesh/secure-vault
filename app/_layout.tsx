@@ -90,8 +90,11 @@ function RootNavigator() {
           }}
         />
       </Stack.Protected>
+      {/* The lock screen needs a URL of its own. At `/` it shared the address of
+          (tabs)/index, so the guard's redirect to it resolved back to the guarded
+          tabs and expo-router 58 redirected forever. */}
       <Stack.Protected guard={status === 'locked'}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="lock" />
       </Stack.Protected>
       <Stack.Protected guard={status === 'setup'}>
         <Stack.Screen name="setup" />

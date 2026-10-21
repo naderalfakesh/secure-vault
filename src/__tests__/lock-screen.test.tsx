@@ -1,6 +1,6 @@
 import { render, waitFor } from '@testing-library/react-native';
 
-import LockScreen from '../../app/index';
+import LockScreen from '../../app/lock';
 import { hashPasscode } from '../features/auth/passcode';
 import * as SecureStore from 'expo-secure-store';
 import vault from '../../modules/expo-vault';
