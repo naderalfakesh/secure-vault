@@ -92,6 +92,23 @@ describe('DocumentService', () => {
     disk.mockRestore();
   });
 
+  it('still clears the decrypted files when "Delete everything" did not finish', async () => {
+    const preview = new File(Paths.cache, 'decrypted_0D2C.jpg');
+    preview.writeSync('jpeg');
+    const listing = jest
+      .spyOn(vault, 'getAllKeys')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('not finished'), { code: 'ERASE_INCOMPLETE' }),
+      );
+
+    await expect(documentService.eraseEverything()).rejects.toMatchObject({
+      code: 'ERASE_INCOMPLETE',
+    });
+
+    expect(preview.exists).toBe(false);
+    listing.mockRestore();
+  });
+
   it("removes the vault module's thumbnail scratch file at lock and launch", async () => {
     const scratch = new File(Paths.cache, 'thumb_encrypt_0D2C');
     scratch.writeSync('jpeg');

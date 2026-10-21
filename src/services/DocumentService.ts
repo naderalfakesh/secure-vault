@@ -591,13 +591,17 @@ class DocumentService {
   async eraseEverything(): Promise<void> {
     for (const timer of this.undoTimers.values()) clearTimeout(timer);
     this.undoTimers.clear();
-    await deleteDocumentStore(async () => {
-      for (const key of await ExpoVaultModule.getAllKeys()) {
-        await ExpoVaultModule.delete(key).catch(() => {});
-        await ExpoVaultModule.deleteFile(key).catch(() => {});
-      }
-    });
-    await this.clearCache();
+    try {
+      await deleteDocumentStore(async () => {
+        for (const key of await ExpoVaultModule.getAllKeys()) {
+          await ExpoVaultModule.delete(key).catch(() => {});
+          await ExpoVaultModule.deleteFile(key).catch(() => {});
+        }
+      });
+    } finally {
+      // Only caches: decrypted copies go also when the erase did not finish.
+      await this.clearCache();
+    }
     this.notify();
   }
 

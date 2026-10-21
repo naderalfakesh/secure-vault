@@ -112,7 +112,9 @@ leave without its key. If the erase ends with `_database_key` or
 `_database_file` still listed, it reports that it did not finish, and it can
 be run again. The erase first closes the index and any connection a restore
 replaced; if one of them does not close, it deletes nothing and reports that
-it did not finish, and relaunching the app releases that connection.
+it did not finish, and relaunching the app releases that connection. An
+erase that did not finish still runs the cache sweep, which touches only the
+decrypted copies and the image caches.
 
 ### App PIN
 
