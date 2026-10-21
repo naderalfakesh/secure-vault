@@ -8,7 +8,9 @@ public class ExpoVaultModule: Module {
   private let keychainService = "com.naderalfakesh.securevault.vault"
   /// Copies of an `s` plaintext the restore pass holds at once:
   /// `Data(contentsOf:)`, the sealed ciphertext and its `.combined` form.
-  /// Provisional until measured on the S-s fixtures; never below 3.
+  /// The same calls peaked at 2.0 times a 24 MiB plaintext in a host process
+  /// (docs/verification/polish-round2.md); the third copy is headroom for a
+  /// device, where it is not measured. Never below 3.
   private static let stringEntryCopies = 3
   /// Set by `cancelRestore`, read by the running restore between entries of
   /// its checking pass. `importBackup` clears it when it starts, so a cancel

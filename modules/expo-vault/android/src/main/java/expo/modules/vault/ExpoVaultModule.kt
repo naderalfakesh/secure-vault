@@ -32,7 +32,9 @@ class ExpoVaultModule : Module() {
     /**
      * Copies of an `s` plaintext the restore pass holds at once: `readBytes`, the Keystore
      * cipher's growing output buffer (up to twice the result while it doubles) and the result
-     * array. Provisional until measured on the S-s fixtures; never below 3.
+     * array. On the host JVM the same calls needed 3.3 times a 24 MiB plaintext of heap
+     * (docs/verification/polish-round2.md); the Keystore's own buffering on a device is not
+     * measured, so the fourth copy stays as its headroom. Never below 3.
      */
     private val STRING_ENTRY_COPIES = 4
     private val AUTH_VALIDITY_SECONDS = 300
