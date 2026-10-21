@@ -93,6 +93,21 @@ describe('biometric availability', () => {
     });
   });
 
+  it('tells a phone without a passcode apart from one without Face ID set up', async () => {
+    device(true, false, [FACE], 0);
+    const result = await readBiometricAvailability();
+    expect(result).toEqual({ state: 'noPasscode', kind: 'faceId' });
+    expect(biometricUnavailableReason(result)).toBe(
+      'This phone has no passcode. Set a passcode and Face ID in the Settings app, then come back.',
+    );
+    device(true, false, [FINGER], 0);
+    const android = await onAndroid(() => readBiometricAvailability());
+    expect(android).toEqual({ state: 'noPasscode', kind: 'biometrics' });
+    expect(onAndroid(() => biometricUnavailableReason(android))).toBe(
+      'This phone has no screen lock. Set one up with fingerprint or face unlock, then come back.',
+    );
+  });
+
   it('gives the reason a disabled Face ID row shows', () => {
     expect(biometricUnavailableReason({ state: 'notEnrolled', kind: 'faceId' })).toBe(
       'Face ID isn’t set up on this phone. Set it up in the Settings app, then come back.',

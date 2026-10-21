@@ -8,9 +8,10 @@ import { biometryName } from './lockCopy';
 /**
  * Why biometrics can or cannot be used (F13). `denied` is iOS only: the user
  * said no to SecureVault using Face ID. Android has no per-app biometric
- * permission, so there it is never reported.
+ * permission, so there it is never reported. `noPasscode`: the phone has no
+ * passcode or screen lock, so no biometric can be set up yet.
  */
-export type BiometricState = 'available' | 'notEnrolled' | 'denied' | 'unavailable';
+export type BiometricState = 'available' | 'notEnrolled' | 'noPasscode' | 'denied' | 'unavailable';
 
 export type BiometricAvailability = { state: BiometricState; kind: BiometryType };
 
@@ -46,6 +47,9 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
       return { state: 'unavailable', kind };
     }
     if (enrolled) return { state: 'available', kind };
+    if (hasHardware && level === LocalAuthentication.SecurityLevel.NONE) {
+      return { state: 'noPasscode', kind };
+    }
     if (hasHardware) return { state: 'notEnrolled', kind };
     if (ios && types.length > 0) return { state: 'denied', kind };
     return { state: 'unavailable', kind };
@@ -61,6 +65,11 @@ export function biometricUnavailableReason(availability: BiometricAvailability):
     return Platform.OS === 'ios'
       ? `${name} isn’t set up on this phone. Set it up in the Settings app, then come back.`
       : 'Fingerprint or face unlock isn’t set up on this phone.';
+  }
+  if (availability.state === 'noPasscode') {
+    return Platform.OS === 'ios'
+      ? `This phone has no passcode. Set a passcode and ${name} in the Settings app, then come back.`
+      : 'This phone has no screen lock. Set one up with fingerprint or face unlock, then come back.';
   }
   if (availability.state === 'denied') {
     return `SecureVault isn’t allowed to use ${name}. You can allow it in Settings.`;
