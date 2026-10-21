@@ -517,6 +517,66 @@ describe('SessionProvider session capture', () => {
     expect(session.status).toBe('unlocked');
   });
 
+  it('locks while still away once a pending pause outlives its limit and auto-lock', async () => {
+    await unlocked(0);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { endsOnReturn: true, maxAwayMs: 100 });
+    });
+
+    // Android: the chooser stays up in front of the app, which never returns.
+    await moveTo('background');
+    await wait(250);
+
+    expect(appState.currentState).toBe('background');
+    expect(session.status).toBe('locked');
+  });
+
+  it('waits for the auto-lock limit before locking a pending pause while away', async () => {
+    await unlocked(60);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { maxAwayMs: 100 });
+    });
+
+    await moveTo('background');
+    await wait(250);
+
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('never locks a pending pause while away when auto-lock is off', async () => {
+    await unlocked(-1);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { maxAwayMs: 100 });
+    });
+
+    await moveTo('background');
+    await wait(250);
+
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('does not lock while away for a pause that settled before its limit', async () => {
+    await unlocked(0);
+    const share = pending();
+    let done!: Promise<void>;
+    await act(async () => {
+      done = session.withoutAutoLock(() => share.promise, { maxAwayMs: 200 });
+    });
+
+    await moveTo('background');
+    await act(async () => {
+      share.settle();
+      await done;
+    });
+    await wait(300);
+
+    // Ended while away: the rest of the trip is judged on return, as before.
+    expect(session.status).toBe('unlocked');
+  });
+
   it('ends a share pause on return only on Android, and bounds it on both', () => {
     const os = Platform.OS;
     try {

@@ -64,6 +64,9 @@ export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
  */
 export type AutoLockPause = { maxAwayMs?: number; endsOnReturn?: boolean };
 
+/** A running pause, with the time it was left the foreground. */
+type PauseEntry = { maxAwayMs: number; endsOnReturn: boolean; awayAt: number | null };
+
 /** Time away a pause excuses by default: pickers, the camera, the scanner. */
 export const DEFAULT_PAUSE_MAX_AWAY_MS = 10 * 60_000;
 /** How long after the return an `endsOnReturn` pause may still settle on its own. */
@@ -246,9 +249,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const launchingRef = useRef<Promise<SessionStatus> | null>(null);
   const backgroundedAt = useRef<number | null>(null);
   // Running pauses of auto-lock, each with the time it was left the foreground.
-  const pausesRef = useRef(
-    new Set<{ maxAwayMs: number; endsOnReturn: boolean; awayAt: number | null }>(),
-  );
+  const pausesRef = useRef(new Set<PauseEntry>());
   // True when the time away being judged began as a pause ended in the background.
   const pauseEndedAwayRef = useRef(false);
   const autoLockRef = useRef(settings.autoLockSeconds);
@@ -639,6 +640,27 @@ export function SessionProvider({ children }: PropsWithChildren) {
   // pause's limits, so a pause that never ends cannot keep the vault open.
   useEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>();
+    // A pause still pending once the time away passes both its own limit and
+    // auto-lock locks then, without waiting for the return: Android's chooser
+    // keeps the app away for as long as it stays up, and the copy it offers
+    // must not outlive the session. Locking sweeps the copy, so a target picked
+    // later reads nothing.
+    const expireWhileAway = (entry: PauseEntry) => {
+      const limit = autoLockRef.current;
+      const awayAt = entry.awayAt;
+      if (limit < 0 || awayAt === null) return;
+      const timer = setTimeout(
+        () => {
+          timers.delete(timer);
+          // Back in the meantime, or the pause ended: that trip is judged as before.
+          if (entry.awayAt !== awayAt || !pausesRef.current.delete(entry)) return;
+          judgeAway(Date.now() - awayAt);
+          settleWaiters();
+        },
+        Math.max(entry.maxAwayMs, limit * 1000) + 1,
+      );
+      timers.add(timer);
+    };
     const onChange = (next: AppStateStatus) => {
       // Vault unavailable: try once more on each return to the foreground.
       if (statusRef.current === 'unavailable') {
@@ -663,7 +685,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         const now = Date.now();
         for (const entry of [...pauses]) {
           if (next === 'background' || next === 'inactive') {
-            entry.awayAt ??= now;
+            if (entry.awayAt === null) {
+              entry.awayAt = now;
+              expireWhileAway(entry);
+            }
             continue;
           }
           if (next !== 'active' || entry.awayAt === null) continue;
