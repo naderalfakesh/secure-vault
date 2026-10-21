@@ -273,6 +273,29 @@ describe('BackupService', () => {
       },
     );
 
+    it('leaves no empty backup folder behind a refusal of a picked file', async () => {
+      const pickerFolder = new Directory(Paths.cache, PICKER_DIRECTORY);
+      if (!pickerFolder.exists) pickerFolder.create({ intermediates: true });
+      const picked = new File(pickerFolder, 'picked.svbackup');
+      picked.writeSync('not a backup');
+      const folder = new Directory(Paths.cache, BACKUP_DIRECTORY);
+      if (folder.exists) folder.delete();
+      jest
+        .spyOn(vault, 'importBackup')
+        .mockRejectedValueOnce(
+          Object.assign(new Error('The backup file is not valid'), { code: 'BACKUP_INVALID' }),
+        );
+      try {
+        await expect(
+          backupService.restoreBackup(picked.uri, 'correct horse battery'),
+        ).rejects.toMatchObject({ code: 'BACKUP_INVALID' });
+        expect(new Directory(Paths.cache, BACKUP_DIRECTORY).exists).toBe(false);
+      } finally {
+        jest.restoreAllMocks();
+        if (picked.exists) picked.delete();
+      }
+    });
+
     it.each(['BACKUP_UNSUPPORTED', 'BACKUP_RESOURCE', 'BACKUP_INVALID'])(
       'passes a %s header refusal from inspect on unchanged',
       async (code) => {

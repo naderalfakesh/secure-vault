@@ -170,6 +170,15 @@ function removeQuietly(entry: File | Directory): void {
   }
 }
 
+/** Removes `directory` (a link unfollowed) when it holds nothing, quietly. */
+function removeIfEmpty(directory: Directory): void {
+  try {
+    if (directory.exists && directory.list().length === 0) removeNoFollow(directory);
+  } catch {
+    // An empty folder in the cache is harmless; the lock sweep removes it.
+  }
+}
+
 /** The staging folders could not be prepared, so nothing was written or replaced. */
 function stagingError(code: string, cause: unknown): Error {
   return Object.assign(new Error('The backup staging folders could not be prepared.'), {
@@ -506,6 +515,8 @@ class BackupService {
       if (staging) removeQuietly(staging);
       // Never masks the outcome; the lock sweep removes `backup` with whatever is left.
       removeQuietly(extras);
+      // The restore made `backup` only for its extras; an empty one is not left behind.
+      removeIfEmpty(new Directory(Paths.cache, BACKUP_DIRECTORY));
     }
   }
 }
