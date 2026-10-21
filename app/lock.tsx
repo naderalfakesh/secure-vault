@@ -139,7 +139,8 @@ export default function LockScreen() {
           accessibilityElementsHidden={lockedOut}
           importantForAccessibility={lockedOut ? 'no-hide-descendants' : 'auto'}
         >
-          <PinDots filled={pin.length} error={flash} shake={shake} />
+          {/* A lockout shows empty dimmed dots (the Lock board), not the last wrong PIN's red. */}
+          <PinDots filled={lockedOut ? 0 : pin.length} error={flash && !lockedOut} shake={shake} />
         </View>
         {security.isSecure ? null : (
           <View style={styles.banner} accessibilityRole="alert">

@@ -97,4 +97,22 @@ describe('LockScreen', () => {
     expect(view.queryByRole('button', { name: 'Unlock with Face ID' })).toBeNull();
     expect(view.getByRole('button', { name: 'Use Face ID or passcode' })).toBeEnabled();
   });
+
+  it('shows empty dimmed dots, not red ones, once a wrong PIN starts a lockout', async () => {
+    const view = await lockedVault({ failures: 4, lockedUntil: 0 });
+
+    for (const digit of ['9', '9', '9', '9', '9', '9']) {
+      await fireEvent.press(view.getByRole('button', { name: digit }));
+    }
+
+    await waitFor(() => expect(view.getByText(/^Try again in /)).toBeOnTheScreen(), {
+      timeout: 3000,
+    });
+    await waitFor(() =>
+      expect(view.getByTestId('pin-dot-0', { includeHiddenElements: true })).toHaveStyle({
+        borderWidth: 1.5,
+        backgroundColor: 'transparent',
+      }),
+    );
+  });
 });
