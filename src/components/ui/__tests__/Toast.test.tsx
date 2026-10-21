@@ -88,5 +88,19 @@ describe('Toast', () => {
       jest.advanceTimersByTime(3000);
     });
     expect(view.getByText('8s', { includeHiddenElements: true })).toBeOnTheScreen();
+    // The arc stays full: nothing animates it.
+    const arc = view.getByTestId('toast-countdown-arc', { includeHiddenElements: true });
+    expect(arc.props.strokeDashoffset ?? 0).toBe(0);
+  });
+
+  it('draws the countdown as an arc', async () => {
+    const view = await showToast({
+      message: '2 documents deleted',
+      action: { label: 'Undo', onPress: jest.fn() },
+      countdown: true,
+    });
+    expect(
+      view.getByTestId('toast-countdown-arc', { includeHiddenElements: true }),
+    ).toBeOnTheScreen();
   });
 });

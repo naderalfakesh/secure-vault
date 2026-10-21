@@ -10,14 +10,19 @@ import {
 } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
   FadeInDown,
   FadeOut,
   FadeOutDown,
+  useAnimatedProps,
   useReducedMotion,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import Svg, { Circle } from 'react-native-svg';
 
 import { t } from '@/i18n';
 import { darkColors } from '@/theme/colors';
@@ -130,7 +135,7 @@ function ToastView({ toast, onHide }: { toast: ToastState; onHide: () => void })
         {toast.action ? (
           <View style={styles.trailing}>
             {toast.countdown ? (
-              <Countdown seconds={Math.round(toast.durationMs / 1000)} still={reduceMotion} />
+              <Countdown durationMs={toast.durationMs} still={reduceMotion} />
             ) : null}
             <Pressable
               accessibilityRole="button"
@@ -153,18 +158,34 @@ function ToastView({ toast, onHide }: { toast: ToastState; onHide: () => void })
   );
 }
 
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+const RING = 28;
+const RING_STROKE = 2;
+const RING_RADIUS = (RING - RING_STROKE) / 2;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
 /**
- * Seconds left for an undo. The ring is static; only the number changes, and
- * with reduced motion it does not tick at all.
+ * Time left for an undo: a drawn arc that drains as the toast runs out, with
+ * the seconds inside. With reduced motion the ring stays full and the label
+ * does not tick (§10.3).
  */
-function Countdown({ seconds, still }: { seconds: number; still: boolean }) {
+function Countdown({ durationMs, still }: { durationMs: number; still: boolean }) {
+  const { theme } = useUnistyles();
+  const seconds = Math.round(durationMs / 1000);
   const [left, setLeft] = useState(seconds);
+  const drained = useSharedValue(0);
 
   useEffect(() => {
     if (still) return;
+    drained.value = withTiming(1, { duration: durationMs, easing: Easing.linear });
     const interval = setInterval(() => setLeft((value) => Math.max(0, value - 1)), 1000);
     return () => clearInterval(interval);
-  }, [still]);
+  }, [still, durationMs, drained]);
+
+  const arcProps = useAnimatedProps(() => ({
+    strokeDashoffset: RING_LENGTH * drained.value,
+  }));
 
   return (
     <View
@@ -173,6 +194,31 @@ function Countdown({ seconds, still }: { seconds: number; still: boolean }) {
       importantForAccessibility="no-hide-descendants"
       testID="toast-countdown"
     >
+      <Svg width={RING} height={RING} style={StyleSheet.absoluteFill}>
+        <Circle
+          cx={RING / 2}
+          cy={RING / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke={theme.colors.toastText}
+          strokeOpacity={0.2}
+          strokeWidth={RING_STROKE}
+        />
+        <AnimatedCircle
+          cx={RING / 2}
+          cy={RING / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke={theme.colors.toastAction}
+          strokeWidth={RING_STROKE}
+          strokeLinecap="round"
+          strokeDasharray={`${RING_LENGTH} ${RING_LENGTH}`}
+          // Starts at twelve o'clock and drains clockwise.
+          transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
+          animatedProps={arcProps}
+          testID="toast-countdown-arc"
+        />
+      </Svg>
       <Text variant="caption" style={styles.ringLabel}>
         {still ? t('ui.toast.seconds', { count: seconds }) : left}
       </Text>
@@ -230,11 +276,8 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: '600',
   },
   ring: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.radii.pill,
-    borderWidth: 2,
-    borderColor: theme.colors.toastAction,
+    width: RING,
+    height: RING,
     alignItems: 'center',
     justifyContent: 'center',
   },
