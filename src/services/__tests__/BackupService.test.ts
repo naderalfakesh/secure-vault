@@ -43,6 +43,12 @@ describe('passphrase policy', () => {
     expect(passphraseProblem('correct horse', 'correct horse')).toBeNull();
   });
 
+  it('accepts a passphrase in any script, Arabic-Indic digits included', () => {
+    expect(passphraseProblem('٢٠٢٦١٢٣٤')).toBeNull();
+    expect(passphraseProblem('قمر فوق جبل', 'قمر فوق جبل')).toBeNull();
+    expect(passphraseProblem('٢٠٢٦١٢٣٤', '20261234')).toMatch(/do not match/);
+  });
+
   it('turns native error codes into sentences', () => {
     expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toBe(
       'That passphrase does not match this backup. Nothing was changed.',

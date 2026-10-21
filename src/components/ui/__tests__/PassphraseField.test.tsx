@@ -21,6 +21,21 @@ describe('PassphraseField', () => {
     expect(onChangeText).toHaveBeenCalledWith('قمر فوق جبل');
   });
 
+  it('accepts Arabic-Indic digits and any script as typed, and lays them out by content', async () => {
+    const onChangeText = jest.fn();
+    const view = await render(
+      <PassphraseField label="Passphrase" value="" onChangeText={onChangeText} />,
+    );
+    const input = view.getByLabelText('Passphrase');
+
+    expect(input).not.toHaveProp('keyboardType');
+    expect(input).toHaveStyle({ writingDirection: 'auto' });
+    for (const typed of ['٢٠٢٦ ١٢٣٤', '۱۲۳ رمز', 'Ωμέγα 日本 עברית 42']) {
+      await fireEvent.changeText(input, typed);
+      expect(onChangeText).toHaveBeenLastCalledWith(typed);
+    }
+  });
+
   it('shows and hides the passphrase with a named toggle', async () => {
     const view = await render(
       <PassphraseField label="Passphrase" value="x" onChangeText={jest.fn()} />,
