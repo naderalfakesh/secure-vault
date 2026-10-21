@@ -65,7 +65,8 @@ export function SearchField({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Clear search"
-            hitSlop={10}
+            // 18 pt glyph + 13 pt on each side = a 44 pt target.
+            hitSlop={13}
             onPress={() => {
               onChangeText('');
               input.current?.focus();

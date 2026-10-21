@@ -59,4 +59,20 @@ describe('SegmentedControl', () => {
     await fireEvent.press(dark);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('gives each segment a 44 pt target', async () => {
+    const view = await render(
+      <SegmentedControl
+        accessibilityLabel="Appearance"
+        options={options}
+        value="system"
+        onChange={jest.fn()}
+      />,
+    );
+    const segment = view.getByRole('radio', { name: 'Light' });
+    const { top, bottom } = segment.props.hitSlop;
+
+    expect(segment).toHaveStyle({ minHeight: 38 });
+    expect(38 + top + bottom).toBe(44);
+  });
 });

@@ -40,6 +40,8 @@ export function SegmentedControl<T extends string>({
             accessibilityLabel={option.label}
             accessibilityState={{ checked: selected, disabled }}
             disabled={disabled}
+            // The track's 3 pt padding is part of the target: 38 + 3 + 3 = 44 pt.
+            hitSlop={SEGMENT_SLOP}
             onPress={() => {
               if (!selected) onChange(option.value);
             }}
@@ -60,6 +62,8 @@ export function SegmentedControl<T extends string>({
   );
 }
 
+const SEGMENT_SLOP = { top: 3, bottom: 3 };
+
 const styles = StyleSheet.create((theme) => ({
   track: {
     flexDirection: 'row',
@@ -68,7 +72,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.pill,
     backgroundColor: theme.colors.surfaceMuted,
   },
-  // 38 pt segments inside a 3 pt track make the 44 pt target.
+  // 38 pt segments; their hit slop reaches over the 3 pt track to 44 pt.
   segment: (selected: boolean) => ({
     flex: 1,
     minHeight: theme.touchTarget - 6,

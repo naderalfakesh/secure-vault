@@ -16,7 +16,12 @@ describe('SearchField', () => {
     const onChangeText = jest.fn();
     const view = await render(<SearchField value="lease" onChangeText={onChangeText} />);
 
-    await fireEvent.press(view.getByRole('button', { name: 'Clear search' }));
+    const clear = view.getByRole('button', { name: 'Clear search' });
+
+    // 18 pt glyph plus its slop on both sides: a 44 pt target.
+    expect(clear).toHaveStyle({ width: 18 });
+    expect(18 + clear.props.hitSlop * 2).toBe(44);
+    await fireEvent.press(clear);
     expect(onChangeText).toHaveBeenCalledWith('');
   });
 
