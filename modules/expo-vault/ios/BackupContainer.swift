@@ -454,14 +454,15 @@ enum BackupContainer {
     var largestString: UInt64
     /// Bytes the restored vault, extras and the restore pass's temporary files can take at their peak.
     var disk: UInt64
-    /// Bytes the restore pass writes before the old vault is removed: the first entry's payload
-    /// copy and plaintext, bounded by twice the largest payload. They need free space of their own.
+    /// Bytes the restore pass writes before the old vault is removed: the first restored entry's
+    /// payload copy and its plaintext, at most twice its payload. They need free space of their own.
     var scratch: UInt64
   }
 
   /// Every payload is re-encrypted into the vault (or moved out as an extra)
   /// at about its own size, and at the peak one entry's payload copy and
-  /// plaintext sit in staging next to it. The index extra is counted twice:
+  /// plaintext sit in staging next to it; only the first restored entry's
+  /// two files exist before the old vault is removed. The index extra is counted twice:
   /// JavaScript moves it into the SQLite folder after the native restore, and
   /// its first open writes a WAL beside it while the old index is still there.
   /// Each length is already bounded by the bytes left in the file, so the sums
@@ -471,7 +472,9 @@ enum BackupContainer {
     var largest: UInt64 = 0
     var largestString: UInt64 = 0
     var index: UInt64 = 0
+    var first: UInt64?
     for entry in layout where entry.meta.kind != "c" {
+      if first == nil { first = entry.payloadLength }
       total += entry.payloadLength
       largest = max(largest, entry.payloadLength)
       if entry.meta.kind == "s" {
@@ -479,7 +482,7 @@ enum BackupContainer {
       }
       if entry.meta.kind == "x" && entry.meta.key == "database" { index += entry.payloadLength }
     }
-    return RestoreNeeds(largestString: largestString, disk: total + 2 * largest + index, scratch: 2 * largest)
+    return RestoreNeeds(largestString: largestString, disk: total + 2 * largest + index, scratch: 2 * (first ?? 0))
   }
 
   /// Refuses an `s` entry whose `copies` whole copies would not fit in the

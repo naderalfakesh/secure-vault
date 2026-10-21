@@ -424,8 +424,8 @@ object BackupContainer {
         /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
         val disk: Long,
         /**
-         * Bytes the restore pass writes before the old vault is removed: the first entry's payload
-         * copy and plaintext, bounded by twice the largest payload. They need free space of their own.
+         * Bytes the restore pass writes before the old vault is removed: the first restored entry's
+         * payload copy and its plaintext, at most twice its payload. They need free space of their own.
          */
         val scratch: Long,
     )
@@ -433,6 +433,7 @@ object BackupContainer {
     /**
      * Every payload is re-encrypted into the vault (or moved out as an extra) at about its own
      * size, and at the peak one entry's payload copy and plaintext sit in staging next to it.
+     * Only the first restored entry's two files exist before the old vault is removed.
      * The index extra is counted twice: JavaScript moves it into the SQLite folder after the
      * native restore, and its first open writes a WAL beside it while the old index is still
      * there. Each length is already bounded by the bytes left in the file, so the sums fit a
@@ -443,8 +444,10 @@ object BackupContainer {
         var largest = 0L
         var largestString = 0L
         var index = 0L
+        var first: Long? = null
         for (entry in layout) {
             if (entry.meta.kind == "c") continue
+            if (first == null) first = entry.payloadLength
             total += entry.payloadLength
             largest = maxOf(largest, entry.payloadLength)
             if (entry.meta.kind == "s") {
@@ -452,7 +455,7 @@ object BackupContainer {
             }
             if (entry.meta.kind == "x" && entry.meta.key == "database") index += entry.payloadLength
         }
-        return RestoreNeeds(largestString, total + 2 * largest + index, 2 * largest)
+        return RestoreNeeds(largestString, total + 2 * largest + index, 2 * (first ?: 0L))
     }
 
     /**
