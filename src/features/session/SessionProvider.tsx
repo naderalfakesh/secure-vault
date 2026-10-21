@@ -28,7 +28,12 @@ import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
 
-export type SessionStatus = 'loading' | 'setup' | 'locked' | 'unlocked';
+/**
+ * `unavailable`: the device key or the PIN record could not be read, so the
+ * app cannot tell a vault from no vault. It never falls back to setup, which
+ * would create a new key over a real vault.
+ */
+export type SessionStatus = 'loading' | 'unavailable' | 'setup' | 'locked' | 'unlocked';
 
 /** The unlocked session a piece of work started in. */
 export type SessionCapture = {
@@ -97,8 +102,20 @@ export type SessionContextValue = {
   unlock: () => Promise<boolean>;
   /** Checks a PIN, records failures for the lockout policy, and unlocks on success. */
   unlockWithPin: (pin: string) => Promise<PinUnlockResult>;
-  /** First run: creates the device key and stores the hashed PIN, then unlocks. */
-  setUp: (pin: string) => Promise<boolean>;
+  /**
+   * First run: creates the device key and stores the hashed PIN, then unlocks.
+   * The key and PIN are read again first: an unreadable one ends in
+   * `unavailable`, a vault that has both ends in `locked`, and an existing key
+   * is kept. With `holdForOnboarding` the session stays in `setup` with
+   * `setupHeld` until `finishSetup`, so onboarding can show its last step.
+   */
+  setUp: (pin: string, options?: { holdForOnboarding?: boolean }) => Promise<boolean>;
+  /** True after a held setup succeeded and before `finishSetup`. */
+  setupHeld: boolean;
+  /** Ends a held setup and unlocks; does nothing when no setup is held. */
+  finishSetup: () => void;
+  /** Reads the key and PIN again after `unavailable`; resolves the new status. */
+  retry: () => Promise<SessionStatus>;
   changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
   updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
@@ -134,6 +151,7 @@ const friendlyMessages: Record<string, string> = {
   BIOMETRIC_NOT_AVAILABLE: 'Biometrics are not available right now. Enter your PIN.',
   NO_AUTH_ENROLLED: 'Set up a screen lock in your device settings first.',
   KEY_RETRIEVAL_FAILED: 'The vault key could not be read. Restart the app and try again.',
+  PIN_UNREADABLE: 'Your PIN could not be read right now. Try again.',
   // Android only: setup keeps an invalidated key while the vault still holds entries.
   KEY_INVALIDATED: KEY_INVALIDATED_MESSAGE,
 };
@@ -151,6 +169,40 @@ async function loadCappedLockout(): Promise<LockoutState | null> {
   const capped = clampLockout(stored, Date.now());
   if (capped !== stored) await sessionStorage.saveLockout(capped).catch(() => {});
   return capped;
+}
+
+type KeyRead = 'present' | 'absent' | 'unreadable';
+
+/** Everything launch reads before it picks a status; none of it needs the device key. */
+async function readLaunchState() {
+  const [key, type, pin, storedLockout, entries] = await Promise.all([
+    vault.hasVault().then(
+      (exists): KeyRead => (exists ? 'present' : 'absent'),
+      (): KeyRead => 'unreadable',
+    ),
+    vault.biometryType().catch(() => 'none' as const),
+    sessionStorage.readPinRecord(),
+    // Readable before the device key is authenticated, so a relaunch keeps
+    // the attempt counter and any pause that is still running.
+    loadCappedLockout(),
+    // The listing reads the folder only and needs no device key; when it
+    // fails, setup keeps saying the documents stay.
+    vault.getAllKeys().then(
+      (keys) => keys.length,
+      () => null,
+    ),
+  ]);
+  return { key, type, pin: pin.state, storedLockout, entries };
+}
+
+/**
+ * The launch table (handover §6 J0): any read that failed is `unavailable`;
+ * a key with a PIN is `locked`; anything else is setup, which keeps a key it
+ * finds (Add a PIN).
+ */
+function launchStatus(key: KeyRead, pin: KeyRead): SessionStatus {
+  if (key === 'unreadable' || pin === 'unreadable') return 'unavailable';
+  return key === 'present' && pin === 'present' ? 'locked' : 'setup';
 }
 
 /** What a cancelled or lapsed key prompt means where it happened; setup has no PIN yet. */
@@ -188,6 +240,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SessionNotice | null>(null);
+  const [setupHeld, setSetupHeld] = useState(false);
+  const setupHeldRef = useRef(false);
+  // One launch read at a time, so a retry and a foreground return never race.
+  const launchingRef = useRef<Promise<SessionStatus> | null>(null);
   const backgroundedAt = useRef<number | null>(null);
   // Running pauses of auto-lock, each with the time it was left the foreground.
   const pausesRef = useRef(
@@ -230,37 +286,47 @@ export function SessionProvider({ children }: PropsWithChildren) {
     [settleWaiters],
   );
 
+  const activeRef = useRef(true);
   useEffect(() => {
-    let active = true;
-    (async () => {
-      const [exists, type, hasPin, storedLockout, entries] = await Promise.all([
-        vault.hasVault().catch(() => false),
-        vault.biometryType().catch(() => 'none' as const),
-        sessionStorage.hasPinRecord(),
-        // Readable before the device key is authenticated, so a relaunch keeps
-        // the attempt counter and any pause that is still running.
-        loadCappedLockout(),
-        // The listing reads the folder only and needs no device key; when it
-        // fails, setup keeps saying the documents stay.
-        vault.getAllKeys().then(
-          (keys) => keys.length,
-          () => null,
-        ),
-      ]);
-      if (!active) return;
-      setBiometry(type);
-      applyLockout(storedLockout ?? unreadableLockout(Date.now()));
-      setVaultExists(exists);
-      setVaultEmpty(exists && entries === 0);
-      // A key without a PIN record is either the 2025 prototype's vault or an
-      // interrupted setup. Both go through setup again, and setUp keeps the
-      // existing key so nothing already encrypted is lost.
-      changeStatus(exists && hasPin ? 'locked' : 'setup');
-    })();
+    activeRef.current = true;
     return () => {
-      active = false;
+      activeRef.current = false;
     };
+  }, []);
+
+  const launch = useCallback((): Promise<SessionStatus> => {
+    launchingRef.current ??= (async () => {
+      try {
+        const { key, type, pin, storedLockout, entries } = await readLaunchState();
+        if (!activeRef.current) return statusRef.current;
+        setBiometry(type);
+        applyLockout(storedLockout ?? unreadableLockout(Date.now()));
+        const next = launchStatus(key, pin);
+        if (next !== 'unavailable') {
+          const exists = key === 'present';
+          setVaultExists(exists);
+          setVaultEmpty(exists && entries === 0);
+        }
+        // A key without a PIN record is either the 2025 prototype's vault or an
+        // interrupted setup. Both go through setup again, and setUp keeps the
+        // existing key so nothing already encrypted is lost.
+        if (activeRef.current) changeStatus(next);
+        return next;
+      } finally {
+        launchingRef.current = null;
+      }
+    })();
+    return launchingRef.current;
   }, [changeStatus, applyLockout]);
+
+  useEffect(() => {
+    void launch();
+  }, [launch]);
+
+  const retry = useCallback(async () => {
+    if (statusRef.current !== 'unavailable') return statusRef.current;
+    return launch();
+  }, [launch]);
 
   const loadProtectedState = useCallback(async () => {
     setSettings(await sessionStorage.loadSettings());
@@ -362,11 +428,27 @@ export function SessionProvider({ children }: PropsWithChildren) {
   );
 
   const setUp = useCallback(
-    async (pin: string) => {
+    async (pin: string, options: { holdForOnboarding?: boolean } = {}) => {
       setError(null);
       try {
+        // Launch may have been a while ago, or wrong: read the key and PIN
+        // again so setup never creates a key over a vault it cannot see.
+        const fresh = await readLaunchState();
+        if (launchStatus(fresh.key, fresh.pin) === 'unavailable') {
+          changeStatus('unavailable');
+          return false;
+        }
+        // A vault with a PIN and entries is opened, never set up again. An
+        // emptied one may still hold a PIN an erase could not remove.
+        if (fresh.key === 'present' && fresh.pin === 'present' && fresh.entries !== 0) {
+          setVaultExists(true);
+          changeStatus('locked');
+          return false;
+        }
+        const exists = fresh.key === 'present';
+        setVaultExists(exists);
         // Only a brand-new vault gets a key; an existing one keeps what it has.
-        if (!vaultExists) await vault.createVault();
+        if (!exists) await vault.createVault();
         const ok = await vault.unlockWithBiometrics();
         if (!ok) return false;
         try {
@@ -391,15 +473,27 @@ export function SessionProvider({ children }: PropsWithChildren) {
         applyLockout(EMPTY_LOCKOUT);
         setVaultExists(true);
         setVaultEmpty(false);
-        changeStatus('unlocked');
+        if (options.holdForOnboarding) {
+          setupHeldRef.current = true;
+          setSetupHeld(true);
+        } else {
+          changeStatus('unlocked');
+        }
         return true;
       } catch (e) {
         setError(describeError(e, 'Could not set up the vault.', 'setup'));
         return false;
       }
     },
-    [vaultExists, applyLockout, changeStatus],
+    [applyLockout, changeStatus],
   );
+
+  const finishSetup = useCallback(() => {
+    if (!setupHeldRef.current || statusRef.current !== 'setup') return;
+    setupHeldRef.current = false;
+    setSetupHeld(false);
+    changeStatus('unlocked');
+  }, [changeStatus]);
 
   const changePin = useCallback(
     async (currentPin: string, nextPin: string): Promise<PinChangeResult> => {
@@ -446,6 +540,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setError(null);
     setNotice(null);
     setVaultEmpty(true);
+    setupHeldRef.current = false;
+    setSetupHeld(false);
     changeStatus('setup');
     return cleared;
   }, [applyLockout, changeStatus]);
@@ -540,6 +636,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const onChange = (next: AppStateStatus) => {
+      // Vault unavailable: try once more on each return to the foreground.
+      if (statusRef.current === 'unavailable') {
+        if (next === 'active') void launch();
+        return;
+      }
       const pauses = pausesRef.current;
       if (statusRef.current === 'unlocked' && pauses.size === 0) {
         if (next === 'background' || next === 'inactive') {
@@ -588,7 +689,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       subscription.remove();
       timers.forEach(clearTimeout);
     };
-  }, [judgeAway, settleWaiters]);
+  }, [judgeAway, settleWaiters, launch]);
 
   const value = useMemo(
     () => ({
@@ -601,6 +702,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       unlock,
       unlockWithPin,
       setUp,
+      setupHeld,
+      finishSetup,
+      retry,
       changePin,
       updateSettings,
       lock,
@@ -623,6 +727,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       unlock,
       unlockWithPin,
       setUp,
+      setupHeld,
+      finishSetup,
+      retry,
       changePin,
       updateSettings,
       lock,

@@ -62,6 +62,10 @@ export function sanitizeSettings(value: unknown): SecuritySettings {
 // SharedPreferences) rather than behind the vault's device key: the PIN record
 // and lockout must be readable before that key has been authenticated, and the
 // record is only a stretched hash.
+/** A secure-store read that tells "not there" apart from "could not be read". */
+export type StoredRead<T> =
+  { state: 'present'; value: T } | { state: 'absent' } | { state: 'unreadable' };
+
 const SETTINGS_ENTRY = 'securevault.settings';
 const PIN_ENTRY = 'securevault.pin';
 const LOCKOUT_ENTRY = 'securevault.lockout';
@@ -110,15 +114,30 @@ export const sessionStorage = {
   },
   saveLockout: (state: LockoutState) =>
     SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options),
-  async loadPinRecord(): Promise<string | null> {
+  /**
+   * Whether a PIN record exists, kept apart from a store that refused the
+   * read: an unreadable record is not a missing one, and setup must never
+   * replace a PIN it could not see.
+   */
+  async readPinRecord(): Promise<StoredRead<string>> {
     try {
-      return await SecureStore.getItemAsync(PIN_ENTRY, options);
+      const record = await SecureStore.getItemAsync(PIN_ENTRY, options);
+      return record === null ? { state: 'absent' } : { state: 'present', value: record };
     } catch {
-      return null;
+      return { state: 'unreadable' };
     }
   },
+  /** The PIN record, or null when there is none; rejects with `PIN_UNREADABLE` when the store refused. */
+  async loadPinRecord(): Promise<string | null> {
+    const read = await sessionStorage.readPinRecord();
+    if (read.state === 'unreadable') {
+      throw Object.assign(new Error('The PIN record could not be read.'), {
+        code: 'PIN_UNREADABLE',
+      });
+    }
+    return read.state === 'present' ? read.value : null;
+  },
   savePinRecord: (record: string) => SecureStore.setItemAsync(PIN_ENTRY, record, options),
-  hasPinRecord: async () => (await sessionStorage.loadPinRecord()) !== null,
   clear: async () => {
     await Promise.all(
       [SETTINGS_ENTRY, PIN_ENTRY, LOCKOUT_ENTRY].map((entry) =>

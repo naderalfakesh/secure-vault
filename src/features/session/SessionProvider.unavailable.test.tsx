@@ -1,0 +1,283 @@
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
+import { AppState, type AppStateStatus, Text } from 'react-native';
+
+import { hashPasscode } from '../auth/passcode';
+import vault from '../../../modules/expo-vault';
+import { SessionProvider, useSession } from './SessionProvider';
+
+const secureStoreMock = SecureStore as unknown as { __reset(): void };
+const vaultMock = vault as unknown as { reset(): void };
+const PIN_ENTRY = 'securevault.pin';
+
+function Probe() {
+  const session = useSession();
+  return (
+    <>
+      <Text testID="status">{session.status}</Text>
+      <Text testID="error">{session.error ?? ''}</Text>
+      <Text testID="failures">{String(session.lockout.failures)}</Text>
+      <Text testID="held">{String(session.setupHeld)}</Text>
+      <Text onPress={() => void session.retry()}>run retry</Text>
+      <Text onPress={() => void session.setUp('123456')}>run setup</Text>
+      <Text onPress={() => void session.setUp('123456', { holdForOnboarding: true })}>
+        run held setup
+      </Text>
+      <Text onPress={session.finishSetup}>run finish</Text>
+      <Text onPress={() => void session.unlockWithPin('123456')}>run pin ok</Text>
+      <Text onPress={() => void session.eraseVault()}>run erase</Text>
+    </>
+  );
+}
+
+const renderProbe = () =>
+  render(
+    <SessionProvider>
+      <Probe />
+    </SessionProvider>,
+  );
+
+async function lockedVault() {
+  await vault.createVault();
+  await vault.put('_key_probe', 'ok');
+  await SecureStore.setItemAsync(PIN_ENTRY, hashPasscode('123456', { iterations: 64 }));
+}
+
+/** Makes the secure store refuse to read the PIN record until `restore` is called. */
+function failPinReads() {
+  const getItem = SecureStore.getItemAsync;
+  return jest.spyOn(SecureStore, 'getItemAsync').mockImplementation(async (key, options) => {
+    if (key === PIN_ENTRY) throw new Error('User interaction is not allowed.');
+    return getItem(key, options);
+  });
+}
+
+const keyReadFailure = () =>
+  Object.assign(new Error('KeyStore load failed'), { code: 'HAS_VAULT_FAILED' });
+
+describe('SessionProvider vault unavailable', () => {
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('never sends a vault whose key cannot be read to setup', async () => {
+    await lockedVault();
+    jest.spyOn(vault, 'hasVault').mockRejectedValue(keyReadFailure());
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(createVault).not.toHaveBeenCalled();
+  });
+
+  it('is unavailable when the key read fails on a fresh install too', async () => {
+    jest.spyOn(vault, 'hasVault').mockRejectedValue(keyReadFailure());
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+  });
+
+  it('is unavailable when the PIN record cannot be read next to a key', async () => {
+    await lockedVault();
+    failPinReads();
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+  });
+
+  it('is unavailable when the PIN record cannot be read without a key', async () => {
+    failPinReads();
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+  });
+
+  it('opens the lock screen once a transient key failure clears and the user tries again', async () => {
+    await lockedVault();
+    const hasVault = jest.spyOn(vault, 'hasVault').mockRejectedValueOnce(keyReadFailure());
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await fireEvent.press(view.getByText('run retry'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(hasVault).toHaveBeenCalledTimes(2);
+  });
+
+  it('stays unavailable while the read keeps failing, and writes nothing', async () => {
+    await lockedVault();
+    const reads = failPinReads();
+    const save = jest.spyOn(SecureStore, 'setItemAsync');
+    const createVault = jest.spyOn(vault, 'createVault');
+    const put = jest.spyOn(vault, 'put');
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    await act(async () => {
+      await fireEvent.press(view.getByText('run retry'));
+    });
+
+    expect(view.getByTestId('status')).toHaveTextContent('unavailable');
+    expect(save).not.toHaveBeenCalledWith(PIN_ENTRY, expect.anything(), expect.anything());
+    expect(createVault).not.toHaveBeenCalled();
+    expect(put).not.toHaveBeenCalled();
+    reads.mockRestore();
+  });
+
+  it('tries again once by itself when the app returns to the foreground', async () => {
+    await lockedVault();
+    let onChange: (state: AppStateStatus) => void = () => {};
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+      onChange = listener as (state: AppStateStatus) => void;
+      return { remove: () => {} } as ReturnType<typeof AppState.addEventListener>;
+    });
+    const hasVault = jest.spyOn(vault, 'hasVault').mockRejectedValueOnce(keyReadFailure());
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await act(async () => onChange('background'));
+    expect(hasVault).toHaveBeenCalledTimes(1);
+    await act(async () => onChange('active'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(hasVault).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not count an unreadable PIN record as a wrong PIN', async () => {
+    await lockedVault();
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+
+    const reads = failPinReads();
+    await act(async () => {
+      await fireEvent.press(view.getByText('run pin ok'));
+    });
+    await waitFor(() => expect(view.getByTestId('error')).toHaveTextContent(/could not be read/));
+    expect(view.getByTestId('failures')).toHaveTextContent('0');
+    expect(view.getByTestId('status')).toHaveTextContent('locked');
+    reads.mockRestore();
+  });
+});
+
+describe('SessionProvider setup re-check', () => {
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('stops setup and shows unavailable when the key read fails right before it', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    jest.spyOn(vault, 'hasVault').mockRejectedValue(keyReadFailure());
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).toBeNull();
+  });
+
+  it('stops setup when the PIN record read fails right before it', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    const reads = failPinReads();
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+    expect(createVault).not.toHaveBeenCalled();
+    reads.mockRestore();
+  });
+
+  it('keeps a key that appeared after launch instead of creating a new one', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await vault.createVault();
+    await vault.put('file_legacy', 'ciphertext');
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await vault.get('file_legacy')).toBe('ciphertext');
+  });
+
+  it('goes to the lock screen instead of replacing the PIN of a vault that has one', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await lockedVault();
+    const record = await SecureStore.getItemAsync(PIN_ENTRY);
+    const createVault = jest.spyOn(vault, 'createVault');
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(createVault).not.toHaveBeenCalled();
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).toBe(record);
+  });
+
+  it('replaces a PIN that an erase could not remove once the vault is empty', async () => {
+    await lockedVault();
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    await fireEvent.press(view.getByText('run pin ok'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    const old = await SecureStore.getItemAsync(PIN_ENTRY);
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    const remove = SecureStore.deleteItemAsync;
+    jest
+      .spyOn(SecureStore, 'deleteItemAsync')
+      .mockImplementation((key) =>
+        key === PIN_ENTRY ? Promise.reject(new Error('errSecInteractionNotAllowed')) : remove(key),
+      );
+    await act(async () => {
+      await fireEvent.press(view.getByText('run erase'));
+    });
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBe(old);
+  });
+
+  it('holds setup on its last step until the onboarding finishes', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+
+    await fireEvent.press(view.getByText('run held setup'));
+    await waitFor(() => expect(view.getByTestId('held')).toHaveTextContent('true'));
+    expect(view.getByTestId('status')).toHaveTextContent('setup');
+    expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBeNull();
+
+    await fireEvent.press(view.getByText('run finish'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(view.getByTestId('held')).toHaveTextContent('false');
+  });
+
+  it('ignores a finish when no setup is being held', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+
+    await fireEvent.press(view.getByText('run finish'));
+    await act(async () => {});
+
+    expect(view.getByTestId('status')).toHaveTextContent('setup');
+  });
+});
