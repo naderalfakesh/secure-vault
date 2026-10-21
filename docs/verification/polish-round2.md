@@ -118,6 +118,23 @@ survive a retry, a connection left open after its setup failed. The QA
 case's real cause could not be reproduced without a simulator, so it is
 listed for native QA.
 
+## Review round 1
+
+| Finding                                                           | Fix                                                                                                            | Commit    |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------- |
+| M1 `allocateBytes` could clear the picked backup in our own cache | No clearing. Free is `usableSpace` capped by allocatable minus our own cache (`BackupContainer.writableBytes`) | `ed56aa4` |
+| L1 `getAllocatableBytes` exceptions                               | Caught; falls back to `usableSpace`                                                                            | `ed56aa4` |
+| L2 low-storage reserve                                            | Documented in `docs/SECURITY.md` and above                                                                     | `ed56aa4` |
+| L3 pre-wipe bound overstated                                      | Twice the first restored entry's payload, on both platforms                                                    | `3f2340e` |
+| L4 stalled content provider                                       | 8 s timeout (`IMPORT_COPY_TIMEOUT`); a copy that settles later is removed then                                 | `2f43c2b` |
+| L5 ML Kit wording                                                 | One disclosure everywhere, never "anonymous" (owner keeps ML Kit)                                              | `5148344` |
+
+The harness rerun (`t_131b87be/logs-polish2-r1/`) gives 0 FAIL on the JVM
+and Catalyst, with 0 parity differences. In the disk rows the pre-wipe bound
+for G-and is now 208 bytes, against 924 190 before. A new
+`writable-excludes-own-cache` unit row passes. The Android
+`:expo-vault:compileDebugKotlin` passed again; the build output was removed.
+
 ## Evidence
 
 - `npm run validate` exits 0: prettier, eslint, tsc, 682 Jest tests in 80
