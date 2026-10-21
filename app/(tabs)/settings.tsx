@@ -24,6 +24,10 @@ type Appearance = 'system' | 'light' | 'dark';
 
 const APP_VERSION = '2.0.0';
 
+// The erase finished, but the old PIN record survived both delete attempts.
+const PIN_NOT_CLEARED =
+  'Vault emptied, but the old PIN could not be removed. Set up the vault again now with a new PIN.';
+
 // Shown once the vault is unlocked; it names nothing about the vault.
 const EXPORT_STOPPED =
   'The backup was cancelled before it could be shared. Nothing left the vault.';
@@ -268,11 +272,15 @@ export default function SettingsScreen() {
           onPress: async () => {
             setBusy('clear');
             try {
-              await backupService.exclusive('erase', async () => {
+              const pinCleared = await backupService.exclusive('erase', async () => {
                 await documentService.eraseEverything();
-                await eraseVault();
+                return eraseVault();
               });
-              toast.show({ message: 'Vault emptied' });
+              toast.show(
+                pinCleared
+                  ? { message: 'Vault emptied' }
+                  : { message: PIN_NOT_CLEARED, tone: 'danger' },
+              );
             } catch (e) {
               toast.show({
                 message: describeBackupError(e, 'Could not clear the vault.'),

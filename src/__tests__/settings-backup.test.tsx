@@ -3,7 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
-import { AppState, type AppStateStatus, Text } from 'react-native';
+import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import vault from '../../modules/expo-vault';
@@ -392,5 +392,54 @@ describe('Settings backup and the lock gate', () => {
         tone: 'danger',
       });
     });
+  });
+});
+
+describe('Settings "Delete everything"', () => {
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  async function eraseFromSettings() {
+    const view = await renderUnlocked();
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const destructive = buttons?.find((button) => button.style === 'destructive');
+      void destructive?.onPress?.();
+    });
+    await act(async () => {
+      await fireEvent.press(view.getByText('Delete everything'));
+    });
+    await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
+    return view;
+  }
+
+  it('reports the erase', async () => {
+    const view = await eraseFromSettings();
+
+    await waitFor(() => expect(view.getByText('Vault emptied')).toBeOnTheScreen());
+  });
+
+  it('still reports the erase and asks for setup when the old PIN cannot be removed', async () => {
+    const remove = SecureStore.deleteItemAsync;
+    jest
+      .spyOn(SecureStore, 'deleteItemAsync')
+      .mockImplementation((key) =>
+        key === 'securevault.pin' ? Promise.reject(new Error('refused')) : remove(key),
+      );
+
+    const view = await eraseFromSettings();
+
+    await waitFor(() =>
+      expect(
+        view.getByText(
+          'Vault emptied, but the old PIN could not be removed. Set up the vault again now with a new PIN.',
+        ),
+      ).toBeOnTheScreen(),
+    );
   });
 });

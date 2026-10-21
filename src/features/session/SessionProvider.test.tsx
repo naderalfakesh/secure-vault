@@ -333,6 +333,51 @@ describe('SessionProvider session capture', () => {
     });
     expect(session.notice).toBeNull();
   });
+
+  it('retries a refused PIN record delete once during an erase', async () => {
+    await unlocked();
+    const remove = SecureStore.deleteItemAsync;
+    let refusals = 1;
+    const deleteItem = jest.spyOn(SecureStore, 'deleteItemAsync').mockImplementation((key) => {
+      if (key === 'securevault.pin' && refusals > 0) {
+        refusals -= 1;
+        return Promise.reject(new Error('errSecInteractionNotAllowed'));
+      }
+      return remove(key);
+    });
+
+    let cleared: boolean | undefined;
+    await act(async () => {
+      cleared = await session.eraseVault();
+    });
+
+    expect(cleared).toBe(true);
+    expect(deleteItem.mock.calls.filter(([key]) => key === 'securevault.pin')).toHaveLength(2);
+    expect(await SecureStore.getItemAsync('securevault.pin')).toBeNull();
+    expect(session.status).toBe('setup');
+    deleteItem.mockRestore();
+  });
+
+  it('still erases but says so when the PIN record cannot be deleted twice', async () => {
+    await unlocked();
+    const remove = SecureStore.deleteItemAsync;
+    const deleteItem = jest
+      .spyOn(SecureStore, 'deleteItemAsync')
+      .mockImplementation((key) =>
+        key === 'securevault.pin'
+          ? Promise.reject(new Error('errSecInteractionNotAllowed'))
+          : remove(key),
+      );
+
+    let cleared: boolean | undefined;
+    await act(async () => {
+      cleared = await session.eraseVault();
+    });
+
+    expect(cleared).toBe(false);
+    expect(session.status).toBe('setup');
+    deleteItem.mockRestore();
+  });
 });
 
 describe('SessionProvider PIN lockout across relaunches', () => {

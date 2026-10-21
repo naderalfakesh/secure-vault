@@ -79,8 +79,13 @@ export type SessionContextValue = {
   notice: SessionNotice | null;
   postNotice: (notice: SessionNotice) => void;
   dismissNotice: () => void;
-  /** Forget the PIN, settings, and lockout after the vault was emptied; returns to setup. */
-  eraseVault: () => Promise<void>;
+  /**
+   * Forget the PIN, settings, and lockout after the vault was emptied; returns
+   * to setup. Resolves false when the secure store refused to delete them,
+   * also on a second try: the old PIN then still opens the empty vault after a
+   * relaunch until setup replaces it.
+   */
+  eraseVault: () => Promise<boolean>;
   /** Last unlock or setup failure, cleared on the next attempt. */
   error: string | null;
 };
@@ -355,12 +360,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [changeStatus]);
 
   const eraseVault = useCallback(async () => {
-    await sessionStorage.clear().catch(() => {});
+    // expo-secure-store 58 rejects a delete the Keychain refuses; one retry
+    // covers a transient refusal, and the caller tells the user otherwise.
+    const cleared = await sessionStorage
+      .clear()
+      .catch(() => sessionStorage.clear())
+      .then(
+        () => true,
+        () => false,
+      );
     setSettings(DEFAULT_SETTINGS);
     applyLockout(EMPTY_LOCKOUT);
     setError(null);
     setNotice(null);
     changeStatus('setup');
+    return cleared;
   }, [applyLockout, changeStatus]);
 
   const withoutAutoLock = useCallback(

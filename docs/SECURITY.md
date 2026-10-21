@@ -88,10 +88,12 @@ creates `_database_key` and an empty `securevault.db` nor triggers a device
 key prompt. The lists show no documents meanwhile. A successful setup lifts
 this before the app unlocks, and the first screen behind the lock then
 creates the key and the index. The hold lives in memory; after a relaunch
-the cleared PIN record sends the app to setup anyway. If clearing the PIN
-record failed, the old PIN still unlocks after a relaunch, and the empty
-vault then behaves as a first run: the first screen creates a new key and
-index without setup.
+the cleared PIN record sends the app to setup anyway. A refused delete of
+the PIN record is tried once more; if it fails again, the erase is still
+reported, with a sentence that the old PIN could not be removed and the
+vault should be set up again now. Until setup replaces it, the old PIN still
+unlocks after a relaunch, and the empty vault then behaves as a first run:
+the first screen creates a new key and index without setup.
 
 A restore moves the index in under a new name and then records it in
 `_database_file`. If recording the name fails, the file is moved back out of
