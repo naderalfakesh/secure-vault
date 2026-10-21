@@ -411,8 +411,11 @@ describe('Settings "Delete everything"', () => {
       const destructive = buttons?.find((button) => button.style === 'destructive');
       void destructive?.onPress?.();
     });
+    await fireEvent.press(view.getByText('Delete everything'));
+    // The sheet explains first; its button opens the native destructive alert.
+    expect(view.getByText(/and the vault index are erased from this phone/)).toBeOnTheScreen();
     await act(async () => {
-      await fireEvent.press(view.getByText('Delete everything'));
+      await fireEvent.press(view.getByRole('button', { name: 'Delete everything' }));
     });
     await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
     return view;

@@ -36,6 +36,7 @@ const routes = {
     'documents/[id]': stub('Document detail'),
     'documents/add': stub('Add document'),
     'settings/change-pin': stub('Change PIN'),
+    'settings/auto-lock': stub('Auto-lock page'),
     'setup/index': stub('Welcome'),
     'setup/pin': stub('Choose a PIN'),
   },
@@ -132,5 +133,13 @@ describe('lock navigation', () => {
       fireEvent.press(screen.getByRole('button', { name: 'Scan or import a document' })),
     );
     await screen.findByText('Add document');
+  });
+
+  it('never opens the Auto-lock page past the lock gate', async () => {
+    jest.spyOn(vaultMock, 'unlockWithBiometrics').mockResolvedValue(false);
+    await renderRouter(routes, { initialUrl: '/settings/auto-lock' });
+
+    await screen.findByText(/enter your PIN/);
+    expect(screen.queryByText('Auto-lock page')).toBeNull();
   });
 });

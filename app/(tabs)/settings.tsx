@@ -2,21 +2,27 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
-import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
+import Constants from 'expo-constants';
+import { Alert, Linking, Platform, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
 import {
   Button,
-  Card,
+  Group,
+  Icon,
   ListRow,
   Screen,
   SegmentedControl,
   Sheet,
+  TAB_BAR_BOTTOM,
+  TAB_BAR_HEIGHT,
   Text,
   useToast,
 } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
-import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
+import { autoLockLabel } from '@/features/session/settings';
+import { biometryName } from '@/features/auth/lockCopy';
 import { selectIntelligence } from '@/features/intelligence';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import {
@@ -30,7 +36,23 @@ import { documentService } from '@/services/DocumentService';
 import { type AppearancePreference, setAppearance, useAppearance } from '@/theme/appearance';
 import { formatFileSize } from '@/utils/format';
 
-const APP_VERSION = '2.0.0';
+const SOURCE_URL = 'https://github.com/naderalfakesh/secure-vault';
+
+/** "1.0.0 (12)": the app version, with the build number when the binary has one. */
+function appVersion(): string {
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const build = Platform.select({
+    ios: Constants.expoConfig?.ios?.buildNumber,
+    android: Constants.expoConfig?.android?.versionCode?.toString(),
+  });
+  return build ? `${version} (${build})` : version;
+}
+
+function eraseSubject(count: number | null): string {
+  if (count === null || count === 0) return 'All documents';
+  if (count === 1) return 'The 1 document';
+  return `All ${count} documents`;
+}
 
 const APPEARANCE_CHOICES: { value: AppearancePreference; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -58,7 +80,10 @@ export default function SettingsScreen() {
     captureSession,
     postNotice,
   } = useSession();
-  const [autoLockSheet, setAutoLockSheet] = useState(false);
+  // The Delete everything sheet, with the number of documents it erases.
+  const [erase, setErase] = useState<{ count: number | null } | null>(null);
+  const insets = useSafeAreaInsets();
+  const bottomSpace = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insets.bottom + 24;
   const [engine, setEngine] = useState<string>('');
   // The lock unmounts this screen while an export or restore may still be running.
   const mounted = useRef(true);
@@ -257,6 +282,17 @@ export default function SettingsScreen() {
     }
   }, [restore, restorePassphrase, toast, captureSession, postNotice]);
 
+  const openErase = useCallback(() => {
+    setErase({ count: null });
+    documentService
+      .countByCategory()
+      .then((counts) => {
+        const count = Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0);
+        setErase((current) => (current ? { count } : current));
+      })
+      .catch(() => {});
+  }, []);
+
   const clearAll = useCallback(() => {
     // Destructive and irreversible: the one place a native confirmation is right.
     Alert.alert(
@@ -268,6 +304,7 @@ export default function SettingsScreen() {
           text: 'Delete everything',
           style: 'destructive',
           onPress: async () => {
+            setErase(null);
             setBusy('clear');
             try {
               const pinCleared = await backupService.exclusive('erase', async () => {
@@ -295,28 +332,25 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text variant="title1" accessibilityRole="header">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomSpace }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
           Settings
         </Text>
 
-        <Section title="Security">
-          <ListRow
-            icon="lock"
-            title="Lock now"
-            subtitle="Requires biometrics or your PIN to reopen"
-            onPress={lock}
-          />
+        <Group header="Security" separatorInset="content">
           <ListRow
             icon="clock"
             title="Auto-lock"
-            subtitle={autoLockDescription(settings.autoLockSeconds)}
-            onPress={() => setAutoLockSheet(true)}
+            value={autoLockLabel(settings.autoLockSeconds)}
+            onPress={() => router.push('/settings/auto-lock')}
           />
           <ListRow
             icon="eyeOff"
-            title="Privacy screen"
-            subtitle="Cover the app in the app switcher and block screenshots"
+            title="Privacy cover"
+            subtitle="Hide the vault in the app switcher and block screenshots"
             toggle={{
               value: settings.privacyScreen,
               onValueChange: (value) => void updateSettings({ privacyScreen: value }),
@@ -324,9 +358,9 @@ export default function SettingsScreen() {
           />
           {biometry !== 'none' ? (
             <ListRow
-              icon="shield"
+              icon="share"
               title="Confirm before sharing"
-              subtitle="Ask for biometrics again before a file leaves the vault"
+              subtitle={`Ask for ${biometryName(biometry)} before a copy leaves the vault`}
               toggle={{
                 value: settings.biometricsForShare,
                 onValueChange: (value) => void updateSettings({ biometricsForShare: value }),
@@ -334,25 +368,14 @@ export default function SettingsScreen() {
             />
           ) : null}
           <ListRow
-            icon="edit"
+            icon="key"
             title="Change PIN"
             onPress={() => router.push('/settings/change-pin')}
-            divider={false}
           />
-        </Section>
+          <ListRow icon="lock" title="Lock now" onPress={lock} trailing={null} />
+        </Group>
 
-        <Section title="Appearance">
-          <View style={styles.appearance}>
-            <SegmentedControl
-              accessibilityLabel="Appearance"
-              options={APPEARANCE_CHOICES}
-              value={appearance}
-              onChange={(option) => void setAppearance(option)}
-            />
-          </View>
-        </Section>
-
-        <Section title="Backup">
+        <Group header="Backup" separatorInset="content">
           <ListRow
             icon="backup"
             title="Export vault"
@@ -374,64 +397,88 @@ export default function SettingsScreen() {
             }
             onPress={pickBackup}
             disabled={blocked}
-            divider={false}
           />
-        </Section>
+        </Group>
 
-        <Section title="About">
-          <ListRow
-            icon="shield"
-            title="How your data is protected"
-            subtitle={Platform.select({
-              ios: 'AES-256-GCM with a key kept in the iOS Keychain, behind Face ID, Touch ID, or your passcode',
-              default: 'AES-256-GCM with a non-exportable key in the Android Keystore',
-            })}
-          />
+        <Group header="Appearance">
+          <View style={styles.appearance}>
+            <SegmentedControl
+              accessibilityLabel="Appearance"
+              options={APPEARANCE_CHOICES}
+              value={appearance}
+              onChange={(option) => void setAppearance(option)}
+            />
+          </View>
+        </Group>
+
+        <Group header="Suggestions">
           <ListRow
             icon="sparkles"
-            title="Suggestions"
+            tint="neutral"
+            title="Detail suggestions"
             subtitle={
               engine === 'heuristic'
-                ? 'On-device rules read dates, numbers, and keywords. No model, nothing uploaded.'
+                ? 'Text patterns read on this device. No on-device model is used yet.'
                 : engine
                   ? `On-device model: ${engine}`
                   : 'Checking'
             }
           />
-          <ListRow icon="info" title="Version" subtitle={APP_VERSION} divider={false} />
-        </Section>
+        </Group>
 
-        <Section title="Danger zone">
+        <Group header="About" separatorInset="content">
+          <ListRow
+            icon="shield"
+            tint="neutral"
+            title="How your data is protected"
+            subtitle={Platform.select({
+              ios: 'Encrypted on this phone with AES-256-GCM. The key is kept by the iOS Keychain.',
+              default:
+                'Encrypted on this phone with AES-256-GCM. The key is kept by the Android Keystore.',
+            })}
+          />
+          <ListRow
+            icon="document"
+            tint="neutral"
+            title="Source code"
+            value="GitHub"
+            onPress={() => void Linking.openURL(SOURCE_URL).catch(() => {})}
+            trailing={null}
+          />
+          <ListRow icon="info" tint="neutral" title="Version" value={appVersion()} />
+        </Group>
+
+        <Group header="Danger zone">
           <ListRow
             icon="trash"
             title="Delete everything"
-            subtitle="Erases all documents from this device"
-            tone="danger"
-            onPress={clearAll}
+            subtitle="Erase every document from this phone"
+            destructive
+            onPress={openErase}
             disabled={blocked}
-            divider={false}
           />
-        </Section>
+        </Group>
       </ScrollView>
 
-      <Sheet visible={autoLockSheet} onClose={() => setAutoLockSheet(false)} title="Auto-lock">
-        <Text variant="subheadline" tone="secondary">
-          How long the vault stays open after you leave the app.
-        </Text>
-        <Card>
-          {AUTO_LOCK_OPTIONS.map((option, index) => (
-            <ListRow
-              key={option}
-              title={autoLockLabel(option)}
-              onPress={() => {
-                void updateSettings({ autoLockSeconds: option });
-                setAutoLockSheet(false);
-              }}
-              checked={settings.autoLockSeconds === option}
-              divider={index < AUTO_LOCK_OPTIONS.length - 1}
-            />
-          ))}
-        </Card>
+      <Sheet visible={erase !== null} onClose={() => setErase(null)}>
+        <View style={styles.erase}>
+          <View style={styles.eraseIcon}>
+            <Icon name="trash" size={26} tone="danger" />
+          </View>
+          <Text variant="title2" accessibilityRole="header">
+            Delete everything?
+          </Text>
+          <Text variant="callout" tone="secondary">
+            {`${eraseSubject(erase?.count ?? null)} and the vault index are erased from this phone. This can’t be undone. Backups you saved elsewhere aren’t affected.`}
+          </Text>
+          <Button
+            label="Delete everything"
+            variant="destructive"
+            // The native alert opens over the sheet; the sheet closes once confirmed.
+            onPress={clearAll}
+          />
+          <Button label="Cancel" variant="plain" onPress={() => setErase(null)} />
+        </View>
       </Sheet>
 
       <Sheet
@@ -536,28 +583,26 @@ export default function SettingsScreen() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.section}>
-      <Text variant="label" tone="tertiary" style={styles.sectionTitle} accessibilityRole="header">
-        {title}
-      </Text>
-      <Card>{children}</Card>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create((theme) => ({
   content: {
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.xs,
     gap: theme.spacing.lg,
-    paddingBottom: theme.spacing.xxl,
   },
-  section: {
-    gap: theme.spacing.xs,
-  },
-  sectionTitle: {
+  title: {
     paddingHorizontal: theme.spacing.xxs,
+  },
+  erase: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.md,
+  },
+  eraseIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: theme.radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.dangerMuted,
   },
   appearance: {
     padding: theme.spacing.md,

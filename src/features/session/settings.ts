@@ -9,7 +9,7 @@ export type AutoLockSeconds = (typeof AUTO_LOCK_OPTIONS)[number];
 export interface SecuritySettings {
   /** Seconds in the background before the vault locks; 0 = immediately, -1 = never. */
   autoLockSeconds: AutoLockSeconds;
-  /** Blur the app in the switcher and block screenshots. */
+  /** Privacy cover: a solid cover in the app switcher, and no screenshots. */
   privacyScreen: boolean;
   /** Ask for biometrics again before sharing a decrypted file. */
   biometricsForShare: boolean;
@@ -27,6 +27,12 @@ export function autoLockLabel(seconds: AutoLockSeconds): string {
   if (seconds < 60) return `${seconds} seconds`;
   const minutes = seconds / 60;
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+/** A choice on the Auto-lock page: "Immediately", "After 5 minutes", "Never". */
+export function autoLockChoice(seconds: AutoLockSeconds): string {
+  if (seconds === 0 || seconds === -1) return autoLockLabel(seconds);
+  return `After ${autoLockLabel(seconds)}`;
 }
 
 /** Sentence for the Settings row, e.g. "After 1 minute in the background". */
