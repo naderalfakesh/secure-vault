@@ -1,9 +1,18 @@
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, PinDots, PinPad, Screen, Text, useToast } from '@/components/ui';
+import {
+  Button,
+  Icon,
+  PinDots,
+  PinPad,
+  Screen,
+  Text,
+  usePinPadMetrics,
+  useToast,
+} from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { formatCountdown, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { lockRemainingMs } from '@/features/auth/lockout';
@@ -25,6 +34,7 @@ const steps: Record<Stage, number> = { current: 1, next: 2, confirm: 3, saving: 
 export default function ChangePinScreen() {
   const { changePin, error, lockout } = useSession();
   const toast = useToast();
+  const { compact } = usePinPadMetrics();
   const [stage, setStage] = useState<Stage>('current');
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -116,7 +126,14 @@ export default function ChangePinScreen() {
         </Text>
         <View style={styles.cancel} />
       </View>
-      <View style={styles.body}>
+      {/* On a short window or at large text the prompt scrolls above the keypad. */}
+      <ScrollView
+        style={styles.bodyScroll}
+        contentContainerStyle={styles.body(compact)}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        testID="pin-header"
+      >
         <Text variant="title2" align="center" accessibilityRole="header">
           {title}
         </Text>
@@ -140,14 +157,14 @@ export default function ChangePinScreen() {
           ) : null}
         </View>
         <View
-          style={[styles.dots, lockedOut && styles.dimmed]}
+          style={[styles.dots(compact), lockedOut && styles.dimmed]}
           accessibilityElementsHidden={lockedOut}
           importantForAccessibility={lockedOut ? 'no-hide-descendants' : 'auto'}
         >
           <PinDots filled={pin.length} error={flash} shake={shake} />
         </View>
-      </View>
-      <View style={styles.pad}>
+      </ScrollView>
+      <View style={styles.pad(compact)}>
         <PinPad onKey={press} disabled={lockedOut} busy={stage === 'saving'} />
       </View>
     </Screen>
@@ -169,13 +186,16 @@ const styles = StyleSheet.create((theme) => ({
   step: {
     fontWeight: '600',
   },
-  body: {
+  bodyScroll: {
     flex: 1,
+  },
+  body: (compact: boolean) => ({
     alignItems: 'center',
-    paddingTop: theme.spacing.xxxl,
+    paddingTop: compact ? theme.spacing.lg : theme.spacing.xxxl,
+    paddingBottom: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     gap: 6,
-  },
+  }),
   subtitle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -186,13 +206,13 @@ const styles = StyleSheet.create((theme) => ({
   subtitleText: {
     flexShrink: 1,
   },
-  dots: {
-    marginTop: 36,
-  },
+  dots: (compact: boolean) => ({
+    marginTop: compact ? theme.spacing.lg : 36,
+  }),
   dimmed: {
     opacity: 0.35,
   },
-  pad: {
-    paddingBottom: theme.spacing.xl,
-  },
+  pad: (compact: boolean) => ({
+    paddingBottom: compact ? theme.spacing.sm : theme.spacing.xl,
+  }),
 }));

@@ -1,9 +1,18 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, IconButton, PinDots, PinPad, Screen, Text } from '@/components/ui';
+import {
+  Button,
+  Icon,
+  IconButton,
+  PinDots,
+  PinPad,
+  Screen,
+  Text,
+  usePinPadMetrics,
+} from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { useBiometricAvailability } from '@/features/auth/biometricAvailability';
 import { choosePinHint, EASY_PIN_WARNING, isEasyPin } from '@/features/auth/onboardingCopy';
@@ -17,6 +26,7 @@ type Stage = 'create' | 'easy' | 'confirm' | 'saving';
 export default function CreatePinScreen() {
   const { setUp, error, vaultExists, vaultEmpty, biometry } = useSession();
   const biometrics = useBiometricAvailability();
+  const { compact } = usePinPadMetrics();
   // After "Delete everything" the key stays but no documents do.
   const keepsDocuments = vaultExists && !vaultEmpty;
   const [stage, setStage] = useState<Stage>('create');
@@ -110,7 +120,14 @@ export default function CreatePinScreen() {
           </Text>
         )}
       </View>
-      <View style={styles.body}>
+      {/* On a short window or at large text the prompt scrolls above the keypad. */}
+      <ScrollView
+        style={styles.bodyScroll}
+        contentContainerStyle={styles.body}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        testID="pin-header"
+      >
         {keepsDocuments ? (
           <View style={styles.badge}>
             <Icon name="key" size={28} tone="inverse" />
@@ -163,8 +180,8 @@ export default function CreatePinScreen() {
             />
           </View>
         ) : null}
-      </View>
-      <View style={styles.pad}>
+      </ScrollView>
+      <View style={styles.pad(compact)}>
         <PinPad onKey={press} disabled={stage === 'easy'} busy={stage === 'saving'} />
       </View>
     </Screen>
@@ -179,8 +196,11 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.sm,
   },
-  body: {
+  bodyScroll: {
     flex: 1,
+  },
+  body: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.lg,
@@ -214,7 +234,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.sm,
     marginTop: theme.spacing.sm,
   },
-  pad: {
-    paddingBottom: theme.spacing.lg,
-  },
+  pad: (compact: boolean) => ({
+    paddingTop: theme.spacing.xs,
+    paddingBottom: compact ? theme.spacing.sm : theme.spacing.lg,
+  }),
 }));

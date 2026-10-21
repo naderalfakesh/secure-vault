@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, type ViewInstance } from 'react-native';
+import { ScrollView, View, type ViewInstance } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, Mark, PinDots, PinPad, Screen, Text } from '@/components/ui';
+import {
+  Button,
+  Icon,
+  Mark,
+  PinDots,
+  PinPad,
+  Screen,
+  Text,
+  usePinPadMetrics,
+} from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import {
   biometricKeyLabel,
@@ -23,6 +32,7 @@ import { t } from '@/i18n';
 export default function LockScreen() {
   const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
   const security = useSecurityStatus();
+  const { compact } = usePinPadMetrics();
   const promptedRef = useRef(false);
   const [checking, setChecking] = useState(false);
   // Read the lockout on the first render, so the mark's first report to the
@@ -110,7 +120,15 @@ export default function LockScreen() {
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.hero}>
+      {/* The header takes what the keypad leaves; on a short window or at large
+        text it scrolls instead of sliding under the keys. */}
+      <ScrollView
+        style={styles.heroScroll}
+        contentContainerStyle={styles.hero(compact)}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        testID="lock-header"
+      >
         <View ref={markRef} collapsable={false} onLayout={() => reportMark(lockedOut)}>
           <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
         </View>
@@ -135,7 +153,7 @@ export default function LockScreen() {
           </Text>
         </View>
         <View
-          style={[styles.dots, lockedOut && styles.dimmed]}
+          style={[styles.dots(compact), lockedOut && styles.dimmed]}
           accessibilityElementsHidden={lockedOut}
           importantForAccessibility={lockedOut ? 'no-hide-descendants' : 'auto'}
         >
@@ -150,7 +168,7 @@ export default function LockScreen() {
             </Text>
           </View>
         )}
-      </View>
+      </ScrollView>
       <PinPad
         onKey={(key) => {
           setWrong(false);
@@ -162,7 +180,7 @@ export default function LockScreen() {
         disabled={lockedOut}
         busy={checking}
       />
-      <View style={styles.footer}>
+      <View style={styles.footer(compact)}>
         {lockedOut ? (
           // The pause covers the PIN only; the device's own unlock stays open.
           <Button
@@ -186,12 +204,15 @@ export default function LockScreen() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  hero: {
+  heroScroll: {
     flex: 1,
-    alignItems: 'center',
-    paddingTop: theme.spacing.xxxl,
-    paddingHorizontal: theme.spacing.lg,
   },
+  hero: (compact: boolean) => ({
+    alignItems: 'center',
+    paddingTop: compact ? theme.spacing.lg : theme.spacing.xxxl,
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+  }),
   title: {
     marginTop: theme.spacing.md,
   },
@@ -206,9 +227,9 @@ const styles = StyleSheet.create((theme) => ({
   subtitleText: {
     flexShrink: 1,
   },
-  dots: {
-    marginTop: 36,
-  },
+  dots: (compact: boolean) => ({
+    marginTop: compact ? theme.spacing.lg : 36,
+  }),
   dimmed: {
     opacity: 0.35,
   },
@@ -224,11 +245,11 @@ const styles = StyleSheet.create((theme) => ({
   bannerText: {
     flex: 1,
   },
-  footer: {
+  footer: (compact: boolean) => ({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
-    marginTop: 20,
-    marginBottom: theme.spacing.lg,
-  },
+    marginTop: compact ? theme.spacing.xs : 20,
+    marginBottom: compact ? theme.spacing.xs : theme.spacing.lg,
+  }),
 }));
