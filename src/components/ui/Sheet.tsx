@@ -15,7 +15,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { t } from '@/i18n';
 import { textScale } from '@/theme/tokens';
 
-import { GlassBackground, useGlass } from './Glass';
+import { GlassBackground, OnGlassContext, useGlass } from './Glass';
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -175,19 +175,21 @@ export function Sheet({
               </View>
             </View>
           ) : null}
-          {scroll ? (
-            <ScrollView
-              style={styles.body}
-              contentContainerStyle={styles.bodyContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              alwaysBounceVertical={false}
-            >
-              {children}
-            </ScrollView>
-          ) : (
-            children
-          )}
+          <OnGlassContext.Provider value={glass}>
+            {scroll ? (
+              <ScrollView
+                style={styles.body}
+                contentContainerStyle={styles.bodyContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                alwaysBounceVertical={false}
+              >
+                {children}
+              </ScrollView>
+            ) : (
+              children
+            )}
+          </OnGlassContext.Provider>
         </Animated.View>
       </View>
     </Modal>

@@ -2,10 +2,32 @@ import { fireEvent, render } from '@testing-library/react-native';
 
 import { lightColors } from '@/theme/colors';
 
+import { OnGlassContext } from '../Glass';
 import { PassphraseField } from '../PassphraseField';
 import { StrengthMeter } from '../StrengthMeter';
 
 describe('PassphraseField', () => {
+  it('sits on a solid surface with a hairline edge inside a glass sheet', async () => {
+    const view = await render(
+      <OnGlassContext.Provider value>
+        <PassphraseField label="Passphrase" value="" onChangeText={jest.fn()} />
+      </OnGlassContext.Provider>,
+    );
+    expect(view.getByTestId('passphrase-box')).toHaveStyle({
+      backgroundColor: lightColors.surface,
+      borderColor: lightColors.border,
+    });
+  });
+
+  it('keeps the muted fill outside glass', async () => {
+    const view = await render(
+      <PassphraseField label="Passphrase" value="" onChangeText={jest.fn()} />,
+    );
+    expect(view.getByTestId('passphrase-box')).toHaveStyle({
+      backgroundColor: lightColors.surfaceMuted,
+    });
+  });
+
   it('is a labelled secure field with no correction or capitalisation', async () => {
     const onChangeText = jest.fn();
     const view = await render(

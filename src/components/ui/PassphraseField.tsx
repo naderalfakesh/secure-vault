@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
+import { useOnGlass } from './Glass';
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -42,13 +43,16 @@ export function PassphraseField({
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const state = error ? 'error' : focused ? 'focused' : 'idle';
+  // On a glass sheet the field is a solid surface with a hairline edge, so
+  // the glass behind it never tints the field or bleeds around its corners.
+  const onGlass = useOnGlass();
 
   return (
     <View style={styles.field}>
       <Text variant="footnote" tone="secondary" style={styles.label}>
         {label}
       </Text>
-      <View style={styles.box(state)} testID="passphrase-box">
+      <View style={[styles.box(state), onGlass && styles.solid(state)]} testID="passphrase-box">
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -116,6 +120,10 @@ const styles = StyleSheet.create((theme) => ({
           ? theme.colors.primary
           : 'transparent',
     backgroundColor: theme.colors.surfaceMuted,
+  }),
+  solid: (state: 'idle' | 'focused' | 'error') => ({
+    backgroundColor: theme.colors.surface,
+    ...(state === 'idle' && { borderColor: theme.colors.border }),
   }),
   input: {
     flex: 1,

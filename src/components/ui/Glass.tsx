@@ -1,5 +1,5 @@
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { AccessibilityInfo, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -58,4 +58,14 @@ export function GlassBackground({ style }: { style?: StyleProp<ViewStyle> }) {
       style={[StyleSheet.absoluteFill, style]}
     />
   );
+}
+
+/**
+ * True inside a surface drawn with Liquid Glass (a sheet), so fields can sit
+ * on a solid surface of their own instead of letting the glass tint through.
+ */
+export const OnGlassContext = createContext(false);
+
+export function useOnGlass(): boolean {
+  return useContext(OnGlassContext);
 }
