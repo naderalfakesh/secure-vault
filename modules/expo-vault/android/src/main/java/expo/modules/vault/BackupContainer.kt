@@ -47,6 +47,8 @@ object BackupContainer {
         Exception("This device does not have enough free space to restore this backup (needs $needed bytes, has $available).")
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
     class RemovalException(reason: String) : Exception("The cache entry cannot be removed: $reason")
+    /** The caller asked to stop while the restore was still checking; nothing was handled. */
+    class CancelledException : Exception("The restore was cancelled before anything was changed.")
 
     /**
      * The one folder export plaintext may be staged in, `<cacheDir>/backup-staging`, or restore
@@ -515,17 +517,23 @@ object BackupContainer {
      * Every payload copy and plaintext lives in [staging], which is swept before anything is read
      * (a [StagingException] is thrown with the vault untouched) and again, best effort, when the
      * read ends either way.
+     *
+     * [cancelled] is asked once the key is derived (the KDF itself cannot be interrupted), before
+     * every entry of the verify pass, and before the preflight and the restore pass. A true answer
+     * throws [CancelledException] before [handle] has run. It is never asked once the restore
+     * pass has started, because [handle] may already have begun replacing the vault.
      */
     fun read(
         source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit = {},
         progress: (ReadPhase, Int, Int) -> Unit,
         preflight: (List<EntryInfo>) -> Unit = {},
+        cancelled: () -> Boolean = { false },
         handle: (Meta, File) -> Unit
     ) {
         sweep(staging)
         try {
-            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, preflight, handle)
+            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, preflight, cancelled, handle)
         } finally {
             try {
                 sweep(staging)
@@ -540,8 +548,10 @@ object BackupContainer {
         validateAll: (List<Meta>) -> Unit,
         progress: (ReadPhase, Int, Int) -> Unit,
         preflight: (List<EntryInfo>) -> Unit,
+        cancelled: () -> Boolean,
         handle: (Meta, File) -> Unit
     ) {
+        val stopIfCancelled = { if (cancelled()) throw CancelledException() }
         val layout = readLayout(source)
         val metas = layout.map { it.meta }
         metas.forEach(validate)
@@ -549,7 +559,7 @@ object BackupContainer {
         val header = readHeader(source)
         val key = deriveKey(passphrase, header.salt, header.iterations)
 
-        walk(source, scratch, validate, { done, total -> progress(ReadPhase.VERIFY, done, total) }) { meta, payload ->
+        walk(source, scratch, validate, { done, total -> progress(ReadPhase.VERIFY, done, total) }, stopIfCancelled) { meta, payload ->
             if (meta.kind == "c") {
                 verifyCheck(payload, key, scratch)
             } else {
@@ -560,7 +570,10 @@ object BackupContainer {
                 }
             }
         }
+        stopIfCancelled()
         preflight(layout)
+        // The last point a cancel is honoured: from here on [handle] may replace the vault.
+        stopIfCancelled()
         walk(source, scratch, validate, { done, total -> progress(ReadPhase.RESTORE, done, total) }) { meta, payload ->
             if (meta.kind == "c") {
                 verifyCheck(payload, key, scratch)
@@ -599,15 +612,17 @@ object BackupContainer {
     /**
      * One pass over the container: each entry's metadata is validated again,
      * its payload is copied to a temporary file that [visit] may read but not
-     * keep, and progress is reported per entry.
+     * keep, and progress is reported per entry. [beforeEntry] runs before each entry is read
+     * and may throw to end the pass.
      */
     private fun walk(
         source: File, scratch: File, validate: (Meta) -> Unit,
-        progress: (Int, Int) -> Unit, visit: (Meta, File) -> Unit
+        progress: (Int, Int) -> Unit, beforeEntry: () -> Unit = {}, visit: (Meta, File) -> Unit
     ) {
         RandomAccessFile(source, "r").use { input ->
             val header = readHeader(input)
             for (index in 0 until header.entries) {
+                beforeEntry()
                 // Lengths and metadata are checked again in case the file changed since the pre-pass.
                 val (meta, size) = readEntryHead(input, index)
                 validate(meta)

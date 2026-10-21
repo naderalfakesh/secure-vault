@@ -16,6 +16,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 import java.io.IOException
 import java.security.KeyStore
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -37,6 +38,11 @@ class ExpoVaultModule : Module() {
     // Callers of the prompt that is currently open, settled together from its
     // callback. Touched on the main thread only (runOnUiThread and the main executor).
     private val promptWaiters = mutableListOf<Promise>()
+    // Set by cancelRestore and read by the running restore between entries of its checking pass.
+    // importBackup clears it when it starts, so a cancel that arrived after an earlier restore
+    // ended cannot stop the next one; the JavaScript caller repeats a cancel on the restore's
+    // first progress event in case it landed before that.
+    private val restoreCancel = AtomicBoolean(false)
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
     }
@@ -284,8 +290,17 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        // Asks the running restore to stop before it removes anything. It is cooperative: the
+        // restore checks the flag between entries while it is still checking, so a cancel during
+        // the key derivation takes effect once that ends, and one after the checking pass has no
+        // effect at all. Returns at once; the restore rejects with BACKUP_CANCELLED if it stopped.
+        Function("cancelRestore") {
+            restoreCancel.set(true)
+        }
+
         AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise ->
             var cleared = false
+            restoreCancel.set(false)
             try {
                 // Decrypted entries may only land in the app's restore-staging cache folder.
                 val staging = BackupContainer.StagingDirectory.resolve(
@@ -305,7 +320,7 @@ class ExpoVaultModule : Module() {
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }, { layout ->
                     preflightRestore(layout)
-                }) { meta, plain ->
+                }, cancelled = { restoreCancel.get() }) { meta, plain ->
                     // The whole handler runs with the plaintext's removal guaranteed, so a
                     // key probe or wipe failure cannot leave a decrypted entry in the cache.
                     try {
@@ -359,6 +374,7 @@ class ExpoVaultModule : Module() {
                     VaultErrors.isKeyCode(code) -> promise.reject(code, if (cleared) partial else e.message, e)
                     cleared -> promise.reject("BACKUP_PARTIAL", partial, e)
                     e is OutOfMemoryError -> promise.reject("BACKUP_RESOURCE", RESOURCE_MESSAGE, e)
+                    e is BackupContainer.CancelledException -> promise.reject("BACKUP_CANCELLED", e.message, e)
                     e is BackupContainer.StagingException -> promise.reject("BACKUP_RESTORE_STAGING_INVALID", e.message, e)
                     e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
                     e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)

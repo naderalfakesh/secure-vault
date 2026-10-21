@@ -114,8 +114,9 @@ export interface SecureVault {
    * once, and the device must have the memory for the largest string entry
    * (BACKUP_RESOURCE, which also covers a header or entry name too large to
    * read) and the disk for the restored vault (BACKUP_NO_SPACE). A wrong
-   * passphrase (BACKUP_PASSPHRASE) or any of these leaves the vault
-   * untouched. A failure from the first removal on rejects with
+   * passphrase (BACKUP_PASSPHRASE), a cancel (BACKUP_CANCELLED, see
+   * `cancelRestore`) or any of these leaves the vault untouched. A failure
+   * from the first removal on rejects with
    * BACKUP_PARTIAL. Extra files land in `extraDir` and are listed in the
    * result. Payload copies and decrypted entries live only in `stagingDir`,
    * which must be the app cache's own `restore-staging` folder
@@ -128,6 +129,17 @@ export interface SecureVault {
     extraDir: string,
     stagingDir: string,
   ): Promise<BackupImportResult>;
+  /**
+   * Asks the running restore to stop before it removes anything; returns at
+   * once. The restore checks the request between entries while it is still
+   * checking (the `verify` phase), and once more before the wipe, then
+   * rejects with BACKUP_CANCELLED with the vault, its staging folder and the
+   * index untouched. A request during the key derivation takes effect when
+   * that ends; one after the checking pass is ignored. `importBackup` clears
+   * the request when it starts, so a caller that may have asked before the
+   * native call began asks again on the first progress event.
+   */
+  cancelRestore(): void;
   addListener(
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,

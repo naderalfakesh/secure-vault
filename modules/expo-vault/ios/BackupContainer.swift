@@ -15,6 +15,9 @@ enum BackupError: LocalizedError {
   /// The restore needs more disk than is free plus what the old vault frees;
   /// raised before anything is removed.
   case noSpace(needed: Int64, available: Int64)
+  /// The caller asked to stop while the restore was still checking; nothing
+  /// was handled.
+  case cancelled
 
   var errorDescription: String? {
     switch self {
@@ -25,7 +28,34 @@ enum BackupError: LocalizedError {
     case .resource(let reason): return "This device does not have enough memory to restore this backup: \(reason)."
     case .noSpace(let needed, let available):
       return "This device does not have enough free space to restore this backup (needs \(needed) bytes, has \(available))."
+    case .cancelled: return "The restore was cancelled before anything was changed."
     }
+  }
+}
+
+/// The cancel request for the running restore: set from the JavaScript thread
+/// by `cancelRestore`, read by the restore between entries of its checking
+/// pass on the module's queue.
+final class RestoreCancelFlag {
+  private let lock = NSLock()
+  private var requested = false
+
+  var isRequested: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return requested
+  }
+
+  func request() {
+    lock.lock()
+    requested = true
+    lock.unlock()
+  }
+
+  func reset() {
+    lock.lock()
+    requested = false
+    lock.unlock()
   }
 }
 
@@ -517,12 +547,20 @@ enum BackupContainer {
   /// Every payload copy and plaintext lives in `staging`, which is swept
   /// before anything is read (a staging error is thrown with the vault
   /// untouched) and again, best effort, when the read ends either way.
+  ///
+  /// `isCancelled` is asked once the key is derived (the KDF itself cannot be
+  /// interrupted), before every entry of the verify pass, and before the
+  /// preflight and the restore pass. A true answer throws
+  /// `BackupError.cancelled` before `handle` has run. It is never asked once
+  /// the restore pass has started, because `handle` may already have begun
+  /// replacing the vault.
   static func read(
     from source: URL, passphrase: String, staging: StagingDirectory, validate: (Meta) throws -> Void,
     validateAll: ([Meta]) throws -> Void = { _ in },
     progress: (ReadPhase, Int, Int) -> Void,
     preflight: ([EntryInfo]) throws -> Void = { _ in },
     memory: MemoryProbe = availableMemory,
+    isCancelled: () -> Bool = { false },
     handle: (Meta, URL) throws -> Void
   ) throws {
     try sweep(staging)
@@ -534,14 +572,23 @@ enum BackupContainer {
     let header = try readHeader(from: source, memory: memory)
     let key = try deriveKey(passphrase: passphrase, salt: try salt(of: header), iterations: header.kdf.iterations)
 
-    try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.verify, $0, $1) }) { meta, payload in
+    func stopIfCancelled() throws {
+      if isCancelled() { throw BackupError.cancelled }
+    }
+    try walk(
+      source, staging: staging, validate: validate, memory: memory, progress: { progress(.verify, $0, $1) },
+      beforeEntry: stopIfCancelled
+    ) { meta, payload in
       if meta.kind == "c" {
         try verifyCheck(payload, key: key, staging: staging)
       } else {
         do { try VaultCrypto.verifyFile(at: payload, key: key) } catch { throw BackupError.corrupt("entry \(meta.key)") }
       }
     }
+    try stopIfCancelled()
     try preflight(layout)
+    // The last point a cancel is honoured: from here on `handle` may replace the vault.
+    try stopIfCancelled()
     try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.restore, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
         try verifyCheck(payload, key: key, staging: staging)
@@ -570,15 +617,17 @@ enum BackupContainer {
 
   /// One pass over the container: each entry's metadata is validated again,
   /// its payload is copied to a temporary file that `visit` may read but not
-  /// keep, and progress is reported per entry.
+  /// keep, and progress is reported per entry. `beforeEntry` runs before each
+  /// entry is read and may throw to end the pass.
   private static func walk(
     _ source: URL, staging: StagingDirectory, validate: (Meta) throws -> Void, memory: MemoryProbe,
-    progress: Progress, visit: (Meta, URL) throws -> Void
+    progress: Progress, beforeEntry: () throws -> Void = {}, visit: (Meta, URL) throws -> Void
   ) throws {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
     let header = try readHeader(input, memory: memory)
     for index in 0..<header.entries {
+      try beforeEntry()
       // Lengths and metadata are checked again in case the file changed since the pre-pass.
       let (meta, size) = try readEntryHead(input, index: index, memory: memory)
       try validate(meta)

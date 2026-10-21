@@ -9,6 +9,12 @@ public class ExpoVaultModule: Module {
   /// `Data(contentsOf:)`, the sealed ciphertext and its `.combined` form.
   /// Provisional until measured on the S-s fixtures; never below 3.
   private static let stringEntryCopies = 3
+  /// Set by `cancelRestore`, read by the running restore between entries of
+  /// its checking pass. `importBackup` clears it when it starts, so a cancel
+  /// that arrived after an earlier restore ended cannot stop the next one; the
+  /// JavaScript caller repeats a cancel on the restore's first progress event
+  /// in case it landed before that.
+  private let restoreCancel = RestoreCancelFlag()
 
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
@@ -189,8 +195,18 @@ public class ExpoVaultModule: Module {
         }
     }
 
+    // Asks the running restore to stop before it removes anything. It is
+    // cooperative: the restore checks the flag between entries while it is
+    // still checking, so a cancel during the key derivation takes effect once
+    // that ends, and one after the checking pass has no effect at all. Returns
+    // at once; the restore rejects with BACKUP_CANCELLED if it stopped.
+    Function("cancelRestore") {
+        self.restoreCancel.request()
+    }
+
     AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise) in
         var cleared = false
+        self.restoreCancel.reset()
         do {
             // Decrypted entries may only land in the app's restore-staging cache folder.
             let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
@@ -213,6 +229,8 @@ public class ExpoVaultModule: Module {
                 self.sendEvent("backupProgress", ["phase": phase.rawValue, "done": done, "total": total])
             }, preflight: { layout in
                 try self.preflightRestore(layout)
+            }, isCancelled: {
+                self.restoreCancel.isRequested
             }) { meta, plain in
                 // Registered first, so a wipe failure cannot leave the decrypted entry behind.
                 defer { try? FileManager.default.removeItem(at: plain) }
@@ -254,6 +272,7 @@ public class ExpoVaultModule: Module {
             case .corrupt: promise.reject("BACKUP_INVALID", error.localizedDescription)
             case .resource: promise.reject("BACKUP_RESOURCE", error.localizedDescription)
             case .noSpace: promise.reject("BACKUP_NO_SPACE", error.localizedDescription)
+            case .cancelled: promise.reject("BACKUP_CANCELLED", error.localizedDescription)
             }
         } catch VaultKeyError.invalid(let key) {
             promise.reject("BACKUP_INVALID", VaultKeyError.invalid(key).localizedDescription)

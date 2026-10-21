@@ -54,6 +54,8 @@ export function createVaultMock(): SecureVault & {
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
   const links = new Map<string, string>();
+  // The native flag: cleared when an import starts, read after its checking pass.
+  let cancelRequested = false;
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
 
   return {
@@ -129,6 +131,7 @@ export function createVaultMock(): SecureVault & {
       };
     },
     async importBackup(sourcePath, passphrase, extraDir, stagingDir) {
+      cancelRequested = false;
       this.lastImport = { sourcePath, extraDir, stagingDir };
       const backup = backups.get(sourcePath);
       if (!backup)
@@ -140,6 +143,13 @@ export function createVaultMock(): SecureVault & {
       }
       const total = backup.strings.size + backup.files.size + backup.extras.length + 1;
       emit({ phase: 'verify', done: total, total });
+      // Natively the request is read between entries; here once, after the checking pass.
+      await Promise.resolve();
+      if (cancelRequested) {
+        throw Object.assign(new Error('The restore was cancelled before anything was changed.'), {
+          code: 'BACKUP_CANCELLED',
+        });
+      }
       strings = new Map(backup.strings);
       files = new Map(backup.files);
       const extras = backup.extras.map((file) => ({
@@ -148,6 +158,9 @@ export function createVaultMock(): SecureVault & {
       }));
       emit({ phase: 'import', done: total, total });
       return { entries: total - 1, extras };
+    },
+    cancelRestore() {
+      cancelRequested = true;
     },
     removeTreeNoFollow(path) {
       if (!path.startsWith('/'))
