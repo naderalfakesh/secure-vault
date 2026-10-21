@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { I18nManager } from 'react-native';
 
 import { lightColors } from '@/theme/colors';
 
@@ -22,5 +23,21 @@ describe('Switch', () => {
     const view = await render(<Switch value={false} accessibilityLabel="Face ID" disabled />);
 
     expect(view.getByRole('switch', { name: 'Face ID' })).toBeDisabled();
+  });
+
+  it('mirrors the thumb in a right-to-left layout', async () => {
+    const rtl = jest.replaceProperty(I18nManager, 'isRTL', true);
+    const view = await render(<Switch value accessibilityLabel="Face ID" />);
+    expect(view.getByRole('switch', { name: 'Face ID' })).toHaveStyle({
+      transform: [{ scaleX: -1 }],
+    });
+    rtl.restore();
+  });
+
+  it('keeps the thumb as drawn left to right', async () => {
+    const view = await render(<Switch value accessibilityLabel="Face ID" />);
+    expect(view.getByRole('switch', { name: 'Face ID' })).not.toHaveStyle({
+      transform: [{ scaleX: -1 }],
+    });
   });
 });
