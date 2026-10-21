@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '../i18n';
 import { Button, EmptyState } from './ui';
 
 type Props = { children: ReactNode; fallback?: ReactNode };
@@ -37,10 +38,10 @@ export class ErrorBoundary extends Component<Props, State> {
       <View style={styles.root}>
         <EmptyState
           icon="warning"
-          title="Something went wrong"
-          description="Your documents are still encrypted and safe. Try again, or relaunch the app."
+          title={t('errors.boundary.title')}
+          description={t('errors.boundary.body')}
         />
-        <Button label="Try again" onPress={this.reset} size="md" variant="secondary" />
+        <Button label={t('common.tryAgain')} onPress={this.reset} size="md" variant="secondary" />
       </View>
     );
   }

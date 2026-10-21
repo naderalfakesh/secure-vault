@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IconButton, ToastProvider, useToast } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
+import { t } from '@/i18n';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
 import { loadAppearance } from '@/theme/appearance';
@@ -103,7 +104,11 @@ function RootNavigator() {
             title: '',
             // One explicit back control so the header reads the same on iOS and Android.
             headerLeft: () => (
-              <IconButton icon="back" accessibilityLabel="Back" onPress={() => router.back()} />
+              <IconButton
+                icon="back"
+                accessibilityLabel={t('common.back')}
+                onPress={() => router.back()}
+              />
             ),
             headerStyle: { backgroundColor: theme.colors.background },
             headerTintColor: theme.colors.primary,
@@ -122,7 +127,11 @@ function RootNavigator() {
             headerTintColor: theme.colors.primary,
             headerShadowVisible: false,
             headerLeft: () => (
-              <IconButton icon="back" accessibilityLabel="Back" onPress={() => router.back()} />
+              <IconButton
+                icon="back"
+                accessibilityLabel={t('common.back')}
+                onPress={() => router.back()}
+              />
             ),
           }}
         />

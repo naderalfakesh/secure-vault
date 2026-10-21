@@ -11,6 +11,7 @@ import {
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
+import { t } from '@/i18n';
 import {
   clampLockout,
   EMPTY_LOCKOUT,
@@ -161,16 +162,16 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 
 /** Native error codes that deserve a plain sentence instead of the OS text. */
 const friendlyMessages: Record<string, string> = {
-  BIOMETRIC_AUTH_FAILED: 'That did not match. Try again or enter your PIN.',
-  BIOMETRIC_NOT_AVAILABLE: 'Biometrics are not available right now. Enter your PIN.',
-  NO_AUTH_ENROLLED: 'Set up a screen lock in your device settings first.',
-  KEY_RETRIEVAL_FAILED: 'The vault key could not be read. Restart the app and try again.',
-  PIN_UNREADABLE: 'Your PIN could not be read right now. Try again.',
+  BIOMETRIC_AUTH_FAILED: t('session.biometricFailed'),
+  BIOMETRIC_NOT_AVAILABLE: t('session.biometricUnavailable'),
+  NO_AUTH_ENROLLED: t('session.noAuthEnrolled'),
+  KEY_RETRIEVAL_FAILED: t('session.keyRetrievalFailed'),
+  PIN_UNREADABLE: t('session.pinUnreadable'),
   // Android only: setup keeps an invalidated key while the vault still holds entries.
   KEY_INVALIDATED: KEY_INVALIDATED_MESSAGE,
 };
 
-const KEY_NOT_UNLOCKED = 'The device key was not unlocked. Enter your PIN to try again.';
+const KEY_NOT_UNLOCKED = t('session.keyNotUnlocked.unlock');
 
 /**
  * The stored lockout with any pause longer than its count earned capped and the
@@ -222,8 +223,8 @@ function launchStatus(key: KeyRead, pin: KeyRead): SessionStatus {
 /** What a cancelled or lapsed key prompt means where it happened; setup has no PIN yet. */
 const keyNotUnlocked = {
   unlock: KEY_NOT_UNLOCKED,
-  setup: 'The device key was not unlocked. Try again.',
-  changePin: 'The device key was not unlocked, so the PIN was not changed. Try again.',
+  setup: t('session.keyNotUnlocked.setup'),
+  changePin: t('session.keyNotUnlocked.changePin'),
 } as const;
 
 function describeError(
@@ -372,7 +373,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setError(KEY_NOT_UNLOCKED);
         return false;
       } catch (e) {
-        setError(describeError(e, 'Could not unlock the vault key.'));
+        setError(describeError(e, t('session.unlockKeyFailed')));
         return false;
       }
     }
@@ -390,7 +391,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       }
       return ok;
     } catch (e) {
-      setError(describeError(e, 'Could not unlock the vault.'));
+      setError(describeError(e, t('session.unlockFailed')));
       return false;
     }
   }, [loadProtectedState, applyLockout, changeStatus]);
@@ -427,7 +428,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         if (stored) await sessionStorage.saveLockout(next).catch(() => {});
         return 'wrong-pin';
       } catch (e) {
-        setError(describeError(e, 'Could not check the PIN.'));
+        setError(describeError(e, t('session.checkPinFailed')));
         return 'not-unlocked';
       }
     },
@@ -504,7 +505,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
         return true;
       } catch (e) {
-        setError(describeError(e, 'Could not set up the vault.', 'setup'));
+        setError(describeError(e, t('session.setUpFailed'), 'setup'));
         return false;
       }
     },
@@ -527,7 +528,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
         return 'changed';
       } catch (e) {
-        setError(describeError(e, 'Could not change the PIN.', 'changePin'));
+        setError(describeError(e, t('session.changePinFailed'), 'changePin'));
         return 'failed';
       }
     },

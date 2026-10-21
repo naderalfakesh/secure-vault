@@ -3,6 +3,7 @@ import { Directory, File } from 'expo-file-system';
 
 import vault from '../../modules/expo-vault';
 import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
+import { t } from '../i18n';
 import { DocumentRepository } from './DocumentRepository';
 import { databaseFilePath, deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
@@ -37,33 +38,17 @@ function codeOf(error: unknown): unknown {
 /** Any failure to read a stored key; the key itself is never replaced. */
 function unreadableKey(cause: unknown): Error {
   if (isKeyLocked(cause)) {
-    return keyError(
-      'KEY_LOCKED',
-      'The device key was not unlocked, so your documents stay closed. Try again.',
-      cause,
-    );
+    return keyError('KEY_LOCKED', t('errors.keyLocked'), cause);
   }
   if (codeOf(cause) === 'KEY_INVALIDATED') {
-    return keyError(
-      'KEY_INVALIDATED',
-      'The device key can no longer be used, so the document index cannot be opened.',
-      cause,
-    );
+    return keyError('KEY_INVALIDATED', t('errors.index.keyInvalidated'), cause);
   }
-  return keyError(
-    'DATABASE_KEY_UNREADABLE',
-    'The document index key could not be read. Nothing was changed. Try again.',
-    cause,
-  );
+  return keyError('DATABASE_KEY_UNREADABLE', t('errors.index.keyUnreadable'), cause);
 }
 
 /** A listing of the vault's entries or of the SQLite folder failed; nothing was read or written. */
 function listingError(cause: unknown): Error {
-  return keyError(
-    'DATABASE_FILES_UNREADABLE',
-    "The vault's files could not be read, so the document index stays closed. Nothing was changed. Try again.",
-    cause,
-  );
+  return keyError('DATABASE_FILES_UNREADABLE', t('errors.index.filesUnreadable'), cause);
 }
 
 async function vaultEntries(): Promise<string[]> {
@@ -117,10 +102,7 @@ async function loadDatabaseKey(): Promise<string> {
   }
   // Any main index file, not only `name`, which may be the default guessed for an unreadable one.
   if (mainIndexFiles().length > 0) {
-    throw keyError(
-      'DATABASE_KEY_MISSING',
-      'The key for the document index is missing, so the index cannot be opened. Nothing was changed.',
-    );
+    throw keyError('DATABASE_KEY_MISSING', t('errors.index.keyMissing'));
   }
   const key = toHex(Crypto.getRandomBytes(32));
   await vault.put(DATABASE_KEY_ENTRY, key);
@@ -129,11 +111,7 @@ async function loadDatabaseKey(): Promise<string> {
 
 function nameError(cause: unknown): Error {
   if (isKeyLocked(cause) || codeOf(cause) === 'KEY_INVALIDATED') return unreadableKey(cause);
-  return keyError(
-    'DATABASE_NAME_UNREADABLE',
-    'The document index could not be found, so it stays closed. Nothing was changed. Try again.',
-    cause,
-  );
+  return keyError('DATABASE_NAME_UNREADABLE', t('errors.index.nameUnreadable'), cause);
 }
 
 function isRestoredName(name: string): boolean {
@@ -218,17 +196,11 @@ let erasing = false;
 let emptied = false;
 
 function erasingError(): Error {
-  return keyError(
-    'INDEX_ERASING',
-    'The vault is being emptied, so the document index stays closed. Try again in a moment.',
-  );
+  return keyError('INDEX_ERASING', t('errors.index.erasing'));
 }
 
 function emptiedError(): Error {
-  return keyError(
-    'VAULT_EMPTIED',
-    'The vault was emptied, so the document index stays closed until it is set up again.',
-  );
+  return keyError('VAULT_EMPTIED', t('errors.index.emptied'));
 }
 
 /** Setup calls this so the next open may create the key and index again after "Delete everything". */
@@ -329,11 +301,7 @@ export async function deleteDocumentStore(removeEntries: () => Promise<void>): P
       await closeDocumentStore();
     } catch (error) {
       // Deleting the files under a connection still open would leave it writing to an unlinked index.
-      throw keyError(
-        'ERASE_INCOMPLETE',
-        '"Delete everything" did not finish because the document index is still open, so nothing was deleted. Close SecureVault completely, open it again, and try again.',
-        error,
-      );
+      throw keyError('ERASE_INCOMPLETE', t('errors.erase.indexOpen'), error);
     }
     await deleteEncryptedDatabase(name);
     const directory = databaseDirectory(name);
@@ -345,10 +313,7 @@ export async function deleteDocumentStore(removeEntries: () => Promise<void>): P
     await removeEntries();
     const left = await vaultEntries();
     if (left.includes(DATABASE_KEY_ENTRY) || left.includes(DATABASE_FILE_ENTRY)) {
-      throw keyError(
-        'ERASE_INCOMPLETE',
-        '"Delete everything" did not finish, so part of the vault is still on this device. Try it again.',
-      );
+      throw keyError('ERASE_INCOMPLETE', t('errors.erase.incomplete'));
     }
     emptied = true;
   } finally {

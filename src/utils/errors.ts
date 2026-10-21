@@ -1,11 +1,10 @@
 import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
+import { t } from '../i18n';
 
 /** The index's own sentence for a device key that was not unlocked (see `src/data/database.ts`). */
-export const KEY_LOCKED_MESSAGE =
-  'The device key was not unlocked, so your documents stay closed. Try again.';
+export const KEY_LOCKED_MESSAGE = t('errors.keyLocked');
 
-export const KEY_INVALIDATED_MESSAGE =
-  "This device's screen lock or biometrics changed, so the vault key can no longer be used. The documents already in this vault cannot be opened on this device.";
+export const KEY_INVALIDATED_MESSAGE = t('errors.keyInvalidated');
 
 /**
  * A sentence for a failed vault call that a screen can show as is. A device
