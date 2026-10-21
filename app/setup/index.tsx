@@ -17,6 +17,7 @@ import { biometryIcon } from '@/features/auth/lockCopy';
 import { unlockSlideBody } from '@/features/auth/onboardingCopy';
 import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
+import { offsetForPage, pageFromOffset } from '@/utils/pager';
 
 type Slide = { icon: IconName; title: string; body: string };
 
@@ -57,13 +58,22 @@ export default function OnboardingScreen() {
   if (vaultExists && !vaultEmpty && !setupHeld) return <Redirect href="/setup/pin" />;
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setPage(Math.round(event.nativeEvent.contentOffset.x / width));
+    // Right to left, the first slide rests at the right end of the scroll view.
+    setPage(
+      pageFromOffset({
+        offsetX: event.nativeEvent.contentOffset.x,
+        pageWidth: width,
+        contentWidth: event.nativeEvent.contentSize.width,
+        pageCount: slides.length,
+      }),
+    );
   };
 
   const goTo = (next: number) => {
     setPage(next);
     // Reduced motion shows one step at a time without the slide.
-    if (!reduceMotion) scrollRef.current?.scrollTo({ x: next * width, animated: true });
+    if (!reduceMotion)
+      scrollRef.current?.scrollTo({ x: offsetForPage(next, width, slides.length), animated: true });
   };
 
   const next = () => {
