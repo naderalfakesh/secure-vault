@@ -476,6 +476,18 @@ object BackupContainer {
     }
 
     /**
+     * What the restore may count as free: what is writable now ([usable]), and no more than
+     * StorageManager's allocatable figure once SecureVault's own cache ([ownCache]) is taken out
+     * of it. That figure leaves out the system's low-storage reserve and counts clearable
+     * caches; ours holds the picked backup and the staging folders the restore reads, so it is
+     * never counted as room. [allocatable] is null where there is no such figure.
+     */
+    fun writableBytes(usable: Long, allocatable: Long?, ownCache: Long): Long {
+        if (allocatable == null) return maxOf(0L, usable)
+        return maxOf(0L, minOf(usable, allocatable - ownCache))
+    }
+
+    /**
      * The restore needs [needed] bytes; [free] are free now and the wipe gives back [freed]
      * (the old vault's entries). [scratch] of them are written before the wipe, so they must fit
      * in [free] alone. No margin is added: the bound is the formula, and a device that fills up

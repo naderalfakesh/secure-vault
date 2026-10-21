@@ -617,40 +617,38 @@ class ExpoVaultModule : Module() {
         BackupContainer.reserveMemory(needs.largestString, STRING_ENTRY_COPIES)
         val filesDir = appContext.reactContext!!.filesDir
         val freed = vaultEntryFiles().sumOf { it.length() }
-        val fromFree = maxOf(needs.scratch, needs.disk - freed)
-        val free = allocatableBytes(filesDir, fromFree)
+        val free = writableBytes(filesDir)
         BackupContainer.checkSpace(needs.disk, needs.scratch, free, freed)
     }
 
     /**
-     * Bytes the app can still write next to [directory] (the vault and the cache share the
-     * data volume). `StatFs` and `File.freeSpace` count blocks the system keeps back, so on a
-     * nearly full device they report space the app cannot write. From API 26 the figure is
-     * StorageManager's allocatable bytes, which leaves out that reserve and counts cached
-     * files the system can clear; when [wanted] is more than is free right now but within that
-     * figure, the system is asked to clear them. Below API 26, or if the volume has no UUID,
-     * it is `File.usableSpace`.
+     * Free bytes on the data volume the vault and the cache share, see
+     * [BackupContainer.writableBytes]. Nothing is cleared to make room: the system may clear
+     * our own cache to satisfy `allocateBytes`, and the picked backup the restore still has to
+     * read lives there. From API 26 the allocatable figure caps `File.usableSpace`, which on a
+     * nearly full device counts blocks the system keeps back; if the figure cannot be had, the
+     * usable space alone is used.
      */
-    private fun allocatableBytes(directory: File, wanted: Long): Long {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return directory.usableSpace
-        val storage = appContext.reactContext!!.getSystemService(StorageManager::class.java)
-            ?: return directory.usableSpace
-        val uuid = try {
-            storage.getUuidForPath(directory)
-        } catch (e: IOException) {
-            return directory.usableSpace
+    private fun writableBytes(directory: File): Long {
+        val usable = directory.usableSpace
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return usable
+        val context = appContext.reactContext!!
+        val allocatable = try {
+            val storage = context.getSystemService(StorageManager::class.java)
+            storage?.getAllocatableBytes(storage.getUuidForPath(directory))
+        } catch (e: Exception) {
+            // IOException for a path with no volume, or anything else the service throws.
+            null
         }
-        val allocatable = storage.getAllocatableBytes(uuid)
-        if (wanted > directory.usableSpace && wanted <= allocatable) {
-            try {
-                storage.allocateBytes(uuid, wanted)
-            } catch (e: IOException) {
-                // The cached files could not be cleared after all; report what is free now.
-                return minOf(allocatable, directory.usableSpace)
-            }
-        }
-        return allocatable
+        return BackupContainer.writableBytes(usable, allocatable, treeBytes(context.cacheDir))
     }
+
+    /** Bytes of the regular files under [root], links not followed. */
+    private fun treeBytes(root: File): Long =
+        root.walkTopDown()
+            .onEnter { !java.nio.file.Files.isSymbolicLink(it.toPath()) }
+            .filter { it.isFile && !java.nio.file.Files.isSymbolicLink(it.toPath()) }
+            .sumOf { it.length() }
 
     /** The vault file for [key], after the grammar check and a containment check on the resolved path. */
     private fun vaultFile(key: String): File {

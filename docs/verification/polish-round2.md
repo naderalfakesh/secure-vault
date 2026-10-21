@@ -20,22 +20,27 @@
 | T7b L2, memory multipliers                                | Measured on the host, kept                             | `d844521` |
 | T7b L3, index copy in the disk need                       | Fixed with M1                                          | `f81337c` |
 
-**M1.** On API 26 and later the free figure is now
-`StorageManager.getAllocatableBytes(getUuidForPath(filesDir))`, which leaves
-out the system's low-storage reserve that `StatFs.availableBytes` counts.
-When the restore needs more than is free now but no more than is
-allocatable, `allocateBytes` asks the system to clear other apps' caches
-first. If that fails, the figure falls back to what is free. Below API 26, or
-for a path with no volume UUID, the figure is `File.usableSpace`. minSdk is 24
-(React Native 0.88), so the fallback is reachable. iOS already used
-`volumeAvailableCapacityForImportantUsage`. Both platforms now also refuse
-when twice the largest payload is more than the free space alone (L1). The
-first entry's payload copy and plaintext are written before the old vault is
-removed, so the space the wipe gives back cannot hold them. The `database`
-extra is counted a second time in the need (L3): the index is moved into the
-SQLite folder after the native restore, and its first open writes a WAL while
-the old index is still there. The T7b semantics are otherwise unchanged:
-`BACKUP_NO_SPACE`, nothing changed, and no fixed margin.
+**M1.** On API 26 and later the free figure is `File.usableSpace`, capped
+by `StorageManager.getAllocatableBytes(getUuidForPath(filesDir))` minus the
+bytes in SecureVault's own cache folder. The allocatable figure leaves out
+the system's low-storage reserve that `StatFs` and `usableSpace` count, so a
+restore that would push the device into the reserve is refused. It also
+counts every app's clearable cache, ours included, and ours holds the picked
+backup (`cache/DocumentPicker`) and the staging folders, so our cache is
+taken out of it and nothing is cleared. Review round 1 removed the earlier
+`allocateBytes` call: it could delete the picked backup between the two
+passes. If the figure cannot be read (`IOException` or anything else), and
+below API 26, the usable space alone is used. minSdk is 24 (React Native
+0.88), so that fallback is reachable. iOS already used
+`volumeAvailableCapacityForImportantUsage`. Both platforms also refuse when
+the first restored entry's payload copy and plaintext (twice its payload)
+are more than the free space alone (L1). Those two files are written before
+the old vault is removed, and review round 1 narrowed the bound from the
+largest entry to that first one. The `database` extra is counted a second
+time in the need (L3): the index is moved into the SQLite folder after the
+native restore, and its first open writes a WAL while the old index is still
+there. The T7b semantics are otherwise unchanged: `BACKUP_NO_SPACE`, nothing
+changed, and no fixed margin.
 
 **M2.** `MLKitCommon` (pod 13.0.0, under `GoogleMLKit` 8.0.0 from
 `@react-native-ml-kit/text-recognition` 2.0.0) embeds its own Clearcut
@@ -134,7 +139,7 @@ listed for native QA.
 ## Not verified
 
 - No runtime on a simulator, emulator or device.
-  `getAllocatableBytes`/`allocateBytes`, the iOS capacity figure, the
+  `getAllocatableBytes`, the own-cache walk, the iOS capacity figure, the
   content-URI copy on a real provider, and the RTL rendering are untested at
   runtime.
 - `ExpoVaultModule.swift` was not compiled. Its only change is the
@@ -146,7 +151,8 @@ listed for native QA.
 
 1. Android with `/data` nearly full: a restore needing more than the
    allocatable figure ends in `BACKUP_NO_SPACE` with the vault byte-identical.
-   Also run one restore where only cleared caches make room.
+   Also run one with a large picked backup in `cache/DocumentPicker` and
+   little free space: it must refuse or restore, never lose the picked file.
 2. Both platforms: a golden restore still succeeds, and each row of hostile
    set H still gets its sentence.
 3. iOS network capture during OCR: record the Clearcut and firebaselogging
