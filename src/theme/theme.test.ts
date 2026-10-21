@@ -3,7 +3,30 @@ import { controlSize, motion, radii, spacing, touchTarget } from './tokens';
 import { darkTheme, lightTheme } from './unistyles';
 import { typography } from './typography';
 
+function luminance(hex: string): number {
+  const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
+  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
 describe('theme', () => {
+  it('keeps brass and success text AA on their muted chips (owner decision)', () => {
+    // Light mode deviates from handover §3.1 to clear 4.5:1 on the chips.
+    expect(lightColors.accent).toBe('#8F5E07');
+    expect(lightColors.success).toBe('#14774A');
+    for (const colors of [lightColors, darkColors]) {
+      expect(contrast(colors.accent, colors.accentMuted)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(colors.success, colors.successMuted)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(colors.accent, colors.background)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(colors.success, colors.surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('defines every light color in the dark palette too', () => {
     expect(Object.keys(darkColors).sort()).toEqual(Object.keys(lightColors).sort());
   });
