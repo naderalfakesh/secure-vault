@@ -23,7 +23,7 @@ describe('ListRow', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles its switch from anywhere on the row and reports the state', async () => {
+  it('is one accessible switch that a screen reader toggles', async () => {
     const onValueChange = jest.fn();
     const view = await render(
       <ListRow title="Privacy cover" toggle={{ value: false, onValueChange }} />,
@@ -31,8 +31,37 @@ describe('ListRow', () => {
     const row = view.getByRole('switch', { name: 'Privacy cover' });
 
     expect(row).not.toBeChecked();
-    await fireEvent.press(row);
+    // The native switch inside is hidden, so there is a single stop.
+    expect(view.getAllByRole('switch')).toHaveLength(1);
+    await fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
     expect(onValueChange).toHaveBeenCalledWith(true);
+  });
+
+  it('toggles from the switch itself, not from a tap elsewhere on the row', async () => {
+    const onValueChange = jest.fn();
+    const view = await render(
+      <ListRow title="Privacy cover" toggle={{ value: true, onValueChange }} />,
+    );
+
+    await fireEvent.press(view.getByText('Privacy cover'));
+    expect(onValueChange).not.toHaveBeenCalled();
+    await fireEvent(
+      view.getByTestId('list-row-switch', { includeHiddenElements: true }),
+      'valueChange',
+      false,
+    );
+    expect(onValueChange).toHaveBeenCalledWith(false);
+  });
+
+  it('ignores a screen reader toggle while disabled', async () => {
+    const onValueChange = jest.fn();
+    const view = await render(
+      <ListRow title="Face ID" disabled toggle={{ value: false, onValueChange }} />,
+    );
+    const row = view.getByRole('switch', { name: 'Face ID' });
+
+    await fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    expect(onValueChange).not.toHaveBeenCalled();
   });
 
   it('acts as a radio option', async () => {

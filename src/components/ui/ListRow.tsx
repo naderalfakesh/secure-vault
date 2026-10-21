@@ -76,7 +76,9 @@ export function ListRow({
   const { theme } = useUnistyles();
   const inGroup = useInGroup();
   const isDestructive = destructive ?? tone === 'danger';
-  const handlePress = toggle ? () => toggle.onValueChange(!toggle.value) : onPress;
+  // A switch row toggles from its switch, or from a screen reader's activation
+  // of the row; a tap elsewhere on the row does nothing, as in system settings.
+  const handlePress = toggle ? undefined : onPress;
   const isPressable = Boolean(handlePress) && !disabled;
   const isRadio = checked !== undefined;
   const tileTint =
@@ -85,7 +87,7 @@ export function ListRow({
   const tile = tileColors[tileTint];
   const showDivider = divider ?? !inGroup;
 
-  const role = toggle ? 'switch' : isRadio ? 'radio' : isPressable ? 'button' : undefined;
+  const role = isRadio ? 'radio' : isPressable ? 'button' : undefined;
   const label = [title, value, subtitle].filter(Boolean).join(', ');
   const titleTone: TextTone = disabled ? 'tertiary' : isDestructive ? 'danger' : 'primary';
 
@@ -93,8 +95,16 @@ export function ListRow({
   if (trailing !== undefined) {
     accessory = trailing;
   } else if (toggle) {
+    // The row is the one accessible switch; the native one would be a second stop.
     accessory = (
-      <Switch value={toggle.value} onValueChange={toggle.onValueChange} disabled={disabled} />
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Switch
+          value={toggle.value}
+          onValueChange={toggle.onValueChange}
+          disabled={disabled}
+          testID="list-row-switch"
+        />
+      </View>
     );
   } else if (isRadio) {
     accessory = checked ? <Icon name="check" size={18} tone="accent" /> : null;
@@ -102,23 +112,8 @@ export function ListRow({
     accessory = <Icon name="chevronRight" size={18} tone="tertiary" />;
   }
 
-  return (
-    <Pressable
-      accessibilityRole={role}
-      accessibilityLabel={label}
-      accessibilityState={{
-        disabled: Boolean(disabled),
-        ...(toggle ? { checked: toggle.value } : null),
-        ...(isRadio ? { checked } : null),
-      }}
-      {...props}
-      onPress={handlePress}
-      disabled={!isPressable}
-      style={({ pressed }) => [
-        styles.row(Boolean(subtitle), showDivider),
-        pressed && isPressable && styles.pressed,
-      ]}
-    >
+  const body = (
+    <>
       {icon ? (
         <View style={[styles.tile, { backgroundColor: theme.colors[tile.fill] }]}>
           <Icon name={icon} size={18} color={theme.colors[tile.glyph]} />
@@ -140,6 +135,47 @@ export function ListRow({
         </Text>
       ) : null}
       {accessory}
+    </>
+  );
+
+  if (toggle) {
+    return (
+      <View
+        accessible
+        accessibilityRole="switch"
+        accessibilityLabel={label}
+        accessibilityState={{ disabled: Boolean(disabled), checked: toggle.value }}
+        accessibilityActions={[{ name: 'activate' }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'activate' && !disabled) {
+            toggle.onValueChange(!toggle.value);
+          }
+        }}
+        testID={props.testID}
+        style={styles.row(Boolean(subtitle), showDivider)}
+      >
+        {body}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole={role}
+      accessibilityLabel={label}
+      accessibilityState={{
+        disabled: Boolean(disabled),
+        ...(isRadio ? { checked } : null),
+      }}
+      {...props}
+      onPress={handlePress}
+      disabled={!isPressable}
+      style={({ pressed }) => [
+        styles.row(Boolean(subtitle), showDivider),
+        pressed && isPressable && styles.pressed,
+      ]}
+    >
+      {body}
     </Pressable>
   );
 }
