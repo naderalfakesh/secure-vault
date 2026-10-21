@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import {
+  Banner,
   Button,
   Chip,
   Group,
@@ -27,6 +28,8 @@ import { DocumentImage } from '@/features/documents/DocumentImage';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
+import { shareCopy } from '@/features/viewer/shareCopy';
+import { ShareSheet, type ShareSheetStep } from '@/features/viewer/ShareSheet';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import { type Document, DocumentCategory } from '@/types';
@@ -46,8 +49,12 @@ const STAGE_INK = '#FFFFFF';
 const STAGE_INK_DIM = '#B3BAD1';
 /** The loading placeholder appears only once a page takes longer than this. */
 const PLACEHOLDER_DELAY_MS = 300;
-/** Lets the details sheet finish closing before the system share sheet opens. */
+/** Lets a sheet finish closing before the next sheet or the system share sheet opens. */
 const SHEET_CLOSE_MS = 450;
+/** The preparing step shows only for a copy that takes longer than this (handover §6 J5). */
+const PREPARING_DELAY_MS = 400;
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function maskNumber(value: string): string {
   return `•••• ${value.slice(-4)}`;
@@ -59,7 +66,16 @@ export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const { settings, stepUp, withoutAutoLock, captureSession, postNotice } = useSession();
+  const {
+    settings,
+    biometry,
+    stepUp,
+    withoutAutoLock,
+    captureSession,
+    shareInterrupted,
+    markShareInterrupted,
+    clearShareInterrupted,
+  } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [failure, setFailure] = useState<{ kind: LoadFailure; detail?: string } | null>(null);
@@ -74,6 +90,11 @@ export default function DocumentViewerScreen() {
   const [draft, setDraft] = useState({ title: '', category: DocumentCategory.OTHER, tags: '' });
   const [titleError, setTitleError] = useState(false);
   const [slow, setSlow] = useState(false);
+  const [shareStep, setShareStep] = useState<ShareSheetStep | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  // Bumped by every share and by Cancel: a copy whose run is no longer the
+  // current one was cancelled and is removed on arrival.
+  const shareRun = useRef(0);
   const mounted = useRef(true);
   const deleteWithUndo = useDeleteWithUndo();
 
@@ -146,15 +167,51 @@ export default function DocumentViewerScreen() {
     else router.replace('/');
   }, []);
 
+  // Every share starts at the warning sheet (handover §6 J5); nothing is
+  // decrypted until it is confirmed.
+  const openShare = useCallback(() => {
+    if (!document || pages.length === 0 || busy === 'share') return;
+    setShareStep('warning');
+  }, [document, pages.length, busy]);
+
+  const cancelShare = useCallback(() => {
+    if (confirming) return;
+    if (busy === 'share') {
+      shareRun.current += 1;
+      setBusy(null);
+    }
+    setShareStep(null);
+  }, [busy, confirming]);
+
   const share = useCallback(async () => {
-    if (!document) return;
+    if (!document || busy === 'share' || confirming) return;
     const session = captureSession();
-    if (settings.biometricsForShare && !(await stepUp())) {
-      toast.show({ message: 'Confirm with biometrics to share.' });
+    if (settings.biometricsForShare) {
+      setConfirming(true);
+      const confirmed = await stepUp();
+      if (mounted.current) setConfirming(false);
+      if (!confirmed) {
+        if (mounted.current) toast.show({ message: shareCopy['warning.notConfirmed'] });
+        return;
+      }
+    }
+    const run = ++shareRun.current;
+    setBusy('share');
+    const preparing = setTimeout(() => {
+      if (mounted.current && run === shareRun.current) setShareStep('preparing');
+    }, PREPARING_DELAY_MS);
+    const copy = await documentService.prepareShareFile(document.id).catch(() => null);
+    clearTimeout(preparing);
+    if (run !== shareRun.current) {
+      // Cancel already closed the sheet; the copy made meanwhile goes too.
+      copy?.discard();
       return;
     }
-    setBusy('share');
-    const copy = await documentService.prepareShareFile(document.id).catch(() => null);
+    if (mounted.current) {
+      setShareStep(null);
+      // The share sheet cannot open over a sheet that is still closing.
+      await wait(SHEET_CLOSE_MS);
+    }
     // The decrypted copy must not reach a share sheet once the vault has
     // locked or this screen is gone: the sheet would open over the lock screen.
     if (!mounted.current || !(await session.confirm()) || !mounted.current) {
@@ -163,20 +220,21 @@ export default function DocumentViewerScreen() {
         // The lock sweep may have run before the copy was written; sweep again
         // unless a new session has already been unlocked.
         if (!captureSession().current()) documentService.clearCache().catch(() => {});
-        postNotice({ message: 'Sharing was cancelled because the vault locked.' });
+        markShareInterrupted(document.id);
       }
       if (mounted.current) setBusy(null);
       return;
     }
     if (!copy) {
       setBusy(null);
-      toast.show({ message: 'Couldn’t prepare the file.', tone: 'danger' });
+      toast.show({ message: shareCopy.failed, tone: 'danger' });
       return;
     }
     try {
       // The share sheet is system UI; the vault must not lock behind it.
       // A share that never settles (Android blocked the chooser) stops
-      // holding the copy once the vault locks; the lock sweep removes it too.
+      // holding the copy once the vault locks; the lock sweep removes it too,
+      // and on iOS the lock path dismisses the sheet itself (F7).
       await Promise.race([
         withoutAutoLock(
           () =>
@@ -189,11 +247,7 @@ export default function DocumentViewerScreen() {
         ),
         session.ended(),
       ]);
-      if (!session.current()) {
-        postNotice({
-          message: 'SecureVault locked while you were sharing. The temporary copy was removed.',
-        });
-      }
+      if (!session.current()) markShareInterrupted(document.id);
     } catch {
       // Sheet dismissed or sharing unavailable; the copy is discarded either way.
     } finally {
@@ -202,21 +256,28 @@ export default function DocumentViewerScreen() {
     }
   }, [
     document,
+    busy,
+    confirming,
     settings.biometricsForShare,
     stepUp,
     toast,
     withoutAutoLock,
     captureSession,
-    postNotice,
+    markShareInterrupted,
   ]);
 
-  // From the details sheet: close it first, the share sheet cannot open over it.
+  // From the details sheet: close it first, one sheet at a time.
   const shareFromDetails = useCallback(() => {
     setDetails(false);
     setTimeout(() => {
-      if (mounted.current) void share();
+      if (mounted.current) openShare();
     }, SHEET_CLOSE_MS);
-  }, [share]);
+  }, [openShare]);
+
+  const shareAgain = useCallback(() => {
+    clearShareInterrupted();
+    openShare();
+  }, [clearShareInterrupted, openShare]);
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
@@ -385,7 +446,7 @@ export default function DocumentViewerScreen() {
               icon="share"
               variant="glass"
               accessibilityLabel="Share a copy"
-              onPress={share}
+              onPress={openShare}
               disabled={!document || pages.length === 0 || busy === 'share'}
             />
             <IconButton
@@ -396,6 +457,21 @@ export default function DocumentViewerScreen() {
               disabled={!document}
             />
           </View>
+        </View>
+      ) : null}
+
+      {document && shareInterrupted?.documentId === document.id ? (
+        <View
+          style={[styles.bannerSlot, { top: insets.top + (chrome ? 62 : 10) }]}
+          pointerEvents="box-none"
+        >
+          <Banner
+            icon="lock"
+            lead={shareCopy['interrupted.lead']}
+            message={shareCopy['interrupted.body']}
+            actions={[{ label: shareCopy['interrupted.again'], onPress: shareAgain }]}
+            onDismiss={clearShareInterrupted}
+          />
         </View>
       ) : null}
 
@@ -435,6 +511,26 @@ export default function DocumentViewerScreen() {
             </Text>
           </Pressable>
         </View>
+      ) : null}
+
+      {document ? (
+        <ShareSheet
+          step={shareStep}
+          fileName={document.title}
+          fileMeta={[
+            pluralize(Math.max(pages.length, 1), 'page'),
+            document.fileType === 'pdf' ? 'PDF' : 'Image',
+            formatFileSize(document.fileSize),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          fileIcon={document.fileType === 'pdf' ? 'pdf' : 'image'}
+          confirmFirst={settings.biometricsForShare}
+          biometry={biometry}
+          busy={confirming || busy === 'share'}
+          onShare={share}
+          onCancel={cancelShare}
+        />
       ) : null}
 
       {document ? (
@@ -696,6 +792,11 @@ const styles = StyleSheet.create((theme) => ({
   topActions: {
     flexDirection: 'row',
     gap: theme.spacing.xs,
+  },
+  bannerSlot: {
+    position: 'absolute',
+    start: theme.spacing.md,
+    end: theme.spacing.md,
   },
   bottomBar: {
     position: 'absolute',

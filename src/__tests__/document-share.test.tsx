@@ -80,11 +80,27 @@ async function renderUnlocked() {
   return view;
 }
 
-const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0]) =>
+const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0], ms = 50) =>
   act(async () => {
     void fireEvent.press(element);
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, ms));
   });
+
+const settle = (ms: number) =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  });
+
+/** The warning sheet's own close, then the system share sheet (handover §6 J5). */
+const SHEET_CLOSE_MS = 450;
+
+const LEAD = 'SecureVault locked while you were sharing.';
+
+/** Viewer Share → warning sheet → Share, then the sheet closes before the system sheet opens. */
+async function confirmShare(view: Awaited<ReturnType<typeof renderUnlocked>>) {
+  await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+  await pressAndSettle(view.getByRole('button', { name: 'Share' }), SHEET_CLOSE_MS + 150);
+}
 
 describe('Document sharing and the lock gate', () => {
   beforeEach(async () => {
@@ -144,10 +160,180 @@ describe('Document sharing and the lock gate', () => {
       .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
     const view = await renderUnlocked();
 
-    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+    await confirmShare(view);
 
     expect(share).toHaveBeenCalledWith('file:///mock/cache/share/Passport.jpg', expect.anything());
     expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('warns before sharing and creates nothing when the warning is cancelled', async () => {
+    const prepare = jest.spyOn(documentService, 'prepareShareFile');
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+
+    expect(view.getByText('Share a decrypted copy?')).toBeOnTheScreen();
+    expect(
+      view.getByText(
+        'Whoever gets this file can open it without your PIN. SecureVault removes its temporary copy when sharing ends, but it can’t control copies the other app keeps.',
+      ),
+    ).toBeOnTheScreen();
+    // The file card names the one document being shared.
+    expect(view.getByLabelText('Passport, 1 page · Image · 2.0 KB')).toBeOnTheScreen();
+    expect(prepare).not.toHaveBeenCalled();
+
+    await pressAndSettle(view.getByRole('button', { name: 'Cancel' }), SHEET_CLOSE_MS);
+
+    expect(view.queryByText('Share a decrypted copy?')).toBeNull();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it('asks for Face ID from the warning when Confirm before sharing is on', async () => {
+    const discard = jest.fn();
+    jest
+      .spyOn(documentService, 'prepareShareFile')
+      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+    const view = await renderUnlocked();
+    await act(async () => {
+      await session.updateSettings({ biometricsForShare: true });
+    });
+    const stepUp = jest.spyOn(vault, 'unlockWithBiometrics').mockResolvedValueOnce(false);
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+    await pressAndSettle(view.getByRole('button', { name: 'Confirm with Face ID' }));
+
+    // Declined: nothing is made and the warning stays for another try.
+    expect(stepUp).toHaveBeenCalledTimes(1);
+    expect(share).not.toHaveBeenCalled();
+    expect(view.getByText('Share a decrypted copy?')).toBeOnTheScreen();
+
+    await pressAndSettle(
+      view.getByRole('button', { name: 'Confirm with Face ID' }),
+      SHEET_CLOSE_MS + 150,
+    );
+
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the preparing step for a slow copy, and Cancel removes the copy it made', async () => {
+    const discard = jest.fn();
+    let finish!: () => void;
+    jest.spyOn(documentService, 'prepareShareFile').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+        }),
+    );
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+    await pressAndSettle(view.getByRole('button', { name: 'Share' }), 100);
+    expect(view.queryByText('Preparing a copy')).toBeNull();
+    await settle(400);
+
+    expect(view.getByText('Preparing a copy')).toBeOnTheScreen();
+    await pressAndSettle(view.getByRole('button', { name: 'Cancel' }), SHEET_CLOSE_MS);
+    expect(view.queryByText('Preparing a copy')).toBeNull();
+
+    await act(async () => finish());
+    await settle(SHEET_CLOSE_MS + 100);
+
+    expect(discard).toHaveBeenCalledTimes(1);
+    expect(share).not.toHaveBeenCalled();
+  });
+
+  it('never shares a cancelled copy that arrives after the next share started', async () => {
+    const first = jest.fn();
+    const second = jest.fn();
+    let finishFirst!: () => void;
+    jest
+      .spyOn(documentService, 'prepareShareFile')
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishFirst = () =>
+              resolve({ uri: 'file:///mock/cache/share/a/Passport.jpg', discard: first });
+          }),
+      )
+      .mockResolvedValueOnce({ uri: 'file:///mock/cache/share/b/Passport.jpg', discard: second });
+    share.mockImplementation(() => new Promise(() => {}));
+    try {
+      const view = await renderUnlocked();
+      await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+      await pressAndSettle(view.getByRole('button', { name: 'Share' }), 500);
+      await pressAndSettle(view.getByRole('button', { name: 'Cancel' }), SHEET_CLOSE_MS);
+
+      await confirmShare(view);
+      await act(async () => finishFirst());
+      await settle(SHEET_CLOSE_MS + 100);
+
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(share).toHaveBeenCalledTimes(1);
+      expect(share).toHaveBeenCalledWith(
+        'file:///mock/cache/share/b/Passport.jpg',
+        expect.anything(),
+      );
+    } finally {
+      share.mockImplementation(async () => {});
+    }
+  });
+
+  it('says why after the unlock when the vault locked while the share sheet was open', async () => {
+    const discard = jest.fn();
+    jest
+      .spyOn(documentService, 'prepareShareFile')
+      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+    share.mockImplementation(() => new Promise(() => {}));
+    try {
+      const view = await renderUnlocked();
+      await confirmShare(view);
+      expect(share).toHaveBeenCalledTimes(1);
+
+      await act(async () => session.lock());
+
+      expect(view.getByText('locked')).toBeOnTheScreen();
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(session.shareInterrupted).toEqual({ documentId: routeParams.id });
+      // Never a toast over the lock screen: the banner waits for the viewer.
+      expect(session.notice).toBeNull();
+
+      await act(async () => {
+        await session.unlock();
+      });
+
+      await waitFor(() => expect(view.getByText(LEAD)).toBeOnTheScreen());
+      expect(
+        view.getByText(/The temporary copy was removed\. Share again if you still need to\./),
+      ).toBeOnTheScreen();
+
+      await pressAndSettle(view.getByRole('button', { name: 'Dismiss' }));
+      expect(view.queryByText(LEAD)).toBeNull();
+      expect(session.shareInterrupted).toBeNull();
+    } finally {
+      share.mockImplementation(async () => {});
+    }
+  });
+
+  it('opens the warning again from the banner’s Share again', async () => {
+    const view = await renderUnlocked();
+    await act(async () => session.markShareInterrupted(routeParams.id!));
+    await waitFor(() => expect(view.getByText(LEAD)).toBeOnTheScreen());
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share again' }));
+
+    expect(view.queryByText(LEAD)).toBeNull();
+    expect(session.shareInterrupted).toBeNull();
+    expect(view.getByText('Share a decrypted copy?')).toBeOnTheScreen();
+  });
+
+  it('shows the banner only on the viewer of the document whose share was cut short', async () => {
+    const view = await renderUnlocked();
+
+    await act(async () => session.markShareInterrupted('another-document'));
+
+    expect(view.queryByText(LEAD)).toBeNull();
   });
 
   it('removes a copy prepared after the vault locked and never opens the share sheet', async () => {
@@ -159,14 +345,15 @@ describe('Document sharing and the lock gate', () => {
     const clearCache = jest.spyOn(documentService, 'clearCache');
     const view = await renderUnlocked();
 
-    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+    await confirmShare(view);
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(share).not.toHaveBeenCalled();
     expect(discard).toHaveBeenCalledTimes(1);
     // The lock sweep may have run before the copy existed, so it runs again.
     expect(clearCache).toHaveBeenCalled();
-    expect(session.notice).toEqual({ message: 'Sharing was cancelled because the vault locked.' });
+    expect(session.shareInterrupted).toEqual({ documentId: routeParams.id });
+    expect(session.notice).toBeNull();
   });
 
   it('locks after the return when Android blocked the chooser, and drops the copy', async () => {
@@ -186,7 +373,7 @@ describe('Document sharing and the lock gate', () => {
         await session.updateSettings({ autoLockSeconds: 0 });
       });
 
-      await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+      await confirmShare(view);
       await moveTo('background');
       await moveTo('active');
       await act(async () => {
@@ -195,9 +382,8 @@ describe('Document sharing and the lock gate', () => {
 
       expect(view.getByText('locked')).toBeOnTheScreen();
       expect(discard).toHaveBeenCalledTimes(1);
-      expect(session.notice?.message).toBe(
-        'SecureVault locked while you were sharing. The temporary copy was removed.',
-      );
+      expect(session.shareInterrupted).toEqual({ documentId: routeParams.id });
+      expect(session.notice).toBeNull();
     } finally {
       share.mockImplementation(async () => {});
     }
