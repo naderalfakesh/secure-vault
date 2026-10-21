@@ -7,6 +7,7 @@ import type { ExtractedField } from '@/data/DocumentRepository';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import type { DocumentCategory } from '@/types';
+import { isolate } from '@/utils/bidi';
 import { formatDate } from '@/utils/format';
 
 import { foundFieldLabel, scanText } from './scanCopy';
@@ -68,7 +69,7 @@ export function DetailsForm({
             <View style={[styles.thumb, styles.placeholder]}>
               <Icon name="pdf" size={24} tone="tertiary" />
               <Text variant="caption" tone="secondary" numberOfLines={1}>
-                {fallbackName}
+                {isolate(fallbackName)}
               </Text>
             </View>
           )}

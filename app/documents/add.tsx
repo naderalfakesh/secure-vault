@@ -35,7 +35,7 @@ type Phase = 'sources' | 'review' | 'reading' | 'details' | 'saving';
 /** Where the pages came from: a scan goes back to its pages, anything else to the sources. */
 type Origin = 'scan' | 'single';
 
-const SCANNED_TITLE = 'Scanned document';
+const SCANNED_TITLE = scanText('scan.defaultTitle');
 
 /** Thrown when the vault locked before the save wrote anything. */
 class SaveStopped extends Error {}
@@ -517,7 +517,9 @@ export default function AddDocumentScreen() {
           leading={
             <Button
               label={scanText('details.back')}
-              accessibilityLabel={origin === 'scan' ? 'Back to pages' : 'Back to sources'}
+              accessibilityLabel={scanText(
+                origin === 'scan' ? 'details.backToPages' : 'details.backToSources',
+              )}
               variant="plain"
               size="md"
               icon="back"

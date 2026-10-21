@@ -57,6 +57,8 @@ export const scanCopy = {
   'step.index': 'Saving to your vault',
   'details.title': 'New document',
   'details.back': 'Back',
+  'details.backToPages': 'Back to pages',
+  'details.backToSources': 'Back to sources',
   'details.titleField': 'Title',
   'details.titlePlaceholder': 'Passport, lease, receipt',
   'details.titleMissing': 'Give the document a title.',
@@ -72,6 +74,8 @@ export const scanCopy = {
   'saved.plain': 'Saved to your vault',
   'saved.view': 'View',
   close: 'Cancel',
+  /** Title for a scan or camera photo until the text suggests a better one. */
+  'scan.defaultTitle': 'Scanned document',
 } as const;
 
 export type ScanCopyKey = keyof typeof scanCopy;
