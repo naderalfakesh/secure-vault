@@ -148,3 +148,17 @@ both platforms. Not run: simulator, emulator, physical devices.
    busy announcement, Try again, and the re-run on foreground return.
 8. Large text (AX5) on the unavailable screen, the intro and the protection
    page; RTL layout of the intro bar and the PIN header.
+
+## Review fixes (approved review, Lows)
+
+- L1: the biometrics step saves `biometricUnlock` from the prompt's
+  `success`; cancelling it ("Not now" in the prompt) turns it off.
+- L2: on Android, availability needs strong (class 3) biometrics, the only
+  kind the vault key accepts; weak face unlock alone hides the step and row.
+- L4: a phone without a passcode or screen lock gets `noPasscode` and its own
+  sentence instead of "isn't set up".
+- L3: SECURITY.md says auto-lock does not time the biometrics step, which
+  only runs on an empty vault.
+- I4: a held setup killed before it finishes relaunches to `locked` (test).
+- Native QA adds: an Android phone with only class-2 face unlock, and an iOS
+  simulator or device with no passcode set.
