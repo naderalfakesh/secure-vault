@@ -4,7 +4,10 @@ import { StyleSheet } from 'react-native-unistyles';
 
 export type CardProps = PropsWithChildren<ViewProps & { padded?: boolean }>;
 
-/** Grouped surface for rows and content; the settings and detail screens are built from these. */
+/**
+ * Grouped surface for rows and content, styled like a Group (surface, radius
+ * 20, no outline). Prefer Group for lists of rows.
+ */
 export function Card({ children, padded = false, style, ...props }: CardProps) {
   return (
     <View {...props} style={[styles.card, padded && styles.padded, style]}>
@@ -16,9 +19,7 @@ export function Card({ children, padded = false, style, ...props }: CardProps) {
 const styles = StyleSheet.create((theme) => ({
   card: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
+    borderRadius: theme.radii.group,
     overflow: 'hidden',
   },
   padded: {
