@@ -445,6 +445,59 @@ describe('BackupService', () => {
       expect(answers).toEqual([false]);
       // Opened again when the restore ended.
       expect(vault.cancelRestore()).toBe(true);
+      vaultMock.reset();
+    });
+
+    it('drops the cancel when the re-ask on the first progress event is refused', async () => {
+      const { backup } = await vaultWithBackup();
+      const importBackup = vault.importBackup.bind(vault);
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(async (...args) => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return importBackup(...args);
+      });
+      // Accepted before the native call began, refused once it is past its cancel point.
+      jest.spyOn(vault, 'cancelRestore').mockReturnValueOnce(true).mockReturnValue(false);
+      const events: { phase: string; cancelling: boolean }[] = [];
+
+      const restore = backupService.restoreBackup(backup.uri, 'correct horse battery', (event) =>
+        events.push({ phase: event.phase, cancelling: event.cancelling }),
+      );
+      expect(backupService.cancelRestore()).toBe(true);
+
+      await expect(restore).resolves.toBe(backup.entries);
+      expect(events).toEqual([
+        { phase: 'verify', cancelling: false },
+        { phase: 'import', cancelling: false },
+      ]);
+    });
+
+    it('reports a cancel that is still honoured as cancelling', async () => {
+      const { backup } = await vaultWithBackup();
+      const events: boolean[] = [];
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+          if (event.phase === 'verify' && events.length === 0) backupService.cancelRestore();
+          events.push(event.cancelling);
+        }),
+      ).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
+      expect(events).toEqual([false]);
+    });
+
+    it('lets the module honour a cancel that arrived before the restore started', async () => {
+      const { backup, keys } = await vaultWithBackup();
+
+      expect(vault.cancelRestore()).toBe(true);
+
+      await expect(
+        vault.importBackup(
+          decodeURIComponent(backup.uri.replace(/^file:\/\//, '')),
+          'correct horse battery',
+          '/x',
+          '/y',
+        ),
+      ).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
+      expect(await vault.getAllKeys()).toEqual(keys);
     });
 
     it('names any failure after the first Restoring event a partial restore, with where it stopped', async () => {

@@ -15,11 +15,12 @@ public class ExpoVaultModule: Module {
   /// Folder in Documents the picked backup is moved into, so Caches purging cannot remove it.
   private static let restoreSourceName = "restore-source"
   /// Set by `cancelRestore`, read by the running restore between entries of
-  /// its checking pass. `importBackup` clears it when it starts and when it
-  /// ends, so a cancel that arrived after an earlier restore ended cannot stop
-  /// the next one or be refused for it; the
-  /// JavaScript caller repeats a cancel on the restore's first progress event
-  /// in case it landed before that.
+  /// its checking pass. `importBackup` clears it when it ends. A cancel that
+  /// arrives before the call starts is kept and honoured at its first check,
+  /// so the user's Cancel wins before anything is removed; the worst a late
+  /// one can do is stop the next restore with nothing changed. The JavaScript
+  /// caller repeats a cancel on the first progress event and drops it when the
+  /// answer is false.
   private let restoreCancel = RestoreCancelFlag()
 
   public func definition() -> ModuleDefinition {
@@ -213,7 +214,7 @@ public class ExpoVaultModule: Module {
 
     AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise) in
         var cleared = false
-        self.restoreCancel.reset()
+        // A pending cancel is kept for this call; the flag opens again when it ends.
         defer { self.restoreCancel.reset() }
         do {
             // Decrypted entries may only land in the app's restore-staging cache folder.

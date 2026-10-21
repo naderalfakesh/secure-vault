@@ -54,9 +54,11 @@ export type ProgressListener = (progress: BackupProgress) => void;
  * Restoring (`import`) event and stays true for the rest of the restore, a
  * retry after a new key prompt included: from then on the previous vault may
  * be gone, so nothing may say it is unchanged and it can no longer be
- * cancelled.
+ * cancelled. `cancelling` is true while an accepted cancel still stands; it
+ * turns false when the module refuses the repeated request (it had passed
+ * its last cancel point), and the restore then goes on to its own outcome.
  */
-export type RestoreProgress = BackupProgress & { wiped: boolean };
+export type RestoreProgress = BackupProgress & { wiped: boolean; cancelling: boolean };
 export type RestoreProgressListener = (progress: RestoreProgress) => void;
 
 /** The restore that holds the slot: its phase signal and whether a cancel was asked for. */
@@ -510,11 +512,13 @@ class BackupService {
             run.cancelRequested = false;
             run.lastRestored = { entry: Math.min(event.done + 1, event.total), total: event.total };
           } else if (run.cancelRequested && !run.wiped) {
-            // The native call clears the request when it starts, which may have
-            // been after the request arrived; it is still checking, so ask again.
-            vault.cancelRestore();
+            // A request that reached the module before its call began is kept
+            // for it, but asking again costs nothing and its answer is the
+            // truth: false means the restore is past its last cancel point and
+            // goes ahead, so nothing may go on saying it is being cancelled.
+            if (vault.cancelRestore() === false) run.cancelRequested = false;
           }
-          onProgress?.({ ...event, wiped: run.wiped });
+          onProgress?.({ ...event, wiped: run.wiped, cancelling: run.cancelRequested });
         });
       } catch (error) {
         throw run.wiped ? partialError(error, run.lastRestored) : error;

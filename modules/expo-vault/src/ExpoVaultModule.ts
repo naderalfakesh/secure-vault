@@ -139,9 +139,8 @@ export interface SecureVault {
    * index untouched. A request during the key derivation takes effect when
    * that ends. True when the request will be honoured; false once the
    * restore has passed that last check, which it does in the same atomic
-   * step that refuses later requests. `importBackup` clears the request when
-   * it starts and ends, so a caller that may have asked before the native
-   * call began asks again on the first progress event.
+   * step that refuses later requests. A request from before `importBackup`
+   * started is kept for it; the request is cleared when the call ends.
    */
   cancelRestore(): boolean;
 

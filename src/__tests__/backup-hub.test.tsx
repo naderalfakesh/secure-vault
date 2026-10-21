@@ -732,6 +732,39 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(backupService.activity()).toBeNull();
   });
 
+  it('stops showing Cancelling and reports the restore when the module refuses the cancel', async () => {
+    const importing = pending<{ entries: number; extras: { key: string; path: string }[] }>();
+    let extras = '';
+    jest.spyOn(vault, 'importBackup').mockImplementation((_source, _passphrase, extraDir) => {
+      extras = extraDir;
+      emitProgress({ phase: 'verify', done: 3, total: 20 });
+      return importing.promise;
+    });
+    // Accepted on the press; refused on the re-ask, which comes after the cancel point.
+    jest.spyOn(vault, 'cancelRestore').mockReturnValueOnce(true).mockReturnValue(false);
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
+    });
+    expect(view.getByText('Cancelling…')).toBeOnTheScreen();
+
+    await act(async () => {
+      emitProgress({ phase: 'verify', done: 20, total: 20 });
+    });
+    expect(view.queryByText('Cancelling…')).toBeNull();
+
+    await act(async () => {
+      emitProgress({ phase: 'import', done: 1, total: 20 });
+      importing.settle({ entries: 19, extras: [{ key: 'database', path: `${extras}/database` }] });
+    });
+    await settleFor(50);
+
+    expect(view.queryByText('Restore cancelled. Nothing was changed.')).toBeNull();
+    expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
+  });
+
   it('swaps Cancel for "This can\'t be stopped" at the first Restoring event', async () => {
     const importing = pending<never>();
     jest.spyOn(vault, 'importBackup').mockImplementation(() => {

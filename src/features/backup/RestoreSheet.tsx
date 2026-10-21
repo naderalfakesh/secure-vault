@@ -99,11 +99,20 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
     setCancelling(false);
     setStage({
       name: 'running',
-      progress: { phase: 'verify', done: 0, total: backup.entries + 1, wiped: false },
+      progress: {
+        phase: 'verify',
+        done: 0,
+        total: backup.entries + 1,
+        wiped: false,
+        cancelling: false,
+      },
     });
     try {
       const entries = await backupService.restoreBackup(backup.uri, passphrase, (event) => {
-        if (mounted.current) setStage({ name: 'running', progress: event });
+        if (!mounted.current) return;
+        setStage({ name: 'running', progress: event });
+        // The module refused the cancel: the restore goes on to its own outcome.
+        if (!event.cancelling) setCancelling(false);
       });
       backupService.discardPickedFile(backup.uri);
       const message = t('backup.restore.done', { count: entries });

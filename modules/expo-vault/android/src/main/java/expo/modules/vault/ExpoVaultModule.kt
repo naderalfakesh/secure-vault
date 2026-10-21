@@ -55,9 +55,10 @@ class ExpoVaultModule : Module() {
     // The running restore's cancel state: RESTORE_OPEN until cancelRestore asks (RESTORE_CANCEL)
     // or the restore passes its last cancel point (RESTORE_COMMITTED), whichever comes first; the
     // compare-and-set makes the two exclusive, so a cancel that is answered true is honoured.
-    // importBackup opens it when it starts and when it ends, so a cancel that arrived after an
-    // earlier restore ended cannot stop the next one; the JavaScript caller repeats a cancel on
-    // the restore's first progress event in case it landed before that.
+    // importBackup opens it again when it ends. A cancel that arrives before the call starts is
+    // kept and honoured at its first check, so the user's Cancel wins before anything is removed;
+    // the worst a late one can do is stop the next restore with nothing changed. The JavaScript
+    // caller repeats a cancel on the first progress event and drops it when the answer is false.
     private val restoreState = AtomicInteger(RESTORE_OPEN)
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
@@ -317,7 +318,8 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("importBackup") { sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise ->
             var cleared = false
-            restoreState.set(RESTORE_OPEN)
+            // A pending cancel is kept; only a state an earlier call left behind is opened.
+            restoreState.compareAndSet(RESTORE_COMMITTED, RESTORE_OPEN)
             try {
                 // Decrypted entries may only land in the app's restore-staging cache folder.
                 val staging = BackupContainer.StagingDirectory.resolve(

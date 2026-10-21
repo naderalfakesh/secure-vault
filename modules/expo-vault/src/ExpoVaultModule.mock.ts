@@ -58,8 +58,8 @@ export function createVaultMock(): SecureVault & {
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
   const links = new Map<string, string>();
-  // The native cancel state: opened when an import starts and ends, read after its checking
-  // pass, which also passes the last cancel point.
+  // The native cancel state: opened when an import ends (a cancel from before its start is
+  // kept), read after its checking pass, which also passes the last cancel point.
   let restoreState: 'open' | 'cancel' | 'committed' = 'open';
   // Read through a call: a cancel lands while the import awaits.
   const isCancelRequested = () => restoreState === 'cancel';
@@ -138,7 +138,6 @@ export function createVaultMock(): SecureVault & {
       };
     },
     async importBackup(sourcePath, passphrase, extraDir, stagingDir) {
-      restoreState = 'open';
       try {
         this.lastImport = { sourcePath, extraDir, stagingDir };
         const backup = backups.get(sourcePath);
@@ -235,6 +234,7 @@ export function createVaultMock(): SecureVault & {
       };
     },
     reset() {
+      restoreState = 'open';
       strings = new Map();
       files = new Map();
       created = false;
