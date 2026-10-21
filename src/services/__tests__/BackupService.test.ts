@@ -883,5 +883,32 @@ describe('BackupService', () => {
       });
       expect(exportBackup).not.toHaveBeenCalled();
     });
+
+    it('fails a restore whose extras folder cannot be cleared with a typed error and a plain sentence', async () => {
+      await vault.put('_database_key', 'ab'.repeat(32));
+      const backup = await backupService.createBackup('correct horse battery');
+      const extras = toPath(new Directory(new Directory(Paths.cache, BACKUP_DIRECTORY), 'restore'));
+      const remove = vault.removeTreeNoFollow.bind(vault);
+      jest.spyOn(vault, 'removeTreeNoFollow').mockImplementation((path) => {
+        if (path.replace(/\/$/, '') === extras.replace(/\/$/, '')) {
+          throw Object.assign(
+            new Error(`removeTreeNoFollow ${extras}: not inside the app's cache`),
+            { code: 'ERR_UNEXPECTED' },
+          );
+        }
+        return remove(path);
+      });
+      const importBackup = jest.spyOn(vault, 'importBackup');
+
+      const failure = await backupService
+        .restoreBackup(backup.uri, 'correct horse battery')
+        .catch((error: unknown) => error);
+
+      expect(failure).toMatchObject({ code: 'BACKUP_RESTORE_STAGING_INVALID' });
+      expect(describeBackupError(failure)).toMatch(/nothing was changed/);
+      expect(describeBackupError(failure)).not.toMatch(/removeTreeNoFollow|cache/);
+      expect(importBackup).not.toHaveBeenCalled();
+      backupService.discardBackup(backup.uri);
+    });
   });
 });

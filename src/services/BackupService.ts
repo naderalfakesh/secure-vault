@@ -369,13 +369,20 @@ class BackupService {
     passphrase: string,
     onProgress?: ProgressListener,
   ): Promise<number> {
-    const extras = new Directory(this.directory(), 'restore');
+    const extras = new Directory(Paths.cache, BACKUP_DIRECTORY, 'restore');
     let staging: Directory | null = null;
     let unsubscribe = () => {};
     try {
-      removeNoFollow(extras);
-      extras.create({ intermediates: true });
-      staging = this.staging(RESTORE_STAGING_DIRECTORY);
+      try {
+        this.directory();
+        // Refused when `backup` is a link to somewhere outside the cache.
+        removeNoFollow(extras);
+        extras.create({ intermediates: true });
+        staging = this.staging(RESTORE_STAGING_DIRECTORY);
+      } catch (error) {
+        // Nothing was read or replaced yet; the platform error names a cache path.
+        throw stagingError('BACKUP_RESTORE_STAGING_INVALID', error);
+      }
       unsubscribe = this.subscribe(onProgress);
       const result = await vault.importBackup(
         toPath(uri),

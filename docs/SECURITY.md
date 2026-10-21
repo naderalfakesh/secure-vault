@@ -271,7 +271,10 @@ disabled until it ends.
   folder the same way and creating it anew, so a link planted there is
   unlinked before the index copy or the container is written; if it cannot
   be removed, the export stops with `BACKUP_STAGING_INVALID` before writing
-  anything.
+  anything. A restore whose extras or staging folder cannot be cleared this
+  way, for instance under a `backup` link that resolves outside the cache,
+  stops with `BACKUP_RESTORE_STAGING_INVALID` before anything is read or
+  replaced, and says so in a plain sentence.
 - Launch also removes, once, plaintext scratch that earlier builds wrote and
   could leave when killed: `tmp/backup-<UUID>` and `tmp/<UUID>` on iOS,
   `backup<n>.tmp` in the cache and `vault<n>.tmp` in the vault folder on
