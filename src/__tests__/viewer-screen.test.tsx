@@ -124,6 +124,21 @@ describe('Document viewer', () => {
     expect(view.getByRole('button', { name: 'Share a copy' })).toBeEnabled();
   });
 
+  it('isolates an Arabic title wherever it sits inside a sentence', async () => {
+    const title = 'عقد الإيجار 2026.pdf';
+    const isolated = `\u2068${title}\u2069`;
+    const document = await documentService.addDocument(
+      { uri: '/tmp/lease.jpg', name: 'lease.jpg', type: 'image/jpeg', size: 2048 },
+      { title, category: DocumentCategory.LEGAL },
+    );
+    const view = await renderViewer(document.id);
+
+    await waitFor(() => expect(view.getByText('Page 1 of 1')).toBeOnTheScreen());
+    expect(view.getByText(isolated)).toBeOnTheScreen();
+    // The page's spoken label names the document with its direction contained.
+    expect(view.getByLabelText(`Page 1 of 1, ${isolated}`)).toBeOnTheScreen();
+  });
+
   it('masks the number in the details until Show, and again when the app leaves', async () => {
     const document = await addPassport('Passport text');
     const view = await renderViewer(document.id);
