@@ -17,8 +17,12 @@ export type EmptyStateProps = {
   icon: IconName;
   title: string;
   description: string;
+  /** Primary action, e.g. "Scan a document". */
   actionLabel?: string;
   onAction?: () => void;
+  /** Optional secondary action, e.g. "Import from Files or Photos". */
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
   testID?: string;
 };
 
@@ -28,6 +32,8 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
   testID,
 }: EmptyStateProps) {
   const reduceMotion = useReducedMotion();
@@ -53,17 +59,20 @@ export function EmptyState({
       style={[styles.container, animatedStyle]}
     >
       <View style={styles.iconWrap}>
-        <Icon name={icon} size={28} tone="accent" />
+        <Icon name={icon} size={30} tone="accent" />
       </View>
       <Text variant="title3" align="center">
         {title}
       </Text>
-      <Text variant="subheadline" tone="secondary" align="center" style={styles.description}>
+      <Text variant="body" tone="secondary" align="center" style={styles.description}>
         {description}
       </Text>
-      {actionLabel && onAction ? (
-        <View style={styles.action}>
-          <Button label={actionLabel} onPress={onAction} size="md" />
+      {(actionLabel && onAction) || (secondaryActionLabel && onSecondaryAction) ? (
+        <View style={styles.actions}>
+          {actionLabel && onAction ? <Button label={actionLabel} onPress={onAction} /> : null}
+          {secondaryActionLabel && onSecondaryAction ? (
+            <Button label={secondaryActionLabel} onPress={onSecondaryAction} variant="plain" />
+          ) : null}
         </View>
       ) : null}
     </Animated.View>
@@ -78,8 +87,8 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.xs,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
+    width: 68,
+    height: 68,
     borderRadius: theme.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -87,9 +96,11 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.xs,
   },
   description: {
-    maxWidth: 300,
+    maxWidth: 320,
   },
-  action: {
+  actions: {
     marginTop: theme.spacing.sm,
+    alignSelf: 'stretch',
+    gap: theme.spacing.xs,
   },
 }));
