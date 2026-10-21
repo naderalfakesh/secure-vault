@@ -55,6 +55,7 @@ export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
     const pathsToCheck = Platform.OS === 'android' ? ANDROID_ROOT_PATHS : IOS_JAILBREAK_PATHS;
     for (const path of pathsToCheck) {
       if (pathExists(path)) {
+        // i18n-ignore: diagnostic detail, never shown on screen
         indicators.push(`Detected artifact: ${path}`);
       }
     }
@@ -67,10 +68,12 @@ export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
       : Constants?.expoConfig?.ios?.bundleIdentifier;
 
   if (currentPackage && Platform.OS === 'android' && currentPackage !== EXPECTED_ANDROID_PACKAGE) {
+    // i18n-ignore: diagnostic detail, never shown on screen
     tamperIssues.push(`Unexpected Android package: ${currentPackage}`);
   }
 
   if (currentPackage && Platform.OS === 'ios' && currentPackage !== EXPECTED_IOS_BUNDLE) {
+    // i18n-ignore: diagnostic detail, never shown on screen
     tamperIssues.push(`Unexpected iOS bundle ID: ${currentPackage}`);
   }
 

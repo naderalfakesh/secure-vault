@@ -4,6 +4,7 @@ export const ui = {
   'ui.pinPad.delete': 'Delete',
   'ui.pinPad.biometric': 'Use biometrics',
   'ui.search.label': 'Search documents',
+  'ui.search.placeholder': 'Search titles, tags and text',
   'ui.search.clear': 'Clear search',
   'ui.chip.remove': 'Remove {label}',
   'ui.tabBar.scan': 'Scan a document',

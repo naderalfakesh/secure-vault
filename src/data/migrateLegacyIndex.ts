@@ -17,6 +17,7 @@ export async function migrateLegacyIndex(
     if (await repository.get(doc.id)) continue;
     await repository.insert({
       id: doc.id,
+      // i18n-ignore: stored title in the one-off v1 import, data rather than copy
       title: doc.title || 'Untitled document',
       category: doc.category,
       tags: doc.tags ?? [],

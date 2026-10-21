@@ -28,7 +28,7 @@ export function SearchField({
   value,
   onChangeText,
   onCancel,
-  placeholder = 'Search titles, tags and text',
+  placeholder = t('ui.search.placeholder'),
   accessibilityLabel = t('ui.search.label'),
   onFocus,
   onBlur,
@@ -92,7 +92,7 @@ export function SearchField({
           style={styles.cancel}
         >
           <Text variant="body" tone="accent">
-            Cancel
+            {t('common.cancel')}
           </Text>
         </Pressable>
       ) : null}

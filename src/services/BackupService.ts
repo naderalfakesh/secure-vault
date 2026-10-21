@@ -185,6 +185,7 @@ function stagingError(code: string, cause: unknown): Error {
  */
 function indexError(cause: unknown): Error {
   const message =
+    // i18n-ignore: an error cause; describeBackupError speaks BACKUP_INDEX from the table
     cause instanceof Error && cause.message ? cause.message : 'The index could not be opened.';
   return Object.assign(new Error(message), { code: 'BACKUP_INDEX', cause });
 }
@@ -203,7 +204,8 @@ function partialError(cause: unknown, stoppedAt: RestoreRun['lastRestored']): Er
   const message =
     cause instanceof Error && cause.message
       ? cause.message
-      : 'The restore stopped after the previous vault was removed.';
+      : // i18n-ignore: an error cause; describeBackupError speaks BACKUP_PARTIAL from the table
+        'The restore stopped after the previous vault was removed.';
   return Object.assign(new Error(message), { code: 'BACKUP_PARTIAL', cause, stoppedAt });
 }
 
