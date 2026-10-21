@@ -22,8 +22,9 @@ export const backupCopy = Object.fromEntries(
   ]),
 ) as Record<BackupCopyKey, string>;
 
-/** "Checking 18 of 48" / "Restoring 7 of 48". */
+/** "Checking 18 of 48" / "Restoring 7 of 48"; just "Checking…" until the first entry is done. */
 export function restoreProgressLabel(phase: 'verify' | 'import', done: number, total: number) {
+  if (done <= 0) return t(`backup.restore.progress.${phase}Start`);
   return t(`backup.restore.progress.${phase}`, { done, total });
 }
 

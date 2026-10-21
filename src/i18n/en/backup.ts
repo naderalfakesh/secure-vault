@@ -61,6 +61,9 @@ export const backup = {
 
   'backup.restore.progress.verify': 'Checking {done} of {total}',
   'backup.restore.progress.import': 'Restoring {done} of {total}',
+  /** Before the first entry of a pass is done, when "0 of N" would read as stuck. */
+  'backup.restore.progress.verifyStart': 'Checking…',
+  'backup.restore.progress.importStart': 'Restoring…',
   'backup.restore.fileMeta': '{entries} · made {date}',
   'backup.restore.stoppedAt': 'Stopped at entry {entry} of {total}',
   'backup.restore.done': 'Vault restored: {count} entries',

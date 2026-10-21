@@ -641,6 +641,26 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(view.queryByText(/attempt/i)).toBeNull();
   });
 
+  it('shows no count before the first entry is done', async () => {
+    const importing = pending<never>();
+    jest.spyOn(vault, 'importBackup').mockImplementation(() => {
+      emitProgress({ phase: 'verify', done: 0, total: 1 });
+      return importing.promise;
+    });
+    const view = await renderUnlocked();
+
+    await startRestore(view);
+
+    expect(view.getByText('Checking…')).toBeOnTheScreen();
+    expect(view.queryByText(/Checking 0 of/)).toBeNull();
+
+    await act(async () => {
+      importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
+    });
+    await settleFor(20);
+    expect(backupService.activity()).toBeNull();
+  });
+
   it('shows Checking with Cancel, and a cancel leaves the vault as it was', async () => {
     const importing = pending<never>();
     let cancelled = false;
