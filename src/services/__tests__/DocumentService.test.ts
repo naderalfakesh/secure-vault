@@ -9,6 +9,13 @@ import { documentService, PICKER_DIRECTORY, shareFileName } from '../DocumentSer
 
 const vaultMock = vault as unknown as { reset(): void };
 
+/** The vault mock keeps no files; stand in for the decrypted file the share copy is made from. */
+function decryptedCopyOf(id: string) {
+  const source = new File(Paths.cache, `decrypted_${id}.jpg`);
+  source.writeSync('jpeg');
+  jest.spyOn(documentService, 'getDocumentFile').mockResolvedValue(source.uri);
+}
+
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
 describe('DocumentService', () => {
@@ -16,6 +23,10 @@ describe('DocumentService', () => {
     vaultMock.reset();
     // The next call opens a fresh, empty in-memory index.
     await closeDocumentStore();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('reloads without closing the connection a screen may still be querying', async () => {
@@ -116,6 +127,46 @@ describe('DocumentService', () => {
     await documentService.clearCache();
 
     expect(scratch.exists).toBe(false);
+  });
+
+  it('names an image copy .jpeg so the iOS share sheet shares it without a staged link', async () => {
+    // expo-sharing hard-links a file whose extension differs from the declared
+    // type's (public.jpeg wants .jpeg) into its own cache folder, which outlives
+    // our discard.
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    decryptedCopyOf(doc.id);
+
+    const copy = await documentService.prepareShareFile(doc.id);
+
+    expect(copy?.uri).toMatch(/\/Passport\.jpeg$/);
+    copy?.discard();
+  });
+
+  it('puts every share copy in a folder of its own so a content URI is never reused', async () => {
+    // Android grants read access to the copy's content URI for every share
+    // target; a later copy at the same path would inherit those grants.
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    decryptedCopyOf(doc.id);
+
+    const first = await documentService.prepareShareFile(doc.id);
+    first?.discard();
+    const second = await documentService.prepareShareFile(doc.id);
+
+    expect(first?.uri).not.toBe(second?.uri);
+    expect(second?.uri).toContain('/share/');
+    second?.discard();
+    expect(new File(second!.uri).exists).toBe(false);
+  });
+
+  it("removes expo-sharing's staged links at lock and launch", async () => {
+    const staging = new Directory(Paths.cache, 'expo-sharing-tmp');
+    staging.create({ intermediates: true, idempotent: true });
+    const staged = new File(staging, 'Passport.jpg.jpeg');
+    staged.writeSync('jpeg');
+
+    await documentService.clearCache();
+
+    expect(staged.exists).toBe(false);
   });
 
   it('leaves no document or vault entries behind when writing its pages fails', async () => {

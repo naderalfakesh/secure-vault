@@ -448,17 +448,22 @@ class DocumentService {
     const doc = await this.getDocument(id);
     const source = await this.getDocumentFile(id);
     if (!doc || !source) return null;
-    const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
-    const directory = new Directory(Paths.cache, 'share');
-    if (!directory.exists) directory.create();
+    // The extension matches the declared type's (public.jpeg, com.adobe.pdf),
+    // so expo-sharing on iOS shares this file as is instead of hard-linking it
+    // into a staging folder of its own that our discard would not reach.
+    const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpeg';
+    // A folder per share: Android grants every share target read access to the
+    // copy's content URI, and those grants outlive the file. A fresh path means
+    // a later copy never answers to an earlier share's grants.
+    const directory = new Directory(Paths.cache, 'share', Crypto.randomUUID());
+    directory.create({ intermediates: true, idempotent: true });
     const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
-    if (target.exists) target.delete();
     await new File(this.toUri(source)).copy(target);
     return {
       uri: target.uri,
       discard: () => {
         try {
-          if (target.exists) target.delete();
+          if (directory.exists) directory.delete();
         } catch {
           // Swept by clearCache.
         }
@@ -685,6 +690,9 @@ class DocumentService {
           name.startsWith('pages_') ||
           name.startsWith('undo_') ||
           name === 'share' ||
+          // expo-sharing's iOS staging links (a share whose extension differs
+          // from its declared type); its own cleanup waits for the next share.
+          name === 'expo-sharing-tmp' ||
           name === IMAGE_PICKER_DIRECTORY ||
           name === SCANNER_DIRECTORY ||
           // BackupService's export staging: a killed export can leave one entry here.
