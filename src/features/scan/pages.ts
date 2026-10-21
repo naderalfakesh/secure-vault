@@ -11,12 +11,28 @@ const EXTENSIONS: Record<string, ImportKind> = {
   heif: 'image',
 };
 
+/** Types that say only "some bytes"; the extension knows more. */
+const GENERIC_TYPES = new Set([
+  'application/octet-stream',
+  'binary/octet-stream',
+  'application/unknown',
+  'application/x-unknown',
+  '*/*',
+]);
+
+/** The reported type when it says what the file is, otherwise null. */
+function specificType(mimeType: string | null | undefined): string | null {
+  const type = mimeType?.toLowerCase().trim();
+  return type && !GENERIC_TYPES.has(type) ? type : null;
+}
+
 /**
- * A PDF or a JPEG, PNG or HEIC image (handover §6 J1 import error). The
- * reported type wins; the extension decides only when no type is reported.
+ * A PDF or a JPEG, PNG or HEIC image (handover §6 J1 import error). A
+ * specific reported type wins; the extension decides when no type, or only a
+ * generic binary type, is reported.
  */
 export function importKind(name: string, mimeType: string | null | undefined): ImportKind | null {
-  const type = mimeType?.toLowerCase().trim();
+  const type = specificType(mimeType);
   if (type) {
     if (type === 'application/pdf') return 'pdf';
     return IMAGE_TYPES.has(type) ? 'image' : null;
@@ -33,6 +49,15 @@ export function mimeTypeFor(name: string, kind: ImportKind): string {
   if (extension === 'png') return 'image/png';
   if (extension === 'heic' || extension === 'heif') return `image/${extension}`;
   return 'image/jpeg';
+}
+
+/** The type a picked file is saved under: the reported one when specific. */
+export function importMimeType(
+  name: string,
+  mimeType: string | null | undefined,
+  kind: ImportKind,
+): string {
+  return specificType(mimeType) ?? mimeTypeFor(name, kind);
 }
 
 /** Moves the item at `index` one place earlier (-1) or later (+1); out of range is a no-op. */

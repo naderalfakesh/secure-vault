@@ -1,6 +1,6 @@
 import { isolate } from '@/utils/bidi';
 
-import { importKind, mimeTypeFor, movePage, stripExtension } from '../pages';
+import { importKind, importMimeType, mimeTypeFor, movePage, stripExtension } from '../pages';
 import {
   foundFieldLabel,
   pageCount,
@@ -29,6 +29,17 @@ describe('importKind', () => {
     expect(importKind('photo.jpeg', null)).toBe('image');
     expect(importKind('budget.numbers', '')).toBeNull();
     expect(importKind('README', undefined)).toBeNull();
+  });
+
+  it('uses the extension when the reported type is only a generic binary type', () => {
+    expect(importKind('scan.heic', 'application/octet-stream')).toBe('image');
+    expect(importKind('x.pdf', 'application/octet-stream')).toBe('pdf');
+    expect(importKind('x.PDF', 'binary/octet-stream')).toBe('pdf');
+    expect(importKind('budget.numbers', 'application/octet-stream')).toBeNull();
+    expect(importMimeType('scan.heic', 'application/octet-stream', 'image')).toBe('image/heic');
+    expect(importMimeType('x.pdf', 'application/octet-stream', 'pdf')).toBe('application/pdf');
+    expect(importMimeType('a.jpg', 'image/jpeg', 'image')).toBe('image/jpeg');
+    expect(importMimeType('a.png', undefined, 'image')).toBe('image/png');
   });
 
   it('names a type for files the picker did not type', () => {

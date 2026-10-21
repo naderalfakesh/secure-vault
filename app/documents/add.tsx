@@ -9,7 +9,7 @@ import { Button, IconButton, Screen, Text, useToast } from '@/components/ui';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { suggestForText } from '@/features/intelligence';
 import { DetailsForm } from '@/features/scan/DetailsForm';
-import { importKind, mimeTypeFor, movePage, stripExtension } from '@/features/scan/pages';
+import { importKind, importMimeType, movePage, stripExtension } from '@/features/scan/pages';
 import { type ProcessingStep, ProcessingPanel } from '@/features/scan/ProcessingPanel';
 import { ReviewPages } from '@/features/scan/ReviewPages';
 import { pageCount, scanText } from '@/features/scan/scanCopy';
@@ -270,7 +270,7 @@ export default function AddDocumentScreen() {
             if (mounted.current) setProblem({ kind: 'unsupported', name: asset.name });
             return;
           }
-          const type = asset.mimeType || mimeTypeFor(asset.name, kind);
+          const type = importMimeType(asset.name, asset.mimeType, kind);
           // A PDF's first page is rendered so it can be previewed and read
           // like a photo; one that cannot be rendered cannot be viewed either.
           const previewUri = await documentService.previewForFile(asset.uri, type);
