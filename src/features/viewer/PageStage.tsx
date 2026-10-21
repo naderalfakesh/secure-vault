@@ -5,7 +5,11 @@ import {
   type NativeSyntheticEvent,
   useWindowDimensions,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
@@ -46,13 +50,15 @@ export function PageStage({
   const shown = useRef(index);
   const [zoomed, setZoomed] = useState(false);
   const dismissProgress = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
 
   // An index set from outside (the page strip) scrolls the pager there.
   useEffect(() => {
     if (shown.current === index || index >= pages.length) return;
     shown.current = index;
-    list.current?.scrollToIndex({ index, animated: true });
-  }, [index, pages.length]);
+    // Reduced motion jumps to the page instead of sliding there.
+    list.current?.scrollToIndex({ index, animated: !reduceMotion });
+  }, [index, pages.length, reduceMotion]);
 
   const onMomentumEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {

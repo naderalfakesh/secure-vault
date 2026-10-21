@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
@@ -24,6 +25,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 function RootNavigator() {
   const { status, notice, dismissNotice, shareInterrupted } = useSession();
   const { theme } = useUnistyles();
+  // Reduced motion: screens cross-fade instead of sliding (§10.3).
+  const reduceMotion = useReducedMotion();
   const toast = useToast();
   const ready = status !== 'loading';
   const unlocked = status === 'unlocked';
@@ -93,7 +96,7 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'fade' : 'default' }}>
       {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
       <Stack.Protected guard={unlocked}>
         <Stack.Screen name="(tabs)" />
