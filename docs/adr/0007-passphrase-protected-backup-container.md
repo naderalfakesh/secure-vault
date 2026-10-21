@@ -81,6 +81,25 @@ sheet closes.
   system implementation on either platform.
 - The format is versioned; a newer header version is refused with
   `BACKUP_UNSUPPORTED` rather than misread.
+- The header is unauthenticated, so a reader cannot tell a crafted header
+  from one a different build wrote. Version-1 readers therefore accept only
+  what version-1 exporters wrote: the KDF name, the cipher and exactly
+  600 000 iterations (the only value any committed exporter has written),
+  three or more entries, the check entry first, the four known kinds, unique
+  keys, one `database` extra, a `_database_key` string and no trailing bytes.
+  Settings outside that set are `BACKUP_UNSUPPORTED`, any other shape
+  `BACKUP_INVALID`, both before the key is derived. The cost is that a backup
+  from a build that never existed in this repository with other settings is
+  refused, saying so and changing nothing (decision D22). Any exporter change
+  to these values must bump the version.
+- No size cap is set on a backup, an entry or a header. Instead, after the
+  verify pass and before the wipe, the restore checks that the device has
+  the memory for the largest string entry (string entries are read whole) and
+  the disk for the restored vault, giving `BACKUP_RESOURCE` or
+  `BACKUP_NO_SPACE` with nothing changed. The memory multipliers (three
+  copies on iOS, four on Android) are estimates from the code path until they
+  are measured; the checks lower the chance of a failure after the wipe and
+  do not remove it.
 
 ## Alternatives considered
 

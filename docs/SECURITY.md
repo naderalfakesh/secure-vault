@@ -157,13 +157,41 @@ written anywhere. A wrong passphrase fails on a check entry before the vault is
 touched, and every entry is decrypted once, to nothing, before the first
 vault file is replaced, so a damaged backup is refused with the vault
 intact. Every length the file declares is checked against the bytes left in
-it before a buffer is allocated, a backup without its document index is
-refused before the key is derived, and on Android the device key is used
+it before a buffer is allocated, and on Android the device key is used
 once more right before the vault is cleared, so a lapsed authentication
-window is reported with nothing removed. Writing the entries back is not a
-transaction: a disk or key failure at that point is reported as a partial
-restore, and the user restores again. A failed encryption or decryption
-removes its own half-written file.
+window is reported with nothing removed.
+
+Before the key is derived, a restore also refuses anything a version-1
+exporter never wrote. The header's KDF name, cipher and iteration count must
+be the ones every committed exporter has written (`pbkdf2-hmac-sha256`,
+`aes-256-gcm`, exactly 600 000), so a crafted header cannot make PBKDF2 run
+for hours; other settings end in `BACKUP_UNSUPPORTED`. The version must be 1
+(a higher one is `BACKUP_UNSUPPORTED`), every header field must be present
+with its JSON type, and the header must count at least three entries. The
+entries must have the exported shape: the check entry first and only there,
+no kind other than `c`, `s`, `f` and `x`, no key twice, exactly one `database`
+extra and a `_database_key` string, and nothing after the last entry. Any
+other shape is `BACKUP_INVALID`. A later exporter that changes any of this
+must bump the version. Both platforms apply the same rules in the same order.
+
+Memory and disk are checked before the vault is cleared as well, with no
+fixed size limit. On iOS each header and entry name is compared with the
+memory the OS says the process can still use before it is read. On Android
+the allocation itself is the check: a refused allocation is a typed
+`BACKUP_RESOURCE`, never an untyped crash. After every entry has decrypted
+once, the largest string entry must fit three times on iOS (the OS figure)
+and four times on Android (a trial allocation the VM may collect for), and
+the restored vault plus one entry's temporary files must fit in the free
+space plus what the old vault's entries give back, or the restore stops with
+`BACKUP_RESOURCE` or `BACKUP_NO_SPACE` and nothing changed. Neither check is
+a guarantee: memory can be taken or the disk can fill during the restore,
+and iOS ends a process that runs out of memory instead of reporting it.
+
+Writing the entries back is not a transaction: a disk or key failure at that
+point is reported as a partial restore, and the user restores again. An index
+that decrypts but cannot be opened is only found after the vault was
+replaced, and is reported as `BACKUP_INDEX`. A failed encryption or
+decryption removes its own half-written file.
 
 Only the entry payloads are authenticated. The container header (format
 version, KDF parameters, entry count) and each entry's name and kind are plain
