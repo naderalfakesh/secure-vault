@@ -93,6 +93,8 @@ export default function LibraryScreen() {
 
   useHideTabBar(selecting);
   useAnnouncement(loading && showSkeleton ? t('library.loading') : null);
+  // The load error replaces the screen; iOS does not speak an alert role by itself.
+  useAnnouncement(!loading && error ? t('library.loadFailed.title') : null);
 
   // Re-query whenever the list changes; fields are written right after a save.
   useEffect(() => {

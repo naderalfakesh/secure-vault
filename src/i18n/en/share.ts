@@ -11,6 +11,8 @@ export const share = {
   // call, so there is no page-by-page count to show (verification note).
   'share.preparing.label': 'Decrypting the document',
   'share.preparing.cancel': 'Cancel',
+  /** Spoken when the preparing step appears, so the Cancel control is announced with it. */
+  'share.preparing.announce': 'Preparing a copy. Cancel is available.',
   'share.failed': 'Couldn’t prepare the file.',
   'share.interrupted.lead': 'SecureVault locked while you were sharing.',
   'share.interrupted.body': 'The temporary copy was removed. Share again if you still need to.',

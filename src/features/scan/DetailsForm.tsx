@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'rea
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { Button, Chip, Icon, Text } from '@/components/ui';
+import { useAnnouncement } from '@/components/ui/announce';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentImage } from '@/features/documents/DocumentImage';
@@ -46,6 +47,8 @@ export function DetailsForm({
   onTags,
   onSave,
 }: DetailsFormProps) {
+  // iOS does not speak an alert role when it appears.
+  useAnnouncement(titleMissing ? scanText('details.titleMissing') : null);
   const { theme } = useUnistyles();
 
   return (

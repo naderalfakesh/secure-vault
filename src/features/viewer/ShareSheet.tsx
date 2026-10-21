@@ -44,7 +44,7 @@ export function ShareSheet({
 }: ShareSheetProps) {
   const { theme } = useUnistyles();
   const preparing = step === 'preparing';
-  useAnnouncement(preparing ? shareText('preparing.title') : null);
+  useAnnouncement(preparing ? shareText('preparing.announce') : null);
 
   return (
     <Sheet visible={step !== null} onClose={onCancel} dismissable={!busy}>

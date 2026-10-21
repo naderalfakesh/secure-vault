@@ -751,6 +751,8 @@ function EditDetails({
   onSave: () => void;
 }) {
   const { theme } = useUnistyles();
+  // iOS does not speak an alert role when it appears.
+  useAnnouncement(titleError ? t('viewer.edit.titleMissing') : null);
 
   return (
     <View style={styles.form}>
