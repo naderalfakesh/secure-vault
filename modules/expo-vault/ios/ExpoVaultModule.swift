@@ -469,7 +469,8 @@ public class ExpoVaultModule: Module {
   /// cleared. The largest `s` entry, held whole in memory three times over,
   /// must fit in what the OS says the process can still use, and the restored
   /// vault plus the pass's temporary files must fit in the free space plus
-  /// what the old vault's entries give back. A figure the OS does not give is
+  /// what the old vault's entries give back, with the files written before
+  /// the wipe in the free space alone. A figure the OS does not give is
   /// not a refusal. Either refusal leaves the vault untouched.
   private func preflightRestore(_ layout: [BackupContainer.EntryInfo]) throws {
     let needs = BackupContainer.restoreNeeds(layout)
@@ -485,7 +486,7 @@ public class ExpoVaultModule: Module {
     for url in try vaultEntryURLs() {
       freed += UInt64(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0)
     }
-    try BackupContainer.checkSpace(needed: needs.disk, free: UInt64(max(0, free)), freed: freed)
+    try BackupContainer.checkSpace(needed: needs.disk, scratch: needs.scratch, free: UInt64(max(0, free)), freed: freed)
   }
 
   /// Second line of defence after the grammar: the resolved path must stay

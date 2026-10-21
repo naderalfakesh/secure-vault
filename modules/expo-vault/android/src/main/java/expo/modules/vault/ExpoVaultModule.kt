@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.os.StatFs
+import android.os.storage.StorageManager
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
@@ -607,14 +607,47 @@ class ExpoVaultModule : Module() {
      * Runs after every entry has decrypted once and before the vault is cleared. The largest
      * `s` entry must fit in memory (a trial allocation, see [BackupContainer.reserveMemory]),
      * and the restored vault plus the pass's temporary files must fit in the free space plus
-     * what the old vault's entries give back. Either refusal leaves the vault untouched.
+     * what the old vault's entries give back, with the files written before the wipe in the
+     * free space alone. Either refusal leaves the vault untouched.
      */
     private fun preflightRestore(layout: List<BackupContainer.EntryInfo>) {
         val needs = BackupContainer.restoreNeeds(layout)
         BackupContainer.reserveMemory(needs.largestString, STRING_ENTRY_COPIES)
         val filesDir = appContext.reactContext!!.filesDir
         val freed = vaultEntryFiles().sumOf { it.length() }
-        BackupContainer.checkSpace(needs.disk, StatFs(filesDir.path).availableBytes, freed)
+        val fromFree = maxOf(needs.scratch, needs.disk - freed)
+        val free = allocatableBytes(filesDir, fromFree)
+        BackupContainer.checkSpace(needs.disk, needs.scratch, free, freed)
+    }
+
+    /**
+     * Bytes the app can still write next to [directory] (the vault and the cache share the
+     * data volume). `StatFs` and `File.freeSpace` count blocks the system keeps back, so on a
+     * nearly full device they report space the app cannot write. From API 26 the figure is
+     * StorageManager's allocatable bytes, which leaves out that reserve and counts cached
+     * files the system can clear; when [wanted] is more than is free right now but within that
+     * figure, the system is asked to clear them. Below API 26, or if the volume has no UUID,
+     * it is `File.usableSpace`.
+     */
+    private fun allocatableBytes(directory: File, wanted: Long): Long {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return directory.usableSpace
+        val storage = appContext.reactContext!!.getSystemService(StorageManager::class.java)
+            ?: return directory.usableSpace
+        val uuid = try {
+            storage.getUuidForPath(directory)
+        } catch (e: IOException) {
+            return directory.usableSpace
+        }
+        val allocatable = storage.getAllocatableBytes(uuid)
+        if (wanted > directory.usableSpace && wanted <= allocatable) {
+            try {
+                storage.allocateBytes(uuid, wanted)
+            } catch (e: IOException) {
+                // The cached files could not be cleared after all; report what is free now.
+                return minOf(allocatable, directory.usableSpace)
+            }
+        }
+        return allocatable
     }
 
     /** The vault file for [key], after the grammar check and a containment check on the resolved path. */

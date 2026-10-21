@@ -181,8 +181,15 @@ the allocation itself is the check: a refused allocation is a typed
 `BACKUP_RESOURCE`, never an untyped crash. After every entry has decrypted
 once, the largest string entry must fit three times on iOS (the OS figure)
 and four times on Android (a trial allocation the VM may collect for), and
-the restored vault plus one entry's temporary files must fit in the free
-space plus what the old vault's entries give back, or the restore stops with
+the restored vault, a second copy of the index for its move and first open,
+and one entry's temporary files must fit in the free space plus what the old
+vault's entries give back. The first entry's temporary files (twice the
+largest entry) are written before the old vault goes, so they must fit in the
+free space alone. Free space is the figure the OS gives for space the app can
+really write: iOS's capacity for important usage, and on Android 8 and later
+StorageManager's allocatable bytes, which leave out the system's reserve and
+ask the system to clear other apps' caches when that is what makes the room
+(`File.usableSpace` before Android 8). Otherwise the restore stops with
 `BACKUP_RESOURCE` or `BACKUP_NO_SPACE` and nothing changed. Neither check is
 a guarantee: memory can be taken or the disk can fill during the restore,
 and iOS ends a process that runs out of memory instead of reporting it.

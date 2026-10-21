@@ -454,25 +454,32 @@ enum BackupContainer {
     var largestString: UInt64
     /// Bytes the restored vault, extras and the restore pass's temporary files can take at their peak.
     var disk: UInt64
+    /// Bytes the restore pass writes before the old vault is removed: the first entry's payload
+    /// copy and plaintext, bounded by twice the largest payload. They need free space of their own.
+    var scratch: UInt64
   }
 
   /// Every payload is re-encrypted into the vault (or moved out as an extra)
   /// at about its own size, and at the peak one entry's payload copy and
-  /// plaintext sit in staging next to it. Each length is already bounded by
-  /// the bytes left in the file, so the sums fit 64 bits. An `s` plaintext is
-  /// at most its payload minus the stream header.
+  /// plaintext sit in staging next to it. The index extra is counted twice:
+  /// JavaScript moves it into the SQLite folder after the native restore, and
+  /// its first open writes a WAL beside it while the old index is still there.
+  /// Each length is already bounded by the bytes left in the file, so the sums
+  /// fit 64 bits. An `s` plaintext is at most its payload minus the stream header.
   static func restoreNeeds(_ layout: [EntryInfo]) -> RestoreNeeds {
     var total: UInt64 = 0
     var largest: UInt64 = 0
     var largestString: UInt64 = 0
+    var index: UInt64 = 0
     for entry in layout where entry.meta.kind != "c" {
       total += entry.payloadLength
       largest = max(largest, entry.payloadLength)
       if entry.meta.kind == "s" {
         largestString = max(largestString, entry.payloadLength > streamHeaderBytes ? entry.payloadLength - streamHeaderBytes : 0)
       }
+      if entry.meta.kind == "x" && entry.meta.key == "database" { index += entry.payloadLength }
     }
-    return RestoreNeeds(largestString: largestString, disk: total + 2 * largest)
+    return RestoreNeeds(largestString: largestString, disk: total + 2 * largest + index, scratch: 2 * largest)
   }
 
   /// Refuses an `s` entry whose `copies` whole copies would not fit in the
@@ -486,9 +493,11 @@ enum BackupContainer {
   }
 
   /// The restore needs `needed` bytes; `free` are free now and the wipe gives
-  /// back `freed` (the old vault's entries). No margin is added: a device that
-  /// fills up during the pass still ends as a partial restore.
-  static func checkSpace(needed: UInt64, free: UInt64, freed: UInt64) throws {
+  /// back `freed` (the old vault's entries). `scratch` of them are written
+  /// before the wipe, so they must fit in `free` alone. No margin is added: a
+  /// device that fills up during the pass still ends as a partial restore.
+  static func checkSpace(needed: UInt64, scratch: UInt64, free: UInt64, freed: UInt64) throws {
+    if scratch > free { throw BackupError.noSpace(needed: Int64(clamping: scratch), available: Int64(clamping: free)) }
     let available = free &+ freed
     if needed > available { throw BackupError.noSpace(needed: Int64(clamping: needed), available: Int64(clamping: available)) }
   }

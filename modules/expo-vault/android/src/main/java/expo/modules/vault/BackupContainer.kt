@@ -423,18 +423,26 @@ object BackupContainer {
         val largestString: Long,
         /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
         val disk: Long,
+        /**
+         * Bytes the restore pass writes before the old vault is removed: the first entry's payload
+         * copy and plaintext, bounded by twice the largest payload. They need free space of their own.
+         */
+        val scratch: Long,
     )
 
     /**
      * Every payload is re-encrypted into the vault (or moved out as an extra) at about its own
      * size, and at the peak one entry's payload copy and plaintext sit in staging next to it.
-     * Each length is already bounded by the bytes left in the file, so the sums fit a Long.
-     * An `s` plaintext is at most its payload minus the stream header.
+     * The index extra is counted twice: JavaScript moves it into the SQLite folder after the
+     * native restore, and its first open writes a WAL beside it while the old index is still
+     * there. Each length is already bounded by the bytes left in the file, so the sums fit a
+     * Long. An `s` plaintext is at most its payload minus the stream header.
      */
     fun restoreNeeds(layout: List<EntryInfo>): RestoreNeeds {
         var total = 0L
         var largest = 0L
         var largestString = 0L
+        var index = 0L
         for (entry in layout) {
             if (entry.meta.kind == "c") continue
             total += entry.payloadLength
@@ -442,8 +450,9 @@ object BackupContainer {
             if (entry.meta.kind == "s") {
                 largestString = maxOf(largestString, maxOf(0L, entry.payloadLength - STREAM_HEADER_BYTES))
             }
+            if (entry.meta.kind == "x" && entry.meta.key == "database") index += entry.payloadLength
         }
-        return RestoreNeeds(largestString, total + 2 * largest)
+        return RestoreNeeds(largestString, total + 2 * largest + index, 2 * largest)
     }
 
     /**
@@ -468,10 +477,12 @@ object BackupContainer {
 
     /**
      * The restore needs [needed] bytes; [free] are free now and the wipe gives back [freed]
-     * (the old vault's entries). No margin is added: the bound is the formula, and a
-     * device that fills up during the pass still ends as a partial restore.
+     * (the old vault's entries). [scratch] of them are written before the wipe, so they must fit
+     * in [free] alone. No margin is added: the bound is the formula, and a device that fills up
+     * during the pass still ends as a partial restore.
      */
-    fun checkSpace(needed: Long, free: Long, freed: Long) {
+    fun checkSpace(needed: Long, scratch: Long, free: Long, freed: Long) {
+        if (scratch > free) throw NoSpaceException(scratch, free)
         val available = free + freed
         if (needed > available) throw NoSpaceException(needed, available)
     }
