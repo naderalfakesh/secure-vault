@@ -108,10 +108,11 @@ export interface SecureVault {
   inspectBackup(sourcePath: string): Promise<BackupInfo>;
   /**
    * Replaces the vault with the container's entries. Before the key is
-   * derived the header settings must be the exporter's (BACKUP_UNSUPPORTED).
-   * Every entry is then decrypted once, so a wrong passphrase
-   * (BACKUP_PASSPHRASE), a damaged file or one without its document index
-   * (BACKUP_INVALID), or a
+   * derived the header settings must be the exporter's (BACKUP_UNSUPPORTED)
+   * and the structure a version-1 exporter writes (BACKUP_INVALID: check
+   * entry first, known kinds, unique keys, exactly one `database` extra, a
+   * `_database_key` string, no trailing bytes). Every entry is then decrypted
+   * once, so a wrong passphrase (BACKUP_PASSPHRASE), any of these, or a
    * declared length the device cannot hold (BACKUP_RESOURCE, Android only)
    * leaves the vault untouched. A failure from the first removal on rejects with
    * BACKUP_PARTIAL. Extra files land in `extraDir` and are listed in the

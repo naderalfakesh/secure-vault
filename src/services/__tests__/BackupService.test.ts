@@ -41,7 +41,9 @@ describe('passphrase policy', () => {
 
   it('turns native error codes into sentences', () => {
     expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toMatch(/does not match/);
-    expect(describeBackupError({ code: 'BACKUP_INVALID' })).toMatch(/not a SecureVault backup/);
+    expect(describeBackupError({ code: 'BACKUP_INVALID' })).toBe(
+      'This file is not a SecureVault backup, or it is damaged. Nothing was changed.',
+    );
     expect(describeBackupError({ code: 'BACKUP_UNSUPPORTED' })).toBe(
       "This backup uses settings this version of the app doesn't support. Nothing was changed.",
     );

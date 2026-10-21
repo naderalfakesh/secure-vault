@@ -61,7 +61,7 @@ export function describeBackupError(
     case 'BACKUP_PASSPHRASE':
       return 'That passphrase does not match this backup.';
     case 'BACKUP_INVALID':
-      return 'This file is not a SecureVault backup, or it is damaged.';
+      return 'This file is not a SecureVault backup, or it is damaged. Nothing was changed.';
     case 'BACKUP_UNSUPPORTED':
       return "This backup uses settings this version of the app doesn't support. Nothing was changed.";
     case 'BACKUP_PARTIAL':

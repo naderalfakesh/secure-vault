@@ -383,13 +383,15 @@ public class ExpoVaultModule: Module {
   }
 
   /// Restore entries: the index extra is exactly "database"; string and file
-  /// entries are vault keys. Other kinds are skipped by the importer and never
-  /// reach the file system, so they are left as they are.
+  /// entries are vault keys; the check entry is "_check". The container
+  /// refuses every other kind in its pre-pass already; refusing it here as
+  /// well keeps an unknown kind from ever reaching the importer.
   private static func isRestoreKeyAllowed(_ meta: BackupContainer.Meta) -> Bool {
     switch meta.kind {
     case "x": return meta.key == "database"
     case "s", "f": return isVaultKey(meta.key)
-    default: return true
+    case "c": return meta.key == "_check"
+    default: return false
     }
   }
 
@@ -399,7 +401,7 @@ public class ExpoVaultModule: Module {
   /// one without them would be refused in JavaScript only after the vault had
   /// been cleared, so it is refused here, before anything is derived or removed.
   private static func hasIndex(_ metas: [BackupContainer.Meta]) -> Bool {
-    metas.contains { $0.kind == "x" && $0.key == "database" }
+    metas.filter { $0.kind == "x" && $0.key == "database" }.count == 1
       && metas.contains { $0.kind == "s" && $0.key == "_database_key" }
   }
 

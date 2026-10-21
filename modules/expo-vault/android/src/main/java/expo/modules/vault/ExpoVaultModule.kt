@@ -506,13 +506,15 @@ class ExpoVaultModule : Module() {
 
     /**
      * Restore entries: the index extra is exactly "database"; string and file
-     * entries are vault keys. Other kinds are skipped by the importer and never
-     * reach the file system, so they are left as they are.
+     * entries are vault keys; the check entry is "_check". The container refuses
+     * every other kind in its pre-pass already; refusing it here as well keeps
+     * an unknown kind from ever reaching the importer.
      */
     private fun isRestoreKeyAllowed(meta: BackupContainer.Meta): Boolean = when (meta.kind) {
         "x" -> meta.key == "database"
         "s", "f" -> isVaultKey(meta.key)
-        else -> true
+        "c" -> meta.key == "_check"
+        else -> false
     }
 
     /**
@@ -523,7 +525,7 @@ class ExpoVaultModule : Module() {
      * anything is derived or removed.
      */
     private fun hasIndex(metas: List<BackupContainer.Meta>): Boolean =
-        metas.any { it.kind == "x" && it.key == "database" } &&
+        metas.count { it.kind == "x" && it.key == "database" } == 1 &&
             metas.any { it.kind == "s" && it.key == "_database_key" }
 
     /** The vault file for [key], after the grammar check and a containment check on the resolved path. */

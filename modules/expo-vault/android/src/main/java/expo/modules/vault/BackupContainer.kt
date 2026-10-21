@@ -74,6 +74,8 @@ object BackupContainer {
 
     data class Header(val version: Int, val app: String, val created: String, val iterations: Int, val salt: ByteArray, val entries: Int)
     data class Meta(val key: String, val kind: String)
+    /** One entry as the pre-pass found it: its metadata and the payload length it declares. */
+    data class EntryInfo(val meta: Meta, val payloadLength: Long)
     data class Entry(val key: String, val kind: String, val source: Source)
 
     /** Where an entry's plaintext comes from while the container is written. */
@@ -102,6 +104,9 @@ object BackupContainer {
      * make PBKDF2 run for hours. An exporter that changes the count must bump [VERSION].
      */
     val SUPPORTED_ITERATIONS = setOf(ITERATIONS)
+
+    /** The kinds a version-1 exporter writes; anything else is refused in the pre-pass. */
+    private val KINDS = setOf("c", "s", "f", "x")
 
     /** The check entry, the database key string and the index extra: the smallest backup the app writes. */
     private const val MIN_ENTRIES = 3
@@ -368,18 +373,37 @@ object BackupContainer {
      * and nothing is decrypted, so a bad key or a truncated file is found before
      * the vault is touched.
      */
-    fun readMetas(source: File): List<Meta> =
+    fun readMetas(source: File): List<Meta> = readLayout(source).map { it.meta }
+
+    /**
+     * The pre-pass: every entry's metadata and declared payload length, with the
+     * structure every version-1 exporter writes enforced before any key is derived.
+     * The first entry is the check entry and no other entry has its kind; every kind
+     * is one the exporter writes; no two other entries share a key (they come from
+     * one directory listing plus the index extra); and the file ends right after the
+     * last declared entry. Anything else is a CorruptException.
+     */
+    fun readLayout(source: File): List<EntryInfo> =
         RandomAccessFile(source, "r").use { input ->
             val header = readHeader(input)
             // The count is untrusted: grow the list as entries are read, so a
             // short file fails on its first missing byte instead of allocating.
-            val metas = ArrayList<Meta>()
+            val layout = ArrayList<EntryInfo>()
+            val keys = HashSet<String>()
             repeat(header.entries) { index ->
                 val (meta, size) = readEntryHead(input, index)
+                if (meta.kind !in KINDS) throw CorruptException("entry $index kind")
+                if (index == 0) {
+                    if (meta.kind != "c" || meta.key != CHECK_KEY) throw CorruptException("check entry")
+                } else {
+                    if (meta.kind == "c") throw CorruptException("entry $index kind")
+                    if (!keys.add(meta.key)) throw CorruptException("duplicate entry")
+                }
                 input.seek(input.filePointer + size)
-                metas.add(meta)
+                layout.add(EntryInfo(meta, size))
             }
-            metas
+            if (input.filePointer != input.length()) throw CorruptException("trailing data")
+            layout
         }
 
     /**
@@ -444,7 +468,8 @@ object BackupContainer {
         validateAll: (List<Meta>) -> Unit,
         progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
     ) {
-        val metas = readMetas(source)
+        val layout = readLayout(source)
+        val metas = layout.map { it.meta }
         metas.forEach(validate)
         validateAll(metas)
         val header = readHeader(source)

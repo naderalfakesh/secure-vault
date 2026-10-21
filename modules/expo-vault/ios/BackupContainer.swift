@@ -44,6 +44,9 @@ enum BackupContainer {
   /// An exporter that changes the count must bump `version`.
   static let supportedIterations: Set<Int> = [iterations]
 
+  /// The kinds a version-1 exporter writes; anything else is refused in the pre-pass.
+  static let kinds: Set<String> = ["c", "s", "f", "x"]
+
   /// The check entry, the database key string and the index extra: the
   /// smallest backup the app writes.
   static let minEntries = 3
@@ -334,20 +337,45 @@ enum BackupContainer {
     return salt
   }
 
+  /// One entry as the pre-pass found it: its metadata and the payload length it declares.
+  struct EntryInfo {
+    var meta: Meta
+    var payloadLength: UInt64
+  }
+
   /// Entry metadata only, read by seeking past each payload. No key is derived
   /// and nothing is decrypted, so a bad key or a truncated file is found before
   /// the vault is touched.
   static func readMetas(from source: URL) throws -> [Meta] {
+    try readLayout(from: source).map(\.meta)
+  }
+
+  /// The pre-pass: every entry's metadata and declared payload length, with
+  /// the structure every version-1 exporter writes enforced before any key is
+  /// derived. The first entry is the check entry and no other entry has its
+  /// kind; every kind is one the exporter writes; no two other entries share a
+  /// key (they come from one directory listing plus the index extra); and the
+  /// file ends right after the last declared entry. Anything else is `corrupt`.
+  static func readLayout(from source: URL) throws -> [EntryInfo] {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
     let header = try readHeader(input)
-    var metas: [Meta] = []
+    var layout: [EntryInfo] = []
+    var keys = Set<String>()
     for index in 0..<header.entries {
       let (meta, size) = try readEntryHead(input, index: index)
+      guard kinds.contains(meta.kind) else { throw BackupError.corrupt("entry \(index) kind") }
+      if index == 0 {
+        guard meta.kind == "c", meta.key == checkKey else { throw BackupError.corrupt("check entry") }
+      } else {
+        guard meta.kind != "c" else { throw BackupError.corrupt("entry \(index) kind") }
+        guard keys.insert(meta.key).inserted else { throw BackupError.corrupt("duplicate entry") }
+      }
       try input.seek(toOffset: try input.offset() + size)
-      metas.append(meta)
+      layout.append(EntryInfo(meta: meta, payloadLength: size))
     }
-    return metas
+    guard try remaining(input) == 0 else { throw BackupError.corrupt("trailing data") }
+    return layout
   }
 
   /// Reads one entry's metadata and payload length, leaving `input` at the
@@ -406,7 +434,8 @@ enum BackupContainer {
   ) throws {
     try sweep(staging)
     defer { try? sweep(staging) }
-    let metas = try readMetas(from: source)
+    let layout = try readLayout(from: source)
+    let metas = layout.map(\.meta)
     for meta in metas { try validate(meta) }
     try validateAll(metas)
     let header = try readHeader(from: source)
