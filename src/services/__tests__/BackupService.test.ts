@@ -70,6 +70,9 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'KEY_LOCKED', message: 'User not authenticated' })).toBe(
       'The device key was not unlocked, so nothing was changed. Try again.',
     );
+    expect(describeBackupError({ code: 'KEY_INVALIDATED' })).toMatch(
+      /can no longer be used\..* Nothing was changed\.$/,
+    );
     expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
       /temporary files could not be cleared/,
     );

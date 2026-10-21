@@ -320,6 +320,11 @@ class ExpoVaultModule : Module() {
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
                 }, { layout ->
                     preflightRestore(layout)
+                    // The device key is used once before the first Restoring event: a Keystore
+                    // window that lapsed during a long checking pass fails here, with the vault
+                    // untouched and no Restoring event sent, so JavaScript never reads it as a
+                    // failure after the wipe. The probe in the handler stays as a backstop.
+                    probeKey(secretKey)
                 }, cancelled = { restoreCancel.get() }) { meta, plain ->
                     // The whole handler runs with the plaintext's removal guaranteed, so a
                     // key probe or wipe failure cannot leave a decrypted entry in the cache.

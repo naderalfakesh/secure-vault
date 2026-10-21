@@ -718,6 +718,27 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(view.queryByText(/Nothing was changed/)).toBeNull();
   });
 
+  it.each([
+    ['KEY_LOCKED', 'The device key was not unlocked, so nothing was changed. Try again.'],
+    ['KEY_INVALIDATED', /can no longer be used\..* Nothing was changed\.$/],
+  ])(
+    'reports a %s from the key probe after Checking as unchanged, not partial',
+    async (code, sentence) => {
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(async () => {
+        // The module probes the key after the checking pass, before any Restoring event.
+        emitProgress({ phase: 'verify', done: 20, total: 20 });
+        throw Object.assign(new Error('User not authenticated'), { code });
+      });
+      const view = await renderUnlocked();
+
+      await startRestore(view);
+
+      expect(view.getByText(sentence)).toBeOnTheScreen();
+      expect(view.queryByText('The restore didn’t finish')).toBeNull();
+      expect(view.getByRole('button', { name: 'Restore and replace vault' })).toBeEnabled();
+    },
+  );
+
   it('offers Restore again when the index could not be opened', async () => {
     jest.spyOn(vault, 'importBackup').mockImplementationOnce(async (_s, _p, extraDir) => {
       emitProgress({ phase: 'import', done: 20, total: 20 });

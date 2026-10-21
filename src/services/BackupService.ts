@@ -101,7 +101,7 @@ export function describeBackupError(
     case 'KEY_LOCKED':
       return 'The device key was not unlocked, so nothing was changed. Try again.';
     case 'KEY_INVALIDATED':
-      return KEY_INVALIDATED_MESSAGE;
+      return `${KEY_INVALIDATED_MESSAGE} Nothing was changed.`;
     case 'BACKUP_STAGING_INVALID':
       return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
     case 'BACKUP_RESTORE_STAGING_INVALID':
