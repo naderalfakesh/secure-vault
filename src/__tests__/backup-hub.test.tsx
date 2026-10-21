@@ -180,6 +180,17 @@ describe('Backup hub and the lock gate', () => {
     jest.restoreAllMocks();
   });
 
+  it('offers one way out of the create sheet: Cancel, with no close button', async () => {
+    const view = await renderUnlocked();
+
+    await fireEvent.press(view.getByText('Create a backup'));
+
+    expect(view.getByRole('button', { name: 'Cancel' })).toBeOnTheScreen();
+    expect(view.queryByRole('button', { name: 'Close' })).toBeNull();
+    await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(view.queryByLabelText('Repeat passphrase')).toBeNull());
+  });
+
   it('shares a finished backup while the vault stays unlocked, then removes it', async () => {
     nativeExport();
     const view = await renderUnlocked();

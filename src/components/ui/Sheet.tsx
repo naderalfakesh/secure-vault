@@ -32,6 +32,11 @@ export type SheetProps = PropsWithChildren<{
    * backdrop nor the back gesture closes the sheet.
    */
   dismissable?: boolean;
+  /**
+   * False hides the close button while the sheet stays dismissable, for a
+   * sheet whose header action is already Cancel (one way out, not two).
+   */
+  closeButton?: boolean;
   /** `auto` fits the content; `medium` and `large` fix the height. */
   detent?: SheetDetent;
   /**
@@ -59,6 +64,7 @@ export function Sheet({
   title,
   headerAction,
   dismissable = true,
+  closeButton = true,
   detent = 'auto',
   scroll = true,
   children,
@@ -155,7 +161,7 @@ export function Sheet({
                 ) : null}
               </View>
               <View style={[styles.headerSide, styles.headerEnd]}>
-                {dismissable ? (
+                {dismissable && closeButton ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('common.close')}

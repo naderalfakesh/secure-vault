@@ -207,6 +207,9 @@ export function CreateBackupSheet({ visible, onClose, onShared }: CreateBackupSh
         stage.name === 'form' ? { label: copy['restore.cancel'], onPress: onClose } : undefined
       }
       dismissable={!busy}
+      // One way out, as on the Backup board: Cancel on the form, Close in
+      // the error state; the busy state cannot be closed at all.
+      closeButton={false}
     >
       {stage.name === 'busy' ? (
         <View style={styles.body}>
