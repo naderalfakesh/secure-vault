@@ -4,23 +4,23 @@ import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, PinDots, PinPad, Screen, Text, useToast } from '@/components/ui';
+import { useAnnouncement } from '@/components/ui/announce';
 import { formatCountdown, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { lockRemainingMs } from '@/features/auth/lockout';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
+import { type StringKey, t } from '@/i18n';
 
 type Stage = 'current' | 'next' | 'confirm' | 'saving';
 
-const titles: Record<Stage, string> = {
-  current: 'Enter your current PIN',
-  next: 'Choose a new PIN',
-  confirm: 'Enter the new PIN again',
-  saving: 'Saving the new PIN',
+const titles: Record<Stage, StringKey> = {
+  current: 'changePin.title.current',
+  next: 'changePin.title.next',
+  confirm: 'changePin.title.confirm',
+  saving: 'changePin.title.saving',
 };
 
 const steps: Record<Stage, number> = { current: 1, next: 2, confirm: 3, saving: 3 };
-
-const UNTOUCHED = 'Your documents aren’t touched. Only the way in changes.';
 
 export default function ChangePinScreen() {
   const { changePin, error, lockout } = useSession();
@@ -56,7 +56,7 @@ export default function ChangePinScreen() {
       }
       if (stage === 'next') {
         if (entered === current) {
-          setMessage('Choose a PIN that’s different from your current one.');
+          setMessage(t('changePin.same'));
           helpers.fail();
           return;
         }
@@ -66,7 +66,7 @@ export default function ChangePinScreen() {
         return;
       }
       if (entered !== next) {
-        setMessage('The PINs didn’t match. Start again.');
+        setMessage(t('changePin.mismatch'));
         helpers.fail(() => setStage('next'));
         return;
       }
@@ -74,12 +74,12 @@ export default function ChangePinScreen() {
       // The current PIN is checked once, here, together with the change.
       changePin(current, entered).then((result) => {
         if (result === 'changed') {
-          toast.show({ message: 'PIN changed', tone: 'success' });
+          toast.show({ message: t('changePin.changed'), tone: 'success' });
           router.back();
           return;
         }
         // A failure that is not a wrong PIN has its own sentence in the session error.
-        if (result === 'wrong-pin') setMessage('Wrong PIN. Nothing was changed.');
+        if (result === 'wrong-pin') setMessage(t('changePin.wrongPin'));
         setStage('current');
         helpers.clear();
       });
@@ -88,10 +88,14 @@ export default function ChangePinScreen() {
 
   const lockedOut = lockLeft > 0 && stage === 'current';
   const alert = Boolean(message || error) && !lockedOut;
-  const title = lockedOut ? `Try again in ${formatCountdown(lockLeft)}` : titles[stage];
+  const title = lockedOut
+    ? t('lock.lockoutTitle', { time: formatCountdown(lockLeft) })
+    : t(titles[stage]);
   const subtitle = lockedOut
     ? LOCKOUT_BODY
-    : (message ?? error ?? (stage === 'current' ? null : UNTOUCHED));
+    : (message ?? error ?? (stage === 'current' ? null : t('changePin.untouched')));
+  // iOS ignores live regions: speak errors, and the lockout once when it begins.
+  useAnnouncement(lockedOut ? LOCKOUT_BODY : alert ? subtitle : null);
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -99,8 +103,8 @@ export default function ChangePinScreen() {
       <View style={styles.topBar}>
         <View style={styles.cancel}>
           <Button
-            label="Cancel"
-            accessibilityHint="Leaves your PIN as it is"
+            label={t('common.cancel')}
+            accessibilityHint={t('changePin.cancelHint')}
             variant="plain"
             size="md"
             onPress={() => router.back()}
@@ -108,7 +112,7 @@ export default function ChangePinScreen() {
           />
         </View>
         <Text variant="subheadline" tone="secondary" style={styles.step}>
-          {`Step ${steps[stage]} of 3`}
+          {t('changePin.step', { step: steps[stage], total: 3 })}
         </Text>
         <View style={styles.cancel} />
       </View>
@@ -120,7 +124,7 @@ export default function ChangePinScreen() {
           style={styles.subtitle}
           accessible={Boolean(subtitle)}
           accessibilityRole={alert ? 'alert' : undefined}
-          accessibilityLiveRegion="polite"
+          accessibilityLiveRegion={alert ? 'assertive' : 'polite'}
           accessibilityLabel={subtitle ?? undefined}
         >
           {alert ? <Icon name="warning" size={16} tone="danger" /> : null}
