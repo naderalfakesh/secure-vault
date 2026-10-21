@@ -149,6 +149,17 @@ export interface SecureVault {
    * false: its chooser is an activity of its own the app cannot close.
    */
   dismissShareSheet(): Promise<boolean>;
+  /**
+   * Android: deletes the share copy folder at `path` (directly inside the
+   * app cache's `share` folder; anything else throws) after `delayMs`, on the
+   * main looper, which keeps running while the share chooser pauses the app
+   * and its JavaScript timers. One at a time; a new call replaces the last.
+   * iOS does nothing: the app is suspended instead, and the lock dismisses the
+   * sheet. Synchronous.
+   */
+  scheduleShareExpiry(path: string, delayMs: number): void;
+  /** Cancels the expiry scheduled for `path`; one for another path is kept. Synchronous. */
+  cancelShareExpiry(path: string): void;
   addListener(
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,

@@ -444,7 +444,7 @@ class DocumentService {
    * A decrypted copy named after the document, ready for the share sheet.
    * Call `discard` once the sheet closes; `clearCache` sweeps it too.
    */
-  async prepareShareFile(id: string): Promise<{ uri: string; discard: () => void } | null> {
+  async prepareShareFile(id: string): Promise<ShareCopy | null> {
     const doc = await this.getDocument(id);
     const source = await this.getDocumentFile(id);
     if (!doc || !source) return null;
@@ -458,15 +458,25 @@ class DocumentService {
     const directory = new Directory(Paths.cache, 'share', Crypto.randomUUID());
     directory.create({ intermediates: true, idempotent: true });
     const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
+    const folder = this.toPath(directory.uri).replace(/\/+$/, '');
+    const remove = () => {
+      try {
+        if (directory.exists) directory.delete();
+      } catch {
+        // Swept by clearCache.
+      }
+    };
     await new File(this.toUri(source)).copy(target);
     return {
       uri: target.uri,
+      expireAfter: (ms) => ExpoVaultModule.scheduleShareExpiry(folder, ms),
       discard: () => {
         try {
-          if (directory.exists) directory.delete();
+          ExpoVaultModule.cancelShareExpiry(folder);
         } catch {
-          // Swept by clearCache.
+          // Nothing was scheduled.
         }
+        remove();
       },
     };
   }
@@ -734,6 +744,17 @@ class DocumentService {
     }
   }
 }
+
+/** A decrypted copy for the share sheet. */
+export type ShareCopy = {
+  uri: string;
+  /**
+   * Deletes the copy after `ms` even while the app is away (Android's chooser
+   * pauses JavaScript timers); `discard` cancels it.
+   */
+  expireAfter: (ms: number) => void;
+  discard: () => void;
+};
 
 /** File-system safe name for a shared copy, e.g. "Passport (2026)" stays readable. */
 export function shareFileName(title: string): string {

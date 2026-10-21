@@ -389,6 +389,11 @@ public class ExpoVaultModule: Module {
     }
     .runOnQueue(.main)
 
+    // Android only: its chooser pauses the app while JavaScript timers stop.
+    // iOS suspends the whole app instead, and the lock path dismisses the sheet.
+    Function("scheduleShareExpiry") { (_: String, _: Double) in }
+    Function("cancelShareExpiry") { (_: String) in }
+
     // Mirrors Android, where expo-file-system's delete follows a link.
     Function("removeTreeNoFollow") { (path: String) throws in
       let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)

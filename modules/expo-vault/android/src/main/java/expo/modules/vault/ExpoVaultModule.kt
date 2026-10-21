@@ -3,6 +3,8 @@ package expo.modules.vault
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -38,6 +40,11 @@ class ExpoVaultModule : Module() {
     // Callers of the prompt that is currently open, settled together from its
     // callback. Touched on the main thread only (runOnUiThread and the main executor).
     private val promptWaiters = mutableListOf<Promise>()
+    // The share copy folder due for deletion and its pending deletion. The main
+    // looper keeps running while the share chooser pauses the activity, which
+    // stops JavaScript timers.
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var shareExpiry: Pair<String, Runnable>? = null
     // Set by cancelRestore and read by the running restore between entries of its checking pass.
     // importBackup clears it when it starts, so a cancel that arrived after an earlier restore
     // ended cannot stop the next one; the JavaScript caller repeats a cancel on the restore's
@@ -486,6 +493,37 @@ class ExpoVaultModule : Module() {
         // The share chooser is an activity of its own; the app cannot close it.
         // The lock sweep deletes the copy, so a target picked later reads nothing.
         AsyncFunction("dismissShareSheet") { false }
+
+        // Deletes a share copy's folder after `delayMs`, also while the chooser
+        // keeps the activity paused. Only a folder directly inside the cache's
+        // `share` folder qualifies. One expiry at a time: a new one replaces it.
+        Function("scheduleShareExpiry") { path: String, delayMs: Double ->
+            val shareRoot = File(appContext.reactContext!!.cacheDir, "share")
+            val parent = File(path).parentFile?.canonicalPath
+            if (!path.startsWith("/") || parent != shareRoot.canonicalPath) {
+                throw IllegalArgumentException("Not a share copy folder")
+            }
+            shareExpiry?.let { mainHandler.removeCallbacks(it.second) }
+            val expire = Runnable {
+                shareExpiry = null
+                try {
+                    BackupContainer.removeNoFollow(path, listOf(shareRoot))
+                } catch (_: Exception) {
+                    // The lock and launch sweeps remove the share folder too.
+                }
+            }
+            shareExpiry = path to expire
+            mainHandler.postDelayed(expire, delayMs.toLong().coerceAtLeast(0L))
+        }
+
+        // Cancels the expiry for `path` once its share ended; another path's is kept.
+        Function("cancelShareExpiry") { path: String ->
+            val pending = shareExpiry
+            if (pending != null && pending.first == path) {
+                mainHandler.removeCallbacks(pending.second)
+                shareExpiry = null
+            }
+        }
 
         Function("removeTreeNoFollow") { path: String ->
             BackupContainer.removeNoFollow(path, listOf(appContext.reactContext!!.cacheDir))

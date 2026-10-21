@@ -158,6 +158,26 @@ describe('DocumentService', () => {
     expect(new File(second!.uri).exists).toBe(false);
   });
 
+  it('hands the copy folder to the native expiry, and cancels it on discard', async () => {
+    // Android pauses JS timers behind the share chooser; the native expiry
+    // deletes the copy on the main looper instead.
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    decryptedCopyOf(doc.id);
+    const schedule = jest.spyOn(vault, 'scheduleShareExpiry');
+    const cancel = jest.spyOn(vault, 'cancelShareExpiry');
+
+    const copy = await documentService.prepareShareFile(doc.id);
+    copy!.expireAfter(120_000);
+
+    const folder = decodeURIComponent(copy!.uri.replace(/^file:\/\//, '')).replace(
+      /\/Passport\.jpeg$/,
+      '',
+    );
+    expect(schedule).toHaveBeenCalledWith(folder, 120_000);
+    copy!.discard();
+    expect(cancel).toHaveBeenCalledWith(folder);
+  });
+
   it("removes expo-sharing's staged links at lock and launch", async () => {
     const staging = new Directory(Paths.cache, 'expo-sharing-tmp');
     staging.create({ intermediates: true, idempotent: true });

@@ -157,7 +157,11 @@ describe('Document sharing and the lock gate', () => {
     const discard = jest.fn();
     jest
       .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+      .mockResolvedValue({
+        uri: 'file:///mock/cache/share/Passport.jpg',
+        discard,
+        expireAfter: jest.fn(),
+      });
     const view = await renderUnlocked();
 
     await confirmShare(view);
@@ -193,7 +197,11 @@ describe('Document sharing and the lock gate', () => {
     const discard = jest.fn();
     jest
       .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+      .mockResolvedValue({
+        uri: 'file:///mock/cache/share/Passport.jpg',
+        discard,
+        expireAfter: jest.fn(),
+      });
     const view = await renderUnlocked();
     await act(async () => {
       await session.updateSettings({ biometricsForShare: true });
@@ -223,7 +231,12 @@ describe('Document sharing and the lock gate', () => {
     jest.spyOn(documentService, 'prepareShareFile').mockImplementation(
       () =>
         new Promise((resolve) => {
-          finish = () => resolve({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+          finish = () =>
+            resolve({
+              uri: 'file:///mock/cache/share/Passport.jpg',
+              discard,
+              expireAfter: jest.fn(),
+            });
         }),
     );
     const view = await renderUnlocked();
@@ -254,10 +267,18 @@ describe('Document sharing and the lock gate', () => {
         () =>
           new Promise((resolve) => {
             finishFirst = () =>
-              resolve({ uri: 'file:///mock/cache/share/a/Passport.jpg', discard: first });
+              resolve({
+                uri: 'file:///mock/cache/share/a/Passport.jpg',
+                discard: first,
+                expireAfter: jest.fn(),
+              });
           }),
       )
-      .mockResolvedValueOnce({ uri: 'file:///mock/cache/share/b/Passport.jpg', discard: second });
+      .mockResolvedValueOnce({
+        uri: 'file:///mock/cache/share/b/Passport.jpg',
+        discard: second,
+        expireAfter: jest.fn(),
+      });
     share.mockImplementation(() => new Promise(() => {}));
     try {
       const view = await renderUnlocked();
@@ -284,7 +305,11 @@ describe('Document sharing and the lock gate', () => {
     const discard = jest.fn();
     jest
       .spyOn(documentService, 'prepareShareFile')
-      .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+      .mockResolvedValue({
+        uri: 'file:///mock/cache/share/Passport.jpg',
+        discard,
+        expireAfter: jest.fn(),
+      });
     share.mockImplementation(() => new Promise(() => {}));
     try {
       const view = await renderUnlocked();
@@ -340,7 +365,7 @@ describe('Document sharing and the lock gate', () => {
     const discard = jest.fn();
     jest.spyOn(documentService, 'prepareShareFile').mockImplementation(async () => {
       session.lock();
-      return { uri: 'file:///mock/cache/share/Passport.jpg', discard };
+      return { uri: 'file:///mock/cache/share/Passport.jpg', discard, expireAfter: jest.fn() };
     });
     const clearCache = jest.spyOn(documentService, 'clearCache');
     const view = await renderUnlocked();
@@ -365,7 +390,11 @@ describe('Document sharing and the lock gate', () => {
       const discard = jest.fn();
       jest
         .spyOn(documentService, 'prepareShareFile')
-        .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+        .mockResolvedValue({
+          uri: 'file:///mock/cache/share/Passport.jpg',
+          discard,
+          expireAfter: jest.fn(),
+        });
       // "Background activity launch blocked": the share never settles.
       share.mockImplementation(() => new Promise(() => {}));
       const view = await renderUnlocked();
