@@ -1,93 +1,86 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { SymbolView, type SymbolWeight } from 'expo-symbols';
-import type { ComponentProps } from 'react';
+import { type SFSymbol, SymbolView, type SymbolWeight } from 'expo-symbols';
 import { I18nManager, Platform, type StyleProp, View, type ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useUnistyles } from 'react-native-unistyles';
 
+import { type IconPath, iconPaths } from './iconPaths';
 import type { TextTone } from './Text';
 
-type FeatherName = ComponentProps<typeof Feather>['name'];
-type CommunityName = ComponentProps<typeof MaterialCommunityIcons>['name'];
-
 type Glyph = {
-  /** SF Symbol (outline) used on iOS. */
-  sf: ComponentProps<typeof SymbolView>['name'];
+  /** The outline glyph (§3.4): drawn on Android, and on iOS when `sf` is absent. */
+  d: IconPath;
   /**
-   * Android and fallback glyph: Feather (Lucide's outline ancestor, 24 grid,
-   * round caps) where it has a match, Material Community outlines otherwise.
+   * SF Symbol used on iOS where the system has the same glyph. Glyphs the
+   * system has no match for (the mark, scan, settings sliders, filter, legal,
+   * restore) draw the design's SVG on iOS too.
    */
-  android: { feather: FeatherName } | { community: CommunityName };
+  sf?: SFSymbol;
   /** Directional glyphs flip in right-to-left layouts. */
   mirror?: boolean;
 };
 
-const feather = (name: FeatherName) => ({ feather: name });
-const community = (name: CommunityName) => ({ community: name });
-
 /**
- * One outline icon vocabulary for the app (handover §3.4): SF Symbols on iOS,
- * the closest outline glyph on Android, so screens never branch on platform.
+ * One outline icon vocabulary for the app (handover §3.4): the design's SVG
+ * set on a 24 pt grid, with SF Symbols on iOS where they match, so screens
+ * never branch on platform.
  */
 export const icons = {
-  lock: { sf: 'lock', android: feather('lock') },
-  unlock: { sf: 'lock.open', android: feather('unlock') },
-  faceId: { sf: 'faceid', android: community('face-recognition') },
-  fingerprint: { sf: 'touchid', android: community('fingerprint') },
-  scan: { sf: 'doc.viewfinder', android: community('line-scan') },
-  camera: { sf: 'camera', android: feather('camera') },
-  photos: { sf: 'photo.on.rectangle', android: community('image-multiple-outline') },
-  image: { sf: 'photo', android: feather('image') },
-  files: { sf: 'folder', android: feather('folder') },
-  folder: { sf: 'folder', android: feather('folder') },
-  document: { sf: 'doc.text', android: feather('file-text') },
-  pdf: { sf: 'doc.richtext', android: community('file-pdf-box') },
-  pages: { sf: 'square.on.square', android: community('file-multiple-outline') },
-  search: { sf: 'magnifyingglass', android: feather('search') },
-  settings: { sf: 'slider.horizontal.3', android: feather('sliders') },
-  home: { sf: 'house', android: feather('home') },
-  grid: { sf: 'square.grid.2x2', android: feather('grid') },
-  library: { sf: 'square.grid.2x2', android: feather('grid') },
-  plus: { sf: 'plus', android: feather('plus') },
-  close: { sf: 'xmark', android: feather('x') },
-  check: { sf: 'checkmark', android: feather('check') },
-  checkCircle: { sf: 'checkmark.circle', android: feather('check-circle') },
-  chevronRight: { sf: 'chevron.right', android: feather('chevron-right'), mirror: true },
-  chevronLeft: { sf: 'chevron.left', android: feather('chevron-left'), mirror: true },
-  back: { sf: 'chevron.left', android: feather('chevron-left'), mirror: true },
-  more: { sf: 'ellipsis', android: feather('more-horizontal') },
-  share: { sf: 'square.and.arrow.up', android: feather('share') },
-  export: { sf: 'square.and.arrow.down', android: feather('download') },
-  trash: { sf: 'trash', android: feather('trash-2') },
-  edit: { sf: 'pencil', android: feather('edit-2') },
-  copy: { sf: 'doc.on.doc', android: feather('copy') },
-  tag: { sf: 'tag', android: feather('tag') },
-  calendar: { sf: 'calendar', android: feather('calendar') },
-  warning: { sf: 'exclamationmark.triangle', android: feather('alert-triangle') },
-  info: { sf: 'info.circle', android: feather('info') },
-  shield: { sf: 'checkmark.shield', android: community('shield-check-outline') },
-  key: { sf: 'key', android: feather('key') },
-  eye: { sf: 'eye', android: feather('eye') },
-  eyeOff: { sf: 'eye.slash', android: feather('eye-off') },
-  text: { sf: 'text.alignleft', android: feather('align-left') },
-  sparkles: { sf: 'sparkles', android: community('creation-outline') },
-  archive: { sf: 'archivebox', android: feather('archive') },
-  backup: { sf: 'archivebox', android: feather('archive') },
-  restore: { sf: 'arrow.up.doc', android: feather('upload') },
-  refresh: { sf: 'arrow.clockwise', android: feather('refresh-cw') },
-  backspace: { sf: 'delete.left', android: community('backspace-outline') },
-  sort: { sf: 'arrow.up.arrow.down', android: community('swap-vertical') },
-  filter: { sf: 'line.3.horizontal.decrease', android: feather('filter') },
-  moon: { sf: 'moon', android: feather('moon') },
-  clock: { sf: 'clock', android: feather('clock') },
-  idCard: { sf: 'person.text.rectangle', android: community('card-account-details-outline') },
-  medical: { sf: 'cross.case', android: community('medical-bag') },
-  finance: { sf: 'banknote', android: community('cash') },
-  legal: { sf: 'building.columns', android: community('scale-balance') },
-  insurance: { sf: 'umbrella', android: community('umbrella-outline') },
-  receipt: { sf: 'receipt', android: community('receipt-text-outline') },
-  other: { sf: 'tray.full', android: feather('inbox') },
-  /** The SecureVault mark: a document with a padlock. */
-  mark: { sf: 'lock.doc', android: community('file-lock-outline') },
+  lock: { d: 'lock', sf: 'lock' },
+  unlock: { d: 'unlock', sf: 'lock.open' },
+  faceId: { d: 'faceid', sf: 'faceid' },
+  fingerprint: { d: 'fingerprint', sf: 'touchid' },
+  scan: { d: 'scan' },
+  camera: { d: 'camera', sf: 'camera' },
+  photos: { d: 'photos', sf: 'photo.on.rectangle' },
+  image: { d: 'image', sf: 'photo' },
+  files: { d: 'folder', sf: 'folder' },
+  folder: { d: 'folder', sf: 'folder' },
+  document: { d: 'doc', sf: 'doc.text' },
+  pdf: { d: 'doc', sf: 'doc.text' },
+  pages: { d: 'pages', sf: 'doc.on.doc' },
+  search: { d: 'search', sf: 'magnifyingglass' },
+  settings: { d: 'settings' },
+  grid: { d: 'library', sf: 'square.grid.2x2' },
+  library: { d: 'library', sf: 'square.grid.2x2' },
+  plus: { d: 'plus', sf: 'plus' },
+  close: { d: 'x', sf: 'xmark' },
+  check: { d: 'check', sf: 'checkmark' },
+  checkCircle: { d: 'checkCircle', sf: 'checkmark.circle' },
+  chevronRight: { d: 'chevR', sf: 'chevron.right', mirror: true },
+  chevronLeft: { d: 'chevL', sf: 'chevron.left', mirror: true },
+  back: { d: 'chevL', sf: 'chevron.left', mirror: true },
+  more: { d: 'more', sf: 'ellipsis' },
+  share: { d: 'share', sf: 'square.and.arrow.up' },
+  export: { d: 'exportI', sf: 'square.and.arrow.down' },
+  trash: { d: 'trash', sf: 'trash' },
+  edit: { d: 'edit', sf: 'pencil' },
+  tag: { d: 'tag', sf: 'tag' },
+  calendar: { d: 'calendar', sf: 'calendar' },
+  warning: { d: 'alert', sf: 'exclamationmark.triangle' },
+  info: { d: 'info', sf: 'info.circle' },
+  shield: { d: 'shield', sf: 'checkmark.shield' },
+  key: { d: 'key', sf: 'key' },
+  eye: { d: 'eye', sf: 'eye' },
+  eyeOff: { d: 'eyeOff', sf: 'eye.slash' },
+  text: { d: 'text', sf: 'text.alignleft' },
+  sparkles: { d: 'sparkles', sf: 'sparkles' },
+  archive: { d: 'archive', sf: 'archivebox' },
+  backup: { d: 'archive', sf: 'archivebox' },
+  restore: { d: 'restore' },
+  refresh: { d: 'refresh', sf: 'arrow.triangle.2.circlepath' },
+  backspace: { d: 'backspace', sf: 'delete.left' },
+  sort: { d: 'sort', sf: 'arrow.up.arrow.down' },
+  filter: { d: 'filter' },
+  clock: { d: 'clock', sf: 'clock' },
+  idCard: { d: 'idcard', sf: 'person.text.rectangle' },
+  medical: { d: 'medical', sf: 'cross' },
+  finance: { d: 'finance', sf: 'banknote' },
+  legal: { d: 'legal' },
+  insurance: { d: 'umbrella', sf: 'umbrella' },
+  receipt: { d: 'receipt', sf: 'receipt' },
+  other: { d: 'tray', sf: 'tray' },
+  /** The SecureVault mark: a folded-corner document with a padlock (§3.5). */
+  mark: { d: 'mark' },
 } satisfies Record<string, Glyph>;
 
 export type IconName = keyof typeof icons;
@@ -98,10 +91,15 @@ export type IconProps = {
   tone?: TextTone;
   /** Explicit color wins over tone. */
   color?: string;
+  /** SF Symbol weight on iOS. */
   weight?: SymbolWeight;
+  /** Stroke on the 24 pt grid: 1.75 by default, 1.5 for the large mark. */
+  strokeWidth?: number;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 };
+
+export const ICON_STROKE = 1.75;
 
 const toneToColor = {
   primary: 'textPrimary',
@@ -114,11 +112,29 @@ const toneToColor = {
   danger: 'danger',
 } as const;
 
-function FallbackGlyph({ glyph, size, color }: { glyph: Glyph; size: number; color: string }) {
-  return 'feather' in glyph.android ? (
-    <Feather name={glyph.android.feather} size={size} color={color} />
-  ) : (
-    <MaterialCommunityIcons name={glyph.android.community} size={size} color={color} />
+/** The bare outline glyph, drawn from the design's path. */
+export function IconGlyph({
+  path,
+  size,
+  color,
+  strokeWidth = ICON_STROKE,
+}: {
+  path: IconPath;
+  size: number;
+  color: string;
+  strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={iconPaths[path]}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 
@@ -128,6 +144,7 @@ export function Icon({
   tone = 'primary',
   color,
   weight = 'regular',
+  strokeWidth,
   style,
   accessibilityLabel,
 }: IconProps) {
@@ -136,12 +153,13 @@ export function Icon({
   const glyph: Glyph = icons[name];
   const decorative = !accessibilityLabel;
 
-  // Directional glyphs are named for a side ("chevron.right"), which SF
-  // Symbols does not flip, so both platforms mirror them in a right-to-left
-  // layout. The keypad's backspace is not directional and never flips.
+  // Directional glyphs are named for a side ("chevron.right"), which neither
+  // SF Symbols nor the SVG flips, so both platforms mirror them in a
+  // right-to-left layout. The keypad's backspace is not directional and never flips.
   const flip = glyph.mirror && I18nManager.isRTL;
+  const svg = <IconGlyph path={glyph.d} size={size} color={tint} strokeWidth={strokeWidth} />;
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && glyph.sf) {
     return (
       <SymbolView
         name={glyph.sf}
@@ -151,7 +169,7 @@ export function Icon({
         style={[{ width: size, height: size }, flip ? mirrored : null, style]}
         accessibilityLabel={accessibilityLabel}
         accessibilityElementsHidden={decorative}
-        fallback={<FallbackGlyph glyph={glyph} size={size} color={tint} />}
+        fallback={svg}
       />
     );
   }
@@ -161,9 +179,10 @@ export function Icon({
       style={[{ width: size, height: size }, flip ? mirrored : null, style]}
       accessibilityLabel={accessibilityLabel}
       accessible={!decorative}
+      accessibilityElementsHidden={decorative}
       importantForAccessibility={decorative ? 'no-hide-descendants' : 'yes'}
     >
-      <FallbackGlyph glyph={glyph} size={size} color={tint} />
+      {svg}
     </View>
   );
 }

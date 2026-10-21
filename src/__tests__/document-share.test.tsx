@@ -20,11 +20,6 @@ import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
-// The Android case renders the Android glyphs, whose fonts jest cannot load.
-jest.mock('@expo/vector-icons', () => ({
-  Feather: () => null,
-  MaterialCommunityIcons: () => null,
-}));
 jest.mock('expo-router', () => {
   const params: { id?: string } = {};
   return {

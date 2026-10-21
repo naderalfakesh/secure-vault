@@ -2,13 +2,7 @@ import { render } from '@testing-library/react-native';
 import { I18nManager, Platform } from 'react-native';
 
 import { Icon, icons } from '../Icon';
-
-// The icon fonts load through the asset registry, which Jest does not have.
-jest.mock('@expo/vector-icons', () => {
-  const { Text } = jest.requireActual('react-native');
-  const Glyph = ({ name }: { name: string }) => <Text>{name}</Text>;
-  return { Feather: Glyph, MaterialCommunityIcons: Glyph };
-});
+import { iconPaths } from '../iconPaths';
 
 describe('Icon', () => {
   it('covers the handover icon set', () => {
@@ -85,6 +79,20 @@ describe('Icon', () => {
     }
   });
 
+  it('has a path for every glyph', () => {
+    for (const glyph of Object.values(icons)) {
+      expect(iconPaths[glyph.d]).toMatch(/^M/);
+    }
+  });
+
+  it('draws the exact SVG on iOS where no SF Symbol matches', async () => {
+    const view = await render(<Icon name="mark" accessibilityLabel="SecureVault" />);
+    const tree = JSON.stringify(view.toJSON());
+    expect(tree).toContain(iconPaths.mark);
+    // react-native-svg encodes round caps and joins as 1.
+    expect(tree).toContain('"strokeWidth":1.75,"strokeLinecap":1,"strokeLinejoin":1');
+  });
+
   describe('on Android', () => {
     const os = Platform.OS;
     beforeEach(() => {
@@ -104,8 +112,13 @@ describe('Icon', () => {
         </>,
       );
       expect(view.getByLabelText('Next')).toHaveStyle({ transform: [{ scaleX: -1 }] });
-      expect(view.getByText('chevron-right')).toBeOnTheScreen();
+      expect(JSON.stringify(view.toJSON())).toContain(iconPaths.chevR);
       expect(view.getByLabelText('Delete')).not.toHaveStyle({ transform: [{ scaleX: -1 }] });
+    });
+
+    it('draws the design SVG instead of an icon font', async () => {
+      const view = await render(<Icon name="lock" accessibilityLabel="Lock" />);
+      expect(JSON.stringify(view.toJSON())).toContain(iconPaths.lock);
     });
   });
 });
