@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
-import { act, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
@@ -32,8 +32,7 @@ const routes = {
   appDir: 'app',
   overrides: {
     '(tabs)/index': Home,
-    '(tabs)/documents': stub('Documents'),
-    '(tabs)/settings': stub('Settings'),
+    '(tabs)/settings': stub('Settings screen'),
     'documents/[id]': stub('Document detail'),
     'documents/add': stub('Add document'),
     'settings/change-pin': stub('Change PIN'),
@@ -119,5 +118,19 @@ describe('lock navigation', () => {
     await screen.findByText(/enter your PIN/);
     await waitFor(() => expect(screen.queryByText('Add document')).toBeNull());
     expect(errors.filter((message) => message.includes('Maximum update depth'))).toEqual([]);
+  });
+
+  it('shows the Library tab bar with Settings and the Scan button', async () => {
+    await openUnlockedVault();
+
+    expect(screen.getByRole('tab', { name: 'Library' })).toBeSelected();
+    await act(async () => fireEvent.press(screen.getByRole('tab', { name: 'Settings' })));
+    await screen.findByText('Settings screen');
+    expect(screen.getByRole('tab', { name: 'Settings' })).toBeSelected();
+
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Scan or import a document' })),
+    );
+    await screen.findByText('Add document');
   });
 });

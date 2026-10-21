@@ -1,0 +1,157 @@
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
+import { Text } from 'react-native';
+
+import { closeDocumentStore } from '@/data/database';
+
+import LibraryScreen from '../../app/(tabs)/index';
+import vault from '../../modules/expo-vault';
+import { ToastProvider } from '../components/ui';
+import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
+import { documentService } from '../services/DocumentService';
+import { DocumentCategory } from '../types';
+
+jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+
+const vaultMock = vault as unknown as { reset(): void };
+const CLOSED =
+  'The document index could not be found, so it stays closed. Nothing was changed. Try again.';
+
+function TabBarProbe() {
+  return <Text testID="tab-bar">{useTabBarHidden() ? 'hidden' : 'shown'}</Text>;
+}
+
+async function renderLibrary() {
+  const view = await render(
+    <ToastProvider>
+      <LibraryScreen />
+      <TabBarProbe />
+    </ToastProvider>,
+  );
+  return view;
+}
+
+async function add(title: string, category: DocumentCategory, ocrText?: string) {
+  return documentService.addDocument(
+    { uri: `/tmp/${title}.jpg`, name: `${title}.jpg`, type: 'image/jpeg', size: 2048 },
+    { title, category, ocrText },
+  );
+}
+
+const settle = (ms = 250) =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  });
+
+describe('Library', () => {
+  beforeEach(async () => {
+    vaultMock.reset();
+    await closeDocumentStore();
+    (router.push as jest.Mock).mockClear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('shows only the empty state in an empty vault', async () => {
+    const view = await renderLibrary();
+
+    await waitFor(() => expect(view.getByText('Your vault is empty')).toBeOnTheScreen());
+    expect(view.queryByLabelText('Search documents')).toBeNull();
+    await fireEvent.press(view.getByRole('button', { name: 'Scan a document' }));
+    expect(router.push).toHaveBeenCalledWith('/documents/add');
+    expect(view.getByRole('button', { name: 'Import from Files or Photos' })).toBeOnTheScreen();
+  });
+
+  it('shows the load error, not an empty vault, while the index stays closed', async () => {
+    jest
+      .spyOn(documentService, 'initialize')
+      .mockRejectedValue(Object.assign(new Error(CLOSED), { code: 'DATABASE_NAME_UNREADABLE' }));
+
+    const view = await renderLibrary();
+
+    await waitFor(() => expect(view.getByText('Couldn’t load your documents')).toBeOnTheScreen());
+    expect(
+      view.getByText(
+        'Your documents weren’t changed. Try again. If this keeps happening, close and reopen SecureVault.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.getByText(CLOSED)).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+    expect(view.queryByText('Your vault is empty')).toBeNull();
+    expect(view.queryByText(/encrypted on this device/)).toBeNull();
+  });
+
+  it('treats an index closed by Delete everything as an empty vault', async () => {
+    jest
+      .spyOn(documentService, 'initialize')
+      .mockRejectedValue(Object.assign(new Error('emptied'), { code: 'VAULT_EMPTIED' }));
+
+    const view = await renderLibrary();
+
+    await waitFor(() => expect(view.getByText('Your vault is empty')).toBeOnTheScreen());
+    expect(view.queryByText('Couldn’t load your documents')).toBeNull();
+  });
+
+  it('lists the five most recent and only the collections that hold documents', async () => {
+    for (let index = 1; index <= 6; index += 1) {
+      await add(`Receipt ${index}`, DocumentCategory.RECEIPTS);
+    }
+    await add('Lease agreement', DocumentCategory.LEGAL);
+
+    const view = await renderLibrary();
+
+    await waitFor(() =>
+      expect(view.getByText('7 documents, encrypted on this device')).toBeOnTheScreen(),
+    );
+    expect(view.getAllByTestId(/^document-row-/)).toHaveLength(5);
+    expect(view.getByTestId('collection-receipts')).toBeOnTheScreen();
+    expect(view.getByTestId('collection-legal')).toBeOnTheScreen();
+    expect(view.queryByTestId('collection-medical')).toBeNull();
+
+    await fireEvent.press(view.getByTestId('collection-legal'));
+    expect(view.getByText('1 document in Legal')).toBeOnTheScreen();
+    expect(view.getAllByTestId(/^document-row-/)).toHaveLength(1);
+  });
+
+  it('searches the text read from the pages and explains an empty result', async () => {
+    await add('Lease agreement', DocumentCategory.LEGAL, 'The lease term begins on 1 March 2026');
+    await add('Passport', DocumentCategory.ID);
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
+
+    await fireEvent.changeText(view.getByLabelText('Search documents'), 'march');
+    await settle();
+    expect(view.getByText('1 result')).toBeOnTheScreen();
+    expect(view.getByTestId('snippet-match')).toHaveTextContent('March');
+
+    await fireEvent.press(view.getByRole('button', { name: 'ID & Personal' }));
+    expect(view.getByText('No matches for “march” in ID & Personal')).toBeOnTheScreen();
+    await fireEvent.press(view.getByRole('button', { name: 'Search all collections' }));
+    expect(view.getByText('1 result')).toBeOnTheScreen();
+  });
+
+  it('moves selected documents to another collection and hides the tab bar meanwhile', async () => {
+    const lease = await add('Lease agreement', DocumentCategory.OTHER);
+    await add('Passport', DocumentCategory.ID);
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Select' }));
+    expect(view.getByTestId('tab-bar')).toHaveTextContent('hidden');
+    await fireEvent.press(view.getByTestId(`document-row-${lease.id}`));
+    expect(view.getByText('1 selected')).toBeOnTheScreen();
+    // Share is single-document only, so it is absent here.
+    expect(view.queryByRole('button', { name: /Share/ })).toBeNull();
+
+    await fireEvent.press(view.getByRole('button', { name: 'Move to…' }));
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Legal' }));
+    });
+
+    await waitFor(() => expect(view.getByText('Moved 1 document to Legal')).toBeOnTheScreen());
+    expect((await documentService.getDocument(lease.id))?.category).toBe(DocumentCategory.LEGAL);
+    expect(view.getByTestId('tab-bar')).toHaveTextContent('shown');
+  });
+});

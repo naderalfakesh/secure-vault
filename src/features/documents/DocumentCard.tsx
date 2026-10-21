@@ -1,69 +1,70 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native-unistyles';
-
-import { DocumentCard as CardView, Skeleton } from '@/components/ui';
+import { DocumentCard as CardView, DocumentRow } from '@/components/ui';
+import type { SnippetPart } from '@/components/ui';
 import type { Document } from '@/types';
-import { formatDate, formatFileSize } from '@/utils/format';
 
 import { categoryLabel } from './categories';
-import { DocumentImage } from './DocumentImage';
+import { thumbnailContent, useThumbnail } from './DocumentThumbnail';
+import { documentMeta } from './library';
 
-export type DocumentCardProps = {
+type GetThumbnail = (id: string) => Promise<string | null>;
+
+export type LibraryCardProps = {
   document: Document;
+  /** Brass line, e.g. "Expires in 82 days". */
+  expiry: string;
   onPress: (document: Document) => void;
-  getThumbnail: (id: string) => Promise<string | null>;
-  /** Compact variant for horizontal rows. */
-  compact?: boolean;
+  getThumbnail: GetThumbnail;
 };
 
-/** Loads a document's decrypted thumbnail into the design-system card. */
-export function DocumentCard({
-  document,
-  onPress,
-  getThumbnail,
-  compact = false,
-}: DocumentCardProps) {
-  const [thumbnail, setThumbnail] = useState<string | null | undefined>(undefined);
+/** A card on the Expiring soon rail, with the decrypted thumbnail. */
+export function LibraryCard({ document, expiry, onPress, getThumbnail }: LibraryCardProps) {
+  const uri = useThumbnail(document.id, getThumbnail);
 
-  useEffect(() => {
-    let active = true;
-    getThumbnail(document.id)
-      .then((uri) => {
-        if (active) setThumbnail(uri);
-      })
-      .catch(() => {
-        if (active) setThumbnail(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [document.id, getThumbnail]);
-
-  const meta = compact
-    ? formatDate(document.createdAt)
-    : `${formatDate(document.createdAt)} · ${formatFileSize(document.fileSize)}`;
-
-  // Without a thumbnail the card shows its scanned-paper placeholder.
   return (
     <CardView
       title={document.title}
-      meta={meta}
-      layout={compact ? 'rail' : 'grid'}
-      accessibilityLabel={`${document.title}, ${categoryLabel(document.category)}, ${formatDate(document.createdAt)}`}
+      expiry={expiry}
+      layout="rail"
+      accessibilityLabel={`${document.title}, ${categoryLabel(document.category)}, ${expiry}`}
       onPress={() => onPress(document)}
-      thumbnail={
-        thumbnail === undefined ? (
-          <Skeleton width="100%" height={compact ? 92 : 120} borderRadius={0} />
-        ) : thumbnail ? (
-          <DocumentImage
-            source={{ uri: `file://${thumbnail}` }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="cover"
-            transition={150}
-            accessible={false}
-          />
-        ) : undefined
-      }
+      thumbnail={thumbnailContent(uri, 92)}
+    />
+  );
+}
+
+export type LibraryRowProps = {
+  document: Document;
+  onPress: (document: Document) => void;
+  onLongPress?: (document: Document) => void;
+  getThumbnail: GetThumbnail;
+  snippet?: readonly SnippetPart[];
+  selectable?: boolean;
+  selected?: boolean;
+};
+
+/** A Library row: paper thumbnail, title, "Collection · date", optional match line. */
+export function LibraryRow({
+  document,
+  onPress,
+  onLongPress,
+  getThumbnail,
+  snippet,
+  selectable,
+  selected,
+}: LibraryRowProps) {
+  const uri = useThumbnail(document.id, getThumbnail);
+
+  return (
+    <DocumentRow
+      title={document.title}
+      meta={documentMeta(document)}
+      snippet={snippet}
+      thumbnail={thumbnailContent(uri, 56)}
+      onPress={() => onPress(document)}
+      onLongPress={onLongPress ? () => onLongPress(document) : undefined}
+      selectable={selectable}
+      selected={selected}
+      testID={`document-row-${document.id}`}
     />
   );
 }
