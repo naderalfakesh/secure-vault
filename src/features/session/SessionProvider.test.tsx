@@ -244,8 +244,12 @@ describe('SessionProvider', () => {
       await fireEvent.press(view.getByText('run change pin'));
     });
 
-    expect(view.getByTestId('error')).toHaveTextContent(
-      'The device key was not unlocked, so the PIN was not changed. Try again.',
+    // The press does not await changePin, and its PIN check hashes with PBKDF2
+    // slices that yield to the event loop, so one act flush can end first.
+    await waitFor(() =>
+      expect(view.getByTestId('error')).toHaveTextContent(
+        'The device key was not unlocked, so the PIN was not changed. Try again.',
+      ),
     );
   });
 
