@@ -1,4 +1,4 @@
-import type { SnippetPart } from '@/components/ui';
+import type { DocumentOrder } from '@/data/DocumentRepository';
 import type { Document, DocumentCategory } from '@/types';
 import { formatRelativeDate } from '@/utils/format';
 
@@ -53,32 +53,19 @@ export function applyFilter(
   );
 }
 
-export function sortDocuments(
-  documents: readonly Document[],
-  order: SortOrder,
-  expiry: ExpiryDates,
-): Document[] {
-  const sorted = [...documents];
-  switch (order) {
-    case 'oldest':
-      return sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    case 'title':
-      return sorted.sort((a, b) =>
-        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
-      );
-    case 'expiry':
-      // Documents without a date go last, newest first among themselves.
-      return sorted.sort((a, b) => {
-        const left = expiry.get(a.id);
-        const right = expiry.get(b.id);
-        if (left && right) return left.localeCompare(right);
-        if (left) return -1;
-        if (right) return 1;
-        return b.createdAt.localeCompare(a.createdAt);
-      });
-    default:
-      return sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
+/**
+ * Title A–Z in the reader's language. The other orders come from the index
+ * (`DocumentOrder`); SQLite cannot compare titles outside ASCII.
+ */
+export function sortByTitle(documents: readonly Document[]): Document[] {
+  return [...documents].sort((a, b) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+  );
+}
+
+/** The index order behind a sort; Title A–Z reads the newest-first list and re-sorts it. */
+export function indexOrder(order: SortOrder): DocumentOrder {
+  return order === 'title' ? 'newest' : order;
 }
 
 export function recentDocuments(documents: readonly Document[]): Document[] {
@@ -105,30 +92,6 @@ export function documentMeta(document: Document, now: Date = new Date()): string
   ]
     .filter(Boolean)
     .join(' · ');
-}
-
-const SNIPPET_CONTEXT = 32;
-
-/**
- * The first place the query's first word shows in the text read from the
- * pages, with some context either side and the match marked. Titles and tags
- * are already on the row, so only the page text gets a snippet.
- */
-export function findSnippet(text: string | undefined, query: string): SnippetPart[] | undefined {
-  const word = query.trim().split(/\s+/)[0];
-  if (!text || !word) return undefined;
-  const at = text.toLocaleLowerCase().indexOf(word.toLocaleLowerCase());
-  if (at < 0) return undefined;
-  const start = Math.max(0, at - SNIPPET_CONTEXT);
-  const end = Math.min(text.length, at + word.length + SNIPPET_CONTEXT);
-  const clean = (part: string) => part.replace(/\s+/g, ' ');
-  return [
-    { text: `${start > 0 ? '…' : ''}${clean(text.slice(start, at)).trimStart()}` },
-    { text: text.slice(at, at + word.length), match: true },
-    {
-      text: `${clean(text.slice(at + word.length, end)).trimEnd()}${end < text.length ? '…' : ''}`,
-    },
-  ];
 }
 
 /** "3 results in Legal", "12 documents", "1 result in Legal and Finance". */

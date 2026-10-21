@@ -32,7 +32,7 @@ import {
   countByCollection,
   EXPIRING_WINDOW_DAYS,
   type ExpiryDates,
-  findSnippet,
+  indexOrder,
   isFiltering,
   type LibraryFilter,
   NO_FILTER,
@@ -41,12 +41,13 @@ import {
   SORT_BUTTON_LABELS,
   SORT_LABELS,
   type SortOrder,
-  sortDocuments,
+  sortByTitle,
 } from '@/features/documents/library';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDocuments } from '@/hooks/useDocuments';
 import { documentService } from '@/services/DocumentService';
+import type { DocumentOrder, SearchHit } from '@/data/DocumentRepository';
 import type { Document, DocumentCategory } from '@/types';
 import { formatExpiry, pluralize } from '@/utils/format';
 
@@ -63,14 +64,21 @@ const LOAD_FAILED =
 export default function LibraryScreen() {
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const { documents, loading, error, refreshDocuments, getDocumentThumbnail, searchDocuments } =
-    useDocuments();
+  const { documents, loading, error, refreshDocuments, getDocumentThumbnail } = useDocuments();
 
   const [expiry, setExpiry] = useState<ExpiryDates>(new Map());
   // Expiry dates up to this day go on the Expiring soon rail.
   const [railCutoff, setRailCutoff] = useState('');
   const [query, setQuery] = useState('');
-  const [found, setFound] = useState<{ query: string; documents: Document[] } | null>(null);
+  const [found, setFound] = useState<{
+    query: string;
+    order: DocumentOrder;
+    hits: SearchHit[];
+  } | null>(null);
+  // The whole vault in the index's order, for orders other than newest first.
+  const [ordered, setOrdered] = useState<{ order: DocumentOrder; documents: Document[] } | null>(
+    null,
+  );
   const [focused, setFocused] = useState(false);
   // "See all" or a collection tile opens the list without a query.
   const [browsing, setBrowsing] = useState(false);
@@ -105,26 +113,50 @@ export default function LibraryScreen() {
     };
   }, [documents]);
 
-  // Full-text search over titles, tags and the text read on this device.
+  // Full-text search over titles, tags and the text read on this device. The
+  // index sorts the results and marks the matched words (F11).
   const text = query.trim();
+  const order = indexOrder(sort);
   useEffect(() => {
     if (!text) return;
     let active = true;
     const timer = setTimeout(() => {
-      searchDocuments(text)
-        .then((documents) => {
-          if (active) setFound({ query: text, documents });
+      documentService
+        .searchWithSnippets(text, order)
+        .then((hits) => {
+          if (active) setFound({ query: text, order, hits });
         })
         .catch(() => {
-          if (active) setFound({ query: text, documents: [] });
+          if (active) setFound({ query: text, order, hits: [] });
         });
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [text, searchDocuments]);
-  const results = text && found?.query === text ? found.documents : null;
+  }, [text, order, documents]);
+  const results = text && found?.query === text ? found : null;
+
+  // Oldest added and soonest expiry come from the index (expiry from the
+  // fields table); the list keeps its previous order until they arrive.
+  useEffect(() => {
+    if (order === 'newest') return;
+    let active = true;
+    documentService
+      .listDocuments(order)
+      .then((list) => {
+        if (active) setOrdered({ order, documents: list });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [order, documents]);
+
+  const snippets = useMemo(
+    () => new Map((results?.hits ?? []).map((hit) => [hit.document.id, hit.snippet])),
+    [results],
+  );
 
   const searching = query.trim().length > 0;
   const listMode = focused || searching || browsing || isFiltering(filter) || selecting;
@@ -134,10 +166,17 @@ export default function LibraryScreen() {
     // Search results that have since left the vault are not shown.
     const present = new Set(documents.map((document) => document.id));
     const base = searching
-      ? (results ?? []).filter((document) => present.has(document.id))
-      : documents;
-    return sortDocuments(applyFilter(base, filter, expiry), sort, expiry);
-  }, [searching, results, documents, filter, sort, expiry]);
+      ? (results?.hits ?? []).map((hit) => hit.document)
+      : order !== 'newest' && ordered?.order === order
+        ? ordered.documents
+        : documents;
+    const filtered = applyFilter(
+      base.filter((document) => present.has(document.id)),
+      filter,
+      expiry,
+    );
+    return sort === 'title' ? sortByTitle(filtered) : filtered;
+  }, [searching, results, documents, filter, sort, order, ordered, expiry]);
   const expiring = useMemo(
     () =>
       documents
@@ -470,7 +509,7 @@ export default function LibraryScreen() {
               <LibraryRow
                 document={item}
                 getThumbnail={getDocumentThumbnail}
-                snippet={searching ? findSnippet(item.ocrText, query) : undefined}
+                snippet={searching ? (snippets.get(item.id) ?? undefined) : undefined}
                 selectable={selecting}
                 selected={selected.has(item.id)}
                 onPress={selecting ? toggle : openDocument}

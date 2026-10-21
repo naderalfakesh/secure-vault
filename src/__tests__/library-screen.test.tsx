@@ -154,6 +154,61 @@ describe('Library', () => {
     expect(view.getByText('1 result')).toBeOnTheScreen();
   });
 
+  it('highlights every word the index matched, with diacritics folded', async () => {
+    await add('Visa', DocumentCategory.ID, 'Entrée permise jusqu’au 3 janvier 2027');
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
+
+    await fireEvent.changeText(view.getByLabelText('Search documents'), 'entree janv');
+    await settle();
+
+    expect(view.getByText('1 result')).toBeOnTheScreen();
+    expect(view.getAllByTestId('snippet-match').map((part) => part.props.children)).toEqual([
+      'Entrée',
+      'janvier',
+    ]);
+  });
+
+  it('shows no snippet line when only the title matched', async () => {
+    await add('March rent receipt', DocumentCategory.RECEIPTS, 'Paid in full');
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
+
+    await fireEvent.changeText(view.getByLabelText('Search documents'), 'march');
+    await settle();
+
+    expect(view.getByText('1 result')).toBeOnTheScreen();
+    expect(view.queryByTestId('snippet-match')).toBeNull();
+  });
+
+  it('sorts by expiry date from the index, undated documents last', async () => {
+    const lease = await add('Lease agreement', DocumentCategory.LEGAL);
+    const passport = await add('Passport', DocumentCategory.ID);
+    const visa = await add('Visa', DocumentCategory.ID);
+    await documentService.setFields(passport.id, [
+      { key: 'expires', value: '2031-01-03', kind: 'date' },
+    ]);
+    await documentService.setFields(visa.id, [
+      { key: 'expires', value: '2030-06-01', kind: 'date' },
+    ]);
+    const list = jest.spyOn(documentService, 'listDocuments');
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'See all' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'See all' }));
+    await fireEvent.press(view.getByRole('button', { name: /^Sort and filter/ }));
+    await fireEvent.press(view.getByRole('radio', { name: 'Expiry date, soonest' }));
+    await settle();
+
+    expect(list).toHaveBeenCalledWith('expiry');
+    expect(view.getAllByTestId(/^document-row-/).map((row) => row.props.testID)).toEqual([
+      `document-row-${visa.id}`,
+      `document-row-${passport.id}`,
+      `document-row-${lease.id}`,
+    ]);
+    list.mockRestore();
+  });
+
   it('moves selected documents to another collection and hides the tab bar meanwhile', async () => {
     const lease = await add('Lease agreement', DocumentCategory.OTHER);
     await add('Passport', DocumentCategory.ID);

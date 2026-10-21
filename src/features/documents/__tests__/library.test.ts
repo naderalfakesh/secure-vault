@@ -3,10 +3,10 @@ import { type Document, DocumentCategory } from '@/types';
 import {
   applyFilter,
   documentMeta,
-  findSnippet,
+  indexOrder,
   recentDocuments,
   resultLine,
-  sortDocuments,
+  sortByTitle,
 } from '../library';
 
 let counter = 0;
@@ -41,19 +41,11 @@ describe('library logic', () => {
     expect(applyFilter(all, { collections: [], onlyWithExpiry: true }, expiry)).toEqual([passport]);
   });
 
-  it('sorts every way the sheet offers', () => {
-    expect(sortDocuments(all, 'newest', expiry).map((d) => d.id)).toEqual([
-      invoice.id,
-      passport.id,
-      lease.id,
-    ]);
-    expect(sortDocuments(all, 'oldest', expiry)[0]).toBe(lease);
-    expect(sortDocuments(all, 'title', expiry).map((d) => d.title)).toEqual([
-      'Dentist invoice',
-      'lease',
-      'Passport',
-    ]);
-    expect(sortDocuments(all, 'expiry', expiry)[0]).toBe(passport);
+  it('sorts titles A–Z ignoring case and leaves the other orders to the index', () => {
+    expect(sortByTitle(all).map((d) => d.title)).toEqual(['Dentist invoice', 'lease', 'Passport']);
+    expect(indexOrder('title')).toBe('newest');
+    expect(indexOrder('expiry')).toBe('expiry');
+    expect(indexOrder('oldest')).toBe('oldest');
   });
 
   it('keeps the five most recently updated as Recent', () => {
@@ -63,14 +55,6 @@ describe('library logic', () => {
     const recent = recentDocuments(many);
     expect(recent).toHaveLength(5);
     expect(recent[0]).toBe(many[6]);
-  });
-
-  it('marks the first match in the page text', () => {
-    const parts = findSnippet('The lease term begins on 1 March 2026 and runs a year.', 'Lease');
-    expect(parts?.find((part) => part.match)?.text).toBe('lease');
-    expect(parts?.map((part) => part.text).join('')).toContain('The lease term begins');
-    expect(findSnippet('Nothing here', 'visa')).toBeUndefined();
-    expect(findSnippet(undefined, 'visa')).toBeUndefined();
   });
 
   it('words the count line and the row meta', () => {
