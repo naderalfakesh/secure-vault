@@ -143,11 +143,16 @@ class DocumentService {
   /**
    * Open the current index and refresh every list, e.g. after a backup
    * restore replaced it. Nothing is closed here: a screen may still be
-   * running a statement on the connection it already holds.
+   * running a statement on the connection it already holds. Lists refresh
+   * even when the new index fails to open, so none keeps showing rows from
+   * the index that was replaced; they show the load failure instead.
    */
   async reload(): Promise<void> {
-    await openDocumentStore();
-    this.notify();
+    try {
+      await openDocumentStore();
+    } finally {
+      this.notify();
+    }
   }
 
   private notify() {

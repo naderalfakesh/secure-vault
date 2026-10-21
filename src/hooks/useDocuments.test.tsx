@@ -49,4 +49,24 @@ describe('useDocuments', () => {
     expect(opens).not.toHaveBeenCalled();
     await expect(documentService.initialize()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });
   });
+
+  it('drops the rows when a restored index fails to open', async () => {
+    await documentService.addDocument(picked, { title: 'Passport' });
+    const view = await render(<Home />);
+    await waitFor(() => expect(view.getByTestId('count')).toHaveTextContent('1'));
+
+    // The restore swapped in an index that will not open.
+    await closeDocumentStore();
+    opens.mockImplementation(() => {
+      throw new Error('file is not a database');
+    });
+    await act(async () => {
+      await documentService.reload().catch(() => {});
+    });
+
+    await waitFor(() => expect(view.getByTestId('count')).toHaveTextContent('0'));
+    expect(view.getByTestId('error')).not.toHaveTextContent(/^$/);
+    opens.mockImplementation(jest.requireActual('@/data/testing/betterSqlite').openTestDatabase);
+    await closeDocumentStore().catch(() => {});
+  });
 });

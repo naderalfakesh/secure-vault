@@ -59,6 +59,8 @@ export function useDocuments(): UseDocumentsReturn {
         setDocuments([]);
         return;
       }
+      // No stale rows under a failed index: their files may be gone.
+      setDocuments([]);
       setError(plainErrorMessage(e, t('library.loadFailed.fallback')));
       console.error('Failed to load documents:', e);
     } finally {
@@ -87,6 +89,8 @@ export function useDocuments(): UseDocumentsReturn {
           setDocuments([]);
           setError(null);
         } else {
+          // No stale rows under a failed index: their files may be gone.
+          setDocuments([]);
           setError(plainErrorMessage(e, t('library.loadFailed.fallback')));
         }
       })
