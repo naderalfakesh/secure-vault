@@ -6,6 +6,7 @@ import * as Sharing from 'expo-sharing';
 import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
 
 import SettingsScreen from '../../app/(tabs)/settings';
+import BackupScreen from '../../app/settings/backup';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
@@ -15,7 +16,10 @@ import { backupService } from '../services/BackupService';
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), back: jest.fn() },
+  Stack: { Screen: () => null },
+}));
 
 const share = Sharing.shareAsync as jest.Mock;
 const pick = DocumentPicker.getDocumentAsync as jest.Mock;
@@ -39,19 +43,23 @@ const PICKED = 'file:///mock/cache/DocumentPicker/839E8D63.svbackup';
 let session: ReturnType<typeof useSession>;
 
 // The lock gate as the root layout applies it: no settings screen while locked.
-function Gate() {
+function Gate({ screen }: { screen: 'backup' | 'settings' }) {
   const value = useSession();
   useEffect(() => {
     session = value;
   });
-  return value.status === 'unlocked' ? <SettingsScreen /> : <Text>{value.status}</Text>;
+  if (value.status !== 'unlocked') return <Text>{value.status}</Text>;
+  return screen === 'backup' ? <BackupScreen /> : <SettingsScreen />;
 }
 
-async function renderUnlocked(autoLockSeconds: AutoLockSeconds = 0) {
+async function renderUnlocked(
+  autoLockSeconds: AutoLockSeconds = 0,
+  screen: 'backup' | 'settings' = 'backup',
+) {
   const view = await render(
     <SessionProvider>
       <ToastProvider>
-        <Gate />
+        <Gate screen={screen} />
       </ToastProvider>
     </SessionProvider>,
   );
@@ -103,7 +111,7 @@ const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0], ms: numb
   });
 
 async function runExport(view: Awaited<ReturnType<typeof renderUnlocked>>) {
-  await fireEvent.press(view.getByText('Export vault'));
+  await fireEvent.press(view.getByText('Create a backup'));
   await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
   await fireEvent.changeText(
     view.getByLabelText('Repeat the backup passphrase'),
@@ -115,7 +123,7 @@ async function runExport(view: Awaited<ReturnType<typeof renderUnlocked>>) {
 async function startRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
   await openRestore(view);
   await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-  await pressAndSettle(view.getByText('Restore'), 50);
+  await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
 }
 
 async function lockAndUnlock() {
@@ -132,11 +140,11 @@ async function openRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
   jest
     .spyOn(backupService, 'inspectBackup')
     .mockResolvedValue({ version: 1, app: 'SecureVault', created: '2026-10-16', entries: 19 });
-  await fireEvent.press(view.getByText('Restore from backup'));
+  await fireEvent.press(view.getByText('Restore from a backup…'));
   await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
 }
 
-describe('Settings backup and the lock gate', () => {
+describe('Backup hub and the lock gate', () => {
   let discard: jest.SpyInstance;
   let discardPicked: jest.SpyInstance;
 
@@ -172,6 +180,27 @@ describe('Settings backup and the lock gate', () => {
     expect(discard).toHaveBeenCalledWith(CONTAINER);
     expect(backupService.activity()).toBeNull();
     expect(session.notice).toBeNull();
+  });
+
+  it('shows when the last backup was made on this phone once one has been shared', async () => {
+    nativeExport();
+    const view = await renderUnlocked();
+    expect(view.queryByText(/Last created on this phone/)).toBeNull();
+
+    await runExport(view);
+
+    expect(view.getByText(/^Last created on this phone: \w+/)).toBeOnTheScreen();
+    expect(await SecureStore.getItemAsync('securevault.lastBackup')).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('records no backup date when the vault locked before the share', async () => {
+    nativeExport(() => session.lock());
+    const view = await renderUnlocked();
+
+    await runExport(view);
+
+    expect(await SecureStore.getItemAsync('securevault.lastBackup')).toBeNull();
+    expect(view.getByText('locked')).toBeOnTheScreen();
   });
 
   it('frees the export and removes the backup when the vault locks under a share that never settles', async () => {
@@ -275,7 +304,7 @@ describe('Settings backup and the lock gate', () => {
 
     await openRestore(view);
     await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-    await pressAndSettle(view.getByText('Restore'), 50);
+    await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
 
     expect(discardPicked).toHaveBeenCalledWith(PICKED);
     expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
@@ -290,7 +319,7 @@ describe('Settings backup and the lock gate', () => {
 
     await openRestore(view);
     await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
-    await pressAndSettle(view.getByText('Restore'), 50);
+    await pressAndSettle(view.getByRole('button', { name: 'Restore' }), 50);
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(view.queryByText('Vault restored: 19 entries')).toBeNull();
@@ -328,10 +357,10 @@ describe('Settings backup and the lock gate', () => {
 
       // The screen is new, but the restore it started before the lock is not over.
       expect(view.getByText('A restore started earlier is still running')).toBeOnTheScreen();
-      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+      for (const title of ['Restore from a backup…', 'Create a backup']) {
         expect(rowLabelled(view, title)).toBeDisabled();
       }
-      await fireEvent.press(rowLabelled(view, 'Restore from backup'));
+      await fireEvent.press(rowLabelled(view, 'Restore from a backup…'));
       expect(pick).toHaveBeenCalledTimes(1);
 
       // The service refuses on its own too, before touching the first restore's extras.
@@ -353,7 +382,7 @@ describe('Settings backup and the lock gate', () => {
       await settleFor(50);
 
       expect(backupService.activity()).toBeNull();
-      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+      for (const title of ['Restore from a backup…', 'Create a backup']) {
         expect(rowLabelled(view, title)).toBeEnabled();
       }
       expect(view.queryByText('A restore started earlier is still running')).toBeNull();
@@ -366,7 +395,7 @@ describe('Settings backup and the lock gate', () => {
       jest.spyOn(vault, 'exportBackup').mockReturnValue(exporting.promise);
       const view = await renderUnlocked();
 
-      await fireEvent.press(view.getByText('Export vault'));
+      await fireEvent.press(view.getByText('Create a backup'));
       await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
       await fireEvent.changeText(
         view.getByLabelText('Repeat the backup passphrase'),
@@ -376,7 +405,7 @@ describe('Settings backup and the lock gate', () => {
       await lockAndUnlock();
 
       expect(view.getByText('An export started earlier is still finishing')).toBeOnTheScreen();
-      for (const title of ['Restore from backup', 'Export vault', 'Delete everything']) {
+      for (const title of ['Restore from a backup…', 'Create a backup']) {
         expect(rowLabelled(view, title)).toBeDisabled();
       }
       await expect(
@@ -392,7 +421,7 @@ describe('Settings backup and the lock gate', () => {
       expect(discard).toHaveBeenCalledWith(CONTAINER);
       expect(session.notice).toEqual({ message: STOPPED });
       expect(backupService.activity()).toBeNull();
-      expect(rowLabelled(view, 'Export vault')).toBeEnabled();
+      expect(rowLabelled(view, 'Create a backup')).toBeEnabled();
     });
 
     it('lets a restore end in failure behind the lock and then frees the rows', async () => {
@@ -402,14 +431,14 @@ describe('Settings backup and the lock gate', () => {
 
       await startRestore(view);
       await lockAndUnlock();
-      expect(rowLabelled(view, 'Restore from backup')).toBeDisabled();
+      expect(rowLabelled(view, 'Restore from a backup…')).toBeDisabled();
 
       await act(async () => {
         importing.fail(Object.assign(new Error('bad'), { code: 'BACKUP_PASSPHRASE' }));
       });
       await settleFor(50);
 
-      expect(rowLabelled(view, 'Restore from backup')).toBeEnabled();
+      expect(rowLabelled(view, 'Restore from a backup…')).toBeEnabled();
       expect(session.notice).toEqual({
         message: 'That passphrase does not match this backup. Nothing was changed.',
         tone: 'danger',
@@ -429,7 +458,7 @@ describe('Settings "Delete everything"', () => {
   });
 
   async function eraseFromSettings() {
-    const view = await renderUnlocked();
+    const view = await renderUnlocked(0, 'settings');
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       const destructive = buttons?.find((button) => button.style === 'destructive');
       void destructive?.onPress?.();
@@ -444,10 +473,12 @@ describe('Settings "Delete everything"', () => {
     return view;
   }
 
-  it('reports the erase', async () => {
+  it('reports the erase and forgets when the last backup was made', async () => {
+    await SecureStore.setItemAsync('securevault.lastBackup', '2026-10-12T09:30:00.000Z');
     const view = await eraseFromSettings();
 
     await waitFor(() => expect(view.getByText('Vault emptied')).toBeOnTheScreen());
+    expect(await SecureStore.getItemAsync('securevault.lastBackup')).toBeNull();
   });
 
   it('still reports the erase and asks for setup when the old PIN cannot be removed', async () => {
@@ -470,7 +501,7 @@ describe('Settings "Delete everything"', () => {
   });
 });
 
-describe('Settings restore refusals that leave the vault unchanged', () => {
+describe('Backup hub restore refusals that leave the vault unchanged', () => {
   beforeEach(() => {
     vaultMock.reset();
     secureStoreMock.__reset();
@@ -512,7 +543,7 @@ describe('Settings restore refusals that leave the vault unchanged', () => {
 
       expect(view.getByText(sentence)).toBeOnTheScreen();
       expect(view.queryByText(/native text/)).toBeNull();
-      expect(view.getByText('Restore')).toBeOnTheScreen();
+      expect(view.getByRole('button', { name: 'Restore' })).toBeOnTheScreen();
       expect(backupService.activity()).toBeNull();
     },
   );
@@ -528,7 +559,7 @@ describe('Settings restore refusals that leave the vault unchanged', () => {
     const view = await renderUnlocked();
 
     await act(async () => {
-      await fireEvent.press(view.getByText('Restore from backup'));
+      await fireEvent.press(view.getByText('Restore from a backup…'));
     });
 
     await waitFor(() =>

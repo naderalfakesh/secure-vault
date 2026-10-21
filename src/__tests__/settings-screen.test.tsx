@@ -56,14 +56,15 @@ describe('Settings', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('groups the security rows and keeps exactly one restore entry', async () => {
+  it('groups the security rows and leads to backups through one Backup row', async () => {
     const view = await renderUnlocked('settings');
 
     expect(view.getByRole('switch', { name: /^Privacy cover/ })).toBeChecked();
     expect(view.queryByText('Privacy screen')).toBeNull();
     expect(view.queryByText(/Test authentication/)).toBeNull();
     expect(view.queryByText(/Secure Enclave|secure hardware/i)).toBeNull();
-    expect(view.getAllByLabelText(/^Restore from backup/)).toHaveLength(1);
+    expect(view.queryByLabelText(/Restore/)).toBeNull();
+    expect(view.getByRole('button', { name: /^Backup/ })).toBeOnTheScreen();
     expect(view.getByRole('button', { name: 'Lock now' })).toBeOnTheScreen();
     expect(view.getByText('Detail suggestions')).toBeOnTheScreen();
   });
