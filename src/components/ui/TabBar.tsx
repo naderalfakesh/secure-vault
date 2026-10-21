@@ -2,6 +2,8 @@ import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
@@ -30,7 +32,7 @@ export const TAB_BAR_BOTTOM = 26;
  * which is not installed yet, so every platform uses the solid surface with a
  * hairline, the handover's fallback.
  */
-export function TabBar({ tabs, onScan, scanLabel = 'Scan a document' }: TabBarProps) {
+export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const [first, ...rest] = tabs;
 
@@ -51,7 +53,7 @@ export function TabBar({ tabs, onScan, scanLabel = 'Scan a document' }: TabBarPr
         // An action, but it sits in the tab list, so it is a tab that is never selected.
         accessibilityRole="tab"
         accessibilityLabel={scanLabel}
-        accessibilityHint="Opens the scanner"
+        accessibilityHint={t('ui.tabBar.scanHint')}
         accessibilityState={{ selected: false }}
         onPress={onScan}
         style={({ pressed }) => [styles.scan, pressed && styles.pressed]}

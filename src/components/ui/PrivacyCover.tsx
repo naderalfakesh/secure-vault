@@ -1,6 +1,8 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Mark } from './Mark';
 import { Text } from './Text';
 
@@ -19,7 +21,7 @@ export function PrivacyCover() {
       testID="privacy-cover"
     >
       <Mark size={80} />
-      <Text variant="headline">SecureVault</Text>
+      <Text variant="headline">{t('common.appName')}</Text>
     </View>
   );
 }

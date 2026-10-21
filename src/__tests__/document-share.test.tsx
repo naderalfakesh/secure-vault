@@ -186,7 +186,7 @@ describe('Document sharing and the lock gate', () => {
       ),
     ).toBeOnTheScreen();
     // The file card names the one document being shared.
-    expect(view.getByLabelText('Passport, 1 page · Image · 2.0 KB')).toBeOnTheScreen();
+    expect(view.getByLabelText('⁨Passport⁩, 1 page · Image · 2.0 KB')).toBeOnTheScreen();
     expect(prepare).not.toHaveBeenCalled();
 
     await pressAndSettle(view.getByRole('button', { name: 'Cancel' }), SHEET_CLOSE_MS);

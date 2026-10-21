@@ -12,6 +12,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -62,15 +64,22 @@ export function Sheet({
     const target = visible ? 1 : 0;
     if (reduceMotion) {
       // Reduced motion: a cross-fade instead of the slide.
-      progress.value = withTiming(target, { duration: theme.motion.durationBase });
+      progress.value = withTiming(target, {
+        duration: theme.motion.durationBase,
+      });
       return;
     }
     progress.value = visible
       ? withSpring(target, theme.motion.spring)
-      : withTiming(target, { duration: CLOSE_MS, easing: Easing.in(Easing.cubic) });
+      : withTiming(target, {
+          duration: CLOSE_MS,
+          easing: Easing.in(Easing.cubic),
+        });
   }, [progress, reduceMotion, visible, theme.motion]);
 
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: Math.min(progress.value, 1) }));
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(progress.value, 1),
+  }));
   const panelStyle = useAnimatedStyle(() => ({
     opacity: Math.min(progress.value, 1),
     transform: [{ translateY: reduceMotion ? 0 : (1 - progress.value) * SLIDE }],
@@ -94,7 +103,7 @@ export function Sheet({
           {dismissable ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('common.close')}
               style={styles.backdropPressable}
               onPress={onClose}
             />
@@ -139,7 +148,7 @@ export function Sheet({
                 {dismissable ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Close"
+                    accessibilityLabel={t('common.close')}
                     hitSlop={4}
                     onPress={onClose}
                     style={styles.close}

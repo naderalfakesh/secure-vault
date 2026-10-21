@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 
 import { Icon, type IconName } from './Icon';
@@ -20,7 +21,7 @@ export function FileCard({ name, meta, icon = 'archive', testID }: FileCardProps
   return (
     <View
       accessible
-      accessibilityLabel={meta ? `${name}, ${meta}` : name}
+      accessibilityLabel={meta ? t('ui.list.item', { title: isolate(name), detail: meta }) : name}
       style={styles.card}
       testID={testID}
     >

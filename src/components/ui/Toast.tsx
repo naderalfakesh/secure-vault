@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
 import { darkColors } from '@/theme/colors';
 import { motion } from '@/theme/tokens';
 
@@ -174,7 +175,7 @@ function Countdown({ seconds, still }: { seconds: number; still: boolean }) {
       testID="toast-countdown"
     >
       <Text variant="caption" style={styles.ringLabel}>
-        {still ? `${seconds}s` : left}
+        {still ? t('ui.toast.seconds', { count: seconds }) : left}
       </Text>
     </View>
   );

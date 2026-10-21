@@ -2,7 +2,8 @@ import { Children, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { pluralize } from '@/utils/format';
+import { t, tp } from '@/i18n';
+import { isolate } from '@/utils/bidi';
 
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
@@ -20,7 +21,10 @@ export function CollectionTile({ name, count, icon, onPress, testID }: Collectio
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${pluralize(count, 'document')}`}
+      accessibilityLabel={t('ui.list.item', {
+        title: isolate(name),
+        detail: tp('format.documents', count),
+      })}
       onPress={onPress}
       disabled={!onPress}
       testID={testID}

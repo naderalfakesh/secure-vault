@@ -1,6 +1,8 @@
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
@@ -32,7 +34,7 @@ export function PinPad({
   onKey,
   onBiometric,
   biometricIcon = 'faceId',
-  biometricLabel = 'Use biometrics',
+  biometricLabel = t('ui.pinPad.biometric'),
   disabled = false,
   busy = false,
 }: PinPadProps) {
@@ -44,7 +46,8 @@ export function PinPad({
           {row.map((key) => {
             if (key === 'bio' && !onBiometric) return <View key={key} style={styles.spacer} />;
             const action = key === 'bio' || key === 'del';
-            const label = key === 'del' ? 'Delete' : key === 'bio' ? biometricLabel : key;
+            const label =
+              key === 'del' ? t('ui.pinPad.delete') : key === 'bio' ? biometricLabel : key;
             return (
               <Pressable
                 key={key}

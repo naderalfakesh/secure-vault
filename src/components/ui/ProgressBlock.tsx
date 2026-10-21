@@ -1,6 +1,8 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Text } from './Text';
 
 export type ProgressBlockProps = {
@@ -28,7 +30,7 @@ export function ProgressBlock({ label, detail, progress, testID }: ProgressBlock
         min: 0,
         max: 100,
         now: percent,
-        text: detail ? `${label}, ${detail}` : label,
+        text: detail ? t('ui.progress.withDetail', { label, detail }) : label,
       }}
       accessibilityLiveRegion="polite"
       style={styles.block}

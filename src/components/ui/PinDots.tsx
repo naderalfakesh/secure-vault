@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
 import { motion } from '@/theme/tokens';
 
 export type PinDotsProps = {
@@ -35,12 +36,14 @@ export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDots
     offset.value = withSequence(...steps, withTiming(0, { duration: step }));
   }, [shake, reduceMotion, offset]);
 
-  const style = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: offset.value }],
+  }));
 
   return (
     <Animated.View
       accessible
-      accessibilityLabel={`${filled} of ${count} digits entered`}
+      accessibilityLabel={t('ui.pinDots.entered', { filled, count })}
       accessibilityLiveRegion="polite"
       style={[styles.dots, style]}
     >

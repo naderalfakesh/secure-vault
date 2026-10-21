@@ -43,7 +43,7 @@ describe('Chip', () => {
     const onRemove = jest.fn();
     const view = await render(<Chip label="1234" variant="tag" onRemove={onRemove} />);
 
-    await fireEvent.press(view.getByRole('button', { name: 'Remove 1234' }));
+    await fireEvent.press(view.getByRole('button', { name: 'Remove ⁨1234⁩' }));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 

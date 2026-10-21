@@ -1,2 +1,22 @@
-/** Strings for ui. */
-export const ui = {} as const;
+/** Spoken names and defaults inside the design-system components. */
+export const ui = {
+  'ui.pinDots.entered': '{filled} of {count} digits entered',
+  'ui.pinPad.delete': 'Delete',
+  'ui.pinPad.biometric': 'Use biometrics',
+  'ui.search.label': 'Search documents',
+  'ui.search.clear': 'Clear search',
+  'ui.chip.remove': 'Remove {label}',
+  'ui.tabBar.scan': 'Scan a document',
+  'ui.tabBar.scanHint': 'Opens the scanner',
+  'ui.documentCard.hint': 'Opens the document',
+  'ui.passphrase.show': 'Show passphrase',
+  'ui.passphrase.hide': 'Hide passphrase',
+  'ui.strength.label': 'Passphrase strength: {level}',
+  'ui.strength.1': 'Weak',
+  'ui.strength.2': 'Fair',
+  'ui.strength.3': 'Good',
+  'ui.strength.4': 'Strong',
+  'ui.toast.seconds': '{count}s',
+  'ui.progress.withDetail': '{label}, {detail}',
+  'ui.list.item': '{title}, {detail}',
+} as const;

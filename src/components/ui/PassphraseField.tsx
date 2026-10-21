@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Pressable, TextInput, type TextInputProps, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -71,7 +73,7 @@ export function PassphraseField({
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={visible ? 'Hide passphrase' : 'Show passphrase'}
+          accessibilityLabel={visible ? t('ui.passphrase.hide') : t('ui.passphrase.show')}
           onPress={() => setVisible((shown) => !shown)}
           style={styles.toggle}
         >

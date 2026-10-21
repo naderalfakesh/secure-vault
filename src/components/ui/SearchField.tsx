@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -27,7 +29,7 @@ export function SearchField({
   onChangeText,
   onCancel,
   placeholder = 'Search titles, tags and text',
-  accessibilityLabel = 'Search documents',
+  accessibilityLabel = t('ui.search.label'),
   onFocus,
   onBlur,
   ...props
@@ -64,7 +66,7 @@ export function SearchField({
         {value ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Clear search"
+            accessibilityLabel={t('ui.search.clear')}
             // 18 pt glyph + 13 pt on each side = a 44 pt target.
             hitSlop={13}
             onPress={() => {
@@ -80,7 +82,7 @@ export function SearchField({
       {focused ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cancel"
+          accessibilityLabel={t('common.cancel')}
           onPress={() => {
             onChangeText('');
             input.current?.blur();

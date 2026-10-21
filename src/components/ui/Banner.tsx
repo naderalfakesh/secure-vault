@@ -1,6 +1,8 @@
 import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+
 import { useAnnouncement } from './announce';
 import { Button } from './Button';
 import { Icon, type IconName } from './Icon';
@@ -60,7 +62,7 @@ export function Banner({
             />
           ))}
           {onDismiss ? (
-            <Button label="Dismiss" onPress={onDismiss} size="md" variant="plain" />
+            <Button label={t('common.dismiss')} onPress={onDismiss} size="md" variant="plain" />
           ) : null}
         </View>
       ) : null}

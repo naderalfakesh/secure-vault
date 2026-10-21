@@ -2,11 +2,8 @@ import { View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Palette } from '@/theme/colors';
-import {
-  estimatePassphraseStrength,
-  type PassphraseStrength,
-  STRENGTH_LABELS,
-} from '@/utils/passphraseStrength';
+import { t } from '@/i18n';
+import { estimatePassphraseStrength, type PassphraseStrength } from '@/utils/passphraseStrength';
 
 import { Text } from './Text';
 
@@ -27,13 +24,13 @@ const levelColor: Record<PassphraseStrength, keyof Palette> = {
 export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
   const { theme } = useUnistyles();
   const strength = estimatePassphraseStrength(passphrase);
-  const label = STRENGTH_LABELS[strength];
+  const label = strength > 0 ? t(`ui.strength.${strength as 1 | 2 | 3 | 4}`) : '';
   const color = theme.colors[levelColor[strength]];
 
   return (
     <View
       accessible={strength > 0}
-      accessibilityLabel={label ? `Passphrase strength: ${label}` : undefined}
+      accessibilityLabel={label ? t('ui.strength.label', { level: label }) : undefined}
       accessibilityLiveRegion="polite"
       style={styles.row}
       testID={testID}

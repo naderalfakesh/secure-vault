@@ -9,7 +9,7 @@ describe('FileCard', () => {
     );
 
     expect(
-      view.getByLabelText('عقد الإيجار 2026.svbackup, 48 entries · made 3 Oct 2026'),
+      view.getByLabelText('⁨عقد الإيجار 2026.svbackup⁩, 48 entries · made 3 Oct 2026'),
     ).toBeOnTheScreen();
     expect(view.getByText('⁨عقد الإيجار 2026.svbackup⁩')).toBeOnTheScreen();
   });

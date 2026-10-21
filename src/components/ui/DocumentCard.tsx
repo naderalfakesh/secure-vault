@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 
 import { PaperThumbnail } from './PaperThumbnail';
@@ -33,7 +34,7 @@ export function DocumentCard({
   layout = 'rail',
   onPress,
   accessibilityLabel,
-  accessibilityHint = 'Opens the document',
+  accessibilityHint = t('ui.documentCard.hint'),
   testID,
 }: DocumentCardProps) {
   const label = accessibilityLabel ?? [title, expiry ?? meta].filter(Boolean).join(', ');

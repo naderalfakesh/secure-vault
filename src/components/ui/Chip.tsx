@@ -1,7 +1,9 @@
 import { Pressable, type PressableProps, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
 import type { Palette } from '@/theme/colors';
+import { isolate } from '@/utils/bidi';
 
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
@@ -65,7 +67,9 @@ export function Chip({
       {count !== undefined ? (
         <Text
           variant="footnote"
-          style={{ color: on ? theme.colors.onPrimary : theme.colors.textTertiary }}
+          style={{
+            color: on ? theme.colors.onPrimary : theme.colors.textTertiary,
+          }}
         >
           {count}
         </Text>
@@ -76,7 +80,7 @@ export function Chip({
   const removeButton = onRemove ? (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Remove ${label}`}
+      accessibilityLabel={t('ui.chip.remove', { label: isolate(label) })}
       onPress={onRemove}
       disabled={disabled}
       hitSlop={10}
@@ -105,7 +109,16 @@ export function Chip({
       accessibilityState={{ selected: on, disabled: Boolean(disabled) }}
       accessibilityLabel={spoken}
       // The chip is one element to a screen reader, so removing is a custom action.
-      accessibilityActions={onRemove ? [{ name: 'remove', label: `Remove ${label}` }] : undefined}
+      accessibilityActions={
+        onRemove
+          ? [
+              {
+                name: 'remove',
+                label: t('ui.chip.remove', { label: isolate(label) }),
+              },
+            ]
+          : undefined
+      }
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'remove') onRemove?.();
       }}

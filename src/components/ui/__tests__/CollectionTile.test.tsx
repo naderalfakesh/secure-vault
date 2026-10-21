@@ -9,7 +9,7 @@ describe('CollectionTile', () => {
       <CollectionTile name="ID & Personal" count={6} icon="idCard" onPress={onPress} />,
     );
 
-    await fireEvent.press(view.getByRole('button', { name: 'ID & Personal, 6 documents' }));
+    await fireEvent.press(view.getByRole('button', { name: '⁨ID & Personal⁩, 6 documents' }));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
@@ -18,7 +18,7 @@ describe('CollectionTile', () => {
       <CollectionTile name="Legal" count={1} icon="legal" onPress={jest.fn()} />,
     );
 
-    expect(view.getByRole('button', { name: 'Legal, 1 document' })).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: '⁨Legal⁩, 1 document' })).toBeOnTheScreen();
   });
 
   it('lays tiles out two to a row', async () => {

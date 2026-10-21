@@ -1,7 +1,5 @@
-/** 0 = empty, 1 Weak, 2 Fair, 3 Good, 4 Strong. */
+/** 0 = empty, 1 Weak, 2 Fair, 3 Good, 4 Strong (labels: `ui.strength.*`). */
 export type PassphraseStrength = 0 | 1 | 2 | 3 | 4;
-
-export const STRENGTH_LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'] as const;
 
 /**
  * A rough, on-device estimate for the strength meter, never a gate: the only

@@ -593,7 +593,7 @@ describe('Add a document: details', () => {
     const setFields = jest.spyOn(documentService, 'setFields');
     const { view } = await readPassport();
 
-    await fireEvent.press(view.getByRole('button', { name: 'Remove No. •••• 4821' }));
+    await fireEvent.press(view.getByRole('button', { name: 'Remove ⁨No. •••• 4821⁩' }));
     expect(view.queryByText('No. •••• 4821')).toBeNull();
     await act(async () => {
       await fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
