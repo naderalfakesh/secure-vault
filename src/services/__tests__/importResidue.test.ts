@@ -199,17 +199,62 @@ describe('import copies outside the vault', () => {
         .list()
         .filter((entry) => entry.name.startsWith('temp_import_'))
         .map((entry) => entry.name);
+    const provider = 'content://com.android.providers/document/';
     let fetchSpy: jest.SpyInstance;
 
     beforeEach(() => {
-      fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
-        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
-      } as unknown as Response);
+      // SDK 58's global fetch rejects content:// URIs, so the copy must not go through it.
+      fetchSpy = jest
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValue(new TypeError('Unsupported scheme: content'));
+      const documents = new Directory(provider);
+      if (!documents.exists) documents.create({ intermediates: true });
+      for (const id of ['1', '2', '3', '4', '5', '6']) {
+        new File(provider + id).writeSync(new Uint8Array([37, 80, 68, 70]));
+      }
     });
 
     afterEach(() => {
+      expect(fetchSpy).not.toHaveBeenCalled();
       fetchSpy.mockRestore();
       for (const name of importCopies()) removeQuietly(new File(Paths.cache, name));
+    });
+
+    it('hands the vault module a temp_import_ copy of the content:// file', async () => {
+      const read: string[] = [];
+      const putFile = jest.spyOn(vault, 'putFile').mockImplementation(async (_key, path) => {
+        read.push(new File(`file://${path}`).textSync());
+      });
+
+      await documentService.addDocument(
+        { uri: `${provider}6`, name: 'a.pdf', type: 'application/pdf' },
+        { title: 'Lease' },
+      );
+
+      expect(putFile.mock.calls[0]?.[1]).toMatch(/\/temp_import_\d+$/);
+      expect(read).toEqual(['%PDF']);
+      expect(importCopies()).toEqual([]);
+      putFile.mockRestore();
+    });
+
+    it('removes a copy cut short by a failed copy', async () => {
+      const copy = jest.spyOn(File.prototype, 'copy').mockImplementationOnce(async function (
+        this: File,
+        destination,
+      ) {
+        new File((destination as File).uri).writeSync('partial');
+        throw new Error('provider went away');
+      });
+
+      await expect(
+        documentService.addDocument(
+          { uri: `${provider}1`, name: 'a.jpg', type: 'image/jpeg' },
+          { title: 'Lease' },
+        ),
+      ).rejects.toThrow('provider went away');
+
+      expect(importCopies()).toEqual([]);
+      copy.mockRestore();
     });
 
     it('removes the plaintext copy once the document is in the vault', async () => {

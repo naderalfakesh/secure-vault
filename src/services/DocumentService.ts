@@ -729,25 +729,26 @@ class DocumentService {
     await images;
   }
 
-  /** Copies content:// sources (Android pickers) into the cache so the native module can read a path. */
+  /**
+   * Copies a `content://` source into the cache so the native module can read a
+   * path. No picker hands one over today (each copies into its own cache folder
+   * first), but the scanner's page URIs come from Google Play services, whose
+   * scheme the app does not control. The copy goes through expo-file-system,
+   * which reads the provider with the content resolver: SDK 58's global fetch
+   * refuses the scheme.
+   */
   private async getLocalFilePath(uri: string): Promise<string> {
     if (uri.startsWith('/') || uri.startsWith('file://')) {
       return this.toPath(uri);
     }
     const tempFile = new File(Paths.cache, `${IMPORT_COPY_PREFIX}${Date.now()}`);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(uri, { signal: controller.signal });
-      const bytes = await response.arrayBuffer();
-      await tempFile.write(new Uint8Array(bytes));
+      await new File(uri).copy(tempFile);
       return this.toPath(tempFile.uri);
     } catch (e) {
-      // A copy cut short by a timeout or a write error is plaintext too.
+      // A copy cut short by a read or write error is plaintext too.
       this.discardImportCopy(tempFile.uri);
       throw e;
-    } finally {
-      clearTimeout(timeout);
     }
   }
 }
