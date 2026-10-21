@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Platform } from 'react-native';
 
 import { allowDocumentStore, deleteDocumentStore, openDocumentStore } from '@/data/database';
+import { t } from '@/i18n';
 import type {
   DocumentOrder,
   DocumentRepository,
@@ -205,7 +206,7 @@ class DocumentService {
 
       document = await repository.insert({
         id,
-        title: metadata.title || file.name || 'Untitled document',
+        title: metadata.title || file.name || t('scan.untitled'),
         category: metadata.category || DocumentCategory.OTHER,
         tags: metadata.tags || [],
         ocrText: metadata.ocrText,

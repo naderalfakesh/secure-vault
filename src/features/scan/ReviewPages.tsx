@@ -10,6 +10,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, IconButton, Text } from '@/components/ui';
 import { DocumentImage } from '@/features/documents/DocumentImage';
+import { t } from '@/i18n';
 import type { PickedFile } from '@/types';
 
 import { movedTo, pageLabel, pagePosition, scanText } from './scanCopy';
@@ -89,7 +90,7 @@ export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPages
                 <IconButton
                   icon="close"
                   size={16}
-                  accessibilityLabel={`${scanText('review.remove')} ${pageLabel(index).toLowerCase()}`}
+                  accessibilityLabel={t('scan.removePage', { number: index + 1 })}
                   onPress={() => remove(index)}
                 />
               </View>

@@ -4,7 +4,7 @@ import { DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 
 import { DetailsForm } from '../DetailsForm';
-import { scanCopy } from '../scanCopy';
+import { scanText } from '../scanCopy';
 
 const noop = () => {};
 
@@ -33,8 +33,8 @@ describe('DetailsForm', () => {
   });
 
   it('keeps the flow strings in the table', () => {
-    expect(scanCopy['scan.defaultTitle']).toBe('Scanned document');
-    expect(scanCopy['details.backToPages']).toBe('Back to pages');
-    expect(scanCopy['details.backToSources']).toBe('Back to sources');
+    expect(scanText('scan.defaultTitle')).toBe('Scanned document');
+    expect(scanText('details.backToPages')).toBe('Back to pages');
+    expect(scanText('details.backToSources')).toBe('Back to sources');
   });
 });

@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 import { Button, Icon, InlineAlert, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { DocumentImage } from '@/features/documents/DocumentImage';
+import { t } from '@/i18n';
 
 import { type ScanCopyKey, scanText } from './scanCopy';
 
@@ -54,7 +55,15 @@ export function ProcessingPanel({
   const cancellable = isCancellable(step);
   const failed = Boolean(error);
   const current = STEPS.indexOf(step);
-  useAnnouncement(failed ? null : scanText(STEP_COPY[step]));
+  // The step is announced as it starts; while Cancel shows, the announcement
+  // says so, and once encrypting starts the callout below takes over.
+  useAnnouncement(
+    failed
+      ? null
+      : cancellable
+        ? t('scan.processing.stepCancellable', { step: scanText(STEP_COPY[step]) })
+        : scanText(STEP_COPY[step]),
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -76,12 +85,14 @@ export function ProcessingPanel({
         {STEPS.map((item, index) => {
           const done = index < current;
           const active = index === current && !failed;
-          const state = done ? 'done' : active ? 'in progress' : 'not started';
+          const state = scanText(
+            done ? 'step.state.done' : active ? 'step.state.active' : 'step.state.waiting',
+          );
           return (
             <View
               key={item}
               accessible
-              accessibilityLabel={`${scanText(STEP_COPY[item])}, ${state}`}
+              accessibilityLabel={t('scan.step.label', { step: scanText(STEP_COPY[item]), state })}
               style={styles.step}
             >
               {active ? (

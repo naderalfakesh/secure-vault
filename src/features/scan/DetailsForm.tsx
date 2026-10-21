@@ -8,7 +8,7 @@ import { allCategories, categoryIcons, categoryLabel } from '@/features/document
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import type { DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
-import { formatDate } from '@/utils/format';
+import { formatDate, joinParts } from '@/utils/format';
 
 import { foundFieldLabel, scanText } from './scanCopy';
 
@@ -96,7 +96,7 @@ export function DetailsForm({
         <Field
           label={
             categorySuggested
-              ? `${scanText('details.collection')} · ${scanText('details.suggested')}`
+              ? joinParts([scanText('details.collection'), scanText('details.suggested')])
               : scanText('details.collection')
           }
         >

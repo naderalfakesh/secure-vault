@@ -5,7 +5,7 @@ import {
   foundFieldLabel,
   pageCount,
   pagePosition,
-  scanCopy,
+  scanText,
   unsupportedFileMessage,
 } from '../scanCopy';
 
@@ -75,7 +75,7 @@ describe('scan copy', () => {
   });
 
   it('keeps the size-limit sentence reserved and unfilled (D9)', () => {
-    expect(scanCopy['import.tooLarge']).toContain('[LIMIT]');
+    expect(scanText('import.tooLarge')).toContain('[LIMIT]');
   });
 
   it('counts and places pages', () => {
