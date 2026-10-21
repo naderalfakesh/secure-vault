@@ -13,6 +13,17 @@ jest.mock('./modules/expo-vault', () => require('./modules/expo-vault/src/ExpoVa
 
 jest.mock('expo-device', () => ({ isDevice: true }));
 
+// Biometric availability (F13): a phone with Face ID set up, unless a test
+// spies on one of these to say otherwise.
+jest.mock('expo-local-authentication', () => ({
+  AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
+  hasHardwareAsync: async () => true,
+  isEnrolledAsync: async () => true,
+  supportedAuthenticationTypesAsync: async () => [2],
+  authenticateAsync: async () => ({ success: true }),
+  cancelAuthenticate: async () => {},
+}));
+
 jest.mock('expo-secure-store', () => {
   const store = new Map();
   return {
