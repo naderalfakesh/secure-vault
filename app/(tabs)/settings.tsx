@@ -5,7 +5,16 @@ import * as Sharing from 'expo-sharing';
 import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Card, Chip, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
+import {
+  Button,
+  Card,
+  ListRow,
+  Screen,
+  SegmentedControl,
+  Sheet,
+  Text,
+  useToast,
+} from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
@@ -18,10 +27,16 @@ import {
 } from '@/services/BackupService';
 import type { BackupProgress } from '../../modules/expo-vault';
 import { documentService } from '@/services/DocumentService';
-import { setAppearance, useAppearance } from '@/theme/appearance';
+import { type AppearancePreference, setAppearance, useAppearance } from '@/theme/appearance';
 import { formatFileSize } from '@/utils/format';
 
 const APP_VERSION = '2.0.0';
+
+const APPEARANCE_CHOICES: { value: AppearancePreference; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 // The erase finished, but the old PIN record survived both delete attempts.
 const PIN_NOT_CLEARED =
@@ -327,16 +342,13 @@ export default function SettingsScreen() {
         </Section>
 
         <Section title="Appearance">
-          <View style={styles.chips}>
-            {(['system', 'light', 'dark'] as const).map((option) => (
-              <Chip
-                key={option}
-                label={option === 'system' ? 'System' : option === 'light' ? 'Light' : 'Dark'}
-                icon={option === 'dark' ? 'moon' : option === 'light' ? 'eye' : 'settings'}
-                selected={appearance === option}
-                onPress={() => void setAppearance(option)}
-              />
-            ))}
+          <View style={styles.appearance}>
+            <SegmentedControl
+              accessibilityLabel="Appearance"
+              options={APPEARANCE_CHOICES}
+              value={appearance}
+              onChange={(option) => void setAppearance(option)}
+            />
           </View>
         </Section>
 
@@ -547,9 +559,7 @@ const styles = StyleSheet.create((theme) => ({
   sectionTitle: {
     paddingHorizontal: theme.spacing.xxs,
   },
-  chips: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
+  appearance: {
     padding: theme.spacing.md,
   },
   sheetActions: {

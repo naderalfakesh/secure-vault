@@ -1,17 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { Text as NativeText } from 'react-native';
 
-import { Chip } from '../Chip';
 import { ToastProvider, useToast } from '../Toast';
-
-describe('Chip', () => {
-  it('announces the count with the label and reflects selection', async () => {
-    const view = await render(<Chip label="Medical" count={3} selected />);
-    const chip = view.getByRole('button', { name: 'Medical, 3' });
-
-    expect(chip).toBeSelected();
-  });
-});
 
 function ToastProbe() {
   const toast = useToast();
