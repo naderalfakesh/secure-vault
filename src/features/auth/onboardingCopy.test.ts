@@ -33,6 +33,9 @@ describe('onboarding copy', () => {
     expect(choosePinHint('none')).toBe(
       'You’ll use it with your device passcode to open the vault.',
     );
+    expect(onAndroid(() => choosePinHint('none'))).toBe(
+      'You’ll use it with your screen lock to open the vault.',
+    );
   });
 
   it('flags repeated digits and straight runs as easy to guess', () => {

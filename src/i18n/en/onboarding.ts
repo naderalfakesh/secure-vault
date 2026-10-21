@@ -30,6 +30,7 @@ export const onboarding = {
   'onboarding.pin.emptyVaultHint':
     'Your vault is empty. The PIN is your fallback when biometrics are unavailable.',
   'onboarding.pin.hintPasscode': 'You’ll use it with your device passcode to open the vault.',
+  'onboarding.pin.hintScreenLock': 'You’ll use it with your screen lock to open the vault.',
   'onboarding.pin.hintAndroid':
     'Your backup way in when fingerprint or face unlock isn’t available.',
   'onboarding.pin.hintBiometry': 'Your backup way in when {biometry} isn’t available.',

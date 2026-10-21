@@ -20,7 +20,12 @@ export function unlockSlideBody(biometry: BiometryType): string {
 
 /** The Choose PIN subtitle. */
 export function choosePinHint(biometry: BiometryType): string {
-  if (biometry === 'none') return t('onboarding.pin.hintPasscode');
+  if (biometry === 'none') {
+    // Android calls it the screen lock; "passcode" is the iOS word.
+    return Platform.OS === 'ios'
+      ? t('onboarding.pin.hintPasscode')
+      : t('onboarding.pin.hintScreenLock');
+  }
   if (Platform.OS !== 'ios') return t('onboarding.pin.hintAndroid');
   const name = biometry === 'touchId' ? t('lock.touchId') : t('lock.faceId');
   return t('onboarding.pin.hintBiometry', { biometry: name });
