@@ -181,4 +181,43 @@ describe('Document viewer', () => {
     await waitFor(() => expect(view.getByText('Details updated')).toBeOnTheScreen());
     expect((await documentService.getDocument(document.id))?.title).toBe('Old passport');
   });
+
+  it('deletes from the details without a confirmation and offers Undo', async () => {
+    const document = await addPassport('Passport text');
+    const view = await renderViewer(document.id);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Details' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Details' }));
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete' }));
+    });
+
+    await waitFor(() => expect(view.getByText(/Passport.* deleted$/)).toBeOnTheScreen());
+    expect(router.back).toHaveBeenCalled();
+    expect(await documentService.getDocument(document.id)).toBeNull();
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Undo' }));
+    });
+    await waitFor(() => expect(view.getByText(/Passport.* is back$/)).toBeOnTheScreen());
+    expect(await documentService.getDocument(document.id)).not.toBeNull();
+  });
+
+  it('keeps the document and says so when the delete fails', async () => {
+    const document = await addPassport('Passport text');
+    jest.spyOn(documentService, 'deleteDocumentWithUndo').mockRejectedValue(new Error('io'));
+    const view = await renderViewer(document.id);
+    await waitFor(() => expect(view.getByRole('button', { name: 'Details' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Details' }));
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete' }));
+    });
+
+    await waitFor(() =>
+      expect(
+        view.getByText(/^Couldn’t delete .*Passport.*\. It’s still in your vault\.$/),
+      ).toBeOnTheScreen(),
+    );
+    expect(router.back).not.toHaveBeenCalled();
+  });
 });

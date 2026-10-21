@@ -24,9 +24,10 @@ import { useAnnouncement } from '@/components/ui/announce';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentImage } from '@/features/documents/DocumentImage';
+import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
-import { documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
+import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import { type Document, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
@@ -74,6 +75,7 @@ export default function DocumentViewerScreen() {
   const [titleError, setTitleError] = useState(false);
   const [slow, setSlow] = useState(false);
   const mounted = useRef(true);
+  const deleteWithUndo = useDeleteWithUndo();
 
   useEffect(() => {
     mounted.current = true;
@@ -273,40 +275,18 @@ export default function DocumentViewerScreen() {
     }
   }, [document, draft, toast]);
 
-  // Delete leaves immediately and offers undo from the list screen. The
-  // encrypted copy is gone at once; the service keeps a decrypted copy in
-  // the cache for the undo window and discards it after.
+  // No confirmation: the document leaves at once and the Library offers Undo.
   const remove = useCallback(async () => {
     if (!document) return;
     setDetails(false);
     setBusy('delete');
-    try {
-      const deleted = await documentService.deleteDocumentWithUndo(document.id);
-      router.back();
-      if (!deleted) return;
-      toast.show({
-        message: `Deleted "${deleted.document.title}"`,
-        durationMs: UNDO_TOAST_MS,
-        action: {
-          label: 'Undo',
-          onPress: () => {
-            documentService
-              .restoreDocument(deleted)
-              .then(() => toast.show({ message: 'Document restored', tone: 'success' }))
-              .catch(() =>
-                toast.show({ message: 'Could not restore the document.', tone: 'danger' }),
-              );
-          },
-        },
-      });
-    } catch (e) {
-      setBusy(null);
-      toast.show({
-        message: plainErrorMessage(e, 'Could not delete the document.'),
-        tone: 'danger',
-      });
+    const removed = await deleteWithUndo([document]);
+    if (removed > 0) {
+      goToLibrary();
+      return;
     }
-  }, [document, toast]);
+    if (mounted.current) setBusy(null);
+  }, [document, deleteWithUndo, goToLibrary]);
 
   if (failure) {
     const missing = failure.kind === 'missing';

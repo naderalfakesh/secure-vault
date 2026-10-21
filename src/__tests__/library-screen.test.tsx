@@ -154,4 +154,30 @@ describe('Library', () => {
     expect((await documentService.getDocument(lease.id))?.category).toBe(DocumentCategory.LEGAL);
     expect(view.getByTestId('tab-bar')).toHaveTextContent('shown');
   });
+
+  it('deletes several documents at once and brings them all back with Undo', async () => {
+    const lease = await add('Lease agreement', DocumentCategory.LEGAL);
+    const passport = await add('Passport', DocumentCategory.ID);
+    await add('Receipt', DocumentCategory.RECEIPTS);
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+
+    await fireEvent(view.getByTestId(`document-row-${lease.id}`), 'longPress');
+    await fireEvent.press(view.getByTestId(`document-row-${passport.id}`));
+    expect(view.getByText('2 selected')).toBeOnTheScreen();
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete 2 documents' }));
+    });
+
+    await waitFor(() => expect(view.getByText('2 documents deleted')).toBeOnTheScreen());
+    expect(await documentService.getDocument(lease.id)).toBeNull();
+    expect(view.getByTestId('toast-countdown', { includeHiddenElements: true })).toBeTruthy();
+
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Undo' }));
+    });
+    await waitFor(() => expect(view.getByText('2 documents are back')).toBeOnTheScreen());
+    expect((await documentService.getDocument(lease.id))?.title).toBe('Lease agreement');
+    expect((await documentService.getDocument(passport.id))?.title).toBe('Passport');
+  });
 });

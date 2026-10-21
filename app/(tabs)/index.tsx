@@ -43,6 +43,7 @@ import {
   type SortOrder,
   sortDocuments,
 } from '@/features/documents/library';
+import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDocuments } from '@/hooks/useDocuments';
 import { documentService } from '@/services/DocumentService';
@@ -79,6 +80,8 @@ export default function LibraryScreen() {
   const [selecting, setSelecting] = useState(false);
   const [picked, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [moving, setMoving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const deleteWithUndo = useDeleteWithUndo();
   const showSkeleton = useDelayed(loading, SKELETON_DELAY_MS);
 
   useHideTabBar(selecting);
@@ -214,6 +217,15 @@ export default function LibraryScreen() {
     },
     [selected, toast, stopSelecting],
   );
+
+  const deleteSelected = useCallback(async () => {
+    const chosen = documents.filter((document) => selected.has(document.id));
+    if (chosen.length === 0) return;
+    setDeleting(true);
+    await deleteWithUndo(chosen);
+    setDeleting(false);
+    stopSelecting();
+  }, [documents, selected, deleteWithUndo, stopSelecting]);
 
   const bottomSpace = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insets.bottom + 24;
   const allSelected = shown.length > 0 && shown.every((document) => selected.has(document.id));
@@ -465,12 +477,19 @@ export default function LibraryScreen() {
         />
         {selecting ? (
           <SelectionBar bottom={insets.bottom}>
-            <Button
+            <BarAction
               label="Move to…"
-              variant="plain"
               icon="folder"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || deleting}
               onPress={() => setSheet('move')}
+            />
+            <BarAction
+              label={`Delete ${selected.size}`}
+              accessibilityLabel={`Delete ${pluralize(selected.size, 'document')}`}
+              icon="trash"
+              danger
+              disabled={selected.size === 0 || deleting}
+              onPress={deleteSelected}
             />
           </SelectionBar>
         ) : null}
@@ -641,6 +660,39 @@ function SelectionBar({ bottom, children }: { bottom: number; children: ReactNod
     >
       {children}
     </View>
+  );
+}
+
+function BarAction({
+  label,
+  accessibilityLabel,
+  icon,
+  danger = false,
+  disabled = false,
+  onPress,
+}: {
+  label: string;
+  accessibilityLabel?: string;
+  icon: 'folder' | 'trash';
+  danger?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const tone = disabled ? 'tertiary' : danger ? 'danger' : 'accent';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.barAction, pressed && styles.pressed]}
+    >
+      <Icon name={icon} size={20} tone={tone} />
+      <Text variant="callout" tone={tone} style={styles.strong}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -815,6 +867,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   strong: {
     fontWeight: '600',
+  },
+  barAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    minHeight: 56,
+    paddingHorizontal: 20,
+    borderRadius: theme.radii.pill,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   home: {
     gap: theme.spacing.lg,
