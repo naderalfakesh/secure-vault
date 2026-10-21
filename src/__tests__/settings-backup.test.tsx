@@ -411,7 +411,7 @@ describe('Settings backup and the lock gate', () => {
 
       expect(rowLabelled(view, 'Restore from backup')).toBeEnabled();
       expect(session.notice).toEqual({
-        message: 'That passphrase does not match this backup.',
+        message: 'That passphrase does not match this backup. Nothing was changed.',
         tone: 'danger',
       });
     });
@@ -488,7 +488,7 @@ describe('Settings restore refusals that leave the vault unchanged', () => {
     ],
     [
       'BACKUP_RESOURCE',
-      "This device doesn't have enough memory to restore this backup. Nothing was changed.",
+      "This device doesn't have enough free space or memory to restore this backup. Nothing was changed.",
     ],
     [
       'BACKUP_NO_SPACE',

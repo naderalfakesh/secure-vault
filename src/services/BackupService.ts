@@ -2,6 +2,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { exportDatabaseFile, replaceDatabaseFile } from '@/data/database';
 
+import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
+
 import vault, { type BackupInfo, type BackupProgress } from '../../modules/expo-vault';
 import { documentService, PICKER_DIRECTORY } from './DocumentService';
 import { removeNoFollow } from './removeNoFollow';
@@ -35,6 +37,24 @@ export interface BackupResult {
 
 export type ProgressListener = (progress: BackupProgress) => void;
 
+/**
+ * A restore's progress with its phase signal. `wiped` turns true on the first
+ * Restoring (`import`) event and stays true for the rest of the restore, a
+ * retry after a new key prompt included: from then on the previous vault may
+ * be gone, so nothing may say it is unchanged and it can no longer be
+ * cancelled.
+ */
+export type RestoreProgress = BackupProgress & { wiped: boolean };
+export type RestoreProgressListener = (progress: RestoreProgress) => void;
+
+/** The restore that holds the slot: its phase signal and whether a cancel was asked for. */
+interface RestoreRun {
+  wiped: boolean;
+  cancelRequested: boolean;
+  /** The last Restoring event, for "Stopped at entry X of N". */
+  lastRestored: { done: number; total: number } | null;
+}
+
 /** Work that must never overlap another: each one rewrites the vault or the backup folders. */
 export type BackupOperation = 'export' | 'restore' | 'erase';
 
@@ -59,7 +79,7 @@ export function describeBackupError(
     typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
   switch (code) {
     case 'BACKUP_PASSPHRASE':
-      return 'That passphrase does not match this backup.';
+      return 'That passphrase does not match this backup. Nothing was changed.';
     case 'BACKUP_INVALID':
       return 'This file is not a SecureVault backup, or it is damaged. Nothing was changed.';
     case 'BACKUP_UNSUPPORTED':
@@ -67,11 +87,18 @@ export function describeBackupError(
     case 'BACKUP_PARTIAL':
       return 'The restore stopped after the previous vault was removed. Restore the backup again.';
     case 'BACKUP_RESOURCE':
-      return "This device doesn't have enough memory to restore this backup. Nothing was changed.";
+      return "This device doesn't have enough free space or memory to restore this backup. Nothing was changed.";
     case 'BACKUP_NO_SPACE':
       return "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.";
     case 'BACKUP_INDEX':
-      return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
+      return 'Your documents were restored but the index could not be opened. Restore the backup again.';
+    case 'BACKUP_CANCELLED':
+      return 'Restore cancelled. Nothing was changed.';
+    // Only ever seen before the wipe: the service names one after it BACKUP_PARTIAL.
+    case 'KEY_LOCKED':
+      return 'The device key was not unlocked, so nothing was changed. Try again.';
+    case 'KEY_INVALIDATED':
+      return KEY_INVALIDATED_MESSAGE;
     case 'BACKUP_STAGING_INVALID':
       return "The backup's temporary files could not be cleared, so no backup was made. Try again.";
     case 'BACKUP_RESTORE_STAGING_INVALID':
@@ -97,6 +124,9 @@ const knownBackupErrors = new Set([
   'BACKUP_RESOURCE',
   'BACKUP_NO_SPACE',
   'BACKUP_INDEX',
+  'BACKUP_CANCELLED',
+  'KEY_LOCKED',
+  'KEY_INVALIDATED',
   'BACKUP_STAGING_INVALID',
   'BACKUP_RESTORE_STAGING_INVALID',
   'BACKUP_BUSY',
@@ -154,6 +184,24 @@ function indexError(cause: unknown): Error {
 }
 
 /**
+ * A failure after the first Restoring event. The previous vault may be gone
+ * whatever the native code says (a key failure keeps its own code across the
+ * wipe so the key recovery wrapper can retry, and a retry's own refusals say
+ * nothing about the first attempt's wipe), so only BACKUP_INDEX keeps its
+ * code; everything else is a partial restore.
+ */
+function partialError(cause: unknown, stoppedAt: RestoreRun['lastRestored']): Error {
+  const code =
+    typeof cause === 'object' && cause !== null ? (cause as { code?: unknown }).code : null;
+  if (code === 'BACKUP_INDEX') return cause as Error;
+  const message =
+    cause instanceof Error && cause.message
+      ? cause.message
+      : 'The restore stopped after the previous vault was removed.';
+  return Object.assign(new Error(message), { code: 'BACKUP_PARTIAL', cause, stoppedAt });
+}
+
+/**
  * Passphrase-protected backups: every vault entry plus the encrypted SQLite
  * index, written by the vault module into one container file (ADR 0007).
  * The backup key is derived from the passphrase and never stored.
@@ -166,6 +214,7 @@ class BackupService {
    * replaced, and an export or erase would read or remove a vault mid-import.
    */
   private operation: BackupOperation | null = null;
+  private restoreRun: RestoreRun | null = null;
   private readonly activityListeners = new Set<() => void>();
 
   /** The operation still running, whichever screen started it. */
@@ -363,8 +412,48 @@ class BackupService {
    * is replaced only after the native import has finished, and a failure from
    * that point on rejects with BACKUP_INDEX.
    */
-  restoreBackup(uri: string, passphrase: string, onProgress?: ProgressListener): Promise<number> {
-    return this.exclusive('restore', () => this.replaceVault(uri, passphrase, onProgress));
+  restoreBackup(
+    uri: string,
+    passphrase: string,
+    onProgress?: RestoreProgressListener,
+  ): Promise<number> {
+    return this.exclusive('restore', async () => {
+      const run: RestoreRun = { wiped: false, cancelRequested: false, lastRestored: null };
+      this.restoreRun = run;
+      try {
+        return await this.replaceVault(uri, passphrase, (event) => {
+          if (event.phase === 'import') {
+            run.wiped = true;
+            run.cancelRequested = false;
+            run.lastRestored = { done: event.done, total: event.total };
+          } else if (run.cancelRequested && !run.wiped) {
+            // The native call clears the request when it starts, which may have
+            // been after the request arrived; it is still checking, so ask again.
+            vault.cancelRestore();
+          }
+          onProgress?.({ ...event, wiped: run.wiped });
+        });
+      } catch (error) {
+        throw run.wiped ? partialError(error, run.lastRestored) : error;
+      } finally {
+        this.restoreRun = null;
+      }
+    });
+  }
+
+  /**
+   * Asks the running restore to stop. True when the request went to the
+   * module: a restore is running and has not reached its first Restoring
+   * event. The module honours it between entries of its checking pass and
+   * the restore then rejects with BACKUP_CANCELLED, with nothing changed; if
+   * the checking pass ends first, the restore goes on and this has no effect.
+   */
+  cancelRestore(): boolean {
+    const run = this.restoreRun;
+    if (!run || run.wiped) return false;
+    run.cancelRequested = true;
+    vault.cancelRestore();
+    return true;
   }
 
   private async replaceVault(

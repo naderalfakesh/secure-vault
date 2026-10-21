@@ -38,6 +38,8 @@ export function createVaultMock(): SecureVault & {
   plantLink(path: string, target: string): void;
   linkTarget(path: string): string | null;
   links(): string[];
+  /** Sends a progress event to the listeners, as the native module does mid-call. */
+  emitProgress(progress: BackupProgress): void;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
@@ -158,6 +160,9 @@ export function createVaultMock(): SecureVault & {
       }));
       emit({ phase: 'import', done: total, total });
       return { entries: total - 1, extras };
+    },
+    emitProgress(progress) {
+      emit(progress);
     },
     cancelRestore() {
       cancelRequested = true;

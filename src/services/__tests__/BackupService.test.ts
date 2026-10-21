@@ -2,7 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { closeDocumentStore } from '@/data/database';
 
-import vault from '../../../modules/expo-vault';
+import vault, { type BackupProgress } from '../../../modules/expo-vault';
 import {
   followLinksOnDelete,
   type VaultMockExport,
@@ -29,6 +29,10 @@ const vaultMock = vault as unknown as {
   lastImport: VaultMockImport | null;
 };
 
+/** A progress event as the native restore sends it, for a stubbed import. */
+const emitProgress = (event: BackupProgress) =>
+  (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);
+
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
 describe('passphrase policy', () => {
@@ -40,7 +44,9 @@ describe('passphrase policy', () => {
   });
 
   it('turns native error codes into sentences', () => {
-    expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toMatch(/does not match/);
+    expect(describeBackupError({ code: 'BACKUP_PASSPHRASE' })).toBe(
+      'That passphrase does not match this backup. Nothing was changed.',
+    );
     expect(describeBackupError({ code: 'BACKUP_INVALID' })).toBe(
       'This file is not a SecureVault backup, or it is damaged. Nothing was changed.',
     );
@@ -50,12 +56,20 @@ describe('passphrase policy', () => {
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).not.toMatch(/Nothing was changed/);
     expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toBe(
-      "This device doesn't have enough memory to restore this backup. Nothing was changed.",
+      "This device doesn't have enough free space or memory to restore this backup. Nothing was changed.",
     );
     expect(describeBackupError({ code: 'BACKUP_NO_SPACE' })).toBe(
       "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.",
     );
-    expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);
+    expect(describeBackupError({ code: 'BACKUP_INDEX' })).toBe(
+      'Your documents were restored but the index could not be opened. Restore the backup again.',
+    );
+    expect(describeBackupError({ code: 'BACKUP_CANCELLED' })).toBe(
+      'Restore cancelled. Nothing was changed.',
+    );
+    expect(describeBackupError({ code: 'KEY_LOCKED', message: 'User not authenticated' })).toBe(
+      'The device key was not unlocked, so nothing was changed. Try again.',
+    );
     expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
       /temporary files could not be cleared/,
     );
@@ -269,6 +283,121 @@ describe('BackupService', () => {
       code: 'BACKUP_PASSPHRASE',
     });
     expect(await vault.get('_database_key')).toBe('ef'.repeat(32));
+  });
+
+  describe('cancelling a restore', () => {
+    const keyLocked = () =>
+      Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' });
+
+    async function vaultWithBackup() {
+      await vault.put('_database_key', 'cd'.repeat(32));
+      const backup = await backupService.createBackup('correct horse battery');
+      await vault.put('_database_key', 'ef'.repeat(32));
+      return { backup, keys: await vault.getAllKeys() };
+    }
+
+    afterEach(() => jest.restoreAllMocks());
+
+    it('stops a restore that is still checking and leaves the vault, index and staging untouched', async () => {
+      const { backup, keys } = await vaultWithBackup();
+      const reload = jest.spyOn(documentService, 'reload');
+      const events: unknown[] = [];
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+          events.push(event);
+          if (event.phase === 'verify') expect(backupService.cancelRestore()).toBe(true);
+        }),
+      ).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
+
+      expect(events).toEqual([expect.objectContaining({ phase: 'verify', wiped: false })]);
+      expect(reload).not.toHaveBeenCalled();
+      expect(await vault.get('_database_key')).toBe('ef'.repeat(32));
+      expect(await vault.getAllKeys()).toEqual(keys);
+      expect(new Directory(Paths.cache, RESTORE_STAGING_DIRECTORY).exists).toBe(false);
+      expect(new Directory(Paths.cache, BACKUP_DIRECTORY, 'restore').exists).toBe(false);
+      expect(backupService.activity()).toBeNull();
+    });
+
+    it('asks again on the first progress event when the cancel came before the native restore began', async () => {
+      const { backup, keys } = await vaultWithBackup();
+      const importBackup = vault.importBackup.bind(vault);
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(async (...args) => {
+        // The native call starts on its own queue, after the cancel from the JS thread.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return importBackup(...args);
+      });
+      const cancel = jest.spyOn(vault, 'cancelRestore');
+
+      const restore = backupService.restoreBackup(backup.uri, 'correct horse battery');
+      expect(backupService.cancelRestore()).toBe(true);
+
+      await expect(restore).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
+      expect(cancel).toHaveBeenCalledTimes(2);
+      expect(await vault.getAllKeys()).toEqual(keys);
+    });
+
+    it('cannot cancel once the first Restoring event has passed, or with no restore running', async () => {
+      const { backup } = await vaultWithBackup();
+      expect(backupService.cancelRestore()).toBe(false);
+      const answers: boolean[] = [];
+      const wiped: boolean[] = [];
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+          wiped.push(event.wiped);
+          if (event.phase === 'import') answers.push(backupService.cancelRestore());
+        }),
+      ).resolves.toBe(backup.entries);
+
+      expect(answers).toEqual([false]);
+      expect(wiped).toEqual([false, true]);
+      expect(backupService.cancelRestore()).toBe(false);
+    });
+
+    it('names any failure after the first Restoring event a partial restore, with where it stopped', async () => {
+      const { backup } = await vaultWithBackup();
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(async () => {
+        // Natively: the first entry restored, then the prompt for the key was cancelled.
+        emitProgress({ phase: 'verify', done: 5, total: 5 });
+        emitProgress({ phase: 'import', done: 2, total: 5 });
+        throw keyLocked();
+      });
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery'),
+      ).rejects.toMatchObject({ code: 'BACKUP_PARTIAL', stoppedAt: { done: 2, total: 5 } });
+      expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).not.toMatch(/Nothing was changed/);
+    });
+
+    it('keeps a retried restore partial after the wipe, even when the retry is cancelled while checking', async () => {
+      const { backup } = await vaultWithBackup();
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(async () => {
+        emitProgress({ phase: 'verify', done: 5, total: 5 });
+        emitProgress({ phase: 'import', done: 1, total: 5 });
+        // The key recovery wrapper re-ran the whole restore after a new prompt.
+        emitProgress({ phase: 'verify', done: 3, total: 5 });
+        throw Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' });
+      });
+      const events: { wiped: boolean }[] = [];
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+          events.push(event);
+        }),
+      ).rejects.toMatchObject({ code: 'BACKUP_PARTIAL' });
+      expect(events.map((event) => event.wiped)).toEqual([false, true, true]);
+    });
+
+    it('passes a key prompt cancelled before the wipe on as unchanged', async () => {
+      const { backup, keys } = await vaultWithBackup();
+      jest.spyOn(vault, 'importBackup').mockRejectedValueOnce(keyLocked());
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery'),
+      ).rejects.toMatchObject({ code: 'KEY_LOCKED' });
+      expect(await vault.getAllKeys()).toEqual(keys);
+    });
   });
 
   describe('export staging', () => {
