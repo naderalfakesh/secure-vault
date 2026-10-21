@@ -71,6 +71,8 @@ describe('Change PIN', () => {
     (router.back as jest.Mock).mockClear();
   });
 
+  afterEach(() => jest.restoreAllMocks());
+
   it('walks the three steps and refuses the same PIN and a mismatch inline', async () => {
     const view = await renderScreen();
 
@@ -110,6 +112,27 @@ describe('Change PIN', () => {
     await shows(view, 'Wrong PIN. Nothing was changed.');
     expect(view.getByText('Step 1 of 3')).toBeOnTheScreen();
     expect(router.back).not.toHaveBeenCalled();
+    expect(await storedPinIs('123456')).toBe(true);
+  });
+
+  it('says the PIN was not changed, not that it was wrong, when the key prompt ends key-locked', async () => {
+    const view = await renderScreen();
+    const save = jest
+      .spyOn(SecureStore, 'setItemAsync')
+      .mockRejectedValue(
+        Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }),
+      );
+
+    await enter(view, '123456');
+    await shows(view, 'Step 2 of 3');
+    await enter(view, '654321');
+    await shows(view, 'Step 3 of 3');
+    await enter(view, '654321');
+
+    await shows(view, 'The device key was not unlocked, so the PIN was not changed. Try again.');
+    expect(view.queryByText(/Wrong PIN/)).toBeNull();
+    expect(view.getByText('Step 1 of 3')).toBeOnTheScreen();
+    save.mockRestore();
     expect(await storedPinIs('123456')).toBe(true);
   });
 

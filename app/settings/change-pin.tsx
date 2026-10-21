@@ -72,13 +72,14 @@ export default function ChangePinScreen() {
       }
       setStage('saving');
       // The current PIN is checked once, here, together with the change.
-      changePin(current, entered).then((ok) => {
-        if (ok) {
+      changePin(current, entered).then((result) => {
+        if (result === 'changed') {
           toast.show({ message: 'PIN changed', tone: 'success' });
           router.back();
           return;
         }
-        setMessage('Wrong PIN. Nothing was changed.');
+        // A failure that is not a wrong PIN has its own sentence in the session error.
+        if (result === 'wrong-pin') setMessage('Wrong PIN. Nothing was changed.');
         setStage('current');
         helpers.clear();
       });

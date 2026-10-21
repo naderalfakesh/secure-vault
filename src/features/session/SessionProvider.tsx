@@ -46,6 +46,9 @@ export type SessionCapture = {
 /** How a PIN attempt ended. Only `wrong-pin` counts towards the lockout. */
 export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
 
+/** How a PIN change ended. `failed` leaves the reason in `error`. */
+export type PinChangeResult = 'changed' | 'wrong-pin' | 'failed';
+
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
 // A tiny vault entry whose read proves the device key is currently usable.
@@ -69,7 +72,7 @@ export type SessionContextValue = {
   unlockWithPin: (pin: string) => Promise<PinUnlockResult>;
   /** First run: creates the device key and stores the hashed PIN, then unlocks. */
   setUp: (pin: string) => Promise<boolean>;
-  changePin: (currentPin: string, nextPin: string) => Promise<boolean>;
+  changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
   updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
   /** Ask for biometrics again for a sensitive action such as sharing. */
@@ -362,18 +365,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
     [vaultExists, applyLockout, changeStatus],
   );
 
-  const changePin = useCallback(async (currentPin: string, nextPin: string) => {
-    setError(null);
-    try {
-      const record = await sessionStorage.loadPinRecord();
-      if (!record || !(await verifyPasscodeAsync(currentPin, record))) return false;
-      await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
-      return true;
-    } catch (e) {
-      setError(describeError(e, 'Could not change the PIN.', 'changePin'));
-      return false;
-    }
-  }, []);
+  const changePin = useCallback(
+    async (currentPin: string, nextPin: string): Promise<PinChangeResult> => {
+      setError(null);
+      try {
+        const record = await sessionStorage.loadPinRecord();
+        if (!record || !(await verifyPasscodeAsync(currentPin, record))) return 'wrong-pin';
+        await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
+        return 'changed';
+      } catch (e) {
+        setError(describeError(e, 'Could not change the PIN.', 'changePin'));
+        return 'failed';
+      }
+    },
+    [],
+  );
 
   const updateSettings = useCallback(
     async (changes: Partial<SecuritySettings>) => {
