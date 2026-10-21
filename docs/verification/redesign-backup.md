@@ -259,3 +259,15 @@ deleted afterwards.
 - Android `:expo-vault:compileDebugKotlin` rebuilt after the fix (no other
   build running, 61% memory free): `BUILD SUCCESSFUL`; generated `android/`
   deleted. iOS was not recompiled (no Swift change).
+
+## Re-review follow-up: erase and the key sentences
+
+Delete everything shows `describeBackupError`, so a `KEY_LOCKED` or
+`KEY_INVALIDATED` there says "nothing was changed". That holds:
+`deleteDocumentStore` uses the device key only to read the index name, before
+closing and deleting anything; a locked key rejects there, and an invalidated
+key falls back to the default name and the erase finishes. Index file, entry
+and vault deletes never use the key, and entry delete failures are swallowed.
+Two tests in `src/data/__tests__/database.test.ts` pin this: no keyed vault
+call after the first removal, and an erase that finishes when the name read
+finds the key invalidated. No erase sentence was changed.
