@@ -120,6 +120,43 @@ describe('lock navigation', () => {
     expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
+  it('returns to the viewer after the unlock when the lock cut a share short', async () => {
+    await openUnlockedVault();
+    await act(async () => router.push('/documents/doc-1'));
+    await screen.findByText('Document detail');
+
+    await act(async () => {
+      session.markShareInterrupted('doc-1');
+      session.lock();
+    });
+    await screen.findByText(/enter your PIN/);
+    expect(screen.queryByText('Document detail')).toBeNull();
+
+    jest.spyOn(vaultMock, 'unlockWithBiometrics').mockResolvedValue(true);
+    await act(async () => {
+      await session.unlock();
+    });
+
+    await screen.findByText('Document detail');
+    expect(router.canGoBack()).toBe(true);
+  });
+
+  it('opens the Library after an unlock with no share cut short', async () => {
+    await openUnlockedVault();
+    await act(async () => router.push('/documents/doc-1'));
+    await screen.findByText('Document detail');
+    await act(async () => session.lock());
+    await screen.findByText(/enter your PIN/);
+
+    jest.spyOn(vaultMock, 'unlockWithBiometrics').mockResolvedValue(true);
+    await act(async () => {
+      await session.unlock();
+    });
+
+    await screen.findByText('Vault home');
+    expect(screen.queryByText('Document detail')).toBeNull();
+  });
+
   it('shows the lock screen when the vault locks under an open modal', async () => {
     await openUnlockedVault();
     await act(async () => router.push('/documents/add'));

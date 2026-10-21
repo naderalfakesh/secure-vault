@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -21,7 +21,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 
 function RootNavigator() {
-  const { status, notice, dismissNotice } = useSession();
+  const { status, notice, dismissNotice, shareInterrupted } = useSession();
   const { theme } = useUnistyles();
   const toast = useToast();
   const ready = status !== 'loading';
@@ -58,6 +58,26 @@ function RootNavigator() {
       backupService.sweepCache();
     }
   }, [status, toast]);
+
+  // A lock that cut a share short brings the user back to that document's
+  // viewer after the unlock, where its banner explains (handover §6 J5, F7).
+  // Only on the unlock that follows a lock, once per lock.
+  const backToShare = useRef(false);
+  useEffect(() => {
+    if (status === 'locked') backToShare.current = true;
+    else if (status !== 'unlocked') backToShare.current = false;
+  }, [status]);
+  useEffect(() => {
+    if (status !== 'unlocked' || !backToShare.current) return;
+    backToShare.current = false;
+    if (!shareInterrupted) return;
+    const { documentId } = shareInterrupted;
+    // The guarded screens are back only once this render has been committed.
+    const timer = setTimeout(() => {
+      router.push({ pathname: '/documents/[id]', params: { id: documentId } });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [status, shareInterrupted]);
 
   useEffect(() => {
     // Work that ended behind the lock reports here, never over the lock screen.
