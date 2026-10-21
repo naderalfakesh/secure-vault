@@ -236,6 +236,17 @@ describe('Library', () => {
     expect(view.getByTestId('tab-bar')).toHaveTextContent('shown');
   });
 
+  it('shows a plain disabled Delete, with no count, while nothing is selected', async () => {
+    await add('Lease agreement', DocumentCategory.LEGAL);
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Select' }));
+
+    expect(view.queryByText('Delete 0')).toBeNull();
+    expect(view.getByRole('button', { name: 'Delete' })).toBeDisabled();
+  });
+
   it('deletes several documents at once and brings them all back with Undo', async () => {
     const lease = await add('Lease agreement', DocumentCategory.LEGAL);
     const passport = await add('Passport', DocumentCategory.ID);

@@ -551,10 +551,17 @@ export default function LibraryScreen() {
               onPress={() => setSheet('move')}
             />
             <Button
-              label={t('library.deleteCount', { count: selected.size })}
-              accessibilityLabel={t('library.deleteLabel', {
-                documents: tp('format.documents', selected.size),
-              })}
+              // Nothing selected: a plain disabled "Delete", never "Delete 0".
+              label={
+                selected.size > 0
+                  ? t('library.deleteCount', { count: selected.size })
+                  : t('common.delete')
+              }
+              accessibilityLabel={
+                selected.size > 0
+                  ? t('library.deleteLabel', { documents: tp('format.documents', selected.size) })
+                  : t('common.delete')
+              }
               variant="plainDestructive"
               icon="trash"
               disabled={selected.size === 0 || deleting}
