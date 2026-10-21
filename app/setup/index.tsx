@@ -22,11 +22,11 @@ const slides: { icon: IconName; title: string; body: string }[] = [
   },
   {
     icon: 'shield',
-    title: 'Nothing leaves your phone',
+    title: 'Encrypted on this phone',
     body: Platform.select({
-      ios: 'Every file is encrypted with a key kept in the iOS Keychain. There is no account and no cloud.',
+      ios: "Every page is encrypted before it's saved. The key is created on this phone and kept by the iOS Keychain. There's no account to sign up for.",
       default:
-        'Every file is encrypted with a key kept in the Android Keystore. There is no account and no cloud.',
+        "Every page is encrypted before it's saved. The key is created on this phone and kept by the Android Keystore. There's no account to sign up for.",
     }),
   },
   {
