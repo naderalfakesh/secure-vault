@@ -19,7 +19,7 @@ const toneToColor = {
   primary: 'textPrimary',
   secondary: 'textSecondary',
   tertiary: 'textTertiary',
-  inverse: 'textInverse',
+  inverse: 'onPrimary',
   accent: 'primary',
   success: 'success',
   warning: 'warning',

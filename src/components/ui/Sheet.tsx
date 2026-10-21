@@ -135,7 +135,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: theme.colors.scrim,
   },
   backdropPressable: {
     flex: 1,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.md,
     paddingTop: theme.spacing.xs,
     gap: theme.spacing.sm,
-    ...theme.shadows.lg,
+    ...theme.elevation.sheet,
   },
   grabber: {
     alignSelf: 'center',

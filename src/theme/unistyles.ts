@@ -1,18 +1,32 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 import { breakpoints } from './breakpoints';
-import { darkColors, lightColors } from './colors';
-import { motion, radii, shadows, spacing, touchTarget } from './tokens';
+import { darkColors, lightColors, type Palette } from './colors';
+import {
+  controlSize,
+  elevation,
+  iconography,
+  layout,
+  motion,
+  radii,
+  sheetInset,
+  spacing,
+  touchTarget,
+} from './tokens';
 import { typography } from './typography';
 
 export const lightTheme = {
-  colors: lightColors,
+  colors: lightColors as Palette,
   spacing,
+  layout,
   radii,
-  shadows,
+  sheetInset,
+  elevation,
   motion,
   typography,
   touchTarget,
+  controlSize,
+  iconography,
 } as const;
 
 export const darkTheme = {
@@ -42,7 +56,7 @@ StyleSheet.configure({
   },
   breakpoints,
   settings: {
-    // Follow the OS by default; Settings can pin light or dark later.
+    // Follow the OS by default; the Appearance setting can pin light or dark.
     adaptiveThemes: true,
   },
 });

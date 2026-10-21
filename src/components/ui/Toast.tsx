@@ -144,7 +144,7 @@ const styles = StyleSheet.create((theme) => ({
         : tone === 'danger'
           ? theme.colors.danger
           : theme.colors.textPrimary,
-    ...theme.shadows.md,
+    ...theme.elevation.sheet,
   }),
   message: {
     flex: 1,

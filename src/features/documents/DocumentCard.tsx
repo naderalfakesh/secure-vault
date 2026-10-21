@@ -116,7 +116,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surface,
-    ...theme.shadows.sm,
+    ...theme.elevation.card,
   },
   body: {
     padding: theme.spacing.sm,

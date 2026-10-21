@@ -639,7 +639,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   progressBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: theme.colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
     padding: theme.spacing.lg,
