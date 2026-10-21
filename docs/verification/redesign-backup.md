@@ -234,3 +234,28 @@ deleted afterwards.
    during the share leaves the date unchanged.
 8. Lock during Checking and during Restoring: the restore finishes behind
    the lock and its outcome is shown after unlock.
+
+## Review fixes (CHANGES_REQUIRED, one Medium)
+
+- **Medium, key probe after the first Restoring event.** On Android the
+  device key was first used inside the restore handler, after the `import 1/N`
+  event, so a Keystore window that lapsed during a long Checking pass failed
+  with the vault intact but after JS had latched `wiped`, and was shown as
+  partial. `importBackup` now calls `probeKey` in the preflight hook, after
+  `preflightRestore` and before the last cancel check and any Restoring event;
+  the probe in the handler stays as a backstop. iOS holds the device key in
+  memory from the start of `importBackup` (no window that lapses), so it has
+  no probe to move. A pre-wipe `KEY_INVALIDATED` now ends with "Nothing was
+  changed." like `KEY_LOCKED`. Tests: the Kotlin harness gains a row that a
+  preflight refusal ends before any Restoring event and a source row that the
+  module probes in the preflight (failed before, passes after); Jest checks
+  both key codes from the probe show the unchanged sentence with Restore
+  enabled and no partial title.
+- **Low, "Stopped at entry".** `stoppedAt` is now `{ entry, total }`, the
+  entry after the last finished one, numbered like the progress (the check
+  entry is 1), capped at the total.
+- **Low, G11 test.** `restore-entry.test.tsx` also fails when any route other
+  than the hub mounts `RestoreSheet`.
+- Android `:expo-vault:compileDebugKotlin` rebuilt after the fix (no other
+  build running, 61% memory free): `BUILD SUCCESSFUL`; generated `android/`
+  deleted. iOS was not recompiled (no Swift change).
