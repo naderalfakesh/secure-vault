@@ -33,9 +33,9 @@ export function Mark({ size = 72, muted = false, glyph = 'mark' }: MarkProps) {
       style={{
         width: size,
         height: size,
-        // 18 on 64, 20 on 72, 22 on 80: the design's squircle corners.
+        // 18 on 64, 20 on 72, 22 on 80: the design's corners, drawn as plain
+        // round corners so the mark matches the native splash image exactly.
         borderRadius: Math.round(size * 0.28),
-        borderCurve: 'continuous',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: muted

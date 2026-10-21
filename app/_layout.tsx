@@ -11,6 +11,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { IconButton, ToastProvider, useToast } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
+import { SplashHandoff } from '@/features/session/SplashHandoff';
 import { t } from '@/i18n';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
@@ -91,69 +92,76 @@ function RootNavigator() {
     }
   }, [status, notice, toast, dismissNotice]);
 
+  // The handoff repaints the native splash, then carries its mark to the lock
+  // screen's once the splash hides (§3.5).
+  const handoff = <SplashHandoff released={ready && themed} />;
+
   if (!ready) {
-    return null;
+    return handoff;
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'fade' : 'default' }}>
-      {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
-      <Stack.Protected guard={unlocked}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="documents/[id]"
-          options={{
-            headerShown: true,
-            title: '',
-            // One explicit back control so the header reads the same on iOS and Android.
-            headerLeft: () => (
-              <IconButton
-                icon="back"
-                accessibilityLabel={t('common.back')}
-                onPress={() => router.back()}
-              />
-            ),
-            headerStyle: { backgroundColor: theme.colors.background },
-            headerTintColor: theme.colors.primary,
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen name="documents/add" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="settings/auto-lock" />
-        <Stack.Screen name="settings/protection" />
-        <Stack.Screen name="settings/backup" />
-        <Stack.Screen
-          name="settings/change-pin"
-          options={{
-            headerShown: true,
-            headerStyle: { backgroundColor: theme.colors.background },
-            headerTintColor: theme.colors.primary,
-            headerShadowVisible: false,
-            headerLeft: () => (
-              <IconButton
-                icon="back"
-                accessibilityLabel={t('common.back')}
-                onPress={() => router.back()}
-              />
-            ),
-          }}
-        />
-      </Stack.Protected>
-      {/* The lock screen needs a URL of its own. At `/` it shared the address of
+    <>
+      <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'fade' : 'default' }}>
+        {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
+        <Stack.Protected guard={unlocked}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="documents/[id]"
+            options={{
+              headerShown: true,
+              title: '',
+              // One explicit back control so the header reads the same on iOS and Android.
+              headerLeft: () => (
+                <IconButton
+                  icon="back"
+                  accessibilityLabel={t('common.back')}
+                  onPress={() => router.back()}
+                />
+              ),
+              headerStyle: { backgroundColor: theme.colors.background },
+              headerTintColor: theme.colors.primary,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen name="documents/add" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="settings/auto-lock" />
+          <Stack.Screen name="settings/protection" />
+          <Stack.Screen name="settings/backup" />
+          <Stack.Screen
+            name="settings/change-pin"
+            options={{
+              headerShown: true,
+              headerStyle: { backgroundColor: theme.colors.background },
+              headerTintColor: theme.colors.primary,
+              headerShadowVisible: false,
+              headerLeft: () => (
+                <IconButton
+                  icon="back"
+                  accessibilityLabel={t('common.back')}
+                  onPress={() => router.back()}
+                />
+              ),
+            }}
+          />
+        </Stack.Protected>
+        {/* The lock screen needs a URL of its own. At `/` it shared the address of
           (tabs)/index, so the guard's redirect to it resolved back to the guarded
           tabs and expo-router 58 redirected forever. */}
-      <Stack.Protected guard={status === 'locked'}>
-        <Stack.Screen name="lock" />
-      </Stack.Protected>
-      <Stack.Protected guard={status === 'setup'}>
-        <Stack.Screen name="setup" />
-      </Stack.Protected>
-      {/* The key or the PIN record could not be read. Its own group and URL,
+        <Stack.Protected guard={status === 'locked'}>
+          <Stack.Screen name="lock" />
+        </Stack.Protected>
+        <Stack.Protected guard={status === 'setup'}>
+          <Stack.Screen name="setup" />
+        </Stack.Protected>
+        {/* The key or the PIN record could not be read. Its own group and URL,
           so no other screen, setup included, resolves while it is up. */}
-      <Stack.Protected guard={status === 'unavailable'}>
-        <Stack.Screen name="unavailable" options={{ gestureEnabled: false }} />
-      </Stack.Protected>
-    </Stack>
+        <Stack.Protected guard={status === 'unavailable'}>
+          <Stack.Screen name="unavailable" options={{ gestureEnabled: false }} />
+        </Stack.Protected>
+      </Stack>
+      {handoff}
+    </>
   );
 }
 

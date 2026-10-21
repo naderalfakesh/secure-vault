@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { View, type ViewInstance } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, Mark, PinDots, PinPad, Screen, Text } from '@/components/ui';
@@ -16,6 +16,7 @@ import {
 import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
+import { reportSplashTarget } from '@/features/session/SplashHandoff';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
 import { t } from '@/i18n';
 
@@ -26,6 +27,7 @@ export default function LockScreen() {
   const [checking, setChecking] = useState(false);
   const [lockLeft, setLockLeft] = useState(0);
   const [wrong, setWrong] = useState(false);
+  const markRef = useRef<ViewInstance>(null);
   // Biometric unlock off: the PIN comes first, and the device-unlock button
   // below still opens the system prompt for whoever wants it.
   const hasBiometrics = biometry !== 'none' && settings.biometricUnlock;
@@ -90,7 +92,23 @@ export default function LockScreen() {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.hero}>
-        <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
+        <View
+          ref={markRef}
+          collapsable={false}
+          onLayout={() => {
+            // The splash handoff carries the splash mark here (§3.5); the
+            // lockout's clock is a different glyph, so it only cross-fades.
+            if (lockedOut) {
+              reportSplashTarget(null);
+              return;
+            }
+            markRef.current?.measureInWindow((x, y, width) =>
+              reportSplashTarget({ x, y, size: width }),
+            );
+          }}
+        >
+          <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
+        </View>
         <Text variant="title2" align="center" accessibilityRole="header" style={styles.title}>
           {title}
         </Text>
