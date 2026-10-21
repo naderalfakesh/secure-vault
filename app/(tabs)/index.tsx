@@ -15,7 +15,7 @@ const RECENT_LIMIT = 6;
 const EXPIRING_WINDOW_DAYS = 90;
 
 export default function HomeScreen() {
-  const { documents, loading, getDocumentThumbnail } = useDocuments();
+  const { documents, loading, error, refreshDocuments, getDocumentThumbnail } = useDocuments();
   const [expiring, setExpiring] = useState<{ document: Document; date: string }[]>([]);
 
   // Re-query whenever the list changes; fields are written right after a save.
@@ -58,8 +58,11 @@ export default function HomeScreen() {
               SecureVault
             </Text>
             <Text variant="subheadline" tone="secondary">
-              {loading ? 'Opening your vault' : pluralize(documents.length, 'document')}, all on
-              this device
+              {loading
+                ? 'Opening your vault, all on this device'
+                : error
+                  ? 'Your documents stay closed for now'
+                  : `${pluralize(documents.length, 'document')}, all on this device`}
             </Text>
           </View>
           <View style={styles.badge}>
@@ -79,7 +82,15 @@ export default function HomeScreen() {
           </Text>
         </Pressable>
 
-        {!loading && documents.length === 0 ? (
+        {!loading && error ? (
+          // A fail-closed index is not an empty vault: same state as the Documents tab.
+          <View style={styles.section}>
+            <Card>
+              <EmptyState icon="warning" title="Could not open the vault" description={error} />
+            </Card>
+            <Button label="Try again" variant="secondary" size="md" onPress={refreshDocuments} />
+          </View>
+        ) : !loading && documents.length === 0 ? (
           <Card>
             <EmptyState
               icon="scan"
