@@ -43,6 +43,9 @@ const UUID_PATTERN = '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{1
 const SCAN_PAGE = new RegExp(`^scan_${UUID_PATTERN}_\\d+\\.jpg$`);
 const PREVIEW_PREFIX = 'pages_preview_';
 const PREVIEW_FOLDER = /^pages_preview_\d+$/;
+/** `getLocalFilePath`'s plaintext copy of an Android `content://` file, directly in the cache. */
+const IMPORT_COPY_PREFIX = 'temp_import_';
+const IMPORT_COPY = /^temp_import_\d+$/;
 
 /**
  * Plaintext scratch that builds before the staging folders wrote and could
@@ -162,25 +165,31 @@ class DocumentService {
     const fileType: Document['fileType'] = file.type?.includes('pdf') ? 'pdf' : 'image';
 
     const sourcePath = await this.getLocalFilePath(file.uri);
-    await ExpoVaultModule.putFile(fileKey, sourcePath);
     try {
-      const thumbnailSource =
-        fileType === 'pdf' ? await this.renderPdfCover(sourcePath, id) : sourcePath;
-      if (thumbnailSource) {
-        await ExpoVaultModule.putThumbnail(thumbnailKey, thumbnailSource, THUMBNAIL_MAX_PIXELS);
+      await ExpoVaultModule.putFile(fileKey, sourcePath);
+      try {
+        const thumbnailSource =
+          fileType === 'pdf' ? await this.renderPdfCover(sourcePath, id) : sourcePath;
+        if (thumbnailSource) {
+          await ExpoVaultModule.putThumbnail(thumbnailKey, thumbnailSource, THUMBNAIL_MAX_PIXELS);
+        }
+      } catch {
+        // A missing thumbnail only costs a placeholder in the list.
       }
-    } catch {
-      // A missing thumbnail only costs a placeholder in the list.
+    } finally {
+      // A retry copies the content:// file again, so its copy never outlives this call.
+      this.discardImportCopy(sourcePath);
     }
-
-    this.discardTemp(sourcePath, file.uri);
 
     const pageKeys: string[] = [];
     for (const [index, page] of files.slice(1).entries()) {
       const pageKey = `${PAGE_PREFIX}${id}_${index + 1}`;
       const pagePath = await this.getLocalFilePath(page.uri);
-      await ExpoVaultModule.putFile(pageKey, pagePath);
-      this.discardTemp(pagePath, page.uri);
+      try {
+        await ExpoVaultModule.putFile(pageKey, pagePath);
+      } finally {
+        this.discardImportCopy(pagePath);
+      }
       pageKeys.push(pageKey);
     }
 
@@ -297,6 +306,27 @@ class DocumentService {
     }
   }
 
+  /**
+   * Removes `getLocalFilePath`'s plaintext copy of a `content://` file. Only an
+   * entry named exactly `temp_import_<digits>` directly in the cache
+   * qualifies; a picked file's own path is left alone.
+   */
+  private discardImportCopy(path: string): void {
+    let name: string | null;
+    try {
+      const cache = this.comparablePath(this.cacheUri).replace(/\/?$/, '/');
+      name = childName(this.comparablePath(path), cache);
+    } catch {
+      return;
+    }
+    if (!name || !IMPORT_COPY.test(name)) return;
+    try {
+      removeNoFollow(new File(this.cacheUri, name));
+    } catch {
+      // The lock and launch sweep removes these copies.
+    }
+  }
+
   private discardTemp(sourcePath: string, originalUri: string) {
     if (sourcePath === this.toPath(originalUri) || !this.isCachePath(sourcePath)) return;
     try {
@@ -320,13 +350,17 @@ class DocumentService {
    */
   async previewForFile(uri: string, mimeType: string): Promise<string | null> {
     if (!mimeType.includes('pdf')) return uri;
+    let path: string | null = null;
     try {
-      const path = await this.getLocalFilePath(uri);
+      path = await this.getLocalFilePath(uri);
       const { path: directory } = this.getCacheLocation(`${PREVIEW_PREFIX}${Date.now()}`);
       const [page] = await ExpoVaultModule.renderPdfPages(path, PAGE_MAX_PIXELS, directory);
       return page ? this.toUri(page.uri) : null;
     } catch {
       return null;
+    } finally {
+      // The save copies a content:// file again; the preview is the rendered page.
+      if (path) this.discardImportCopy(path);
     }
   }
 
@@ -605,7 +639,7 @@ class DocumentService {
         if (
           name.startsWith('decrypted_') ||
           name.startsWith('thumb_') ||
-          name.startsWith('temp_') ||
+          IMPORT_COPY.test(name) ||
           name.startsWith('pages_') ||
           name.startsWith('undo_') ||
           name === 'share' ||
@@ -633,7 +667,7 @@ class DocumentService {
     if (uri.startsWith('/') || uri.startsWith('file://')) {
       return this.toPath(uri);
     }
-    const tempFile = new File(Paths.cache, `temp_import_${Date.now()}`);
+    const tempFile = new File(Paths.cache, `${IMPORT_COPY_PREFIX}${Date.now()}`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
@@ -641,6 +675,10 @@ class DocumentService {
       const bytes = await response.arrayBuffer();
       await tempFile.write(new Uint8Array(bytes));
       return this.toPath(tempFile.uri);
+    } catch (e) {
+      // A copy cut short by a timeout or a write error is plaintext too.
+      this.discardImportCopy(tempFile.uri);
+      throw e;
     } finally {
       clearTimeout(timeout);
     }

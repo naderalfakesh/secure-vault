@@ -193,6 +193,93 @@ describe('import copies outside the vault', () => {
     });
   });
 
+  describe('Android content:// import copies', () => {
+    const importCopies = () =>
+      new Directory(Paths.cache)
+        .list()
+        .filter((entry) => entry.name.startsWith('temp_import_'))
+        .map((entry) => entry.name);
+    let fetchSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+        arrayBuffer: async () => new Uint8Array([37, 80, 68, 70]).buffer,
+      } as unknown as Response);
+    });
+
+    afterEach(() => {
+      fetchSpy.mockRestore();
+      for (const name of importCopies()) removeQuietly(new File(Paths.cache, name));
+    });
+
+    it('removes the plaintext copy once the document is in the vault', async () => {
+      await documentService.addDocument(
+        [
+          { uri: 'content://com.android.providers/document/1', name: 'a.jpg', type: 'image/jpeg' },
+          { uri: 'content://com.android.providers/document/2', name: 'b.jpg', type: 'image/jpeg' },
+        ],
+        { title: 'Lease' },
+      );
+
+      expect(importCopies()).toEqual([]);
+    });
+
+    it('removes the plaintext copy when the vault module refuses it', async () => {
+      const putFile = jest.spyOn(vault, 'putFile').mockRejectedValueOnce(new Error('disk full'));
+
+      await expect(
+        documentService.addDocument(
+          {
+            uri: 'content://com.android.providers/document/3',
+            name: 'a.pdf',
+            type: 'application/pdf',
+          },
+          { title: 'Lease' },
+        ),
+      ).rejects.toThrow('disk full');
+
+      expect(importCopies()).toEqual([]);
+      putFile.mockRestore();
+    });
+
+    it('removes the plaintext copy a PDF preview was rendered from, also when rendering fails', async () => {
+      const preview = await documentService.previewForFile(
+        'content://com.android.providers/document/4',
+        'application/pdf',
+      );
+      expect(preview).toMatch(/pages_preview_\d+\/page_1\.jpg$/);
+      expect(importCopies()).toEqual([]);
+
+      const render = jest
+        .spyOn(vault, 'renderPdfPages')
+        .mockRejectedValueOnce(new Error('not a pdf'));
+      await expect(
+        documentService.previewForFile(
+          'content://com.android.providers/document/5',
+          'application/pdf',
+        ),
+      ).resolves.toBeNull();
+      expect(importCopies()).toEqual([]);
+      render.mockRestore();
+      if (preview) documentService.discardPreview(preview);
+    });
+
+    it('sweeps a copy a kill left behind at lock and launch, by its exact name only', async () => {
+      const copy = plant(new Directory(Paths.cache), 'temp_import_1760000000000');
+      const kept = [
+        plant(new Directory(Paths.cache), 'temp_import_x'),
+        plant(new Directory(Paths.cache), 'temp_import_1760000000000.pdf'),
+        plant(new Directory(Paths.cache), 'temp_notes'),
+      ];
+
+      await documentService.clearCache();
+
+      expect(copy.exists).toBe(false);
+      expect(kept.map((file) => file.exists)).toEqual([true, true, true]);
+      for (const file of kept) removeQuietly(file);
+    });
+  });
+
   describe("iOS's own copy of a file imported from Files", () => {
     const inbox = () => new Directory(tmp(), APPLE_INBOX_DIRECTORY);
 

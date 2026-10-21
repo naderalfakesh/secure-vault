@@ -237,7 +237,11 @@ disabled until it ends.
   into the cache's `ImagePicker` folder. Scanned pages are written to `tmp`
   as `scan_<batch>_<page>.jpg` on iOS and copied by the ML Kit client into
   the cache's `mlkit_docscan_ui_client` folder on Android. A PDF's preview is
-  rendered into a `pages_preview_` cache folder.
+  rendered into a `pages_preview_` cache folder. A source that arrives as an
+  Android `content://` URI is copied to `temp_import_<time>` in the cache so
+  the vault module can read a path; that copy is removed as soon as the
+  module has read it or the preview is rendered, whether that worked or not,
+  so it never outlives the call that made it.
 - The add screen removes these copies as soon as the document is saved, and
   whenever it lets go of them unsaved: back to the sources, closing the
   screen, the vault locking, or a picker or scanner that answers after the
@@ -246,12 +250,14 @@ disabled until it ends.
   way, and reports its outcome after the next unlock if the vault locked. A
   save that fails on screen keeps the copies only so it can be retried.
 - The lock and launch sweep removes the `ImagePicker`, `mlkit_docscan_ui_client`
-  and preview folders, the iOS Inbox folder and scanner pages, and the
-  `DocumentPicker` folder (outside a restore, as above), so a copy left by a
-  crash or a kill goes at the next launch. Every removal is guarded: only an
-  entry directly inside one of those exact folders, or an iOS `tmp` file with
-  exactly the scanner's name pattern, after decoding and with `..` refused,
-  is ever removed; the user's own files elsewhere are never touched.
+  and preview folders, the iOS Inbox folder and scanner pages, any
+  `temp_import_<digits>` copy, and the `DocumentPicker` folder (outside a
+  restore, as above), so a copy left by a crash or a kill goes at the next
+  launch. Every removal is guarded: only an entry directly inside one of
+  those exact folders, a cache entry named exactly `temp_import_<digits>`, or
+  an iOS `tmp` file with exactly the scanner's name pattern, after decoding
+  and with `..` refused, is ever removed; the user's own files elsewhere are
+  never touched.
 - Every whole-folder removal in these sweeps (the two staging folders,
   `backup` and its restore extras, `DocumentPicker`, `ImagePicker`,
   `mlkit_docscan_ui_client`, the preview, viewer and share folders, and the
