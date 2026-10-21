@@ -167,6 +167,9 @@ export function createVaultMock(): SecureVault & {
     cancelRestore() {
       cancelRequested = true;
     },
+    async dismissShareSheet() {
+      return false;
+    },
     removeTreeNoFollow(path) {
       if (!path.startsWith('/'))
         throw new Error('The cache entry cannot be removed: not an absolute path');

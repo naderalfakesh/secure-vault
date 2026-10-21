@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UIKit
 import Security
 import LocalAuthentication
 import CryptoKit
@@ -361,6 +362,32 @@ public class ExpoVaultModule: Module {
             promise.reject("DELETE_FILE_FAILED", "Failed to delete file: \(error.localizedDescription)")
         }
     }
+
+    // Closes a share sheet left up when the vault locks, so it never sits over
+    // the lock screen with its preview. Dismissing the sheet's presenter also
+    // closes anything the sheet presented (Mail, Save to Files). Resolves true
+    // when a sheet was found.
+    AsyncFunction("dismissShareSheet") { () -> Bool in
+      // Runs on the main queue (below), where UIKit may be used.
+      MainActor.assumeIsolated {
+        let roots = UIApplication.shared.connectedScenes
+          .compactMap { $0 as? UIWindowScene }
+          .flatMap { $0.windows }
+          .compactMap { $0.rootViewController }
+        for root in roots {
+          var presenter = root
+          while let presented = presenter.presentedViewController {
+            if presented is UIActivityViewController {
+              presenter.dismiss(animated: false)
+              return true
+            }
+            presenter = presented
+          }
+        }
+        return false
+      }
+    }
+    .runOnQueue(.main)
 
     // Mirrors Android, where expo-file-system's delete follows a link.
     Function("removeTreeNoFollow") { (path: String) throws in

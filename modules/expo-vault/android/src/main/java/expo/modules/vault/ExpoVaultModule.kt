@@ -483,6 +483,10 @@ class ExpoVaultModule : Module() {
         }
 
         // expo-file-system's delete follows a link and empties its target first.
+        // The share chooser is an activity of its own; the app cannot close it.
+        // The lock sweep deletes the copy, so a target picked later reads nothing.
+        AsyncFunction("dismissShareSheet") { false }
+
         Function("removeTreeNoFollow") { path: String ->
             BackupContainer.removeNoFollow(path, listOf(appContext.reactContext!!.cacheDir))
         }

@@ -140,6 +140,15 @@ export interface SecureVault {
    * native call began asks again on the first progress event.
    */
   cancelRestore(): void;
+
+  // Sharing
+  /**
+   * iOS: dismisses a share sheet (UIActivityViewController) the app is
+   * presenting, with anything it presented in turn, so it never stays up over
+   * the lock screen. Resolves true when one was dismissed. Android resolves
+   * false: its chooser is an activity of its own the app cannot close.
+   */
+  dismissShareSheet(): Promise<boolean>;
   addListener(
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,
