@@ -247,7 +247,13 @@ screen, because the key and the PIN record already exist. Auto-lock
 runs on a timer after the app leaves the foreground. System pickers and share
 sheets pause it for a bounded time (2 minutes for a share sheet, 10 for other
 system UI); a trip longer than that is judged against auto-lock as usual, and
-a pause ends with the session that took it. The privacy
+a pause ends with the session that took it. The bound is checked whenever the
+pause ends, not only on the return: Android delivers a chooser's Back or pick,
+and a picker's result, just before the app is active again, so a pause that
+ends while the app is still away and has outlived its bound excuses nothing.
+The whole trip since the app left under it is judged against auto-lock right
+then and again on the return. Only a pause that ends within its bound excuses
+the time it covered. The privacy
 screen blurs the app in the switcher and blocks screenshots and recording
 while unlocked. Sharing can require a second biometric check.
 

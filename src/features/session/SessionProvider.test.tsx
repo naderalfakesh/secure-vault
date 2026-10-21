@@ -600,6 +600,136 @@ describe('SessionProvider session capture', () => {
     clock.mockRestore();
   });
 
+  describe('an Android chooser that settles before the app is active again (H1)', () => {
+    const androidShare = { maxAwayMs: 2 * 60_000, endsOnReturn: true };
+
+    /**
+     * Opens a pending pause, leaves the foreground, and settles it `awayMs`
+     * later while still away, the way Android delivers the chooser's Back or a
+     * pick just before the activity resumes.
+     */
+    async function settleAway<T>(
+      awayMs: number,
+      result: T,
+      pause: { maxAwayMs?: number; endsOnReturn?: boolean } = androidShare,
+    ) {
+      let settle!: (value: T) => void;
+      const work = new Promise<T>((resolve) => {
+        settle = resolve;
+      });
+      let done!: Promise<T>;
+      await act(async () => {
+        done = session.withoutAutoLock(() => work, pause);
+      });
+      const now = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      await moveTo('background');
+      clock.mockReturnValue(now + awayMs);
+      await act(async () => {
+        settle(result);
+        await done;
+      });
+      return { clock, now };
+    }
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('locks when the chooser stayed up past its bound and was closed with Back', async () => {
+      await unlocked(0);
+      const { clock, now } = await settleAway(3 * 60_000, { action: 'dismissed' });
+      clock.mockReturnValue(now + 3 * 60_000 + 200);
+      await moveTo('active');
+
+      expect(session.status).toBe('locked');
+    });
+
+    it('locks when the chooser stayed up past its bound and a target was picked', async () => {
+      await unlocked(0);
+      const { clock, now } = await settleAway(2 * 60_000 + 5_000, { action: 'shared' });
+      // Locked before the return, so a waiting share is never confirmed.
+      expect(session.status).toBe('locked');
+      clock.mockReturnValue(now + 2 * 60_000 + 5_300);
+      await moveTo('active');
+
+      expect(session.status).toBe('locked');
+    });
+
+    it('keeps the vault open for a chooser closed within its bound', async () => {
+      await unlocked(300);
+      const { clock, now } = await settleAway(90_000, { action: 'shared' });
+      clock.mockReturnValue(now + 90_200);
+      await moveTo('active');
+
+      expect(session.status).toBe('unlocked');
+    });
+
+    it('keeps the vault open for a chooser closed within its bound with auto-lock Immediately', async () => {
+      await unlocked(0);
+      const { clock, now } = await settleAway(90_000, { action: 'dismissed' });
+      clock.mockReturnValue(now + 90_200);
+      await moveTo('active');
+
+      expect(session.status).toBe('unlocked');
+    });
+
+    it('judges the whole trip against auto-lock once the bound has passed', async () => {
+      await unlocked(300);
+      const { clock, now } = await settleAway(4 * 60_000, { action: 'dismissed' });
+      // Past the bound but within auto-lock: still open while away.
+      expect(session.status).toBe('unlocked');
+      // The return comes 6 minutes after the app first left, past auto-lock.
+      clock.mockReturnValue(now + 6 * 60_000);
+      await moveTo('active');
+
+      expect(session.status).toBe('locked');
+    });
+
+    it('locks on return when the user left the chooser with Home and came back later', async () => {
+      await unlocked(0);
+      let done!: Promise<void>;
+      await act(async () => {
+        done = session.withoutAutoLock(() => new Promise<void>(() => {}), androidShare);
+      });
+      void done;
+      const now = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      await moveTo('background');
+      clock.mockReturnValue(now + 3 * 60_000);
+      await moveTo('active');
+
+      expect(session.status).toBe('locked');
+    });
+
+    it('applies the same rule to a picker that answers after its bound', async () => {
+      await unlocked(0);
+      const { clock, now } = await settleAway(11 * 60_000, { canceled: true }, {});
+      clock.mockReturnValue(now + 11 * 60_000 + 200);
+      await moveTo('active');
+
+      expect(session.status).toBe('locked');
+    });
+
+    it('starts the next session without the time a locked trip was being timed', async () => {
+      await unlocked(300);
+      const { clock, now } = await settleAway(4 * 60_000, { action: 'dismissed' });
+      await act(async () => {
+        session.lock();
+      });
+      await act(async () => {
+        await session.unlock();
+      });
+      await moveTo('active');
+      // A new trip of 90 seconds, measured from its own start.
+      await moveTo('background');
+      clock.mockReturnValue(now + 5 * 60_000 + 30_000);
+      await moveTo('active');
+
+      expect(session.status).toBe('unlocked');
+    });
+  });
+
   it('clears only the share-interrupted mark it was given', async () => {
     await unlocked();
     await act(async () => session.markShareInterrupted('doc-1'));

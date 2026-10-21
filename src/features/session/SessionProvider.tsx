@@ -298,6 +298,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
         // settles (a share sheet the lock dismissed) must not excuse the next
         // session's time away.
         pausesRef.current.clear();
+        // A trip being timed belongs to that session too; the next one starts fresh.
+        backgroundedAt.current = null;
+        pauseEndedAwayRef.current = false;
       }
       statusRef.current = next;
       setStatus(next);
@@ -594,12 +597,23 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return await work();
       } finally {
         if (pausesRef.current.delete(entry)) {
-          if (AppState.currentState === 'active' || entry.awayAt === null) {
+          const awayAt = entry.awayAt;
+          if (AppState.currentState === 'active' || awayAt === null) {
             backgroundedAt.current = null;
+          } else if (Date.now() - awayAt > entry.maxAwayMs) {
+            // Ended while still away after outliving its bound (Android delivers
+            // a chooser's Back or pick before the app is active again, and its
+            // paused timers never fired): the pause excuses nothing, so the whole
+            // trip since the app left under it is judged now, and again on
+            // return if auto-lock allows it so far.
+            backgroundedAt.current = awayAt;
+            pauseEndedAwayRef.current = false;
+            judgeAway(Date.now() - awayAt);
           } else {
-            // Ended while still away (iOS handed the share to another app): the
-            // pause excused the time until now, and the rest of the time away
-            // is judged on return like any other.
+            // Ended while still away within its bound (iOS handed the share to
+            // another app, or a picker result landed on the way back): the pause
+            // excused the time until now, and the rest of the time away is
+            // judged on return like any other.
             backgroundedAt.current = Date.now();
             pauseEndedAwayRef.current = true;
           }
@@ -607,7 +621,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         settleWaiters();
       }
     },
-    [settleWaiters],
+    [settleWaiters, judgeAway],
   );
 
   const captureSession = useCallback((): SessionCapture => {
