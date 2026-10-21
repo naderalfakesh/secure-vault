@@ -6,7 +6,7 @@ import { useAnnouncement } from '@/components/ui/announce';
 import { biometryIcon } from '@/features/auth/lockCopy';
 
 import type { BiometryType } from '../../../modules/expo-vault';
-import { confirmShareLabel, shareCopy } from './shareCopy';
+import { confirmShareLabel, shareText } from './shareCopy';
 
 export type ShareSheetStep = 'warning' | 'preparing';
 
@@ -44,22 +44,22 @@ export function ShareSheet({
 }: ShareSheetProps) {
   const { theme } = useUnistyles();
   const preparing = step === 'preparing';
-  useAnnouncement(preparing ? shareCopy['preparing.title'] : null);
+  useAnnouncement(preparing ? shareText('preparing.title') : null);
 
   return (
     <Sheet visible={step !== null} onClose={onCancel} dismissable={!busy}>
       {preparing ? (
         <View style={styles.body}>
           <Text variant="title3" accessibilityRole="header">
-            {shareCopy['preparing.title']}
+            {shareText('preparing.title')}
           </Text>
           <View style={styles.progress} accessible accessibilityLiveRegion="polite">
             <ActivityIndicator color={theme.colors.primary} />
             <Text variant="callout" tone="secondary" style={styles.progressLabel}>
-              {shareCopy['preparing.label']}
+              {shareText('preparing.label')}
             </Text>
           </View>
-          <Button label={shareCopy['preparing.cancel']} variant="secondary" onPress={onCancel} />
+          <Button label={shareText('preparing.cancel')} variant="secondary" onPress={onCancel} />
         </View>
       ) : (
         <View style={styles.body}>
@@ -67,20 +67,20 @@ export function ShareSheet({
             <Icon name="share" size={22} tone="accent" />
           </View>
           <Text variant="title2" accessibilityRole="header">
-            {shareCopy['warning.title']}
+            {shareText('warning.title')}
           </Text>
           <Text variant="callout" tone="secondary">
-            {shareCopy['warning.body']}
+            {shareText('warning.body')}
           </Text>
           <FileCard name={fileName} meta={fileMeta} icon={fileIcon} />
           <Button
-            label={confirmFirst ? confirmShareLabel(biometry) : shareCopy['warning.share']}
+            label={confirmFirst ? confirmShareLabel(biometry) : shareText('warning.share')}
             icon={confirmFirst ? biometryIcon(biometry) : undefined}
             loading={busy}
             onPress={onShare}
           />
           <Button
-            label={shareCopy['warning.cancel']}
+            label={shareText('warning.cancel')}
             variant="plain"
             onPress={onCancel}
             disabled={busy}

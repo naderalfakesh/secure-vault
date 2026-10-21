@@ -1,30 +1,22 @@
 import { Platform } from 'react-native';
 
 import { biometryName } from '@/features/auth/lockCopy';
+import { type StringKey, t } from '@/i18n';
+import type { share } from '@/i18n/en/share';
 
 import type { BiometryType } from '../../../modules/expo-vault';
 
 /**
- * The J5 Share strings (handover §6 J5, §7.4), keyed so a later string table
- * (§10.1, F17) can take them over unchanged.
+ * The J5 Share strings (handover §6 J5, §7.4). They live in the string table
+ * under `share.`; this module keeps the short keys the share flow uses.
  */
-export const shareCopy = {
-  'warning.title': 'Share a decrypted copy?',
-  'warning.body':
-    'Whoever gets this file can open it without your PIN. SecureVault removes its temporary copy when sharing ends, but it can’t control copies the other app keeps.',
-  'warning.share': 'Share',
-  'warning.cancel': 'Cancel',
-  'warning.notConfirmed': 'Not confirmed, so nothing was shared.',
-  'preparing.title': 'Preparing a copy',
-  // The copy is the document's one stored file, decrypted in a single native
-  // call, so there is no page-by-page count to show (verification note).
-  'preparing.label': 'Decrypting the document',
-  'preparing.cancel': 'Cancel',
-  failed: 'Couldn’t prepare the file.',
-  'interrupted.lead': 'SecureVault locked while you were sharing.',
-  'interrupted.body': 'The temporary copy was removed. Share again if you still need to.',
-  'interrupted.again': 'Share again',
-} as const;
+export type ShareCopyKey = {
+  [K in keyof typeof share]: K extends `share.${infer Key}` ? Key : never;
+}[keyof typeof share];
+
+export function shareText(key: ShareCopyKey): string {
+  return t(`share.${key}` as StringKey);
+}
 
 /**
  * "Confirm with Face ID" when Confirm before sharing is on (§7.4). Without
@@ -32,7 +24,7 @@ export const shareCopy = {
  */
 export function confirmShareLabel(biometry: BiometryType): string {
   if (biometry === 'none') {
-    return Platform.OS === 'ios' ? 'Confirm with passcode' : 'Confirm with screen lock';
+    return t(Platform.OS === 'ios' ? 'share.confirmPasscode' : 'share.confirmScreenLock');
   }
-  return `Confirm with ${biometryName(biometry)}`;
+  return t('share.confirmBiometry', { biometry: biometryName(biometry) });
 }
