@@ -1,51 +1,127 @@
 import type { ReactNode } from 'react';
 import { Pressable, type PressableProps, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
+import type { Palette } from '@/theme/colors';
+
+import { useInGroup } from './Group';
 import { Icon, type IconName } from './Icon';
+import { Switch } from './Switch';
 import { Text, type TextTone } from './Text';
+
+/** Fill of the leading 30 pt icon tile. */
+export type ListRowTint = 'primary' | 'success' | 'warning' | 'danger' | 'neutral';
 
 export type ListRowProps = Omit<PressableProps, 'style' | 'children'> & {
   title: string;
+  /** Second line; for a disabled row, say why it is disabled here. */
   subtitle?: string;
   icon?: IconName;
+  tint?: ListRowTint;
+  /** @deprecated Use `tint`. Kept so existing rows keep their colour. */
   iconTone?: TextTone;
-  /** Trailing element; defaults to a chevron when the row is pressable. */
+  /** Trailing value text, e.g. "After 1 minute". */
+  value?: string;
+  /** Trailing switch; pressing the row toggles it. */
+  toggle?: { value: boolean; onValueChange: (value: boolean) => void };
+  /** Radio row: shows a checkmark when true. */
+  checked?: boolean;
+  /** Custom trailing element; replaces the chevron. */
   trailing?: ReactNode;
+  /** Destructive title colour, e.g. "Delete everything". */
+  destructive?: boolean;
+  /** @deprecated Use `destructive`. */
   tone?: 'default' | 'danger';
-  /** Draw the separator below the row. */
+  /** Separator below the row when it is not inside a Group. */
   divider?: boolean;
 };
 
-/** Settings-style row: icon, title, optional subtitle, trailing control. */
+const tintFromTone: Partial<Record<TextTone, ListRowTint>> = {
+  accent: 'primary',
+  success: 'success',
+  warning: 'warning',
+  danger: 'danger',
+};
+
+const tileColors: Record<ListRowTint, { fill: keyof Palette; glyph: keyof Palette }> = {
+  primary: { fill: 'primary', glyph: 'onPrimary' },
+  success: { fill: 'success', glyph: 'onSuccess' },
+  // Brass has no "on" colour of its own; onPrimary passes AA on it in both modes.
+  warning: { fill: 'warning', glyph: 'onPrimary' },
+  danger: { fill: 'danger', glyph: 'onDanger' },
+  neutral: { fill: 'surfaceMuted', glyph: 'textSecondary' },
+};
+
+/**
+ * Settings-style row (handover §4): leading icon tile, title, optional
+ * subtitle, and a trailing chevron, value, switch, checkmark, or nothing.
+ */
 export function ListRow({
   title,
   subtitle,
   icon,
-  iconTone = 'accent',
+  tint,
+  iconTone,
+  value,
+  toggle,
+  checked,
   trailing,
+  destructive,
   tone = 'default',
-  divider = true,
+  divider,
   onPress,
   disabled,
   ...props
 }: ListRowProps) {
-  const isPressable = Boolean(onPress) && !disabled;
-  const titleTone: TextTone = tone === 'danger' ? 'danger' : 'primary';
+  const { theme } = useUnistyles();
+  const inGroup = useInGroup();
+  const isDestructive = destructive ?? tone === 'danger';
+  const handlePress = toggle ? () => toggle.onValueChange(!toggle.value) : onPress;
+  const isPressable = Boolean(handlePress) && !disabled;
+  const isRadio = checked !== undefined;
+  const tileTint =
+    tint ??
+    (isDestructive ? 'danger' : iconTone ? (tintFromTone[iconTone] ?? 'neutral') : 'primary');
+  const tile = tileColors[tileTint];
+  const showDivider = divider ?? !inGroup;
+
+  const role = toggle ? 'switch' : isRadio ? 'radio' : isPressable ? 'button' : undefined;
+  const label = [title, value, subtitle].filter(Boolean).join(', ');
+  const titleTone: TextTone = disabled ? 'tertiary' : isDestructive ? 'danger' : 'primary';
+
+  let accessory: ReactNode = null;
+  if (trailing !== undefined) {
+    accessory = trailing;
+  } else if (toggle) {
+    accessory = (
+      <Switch value={toggle.value} onValueChange={toggle.onValueChange} disabled={disabled} />
+    );
+  } else if (isRadio) {
+    accessory = checked ? <Icon name="check" size={18} tone="accent" /> : null;
+  } else if (isPressable && !isDestructive) {
+    accessory = <Icon name="chevronRight" size={18} tone="tertiary" />;
+  }
 
   return (
     <Pressable
-      accessibilityRole={isPressable ? 'button' : undefined}
-      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
-      accessibilityState={{ disabled: Boolean(disabled) }}
+      accessibilityRole={role}
+      accessibilityLabel={label}
+      accessibilityState={{
+        disabled: Boolean(disabled),
+        ...(toggle ? { checked: toggle.value } : null),
+        ...(isRadio ? { checked } : null),
+      }}
       {...props}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={!isPressable}
-      style={({ pressed }) => [styles.row(divider), pressed && isPressable && styles.pressed]}
+      style={({ pressed }) => [
+        styles.row(Boolean(subtitle), showDivider),
+        pressed && isPressable && styles.pressed,
+      ]}
     >
       {icon ? (
-        <View style={styles.iconWrap}>
-          <Icon name={icon} size={20} tone={tone === 'danger' ? 'danger' : iconTone} />
+        <View style={[styles.tile, { backgroundColor: theme.colors[tile.fill] }]}>
+          <Icon name={icon} size={18} color={theme.colors[tile.glyph]} />
         </View>
       ) : null}
       <View style={styles.body}>
@@ -58,33 +134,40 @@ export function ListRow({
           </Text>
         ) : null}
       </View>
-      {trailing ?? (isPressable ? <Icon name="chevronRight" size={16} tone="tertiary" /> : null)}
+      {value ? (
+        <Text variant="body" tone="secondary" style={styles.value}>
+          {value}
+        </Text>
+      ) : null}
+      {accessory}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  row: (divider: boolean) => ({
+  row: (hasSubtitle: boolean, divider: boolean) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    minHeight: 56,
+    minHeight: hasSubtitle ? 60 : 52,
     paddingVertical: theme.spacing.xs,
     paddingHorizontal: theme.spacing.md,
     borderBottomWidth: divider ? StyleSheet.hairlineWidth : 0,
     borderBottomColor: theme.colors.border,
   }),
   pressed: { backgroundColor: theme.colors.surfaceMuted },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: theme.radii.sm + 2,
+  tile: {
+    width: theme.controlSize.iconTile,
+    height: theme.controlSize.iconTile,
+    borderRadius: theme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surfaceMuted,
   },
   body: {
     flex: 1,
     gap: 2,
+  },
+  value: {
+    flexShrink: 1,
   },
 }));

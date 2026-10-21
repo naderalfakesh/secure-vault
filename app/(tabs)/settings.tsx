@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
-import { Alert, Platform, ScrollView, Switch, TextInput, View } from 'react-native';
+import { Alert, Platform, ScrollView, TextInput, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Card, Chip, Icon, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
+import { Button, Card, Chip, ListRow, Screen, Sheet, Text, useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockDescription, autoLockLabel } from '@/features/session/settings';
 import { selectIntelligence } from '@/features/intelligence';
@@ -302,26 +302,20 @@ export default function SettingsScreen() {
             icon="eyeOff"
             title="Privacy screen"
             subtitle="Blur in the app switcher and block screenshots"
-            trailing={
-              <Switch
-                value={settings.privacyScreen}
-                onValueChange={(value) => updateSettings({ privacyScreen: value })}
-                accessibilityLabel="Privacy screen"
-              />
-            }
+            toggle={{
+              value: settings.privacyScreen,
+              onValueChange: (value) => void updateSettings({ privacyScreen: value }),
+            }}
           />
           {biometry !== 'none' ? (
             <ListRow
               icon="shield"
               title="Confirm before sharing"
               subtitle="Ask for biometrics again before a file leaves the vault"
-              trailing={
-                <Switch
-                  value={settings.biometricsForShare}
-                  onValueChange={(value) => updateSettings({ biometricsForShare: value })}
-                  accessibilityLabel="Confirm before sharing"
-                />
-              }
+              toggle={{
+                value: settings.biometricsForShare,
+                onValueChange: (value) => void updateSettings({ biometricsForShare: value }),
+              }}
             />
           ) : null}
           <ListRow
@@ -421,13 +415,7 @@ export default function SettingsScreen() {
                 void updateSettings({ autoLockSeconds: option });
                 setAutoLockSheet(false);
               }}
-              trailing={
-                settings.autoLockSeconds === option ? (
-                  <Icon name="check" size={18} tone="accent" />
-                ) : (
-                  <View />
-                )
-              }
+              checked={settings.autoLockSeconds === option}
               divider={index < AUTO_LOCK_OPTIONS.length - 1}
             />
           ))}

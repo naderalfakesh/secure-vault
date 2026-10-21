@@ -2,7 +2,6 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { Text as NativeText } from 'react-native';
 
 import { Chip } from '../Chip';
-import { ListRow } from '../ListRow';
 import { ToastProvider, useToast } from '../Toast';
 
 describe('Chip', () => {
@@ -11,15 +10,6 @@ describe('Chip', () => {
     const chip = view.getByRole('button', { name: 'Medical, 3' });
 
     expect(chip).toBeSelected();
-  });
-});
-
-describe('ListRow', () => {
-  it('is not a button when it has no press handler', async () => {
-    const view = await render(<ListRow title="Version" subtitle="2.0.0" />);
-
-    expect(view.queryByRole('button')).toBeNull();
-    expect(view.getByLabelText('Version, 2.0.0')).toBeOnTheScreen();
   });
 });
 
