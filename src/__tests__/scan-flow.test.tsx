@@ -734,3 +734,40 @@ it('keeps a settled toast-free flow when nothing is picked', async () => {
   expect(view.getByRole('button', { name: /Import a file/ })).toBeOnTheScreen();
   expect(view.queryByRole('alert')).toBeNull();
 });
+
+describe('Add a document: one source at a time', () => {
+  it('ignores another source while a picked PDF is still rendering', async () => {
+    let rendered: (pages: { uri: string; width: number; height: number }[]) => void = () => {};
+    jest
+      .spyOn(vault, 'renderPdfPages')
+      .mockImplementationOnce(() => new Promise((resolve) => (rendered = resolve)));
+    const copy = plant(pickerFolder(), '5A1E9C70-0D2B-4F6E-8C3A-7B4D1E2F3A90');
+    pickDocument.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: copy.uri, name: 'lease.pdf', mimeType: 'application/pdf', size: 9 }],
+    });
+    const view = await renderScreen();
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    await fireEvent.press(view.getByRole('button', { name: /Choose from Photos/ }));
+    await fireEvent.press(view.getByRole('button', { name: /Scan with the camera/ }));
+    await settle();
+    expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rendered([{ uri: `${Paths.cache.uri}pages_preview_1/page_1.jpg`, width: 1, height: 1 }]);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+    expect(copy.exists).toBe(true);
+
+    // Once that pick has settled the sources answer again.
+    await fireEvent.press(view.getByLabelText('Back to sources'));
+    expect(copy.exists).toBe(false);
+    await fireEvent.press(view.getByRole('button', { name: /Choose from Photos/ }));
+    await waitFor(() => expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1));
+  });
+});

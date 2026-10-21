@@ -87,6 +87,9 @@ export default function AddDocumentScreen() {
   const saving = useRef(false);
   // Bumped whenever a read is cancelled or superseded; a late read result is dropped.
   const readRun = useRef(0);
+  // One source at a time: a second tap while a pick is still settling (a large
+  // PDF rendering, say) would otherwise replace copies this screen still holds.
+  const picking = useRef(false);
   // Set once the files are in the vault, so Try again only repeats what failed.
   const saved = useRef<Document | null>(null);
 
@@ -201,6 +204,13 @@ export default function AddDocumentScreen() {
   /** A single photo or file: straight to reading. */
   const acceptSingle = useCallback(
     (picked: PickedFile, previewUri: string, suggestedTitle: string) => {
+      // Never replace copies without removing them.
+      for (const old of held.current) {
+        if (old.uri !== picked.uri) documentService.discardPickedCopy(old.uri);
+      }
+      if (shown.current && shown.current !== previewUri) {
+        documentService.discardPreview(shown.current);
+      }
       setProblem(null);
       setOrigin('single');
       setFiles([picked]);
@@ -312,15 +322,21 @@ export default function AddDocumentScreen() {
     [acceptSingle, cameraAllowed, setFiles],
   );
 
-  const pick = useCallback(
-    (source: Source) => withoutAutoLock(() => pickFrom(source)),
+  const pickOnce = useCallback(
+    async (source: Source, addingPages = false) => {
+      if (picking.current) return;
+      picking.current = true;
+      try {
+        await withoutAutoLock(() => pickFrom(source, addingPages));
+      } finally {
+        picking.current = false;
+      }
+    },
     [withoutAutoLock, pickFrom],
   );
 
-  const addPages = useCallback(
-    () => withoutAutoLock(() => pickFrom('scan', true)),
-    [withoutAutoLock, pickFrom],
-  );
+  const pick = useCallback((source: Source) => pickOnce(source), [pickOnce]);
+  const addPages = useCallback(() => pickOnce('scan', true), [pickOnce]);
 
   const removePage = useCallback(
     (index: number) => {
