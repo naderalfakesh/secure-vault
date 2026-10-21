@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Alert, Linking, Platform, ScrollView, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -277,6 +277,19 @@ export default function SettingsScreen() {
           <Text variant="callout" tone="secondary">
             {`${eraseSubject(erase?.count ?? null)} and the vault index are erased from this phone. This can’t be undone. Backups you saved elsewhere aren’t affected.`}
           </Text>
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Create a backup first"
+            onPress={() => {
+              setErase(null);
+              router.push('/settings/backup');
+            }}
+            style={styles.link}
+          >
+            <Text variant="callout" tone="accent" style={styles.linkText}>
+              Create a backup first
+            </Text>
+          </Pressable>
           <Button
             label="Delete everything"
             variant="destructive"
@@ -310,6 +323,14 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.dangerMuted,
+  },
+  link: {
+    minHeight: theme.touchTarget,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+  },
+  linkText: {
+    fontWeight: '600',
   },
   appearance: {
     padding: theme.spacing.md,

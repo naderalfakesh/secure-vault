@@ -468,6 +468,19 @@ describe('Settings "Delete everything"', () => {
     return view;
   }
 
+  it('offers to create a backup first, which leads to the Backup hub and erases nothing', async () => {
+    const alert = jest.spyOn(Alert, 'alert');
+    const view = await renderUnlocked(0, 'settings');
+
+    await fireEvent.press(view.getByText('Delete everything'));
+    await fireEvent.press(view.getByRole('link', { name: 'Create a backup first' }));
+
+    expect(router.push).toHaveBeenCalledWith('/settings/backup');
+    expect(alert).not.toHaveBeenCalled();
+    expect(view.queryByText(/and the vault index are erased from this phone/)).toBeNull();
+    expect(session.status).toBe('unlocked');
+  });
+
   it('reports the erase and forgets when the last backup was made', async () => {
     await SecureStore.setItemAsync('securevault.lastBackup', '2026-10-12T09:30:00.000Z');
     const view = await eraseFromSettings();

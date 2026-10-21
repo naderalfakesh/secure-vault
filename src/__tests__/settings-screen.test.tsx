@@ -140,7 +140,8 @@ describe('Settings', () => {
         ),
       ).toBeOnTheScreen(),
     );
-    expect(view.queryByText('Create a backup first')).toBeNull();
+    // T8 has landed, so the link is offered (handover §11.9).
+    expect(view.getByRole('link', { name: 'Create a backup first' })).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
     expect(session.status).toBe('unlocked');
   });
