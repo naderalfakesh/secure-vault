@@ -431,7 +431,7 @@ describe('Add a document: review pages', () => {
 });
 
 describe('Add a document: processing', () => {
-  it('shows each reading step and can be cancelled, removing the pages', async () => {
+  it('shows each reading step and cancels back to the pages already chosen', async () => {
     let finish: (value: { text: string; blocks: [] }) => void = () => {};
     jest
       .spyOn(ocrService, 'extractText')
@@ -446,8 +446,9 @@ describe('Add a document: processing', () => {
     expect(view.getByText('Runs on this device. Nothing is uploaded.')).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
 
-    expect(pages.map((page) => page.exists)).toEqual([false, false]);
-    expect(view.getByRole('button', { name: /Scan with the camera/ })).toBeOnTheScreen();
+    // The pages were chosen in review; Cancel stops the reading, not the scan.
+    expect(view.getByText('2 pages')).toBeOnTheScreen();
+    expect(pages.map((page) => page.exists)).toEqual([true, true]);
 
     // A late result from the cancelled read changes nothing.
     await act(async () => {
@@ -455,7 +456,11 @@ describe('Add a document: processing', () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
     expect(view.queryByLabelText('Title')).toBeNull();
-    expect(view.getByRole('button', { name: /Scan with the camera/ })).toBeOnTheScreen();
+    expect(view.getByText('2 pages')).toBeOnTheScreen();
+
+    // Discard from there still removes them.
+    await fireEvent.press(view.getByRole('button', { name: 'Discard' }));
+    expect(pages.map((page) => page.exists)).toEqual([false, false]);
   });
 
   it('removes a picked file when reading is cancelled', async () => {

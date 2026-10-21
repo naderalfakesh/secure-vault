@@ -364,6 +364,8 @@ export default function AddDocumentScreen() {
     void read(first.uri, SCANNED_TITLE);
   }, [read, setPreview]);
 
+  // A scan goes back to its pages (they were already chosen in review); a
+  // photo or file goes back to the sources and loses its copies.
   const backFromDetails = useCallback(() => {
     if (origin === 'scan') {
       readRun.current += 1;
@@ -496,7 +498,7 @@ export default function AddDocumentScreen() {
         <ProcessingPanel
           step={step}
           thumbnails={thumbnails}
-          onCancel={discardAll}
+          onCancel={backFromDetails}
           error={phase === 'saving' ? saveError : null}
           onRetry={save}
           onBack={savedId ? undefined : () => setPhase('details')}
