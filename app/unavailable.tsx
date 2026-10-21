@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { Alert, ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, Screen, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
+import { clearLastBackup } from '@/features/backup/lastBackup';
 import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
+import { backupService } from '@/services/BackupService';
+import { documentService } from '@/services/DocumentService';
 
 /**
  * The device key or the PIN record could not be read (handover §7.2). The
@@ -13,12 +16,18 @@ import { t } from '@/i18n';
  * written. The session also tries again on its own each time the app returns
  * to the foreground. When the PIN record is gone although it was written and
  * the device key is there, the device key's own gate also opens setup, to add
- * a new PIN to the vault as it is.
+ * a new PIN to the vault as it is. When that gate opens but the key itself
+ * was invalidated (Android, screen lock or biometrics changed) with entries
+ * left, nothing in the vault can be decrypted again: the plain sentence and
+ * "Delete everything" are then the only way on, behind a native confirmation.
  */
 export default function VaultUnavailableScreen() {
-  const { retry, pinLost, resetLostPin, error } = useSession();
+  const { retry, pinLost, resetLostPin, keyInvalidated, eraseVault, error } = useSession();
   const [trying, setTrying] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [erasing, setErasing] = useState(false);
+  const [eraseFailed, setEraseFailed] = useState(false);
+  const stuck = pinLost && keyInvalidated;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -47,6 +56,70 @@ export default function VaultUnavailableScreen() {
         if (mounted.current) setResetting(false);
       });
   };
+
+  const eraseAll = () => {
+    // Destructive and irreversible: the one place a native confirmation is right.
+    Alert.alert(t('settings.erase.title'), t('settings.erase.confirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.erase'),
+        style: 'destructive',
+        onPress: async () => {
+          setErasing(true);
+          setEraseFailed(false);
+          try {
+            await backupService.exclusive('erase', async () => {
+              await documentService.eraseEverything();
+              await clearLastBackup();
+              // Setup follows; an old PIN record that survived is replaced there.
+              return eraseVault();
+            });
+          } catch {
+            if (mounted.current) setEraseFailed(true);
+          } finally {
+            if (mounted.current) setErasing(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  if (stuck) {
+    return (
+      <Screen edges={['top', 'bottom', 'left', 'right']}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.tile}>
+            <Icon name="lock" size={32} tone="secondary" />
+          </View>
+          <Text variant="title2" align="center" accessibilityRole="header">
+            {t('unavailable.title')}
+          </Text>
+          {error ? (
+            <Text variant="body" tone="secondary" align="center">
+              {error}
+            </Text>
+          ) : null}
+          <Text variant="subheadline" tone="tertiary" align="center">
+            {t('unavailable.keyInvalidated.hint')}
+          </Text>
+          {eraseFailed ? (
+            <Text variant="subheadline" tone="danger" align="center">
+              {t('unavailable.keyInvalidated.failed')}
+            </Text>
+          ) : null}
+        </ScrollView>
+        <View style={styles.footer} accessibilityLiveRegion="polite">
+          <Button
+            variant="destructive"
+            label={t('settings.erase')}
+            loading={erasing}
+            loadingLabel={t('settings.erase.erasing')}
+            onPress={eraseAll}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>

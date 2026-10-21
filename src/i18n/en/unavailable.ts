@@ -13,4 +13,7 @@ export const unavailable = {
     'Unlock with Face ID, your fingerprint or your phone’s passcode to set a new PIN.',
   'unavailable.pinLost.reset': 'Set a new PIN',
   'unavailable.pinLost.resetting': 'Unlocking…',
+  'unavailable.keyInvalidated.hint':
+    'Delete everything to set up SecureVault again. A backup you saved elsewhere can be restored afterwards.',
+  'unavailable.keyInvalidated.failed': 'The vault could not be cleared. Try again.',
 } as const;

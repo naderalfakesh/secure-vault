@@ -135,6 +135,13 @@ export type SessionContextValue = {
    * false when the prompt was cancelled or failed, with the reason in `error`.
    */
   resetLostPin: () => Promise<boolean>;
+  /**
+   * Android only: after a lost PIN record, the device key's gate opened but the
+   * key itself was invalidated (the screen lock or biometrics changed) while
+   * the vault still holds entries. Nothing in it can be decrypted on this
+   * device again, so the only way on is "Delete everything".
+   */
+  keyInvalidated: boolean;
   changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
   updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
@@ -288,6 +295,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [setupHeld, setSetupHeld] = useState(false);
   const setupHeldRef = useRef(false);
   const [pinLost, setPinLost] = useState(false);
+  const [keyInvalidated, setKeyInvalidated] = useState(false);
   // Set once the device key's gate opened for a lost PIN record; in memory only.
   const lostPinResetRef = useRef(false);
   // True while that gate's prompt is up, so a foreground return does not relaunch under it.
@@ -405,6 +413,19 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (!(await vault.unlockWithBiometrics())) {
         setError(KEY_NOT_UNLOCKED);
         return false;
+      }
+      // An invalidated key is reported at once, with no second prompt. With
+      // entries left nothing can be decrypted again, so setup would stop on
+      // them; an empty vault goes on, and setup replaces the key.
+      try {
+        await vault.get(KEY_PROBE_ENTRY);
+      } catch (probeError) {
+        const code = (probeError as { code?: unknown } | null)?.code;
+        if (code === 'KEY_INVALIDATED' && (await vault.getAllKeys()).length > 0) {
+          setKeyInvalidated(true);
+          setError(KEY_INVALIDATED_MESSAGE);
+          return false;
+        }
       }
       lostPinResetRef.current = true;
       // Read everything again: only a lost PIN with its key present goes on to setup.
@@ -637,6 +658,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setupHeldRef.current = false;
     setSetupHeld(false);
     setPinLost(false);
+    setKeyInvalidated(false);
     lostPinResetRef.current = false;
     changeStatus('setup');
     return cleared;
@@ -847,6 +869,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       retry,
       pinLost,
       resetLostPin,
+      keyInvalidated,
       changePin,
       updateSettings,
       lock,
@@ -877,6 +900,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       retry,
       pinLost,
       resetLostPin,
+      keyInvalidated,
       changePin,
       updateSettings,
       lock,

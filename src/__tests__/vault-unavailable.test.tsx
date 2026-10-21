@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { File, Paths } from 'expo-file-system';
-import { Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 
 import vault from '../../modules/expo-vault';
 import { hashPasscode } from '../features/auth/passcode';
@@ -133,5 +133,33 @@ describe('Vault unavailable', () => {
     await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Set a new PIN' })));
 
     expect(await screen.findByText('Welcome')).toBeOnTheScreen();
+  });
+
+  it('offers Delete everything as the way out when the lost PIN guards a key that can no longer decrypt', async () => {
+    new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
+    await SecureStore.deleteItemAsync('securevault.pin');
+    await vault.put('file_kept', 'ciphertext');
+    jest
+      .spyOn(vault, 'get')
+      .mockRejectedValue(Object.assign(new Error('invalidated'), { code: 'KEY_INVALIDATED' }));
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      const destructive = buttons?.find((button) => button.style === 'destructive');
+      void destructive?.onPress?.();
+    });
+    await renderRouter(routes, { initialUrl: '/' });
+    await screen.findByText(TITLE);
+
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Set a new PIN' })));
+
+    expect(await screen.findByText(/screen lock or biometrics changed/i)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Set a new PIN' })).toBeNull();
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Delete everything' })),
+    );
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Welcome')).toBeOnTheScreen();
+    expect(await vault.getAllKeys()).toEqual([]);
+    expect(new File(Paths.document, 'securevault-session', 'pin').exists).toBe(false);
   });
 });

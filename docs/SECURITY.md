@@ -258,7 +258,13 @@ the device passcode, the same door the lock screen's device-unlock button
 opens) and only then goes to setup, which keeps the key and the documents
 and adds a new PIN. Nobody who cannot already open the vault with the
 device key can replace the PIN this way, and a relaunch forgets that the
-gate was opened. Setup reads both again right before it creates a
+gate was opened. On Android the key behind that gate may have been invalidated
+(the screen lock or biometrics changed). Then the documents in the vault can
+never be decrypted on this device again: with entries left, the screen says so
+in a plain sentence and offers only "Delete everything", behind the same
+native confirmation as in Settings, after which setup replaces the key. A
+vault with no entries goes straight on to setup, which replaces the key as it
+always has. Setup reads both again right before it creates a
 key: an unreadable one ends in `unavailable`, and a key with a PIN and
 entries ends on the lock screen with the PIN untouched. An unreadable PIN
 record while unlocking is not a wrong PIN and does not count towards the

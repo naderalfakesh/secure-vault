@@ -22,6 +22,7 @@ function Probe() {
       <Text testID="failures">{String(session.lockout.failures)}</Text>
       <Text testID="held">{String(session.setupHeld)}</Text>
       <Text testID="pin-lost">{String(session.pinLost)}</Text>
+      <Text testID="key-invalidated">{String(session.keyInvalidated)}</Text>
       <Text testID="locked-until">{String(session.lockout.lockedUntil)}</Text>
       <Text onPress={() => void session.resetLostPin()}>run reset pin</Text>
       <Text onPress={() => void session.retry()}>run retry</Text>
@@ -489,6 +490,53 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     expect(createVault).not.toHaveBeenCalled();
     expect(await vault.get('file_kept')).toBe('ciphertext');
     expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBeNull();
+  });
+
+  const keyInvalidated = () =>
+    Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
+
+  it('offers only Delete everything when the PIN is lost and the device key was invalidated', async () => {
+    await setUpVault();
+    await vault.put('file_kept', 'ciphertext');
+    await corrupt(PIN_ENTRY);
+    // The screen lock was removed and set again: the key exists but can never decrypt.
+    jest.spyOn(vault, 'get').mockRejectedValue(keyInvalidated());
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('run reset pin'));
+    });
+
+    expect(view.getByTestId('status')).toHaveTextContent('unavailable');
+    expect(view.getByTestId('key-invalidated')).toHaveTextContent('true');
+    expect(view.getByTestId('error')).toHaveTextContent(/screen lock or biometrics changed/i);
+    expect(await vault.getAllKeys()).toContain('file_kept');
+  });
+
+  it('lets setup replace an invalidated key when the vault behind a lost PIN is empty', async () => {
+    await setUpVault();
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    await corrupt(PIN_ENTRY);
+    let replaced = false;
+    const createVault = jest.spyOn(vault, 'createVault').mockImplementation(async () => {
+      replaced = true;
+    });
+    const put = vault.put.bind(vault);
+    jest
+      .spyOn(vault, 'put')
+      .mockImplementation((key, value) =>
+        replaced ? put(key, value) : Promise.reject(keyInvalidated()),
+      );
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await fireEvent.press(view.getByText('run reset pin'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    expect(createVault).toHaveBeenCalledTimes(1);
   });
 
   it('stays unavailable when the device key prompt for a new PIN is cancelled', async () => {
