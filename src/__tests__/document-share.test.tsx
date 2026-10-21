@@ -3,6 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import { AppState, type AppStateStatus, Text } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { closeDocumentStore } from '@/data/database';
 
@@ -18,13 +19,10 @@ jest.mock('expo-router', () => {
   const params: { id?: string } = {};
   return {
     __params: params,
-    router: { back: jest.fn(), push: jest.fn() },
+    router: { back: jest.fn(), push: jest.fn(), replace: jest.fn(), canGoBack: () => true },
     useLocalSearchParams: () => params,
-    // The header buttons are where the share action lives.
-    Stack: {
-      Screen: ({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
-        options?.headerRight ? options.headerRight() : null,
-    },
+    // The viewer draws its own chrome; the stack header stays hidden.
+    Stack: { Screen: () => null },
   };
 });
 
@@ -54,17 +52,19 @@ async function renderUnlocked() {
   );
   routeParams.id = document.id;
   const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate />
-      </ToastProvider>
-    </SessionProvider>,
+    <GestureHandlerRootView>
+      <SessionProvider>
+        <ToastProvider>
+          <Gate />
+        </ToastProvider>
+      </SessionProvider>
+    </GestureHandlerRootView>,
   );
   await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
   await act(async () => {
     await session.setUp('123456');
   });
-  await waitFor(() => expect(view.getByRole('button', { name: 'Share' })).toBeEnabled());
+  await waitFor(() => expect(view.getByRole('button', { name: 'Share a copy' })).toBeEnabled());
   return view;
 }
 
@@ -128,7 +128,7 @@ describe('Document sharing and the lock gate', () => {
       .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
     const view = await renderUnlocked();
 
-    await pressAndSettle(view.getByRole('button', { name: 'Share' }));
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
 
     expect(share).toHaveBeenCalledWith('file:///mock/cache/share/Passport.jpg', expect.anything());
     expect(discard).toHaveBeenCalledTimes(1);
@@ -143,7 +143,7 @@ describe('Document sharing and the lock gate', () => {
     const clearCache = jest.spyOn(documentService, 'clearCache');
     const view = await renderUnlocked();
 
-    await pressAndSettle(view.getByRole('button', { name: 'Share' }));
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(share).not.toHaveBeenCalled();

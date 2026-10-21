@@ -1,33 +1,37 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
+import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import {
   Button,
-  Card,
   Chip,
-  EmptyState,
+  Group,
   Icon,
   IconButton,
+  InlineAlert,
   ListRow,
   Screen,
   Sheet,
-  Skeleton,
   Text,
   useToast,
 } from '@/components/ui';
+import { useAnnouncement } from '@/components/ui/announce';
+import type { ExtractedField } from '@/data/DocumentRepository';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
+import { DocumentImage } from '@/features/documents/DocumentImage';
 import { useSession } from '@/features/session/SessionProvider';
-import { PageViewer } from '@/features/viewer/PageViewer';
+import { PageStage } from '@/features/viewer/PageStage';
 import { documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory } from '@/types';
-import { formatDate, formatFileSize } from '@/utils/format';
-import { DocumentImage } from '@/features/documents/DocumentImage';
+import { isolate } from '@/utils/bidi';
+import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
+import { formatDate, formatExpiry, formatFileSize, pluralize } from '@/utils/format';
 import { plainErrorMessage } from '@/utils/errors';
 
 const fieldTitles: Record<string, string> = {
@@ -36,26 +40,39 @@ const fieldTitles: Record<string, string> = {
   number: 'Number',
 };
 
+/** Glass controls and text on the stage are white in both themes. */
+const STAGE_INK = '#FFFFFF';
+const STAGE_INK_DIM = '#B3BAD1';
+/** The loading placeholder appears only once a page takes longer than this. */
+const PLACEHOLDER_DELAY_MS = 300;
+/** Lets the details sheet finish closing before the system share sheet opens. */
+const SHEET_CLOSE_MS = 450;
+
 function maskNumber(value: string): string {
-  return `${'•'.repeat(Math.max(0, value.length - 3))}${value.slice(-3)}`;
+  return `•••• ${value.slice(-4)}`;
 }
 
-export default function DocumentDetailScreen() {
+type LoadFailure = 'missing' | 'unreadable';
+
+export default function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const toast = useToast();
-  const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
   const { settings, stepUp, withoutAutoLock, captureSession, postNotice } = useSession();
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ kind: LoadFailure; detail?: string } | null>(null);
   const [pages, setPages] = useState<string[]>([]);
   const [fields, setFields] = useState<ExtractedField[]>([]);
+  const [page, setPage] = useState(0);
+  const [chrome, setChrome] = useState(true);
+  const [details, setDetails] = useState(false);
   const [revealNumber, setRevealNumber] = useState(false);
-  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [showText, setShowText] = useState(false);
   const [busy, setBusy] = useState<'ocr' | 'delete' | 'share' | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ title: '', category: DocumentCategory.OTHER, tags: '' });
+  const [titleError, setTitleError] = useState(false);
+  const [slow, setSlow] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -73,7 +90,7 @@ export default function DocumentDetailScreen() {
       .then(() => documentService.getDocument(id))
       .then(async (doc) => {
         if (!doc) {
-          if (active) setError('This document is no longer in the vault.');
+          if (active) setFailure({ kind: 'missing' });
           return;
         }
         const [pageUris, extracted] = await Promise.all([
@@ -87,7 +104,16 @@ export default function DocumentDetailScreen() {
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(plainErrorMessage(e, 'Could not open the document.'));
+        if (!active) return;
+        // A key that was not unlocked is not damage; say what happened instead.
+        const code = (e as { code?: unknown } | null)?.code;
+        setFailure({
+          kind: 'unreadable',
+          detail:
+            isKeyLocked(e) || code === 'KEY_INVALIDATED'
+              ? plainErrorMessage(e, 'It may be damaged.')
+              : undefined,
+        });
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -96,6 +122,27 @@ export default function DocumentDetailScreen() {
       active = false;
     };
   }, [id]);
+
+  // A slow page gets a placeholder and a spinner, not a blank stage.
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setSlow(true), PLACEHOLDER_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
+  useAnnouncement(loading && slow ? `Opening page ${page + 1}` : null);
+
+  // A revealed number is masked again as soon as the app leaves the screen.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') setRevealNumber(false);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const goToLibrary = useCallback(() => {
+    if (router.canGoBack?.()) router.back();
+    else router.replace('/');
+  }, []);
 
   const share = useCallback(async () => {
     if (!document) return;
@@ -121,7 +168,7 @@ export default function DocumentDetailScreen() {
     }
     if (!copy) {
       setBusy(null);
-      toast.show({ message: 'Could not prepare the file.', tone: 'danger' });
+      toast.show({ message: 'Couldn’t prepare the file.', tone: 'danger' });
       return;
     }
     try {
@@ -149,6 +196,14 @@ export default function DocumentDetailScreen() {
     postNotice,
   ]);
 
+  // From the details sheet: close it first, the share sheet cannot open over it.
+  const shareFromDetails = useCallback(() => {
+    setDetails(false);
+    setTimeout(() => {
+      if (mounted.current) void share();
+    }, SHEET_CLOSE_MS);
+  }, [share]);
+
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
     await Clipboard.setStringAsync(document.ocrText);
@@ -165,14 +220,13 @@ export default function DocumentDetailScreen() {
         const ocrText = ocrService.cleanText(result.text);
         await documentService.updateDocument(document.id, { ocrText });
         setDocument({ ...document, ocrText });
-        setShowText(true);
-        toast.show({ message: 'Text extracted', tone: 'success' });
+        toast.show({ message: 'Text read on this device', tone: 'success' });
       } else {
-        toast.show({ message: 'No readable text found on the first page.' });
+        toast.show({ message: 'No readable text was found on the first page.' });
       }
     } catch (e) {
       toast.show({
-        message: plainErrorMessage(e, 'Could not read the text.'),
+        message: plainErrorMessage(e, 'Couldn’t read the text.'),
         tone: 'danger',
       });
     } finally {
@@ -187,6 +241,7 @@ export default function DocumentDetailScreen() {
       category: document.category,
       tags: document.tags.join(', '),
     });
+    setTitleError(false);
     setEditing(true);
   }, [document]);
 
@@ -194,7 +249,7 @@ export default function DocumentDetailScreen() {
     if (!document) return;
     const title = draft.title.trim();
     if (!title) {
-      toast.show({ message: 'Give the document a title.' });
+      setTitleError(true);
       return;
     }
     const tags = draft.tags
@@ -212,7 +267,7 @@ export default function DocumentDetailScreen() {
       toast.show({ message: 'Details updated', tone: 'success' });
     } catch (e) {
       toast.show({
-        message: plainErrorMessage(e, 'Could not update the document.'),
+        message: plainErrorMessage(e, 'Couldn’t update the details. Nothing was changed.'),
         tone: 'danger',
       });
     }
@@ -223,6 +278,7 @@ export default function DocumentDetailScreen() {
   // the cache for the undo window and discards it after.
   const remove = useCallback(async () => {
     if (!document) return;
+    setDetails(false);
     setBusy('delete');
     try {
       const deleted = await documentService.deleteDocumentWithUndo(document.id);
@@ -252,371 +308,495 @@ export default function DocumentDetailScreen() {
     }
   }, [document, toast]);
 
-  if (loading) {
+  if (failure) {
+    const missing = failure.kind === 'missing';
     return (
-      <Screen edges={['bottom']} padded>
-        <Stack.Screen options={{ title: '' }} />
-        <View style={styles.loading}>
-          <Skeleton height={320} borderRadius={16} />
-          <Skeleton width="60%" height={24} />
-          <Skeleton width="40%" height={16} />
+      <Screen>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.failureBar}>
+          <Button label="Library" variant="plain" size="md" icon="back" onPress={goToLibrary} />
+        </View>
+        <View style={styles.failure} accessibilityRole="alert">
+          <View style={styles.failureIcon}>
+            <Icon name={missing ? 'document' : 'warning'} size={30} tone="secondary" />
+          </View>
+          <Text variant="title3" align="center" accessibilityRole="header">
+            {missing
+              ? 'This document is no longer in the vault.'
+              : 'This document couldn’t be opened.'}
+          </Text>
+          <Text variant="callout" tone="secondary" align="center">
+            {missing ? 'A restore may have replaced it.' : (failure.detail ?? 'It may be damaged.')}
+          </Text>
+          <Button label={missing ? 'Go to Library' : 'Back to Library'} onPress={goToLibrary} />
         </View>
       </Screen>
     );
   }
 
-  if (error || !document) {
-    return (
-      <Screen edges={['bottom']}>
-        <Stack.Screen options={{ title: '' }} />
-        <EmptyState
-          icon="warning"
-          title="Not available"
-          description={error ?? 'This document is no longer in the vault.'}
-          actionLabel="Go back"
-          onAction={() => router.back()}
-        />
-      </Screen>
-    );
-  }
-
-  const created = formatDate(document.createdAt);
-  const updated = formatDate(document.updatedAt);
   const multiPage = pages.length > 1;
+  const pageLine = pages.length > 0 ? `Page ${page + 1} of ${pages.length}` : '';
+  const expires = fields.find((field) => field.key === 'expires' && field.kind === 'date');
 
   return (
-    <Screen edges={['bottom']}>
-      <Stack.Screen
-        options={{
-          title: '',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              <IconButton icon="edit" accessibilityLabel="Edit details" onPress={openEditor} />
-              <IconButton
-                icon="share"
-                accessibilityLabel="Share"
-                onPress={share}
-                disabled={pages.length === 0 || busy === 'share'}
-              />
-              <IconButton
-                icon="trash"
-                accessibilityLabel="Delete"
-                tone="danger"
-                onPress={remove}
-                disabled={busy === 'delete'}
-              />
-            </View>
-          ),
-        }}
-      />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable
-          accessibilityRole="imagebutton"
-          accessibilityLabel={`Preview of ${document.title}`}
-          accessibilityHint="Opens the page viewer"
-          onPress={() => pages.length > 0 && setViewerIndex(0)}
-          style={styles.preview}
-        >
-          {pages[0] ? (
-            <DocumentImage
-              source={{ uri: pages[0] }}
-              style={styles.previewImage}
-              contentFit="contain"
-              transition={150}
-            />
-          ) : (
-            <View style={styles.previewPlaceholder}>
-              <Icon name="pdf" size={40} tone="tertiary" />
-              <Text variant="footnote" tone="secondary">
-                Preview unavailable
-              </Text>
-            </View>
-          )}
-          {multiPage ? (
-            <View style={styles.pageBadge}>
-              <Icon name="document" size={12} tone="inverse" />
-              <Text variant="caption" tone="inverse">
-                {pages.length} pages
-              </Text>
-            </View>
-          ) : null}
-        </Pressable>
+    <View style={styles.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StatusBar style="light" />
 
-        {multiPage ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pageStrip}
-          >
-            {pages.map((uri, index) => (
-              <Pressable
-                key={uri}
-                accessibilityRole="button"
-                accessibilityLabel={`Open page ${index + 1}`}
-                onPress={() => setViewerIndex(index)}
-                style={styles.pageThumb}
-              >
-                <DocumentImage source={{ uri }} style={styles.pageThumbImage} contentFit="cover" />
-                <Text variant="caption" tone="secondary">
-                  {index + 1}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        <View style={styles.titleBlock}>
-          <Text variant="title1" accessibilityRole="header">
-            {document.title}
-          </Text>
-          <View style={styles.meta}>
-            <Chip
-              label={categoryLabel(document.category)}
-              icon={categoryIcons[document.category]}
-            />
-            <Text variant="footnote" tone="tertiary">
-              {formatFileSize(document.fileSize)}
+      {document && pages.length > 0 ? (
+        <PageStage
+          pages={pages}
+          title={document.title}
+          index={page}
+          onIndexChange={setPage}
+          onTap={() => setChrome((value) => !value)}
+          onDismiss={goToLibrary}
+        />
+      ) : (
+        <View style={styles.placeholder}>
+          {loading && slow ? (
+            <View style={styles.placeholderPage}>
+              <ActivityIndicator color={STAGE_INK_DIM} />
+            </View>
+          ) : !loading ? (
+            <Text variant="footnote" style={styles.dim}>
+              Preview unavailable
             </Text>
-          </View>
-          {document.tags.length > 0 ? (
-            <View style={styles.tags} accessibilityLabel={`Tags: ${document.tags.join(', ')}`}>
-              {document.tags.map((tag) => (
-                <View key={tag} style={styles.tag}>
-                  <Text variant="caption" tone="secondary">
-                    {tag}
-                  </Text>
-                </View>
-              ))}
-            </View>
           ) : null}
         </View>
+      )}
 
-        {fields.length > 0 ? (
-          <Card>
-            {fields.map((field, index) => (
-              <ListRow
-                key={field.key}
-                icon={field.kind === 'date' ? 'calendar' : 'tag'}
-                iconTone={field.key === 'expires' ? 'warning' : 'accent'}
-                title={fieldTitles[field.key] ?? field.key}
-                subtitle={
-                  field.kind === 'date'
-                    ? formatDate(field.value)
-                    : revealNumber
-                      ? field.value
-                      : maskNumber(field.value)
-                }
-                onPress={
-                  field.kind === 'text' ? () => setRevealNumber((value) => !value) : undefined
-                }
-                trailing={
-                  field.kind === 'text' ? (
-                    <Icon name={revealNumber ? 'eyeOff' : 'eye'} size={18} tone="tertiary" />
-                  ) : (
-                    <View />
-                  )
-                }
-                divider={index < fields.length - 1}
-              />
-            ))}
-          </Card>
-        ) : null}
+      {chrome ? (
+        <View style={[styles.topBar, { paddingTop: insets.top + 6 }]} pointerEvents="box-none">
+          <IconButton
+            icon="back"
+            variant="glass"
+            accessibilityLabel="Back to Library"
+            onPress={goToLibrary}
+          />
+          <View style={styles.titleBlock}>
+            {document ? (
+              <Text variant="headline" numberOfLines={1} style={styles.ink}>
+                {isolate(document.title)}
+              </Text>
+            ) : null}
+            {pageLine ? (
+              <Text variant="caption" style={styles.dim}>
+                {pageLine}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.topActions}>
+            <IconButton
+              icon="share"
+              variant="glass"
+              accessibilityLabel="Share a copy"
+              onPress={share}
+              disabled={!document || pages.length === 0 || busy === 'share'}
+            />
+            <IconButton
+              icon="more"
+              variant="glass"
+              accessibilityLabel="More actions"
+              onPress={() => setDetails(true)}
+              disabled={!document}
+            />
+          </View>
+        </View>
+      ) : null}
 
-        <Card>
-          <ListRow icon="calendar" title="Added" subtitle={created} divider={updated !== created} />
-          {updated !== created ? (
-            <ListRow icon="clock" title="Updated" subtitle={updated} divider={false} />
+      {chrome && document ? (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+          {multiPage ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.strip}
+              accessibilityRole="tablist"
+              accessibilityLabel="Pages"
+            >
+              {pages.map((uri, index) => (
+                <Pressable
+                  key={uri}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`Page ${index + 1} of ${pages.length}`}
+                  accessibilityState={{ selected: index === page }}
+                  onPress={() => setPage(index)}
+                  style={styles.stripPage(index === page)}
+                >
+                  <DocumentImage source={{ uri }} style={styles.stripImage} contentFit="cover" />
+                </Pressable>
+              ))}
+            </ScrollView>
           ) : null}
-        </Card>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Details"
+            onPress={() => setDetails(true)}
+            style={styles.detailsPill}
+          >
+            <Icon name="info" size={18} color={STAGE_INK} />
+            <Text variant="callout" style={[styles.ink, styles.pillLabel]}>
+              Details
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
-        <Card>
-          {document.ocrText ? (
-            <>
-              <ListRow
-                icon="text"
-                title="Extracted text"
-                subtitle={showText ? 'Read on this device' : 'Tap to show'}
-                onPress={() => setShowText((value) => !value)}
-                trailing={<Icon name={showText ? 'eyeOff' : 'eye'} size={18} tone="tertiary" />}
-                divider={showText}
+      {document ? (
+        <Sheet
+          visible={details}
+          onClose={() => {
+            setDetails(false);
+            setEditing(false);
+          }}
+          title={editing ? 'Edit details' : undefined}
+          headerAction={editing ? { label: 'Cancel', onPress: () => setEditing(false) } : undefined}
+          detent={editing ? 'large' : 'auto'}
+        >
+          <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+            {editing ? (
+              <EditDetails
+                draft={draft}
+                titleError={titleError}
+                onChange={(next) => {
+                  setDraft(next);
+                  if (next.title.trim()) setTitleError(false);
+                }}
+                onSave={saveEdits}
               />
-              {showText ? (
-                <View style={styles.textBlock}>
-                  <Text variant="callout" selectable>
-                    {document.ocrText}
-                  </Text>
-                  <View style={styles.textActions}>
-                    <Button
-                      label="Copy"
-                      variant="secondary"
-                      size="md"
-                      onPress={copyText}
-                      icon="copy"
+            ) : (
+              <>
+                <View style={styles.detailsHeader}>
+                  <View style={styles.detailsTitle}>
+                    <Text variant="title2" accessibilityRole="header">
+                      {isolate(document.title)}
+                    </Text>
+                    <View style={styles.chips}>
+                      <Chip label={categoryLabel(document.category)} />
+                      {expires ? (
+                        <Chip variant="status" label={formatExpiry(expires.value)} />
+                      ) : null}
+                    </View>
+                  </View>
+                  <Button label="Edit" variant="secondary" size="md" onPress={openEditor} />
+                </View>
+
+                {fields.length > 0 || document.tags.length > 0 ? (
+                  <Group header="Found on this device">
+                    {fields.map((field) =>
+                      field.kind === 'date' ? (
+                        <ListRow
+                          key={field.key}
+                          title={fieldTitles[field.key] ?? field.key}
+                          value={formatDate(field.value)}
+                        />
+                      ) : (
+                        <ListRow
+                          key={field.key}
+                          title={fieldTitles[field.key] ?? field.key}
+                          value={revealNumber ? field.value : maskNumber(field.value)}
+                          trailing={
+                            <Button
+                              label={revealNumber ? 'Hide' : 'Show'}
+                              variant="plain"
+                              size="md"
+                              icon={revealNumber ? 'eyeOff' : 'eye'}
+                              accessibilityLabel={
+                                revealNumber ? 'Hide document number' : 'Show document number'
+                              }
+                              onPress={() => setRevealNumber((value) => !value)}
+                            />
+                          }
+                        />
+                      ),
+                    )}
+                    {document.tags.length > 0 ? (
+                      <ListRow
+                        title="Tags"
+                        accessibilityLabel={`Tags: ${document.tags.join(', ')}`}
+                        trailing={
+                          <View style={styles.tagChips}>
+                            {document.tags.map((tag) => (
+                              <Chip key={tag} variant="tag" label={tag} />
+                            ))}
+                          </View>
+                        }
+                      />
+                    ) : null}
+                  </Group>
+                ) : null}
+
+                {document.ocrText ? null : (
+                  <View style={styles.noText}>
+                    <InlineAlert
+                      tone="info"
+                      message="No readable text was found, so this document isn’t searchable by its contents yet."
                     />
                     <Button
                       label="Read again"
-                      variant="plain"
+                      loadingLabel="Reading the text…"
+                      variant="tinted"
                       size="md"
-                      onPress={runOcr}
                       loading={busy === 'ocr'}
+                      disabled={pages.length === 0}
+                      onPress={runOcr}
                     />
                   </View>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <ListRow
-              icon="sparkles"
-              title={busy === 'ocr' ? 'Reading the text' : 'Read the text'}
-              subtitle="Makes this document searchable. Runs on this device."
-              onPress={runOcr}
-              disabled={busy === 'ocr' || pages.length === 0}
-              divider={false}
-            />
-          )}
-        </Card>
-      </ScrollView>
+                )}
 
-      <PageViewer
-        visible={viewerIndex !== null}
-        pages={pages}
-        title={document.title}
-        initialIndex={viewerIndex ?? 0}
-        onClose={() => setViewerIndex(null)}
-      />
+                <Group separatorInset="content">
+                  {document.ocrText ? (
+                    <ListRow
+                      icon="text"
+                      tint="neutral"
+                      title="Text read from the pages"
+                      value="Copy"
+                      onPress={copyText}
+                    />
+                  ) : null}
+                  <ListRow
+                    icon="share"
+                    tint="neutral"
+                    title="Share a copy…"
+                    onPress={shareFromDetails}
+                    disabled={pages.length === 0 || busy === 'share'}
+                  />
+                  <ListRow
+                    icon="trash"
+                    title="Delete"
+                    destructive
+                    onPress={remove}
+                    disabled={busy === 'delete'}
+                  />
+                </Group>
 
-      <Sheet visible={editing} onClose={() => setEditing(false)} title="Edit details">
-        <View style={styles.form}>
-          <View style={styles.field}>
-            <Text variant="label" tone="tertiary">
-              Title
-            </Text>
-            <TextInput
-              value={draft.title}
-              onChangeText={(title) => setDraft((value) => ({ ...value, title }))}
-              style={styles.input}
-              placeholderTextColor={theme.colors.textTertiary}
-              accessibilityLabel="Title"
-              returnKeyType="done"
+                <Text variant="footnote" tone="tertiary" style={styles.footer}>
+                  {[
+                    `Added ${formatDate(document.createdAt)}`,
+                    pages.length > 0 ? pluralize(pages.length, 'page') : null,
+                    formatFileSize(document.fileSize),
+                    'Encrypted on this device',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </>
+            )}
+          </ScrollView>
+        </Sheet>
+      ) : null}
+    </View>
+  );
+}
+
+type Draft = { title: string; category: DocumentCategory; tags: string };
+
+function EditDetails({
+  draft,
+  titleError,
+  onChange,
+  onSave,
+}: {
+  draft: Draft;
+  titleError: boolean;
+  onChange: (draft: Draft) => void;
+  onSave: () => void;
+}) {
+  const { theme } = useUnistyles();
+
+  return (
+    <View style={styles.form}>
+      <View style={styles.field}>
+        <Text variant="label" tone="tertiary">
+          Title
+        </Text>
+        <TextInput
+          value={draft.title}
+          onChangeText={(title) => onChange({ ...draft, title })}
+          style={[styles.input, titleError && styles.inputError]}
+          placeholderTextColor={theme.colors.textTertiary}
+          accessibilityLabel="Title"
+          aria-invalid={titleError}
+          returnKeyType="done"
+        />
+        {titleError ? (
+          <Text variant="footnote" tone="danger" accessibilityRole="alert">
+            Give the document a title.
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.field}>
+        <Text variant="label" tone="tertiary">
+          Collection
+        </Text>
+        <View style={styles.chips}>
+          {allCategories.map((category) => (
+            <Chip
+              key={category}
+              label={categoryLabel(category)}
+              icon={categoryIcons[category]}
+              selected={draft.category === category}
+              onPress={() => onChange({ ...draft, category })}
             />
-          </View>
-          <View style={styles.field}>
-            <Text variant="label" tone="tertiary">
-              Category
-            </Text>
-            <View style={styles.chips}>
-              {allCategories.map((category) => (
-                <Chip
-                  key={category}
-                  label={categoryLabel(category)}
-                  icon={categoryIcons[category]}
-                  selected={draft.category === category}
-                  onPress={() => setDraft((value) => ({ ...value, category }))}
-                />
-              ))}
-            </View>
-          </View>
-          <View style={styles.field}>
-            <Text variant="label" tone="tertiary">
-              Tags
-            </Text>
-            <TextInput
-              value={draft.tags}
-              onChangeText={(tags) => setDraft((value) => ({ ...value, tags }))}
-              style={styles.input}
-              placeholder="Separate with commas"
-              placeholderTextColor={theme.colors.textTertiary}
-              accessibilityLabel="Tags"
-              autoCapitalize="none"
-            />
-          </View>
-          <Button label="Save" onPress={saveEdits} />
+          ))}
         </View>
-      </Sheet>
-    </Screen>
+      </View>
+      <View style={styles.field}>
+        <Text variant="label" tone="tertiary">
+          Tags
+        </Text>
+        <TextInput
+          value={draft.tags}
+          onChangeText={(tags) => onChange({ ...draft, tags })}
+          style={styles.input}
+          placeholder="Separate with commas"
+          placeholderTextColor={theme.colors.textTertiary}
+          accessibilityLabel="Tags"
+          autoCapitalize="none"
+        />
+      </View>
+      <Button label="Save" onPress={onSave} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  loading: {
-    gap: theme.spacing.sm,
-    paddingTop: theme.spacing.md,
-  },
-  headerActions: {
-    flexDirection: 'row',
-  },
-  content: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.md,
-    paddingBottom: theme.spacing.xxl,
-  },
-  preview: {
-    height: 320,
-    borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surfaceMuted,
-    overflow: 'hidden',
-  },
-  previewImage: {
+  root: {
     flex: 1,
+    backgroundColor: theme.colors.viewerStage,
   },
-  previewPlaceholder: {
+  ink: {
+    color: STAGE_INK,
+  },
+  dim: {
+    color: STAGE_INK_DIM,
+  },
+  placeholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.xs,
   },
-  pageBadge: {
+  placeholderPage: {
+    width: 260,
+    height: 340,
+    borderRadius: theme.radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  topBar: {
     position: 'absolute',
-    right: theme.spacing.sm,
-    bottom: theme.spacing.sm,
+    top: 0,
+    start: 0,
+    end: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 4,
-    borderRadius: theme.radii.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  pageStrip: {
-    gap: theme.spacing.xs,
-  },
-  pageThumb: {
-    width: 64,
-    alignItems: 'center',
-    gap: 2,
-  },
-  pageThumbImage: {
-    width: 64,
-    height: 84,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.surfaceMuted,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
   },
   titleBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  topActions: {
+    flexDirection: 'row',
     gap: theme.spacing.xs,
   },
-  meta: {
+  bottomBar: {
+    position: 'absolute',
+    start: 0,
+    end: 0,
+    bottom: 0,
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  strip: {
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+  },
+  stripPage: (selected: boolean) => ({
+    width: 44,
+    height: 58,
+    borderRadius: 6,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.paper,
+    borderWidth: 2,
+    borderColor: selected ? '#8EA2FF' : 'transparent',
+    opacity: selected ? 1 : 0.6,
+  }),
+  stripImage: {
+    width: '100%',
+    height: '100%',
+  },
+  detailsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    minHeight: 48,
+    paddingHorizontal: 22,
+    borderRadius: theme.radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xxs,
+  pillLabel: {
+    fontWeight: '600',
   },
-  tag: {
+  failureBar: {
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: theme.spacing.xs,
-    paddingVertical: 2,
-    borderRadius: theme.radii.sm,
+  },
+  failure: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.xxl,
+    paddingBottom: 120,
+  },
+  failureIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: theme.colors.surfaceMuted,
   },
-  textBlock: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
+  sheetBody: {
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.xs,
   },
-  textActions: {
+  detailsHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+  },
+  detailsTitle: {
+    flex: 1,
     gap: theme.spacing.xs,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tagChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    flexShrink: 1,
+    justifyContent: 'flex-end',
+  },
+  noText: {
+    gap: theme.spacing.sm,
+    alignItems: 'flex-start',
+  },
+  footer: {
+    paddingHorizontal: theme.spacing.xxs,
   },
   form: {
     gap: theme.spacing.md,
@@ -624,19 +804,19 @@ const styles = StyleSheet.create((theme) => ({
   field: {
     gap: theme.spacing.xs,
   },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-  },
   input: {
     minHeight: theme.touchTarget,
     paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radii.md,
+    borderRadius: theme.radii.input,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.surfaceMuted,
     color: theme.colors.textPrimary,
     fontSize: 17,
+    textAlign: 'auto',
+    writingDirection: 'auto',
+  },
+  inputError: {
+    borderColor: theme.colors.danger,
   },
 }));
