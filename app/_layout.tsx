@@ -109,6 +109,11 @@ function RootNavigator() {
       <Stack.Protected guard={status === 'setup'}>
         <Stack.Screen name="setup" />
       </Stack.Protected>
+      {/* The key or the PIN record could not be read. Its own group and URL,
+          so no other screen, setup included, resolves while it is up. */}
+      <Stack.Protected guard={status === 'unavailable'}>
+        <Stack.Screen name="unavailable" options={{ gestureEnabled: false }} />
+      </Stack.Protected>
     </Stack>
   );
 }
