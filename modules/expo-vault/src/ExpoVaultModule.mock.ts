@@ -8,6 +8,8 @@ const pathOf = (uri: string) => trimSlashes(decodeURIComponent(uri.replace(/^fil
 const isBelow = (path: string, folder: string) => path.startsWith(`${folder}/`);
 // The native roots: the app cache, and on iOS tmp (the mock container's `/mock/tmp`).
 const removalRoots = () => [pathOf(Paths.cache.uri), '/mock/tmp'];
+// Removable as a whole, never below: the picked backup's folder in documents.
+const exactRemovals = () => [`${pathOf(Paths.document.uri)}/restore-source`];
 
 /**
  * In-memory stand-in for the native vault, used by Jest. It keeps the same
@@ -182,7 +184,8 @@ export function createVaultMock(): SecureVault & {
       if (
         !name ||
         key.split('/').some((segment) => segment === '.' || segment === '..') ||
-        !removalRoots().some((root) => parent === root || isBelow(parent, root))
+        (!removalRoots().some((root) => parent === root || isBelow(parent, root)) &&
+          !exactRemovals().includes(key))
       ) {
         throw new Error("The cache entry cannot be removed: not inside the app's cache");
       }

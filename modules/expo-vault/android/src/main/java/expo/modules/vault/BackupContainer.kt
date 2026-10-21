@@ -184,9 +184,12 @@ object BackupContainer {
     /**
      * Removes [requested] for the app's cache sweeps without following symbolic links (see
      * [removeTree]). Its parent is canonicalised and must lie inside one of [roots], so neither
-     * `..` nor a linked ancestor can carry the removal out of them. A missing entry is fine.
+     * `..` nor a linked ancestor can carry the removal out of them. Each of [exact] also
+     * qualifies, but only itself: the same name directly inside its canonical parent, never an
+     * entry below it, so a link planted in its place is unlinked and its target left alone. A
+     * missing entry is fine.
      */
-    fun removeNoFollow(requested: String, roots: List<File>) {
+    fun removeNoFollow(requested: String, roots: List<File>, exact: List<File> = emptyList()) {
         if (!requested.startsWith("/")) throw RemovalException("not an absolute path")
         val file = File(requested)
         val name = file.name
@@ -197,7 +200,11 @@ object BackupContainer {
             val base = root.canonicalPath
             canonicalParent.path == base || canonicalParent.path.startsWith("$base/")
         }
-        if (!inside) throw RemovalException("not inside the app's cache")
+        val named = exact.any { allowed ->
+            val allowedParent = allowed.parentFile ?: return@any false
+            allowed.name == name && canonicalParent.path == allowedParent.canonicalPath
+        }
+        if (!inside && !named) throw RemovalException("not inside the app's cache")
         if (!removeTree(File(canonicalParent, name))) throw RemovalException("could not be removed")
     }
 

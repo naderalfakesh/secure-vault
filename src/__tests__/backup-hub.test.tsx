@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import { router } from 'expo-router';
@@ -40,6 +41,18 @@ const moveTo = (state: AppStateStatus) => {
 
 const STOPPED = 'The backup was cancelled before it could be shared. Nothing left the vault.';
 const PICKED = 'file:///mock/cache/DocumentPicker/839E8D63.svbackup';
+// Where the service keeps the picked backup, out of the purgeable cache (M2).
+const KEPT = 'file:///mock/document/restore-source/picked.svbackup';
+
+/** The picker answers with a fresh copy of the file in its cache folder, as on a device. */
+function pickReturns(name: string) {
+  pick.mockImplementation(async () => {
+    const copy = new File(PICKED);
+    copy.create({ intermediates: true, overwrite: true });
+    copy.write('ciphertext');
+    return { canceled: false, assets: [{ uri: PICKED, name }] };
+  });
+}
 
 let session: ReturnType<typeof useSession>;
 
@@ -134,7 +147,7 @@ async function lockAndUnlock() {
 }
 
 async function openRestore(view: Awaited<ReturnType<typeof renderUnlocked>>) {
-  pick.mockResolvedValue({ canceled: false, assets: [{ uri: PICKED, name: 'backup.svbackup' }] });
+  pickReturns('backup.svbackup');
   jest
     .spyOn(backupService, 'inspectBackup')
     .mockResolvedValue({ version: 1, app: 'SecureVault', created: '2026-10-16', entries: 19 });
@@ -293,7 +306,7 @@ describe('Backup hub and the lock gate', () => {
     expect(discardPicked).not.toHaveBeenCalled();
     await fireEvent.press(view.getByLabelText('Close'));
 
-    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    expect(discardPicked).toHaveBeenCalledWith(KEPT);
   });
 
   it("removes the picker's copy after a restore", async () => {
@@ -304,7 +317,7 @@ describe('Backup hub and the lock gate', () => {
     await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
     await pressAndSettle(view.getByRole('button', { name: 'Restore and replace vault' }), 50);
 
-    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    expect(discardPicked).toHaveBeenCalledWith(KEPT);
     expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
   });
 
@@ -322,7 +335,7 @@ describe('Backup hub and the lock gate', () => {
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(view.queryByText('Vault restored: 19 entries')).toBeNull();
     expect(session.notice).toEqual({ message: 'Vault restored: 19 entries', tone: 'success' });
-    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    expect(discardPicked).toHaveBeenCalledWith(KEPT);
   });
   it('reports a restore that failed behind the lock as a plain sentence after the next unlock', async () => {
     jest.spyOn(backupService, 'restoreBackup').mockImplementation(async () => {
@@ -337,7 +350,7 @@ describe('Backup hub and the lock gate', () => {
       message: 'The restore did not finish. Try it again.',
       tone: 'danger',
     });
-    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    expect(discardPicked).toHaveBeenCalledWith(KEPT);
   });
 
   describe('work that outlives the screen', () => {
@@ -385,7 +398,7 @@ describe('Backup hub and the lock gate', () => {
       }
       expect(view.queryByText('A restore started earlier is still running')).toBeNull();
       expect(session.notice).toEqual({ message: 'Vault restored: 19 entries', tone: 'success' });
-      expect(discardPicked).toHaveBeenCalledWith(PICKED);
+      expect(discardPicked).toHaveBeenCalledWith(KEPT);
     });
 
     it('keeps the backup rows disabled after unlock until an export from before the lock ends, then drops it unshared', async () => {
@@ -562,7 +575,7 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
   );
 
   it('shows a header the app does not support as a toast and opens no sheet', async () => {
-    pick.mockResolvedValue({ canceled: false, assets: [{ uri: PICKED, name: 'backup.svbackup' }] });
+    pickReturns('backup.svbackup');
     jest
       .spyOn(vault, 'inspectBackup')
       .mockRejectedValueOnce(
@@ -583,7 +596,7 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
       ).toBeOnTheScreen(),
     );
     expect(view.queryByLabelText('Backup passphrase')).toBeNull();
-    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+    expect(discardPicked).toHaveBeenCalledWith(KEPT);
   });
 });
 
@@ -795,7 +808,7 @@ describe('Backup hub restore phases and outcomes', () => {
   });
 
   it('shows a picked file that is not a backup as a danger toast and opens no sheet', async () => {
-    pick.mockResolvedValue({ canceled: false, assets: [{ uri: PICKED, name: 'photo.jpg' }] });
+    pickReturns('photo.jpg');
     const view = await renderUnlocked();
 
     await act(async () => {

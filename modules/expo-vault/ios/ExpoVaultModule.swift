@@ -12,6 +12,8 @@ public class ExpoVaultModule: Module {
   /// (docs/verification/polish-round2.md); the third copy is headroom for a
   /// device, where it is not measured. Never below 3.
   private static let stringEntryCopies = 3
+  /// Folder in Documents the picked backup is moved into, so Caches purging cannot remove it.
+  private static let restoreSourceName = "restore-source"
   /// Set by `cancelRestore`, read by the running restore between entries of
   /// its checking pass. `importBackup` clears it when it starts, so a cancel
   /// that arrived after an earlier restore ended cannot stop the next one; the
@@ -399,7 +401,12 @@ public class ExpoVaultModule: Module {
     // Mirrors Android, where expo-file-system's delete follows a link.
     Function("removeTreeNoFollow") { (path: String) throws in
       let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-      try BackupContainer.removeNoFollow(path, roots: [caches, FileManager.default.temporaryDirectory])
+      let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+      try BackupContainer.removeNoFollow(
+        path,
+        roots: [caches, FileManager.default.temporaryDirectory],
+        exact: [documents.appendingPathComponent(Self.restoreSourceName)]
+      )
     }
 
     AsyncFunction("getFileSize") { (key: String, promise: Promise) in

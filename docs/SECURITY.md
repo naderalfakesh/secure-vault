@@ -214,9 +214,11 @@ for important usage, and on Android 8 and later the usable space capped by
 StorageManager's allocatable bytes minus SecureVault's own cache. The
 allocatable figure leaves out the system's low-storage reserve, so a restore
 that would push the device into it is refused; it counts caches the system
-could clear, but the app's own cache holds the picked backup and the staging
-folders the restore reads, so it is never counted as room, and nothing is
-cleared to make room. If the figure cannot be read, the usable space alone is
+could clear, but the app's own cache holds the staging folders the restore
+reads, so it is never counted as room, and nothing is cleared to make room.
+The picked backup is not in the cache by then (see below): it sits in the
+app's files, where it already counts as used space and is never counted as
+room on either platform. If the figure cannot be read, the usable space alone is
 used, as it is before Android 8. Otherwise the restore stops with
 `BACKUP_RESOURCE` or `BACKUP_NO_SPACE` and nothing changed. Neither check is
 a guarantee: memory can be taken or the disk can fill during the restore,
@@ -347,10 +349,21 @@ disabled until it ends.
   JPEG passes through one `thumb_` file in the cache, which the lock and
   launch sweep removes if the app is killed before the module does.
 - Backup ciphertext is not left behind either. A finished container is
-  removed once the share sheet closes, and the document picker's copy of a
-  backup chosen for restore is removed after the restore or when its sheet
-  closes. The lock and launch sweep removes both cache folders, `backup` and
-  `DocumentPicker`, except while a restore is still reading them. An export
+  removed once the share sheet closes. The document picker copies a backup
+  chosen for restore into the cache's `DocumentPicker` folder, which the
+  system may purge under low storage (Android's storage service did, with
+  the restore sheet open). Before the app reads the header, that copy is
+  moved (a rename on the same volume, no extra space) into the documents
+  folder's `restore-source` folder (Android `files`, iOS `Documents`), which
+  is not purged, under a fixed name; nothing stays in the cache. A failed
+  move removes both the cache copy and the folder and ends with
+  `BACKUP_RESTORE_STAGING_INVALID`. The kept copy is removed after the
+  restore or when its sheet closes. The lock and launch sweep removes the
+  `backup`, `DocumentPicker` and `restore-source` folders, except while a
+  restore is still reading them, and a second pick is refused then. The
+  vault module removes `restore-source` as a whole, the same no-follow way
+  as the cache folders, and never an entry below it or beside it in the
+  documents folder. An export
   that is running when the vault locks is not cancelled natively: the lock
   also empties the cache's `backup-staging` folder, so it fails at its next
   entry, at most the entry being written was staged after the lock, and a

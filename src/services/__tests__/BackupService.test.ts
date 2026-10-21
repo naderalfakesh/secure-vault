@@ -18,6 +18,7 @@ import {
   describeBackupError,
   describeBackupErrorPlainly,
   passphraseProblem,
+  RESTORE_SOURCE_DIRECTORY,
   RESTORE_STAGING_DIRECTORY,
 } from '../BackupService';
 import { documentService, PICKER_DIRECTORY } from '../DocumentService';
@@ -889,6 +890,161 @@ describe('BackupService', () => {
       lookalike.delete();
     });
   });
+  describe('picked backup kept out of the purgeable cache (M2)', () => {
+    const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+    const source = () => new Directory(Paths.document, RESTORE_SOURCE_DIRECTORY);
+    const pathOf = (uri: string) => decodeURIComponent(uri.slice('file://'.length));
+
+    const pickCopy = (content = 'ciphertext') => {
+      if (!pickerFolder().exists) pickerFolder().create({ intermediates: true });
+      const copy = new File(pickerFolder(), '839E8D63.svbackup');
+      copy.writeSync(content);
+      return copy;
+    };
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      for (const folder of [pickerFolder(), source()]) if (folder.exists) folder.delete();
+    });
+
+    it("moves the picker's copy into the documents folder and leaves none in the cache", async () => {
+      const copy = pickCopy('container bytes');
+
+      const kept = await backupService.keepPickedFile(copy.uri);
+
+      expect(pathOf(kept)).toBe(`${pathOf(source().uri).replace(/\/$/, '')}/picked.svbackup`);
+      expect(new File(copy.uri).exists).toBe(false);
+      expect(new File(kept).textSync()).toBe('container bytes');
+      expect(pathOf(kept).startsWith(pathOf(Paths.cache.uri))).toBe(false);
+    });
+
+    it('inspects and restores from the kept copy, never from the cache', async () => {
+      const inspect = jest
+        .spyOn(vault, 'inspectBackup')
+        .mockResolvedValue({ version: 1, app: 'SecureVault', created: '2026-10-22', entries: 3 });
+      const importBackup = jest
+        .spyOn(vault, 'importBackup')
+        .mockImplementation(async (_source, _passphrase, extraDir) => ({
+          entries: 3,
+          extras: [{ key: 'database', path: `${extraDir}/database` }],
+        }));
+
+      const kept = await backupService.keepPickedFile(pickCopy().uri);
+      await backupService.inspectBackup(kept);
+      await backupService.restoreBackup(kept, 'correct horse battery').catch(() => {});
+
+      expect(inspect).toHaveBeenCalledWith(pathOf(kept));
+      expect(importBackup.mock.calls[0][0]).toBe(pathOf(kept));
+      expect(pathOf(kept).startsWith(pathOf(Paths.cache.uri))).toBe(false);
+    });
+
+    it('replaces the copy an earlier pick left behind', async () => {
+      await backupService.keepPickedFile(pickCopy('first').uri);
+
+      const kept = await backupService.keepPickedFile(pickCopy('second').uri);
+
+      expect(new File(kept).textSync()).toBe('second');
+      expect(source().list()).toHaveLength(1);
+    });
+
+    it('is removed at lock and launch with the cache folders', async () => {
+      const kept = await backupService.keepPickedFile(pickCopy().uri);
+
+      backupService.sweepCache();
+
+      expect(new File(kept).exists).toBe(false);
+      expect(source().exists).toBe(false);
+    });
+
+    it('is left to a restore in progress, then swept once it ends', async () => {
+      const kept = await backupService.keepPickedFile(pickCopy().uri);
+      let finishImport: () => void = () => {};
+      jest.spyOn(vault, 'importBackup').mockImplementationOnce(
+        (_source, _passphrase, extraDir) =>
+          new Promise((resolve) => {
+            finishImport = () =>
+              resolve({ entries: 1, extras: [{ key: 'database', path: `${extraDir}/database` }] });
+          }),
+      );
+      const restoring = backupService.restoreBackup(kept, 'correct horse battery');
+      await Promise.resolve();
+
+      backupService.sweepCache();
+      expect(new File(kept).exists).toBe(true);
+      // A second pick cannot take its place while it is being read.
+      await expect(backupService.keepPickedFile(pickCopy().uri)).rejects.toMatchObject({
+        code: 'BACKUP_BUSY',
+      });
+      expect(new File(kept).exists).toBe(true);
+
+      finishImport();
+      await restoring.catch(() => {});
+      backupService.sweepCache();
+      expect(source().exists).toBe(false);
+    });
+
+    it('is removed by discardPickedFile with its folder', async () => {
+      const kept = await backupService.keepPickedFile(pickCopy().uri);
+
+      backupService.discardPickedFile(kept);
+
+      expect(source().exists).toBe(false);
+    });
+
+    it('leaves a file outside the picker folder where it is', async () => {
+      const own = new File(Paths.document, 'my.svbackup');
+      own.writeSync('ciphertext');
+
+      expect(await backupService.keepPickedFile(own.uri)).toBe(own.uri);
+      expect(own.exists).toBe(true);
+      expect(source().exists).toBe(false);
+      own.delete();
+    });
+
+    it('cleans up the cache copy and the folder when the move fails, with a typed error', async () => {
+      const copy = pickCopy();
+      jest.spyOn(File.prototype, 'move').mockImplementation(() => {
+        throw new Error('/data/user/0/com.naderalfakesh.securevault/files: ENOSPC');
+      });
+
+      await expect(backupService.keepPickedFile(copy.uri)).rejects.toMatchObject({
+        code: 'BACKUP_RESTORE_STAGING_INVALID',
+      });
+      expect(new File(copy.uri).exists).toBe(false);
+      expect(source().exists).toBe(false);
+    });
+
+    it('unlinks a link planted in place of the folder without emptying its target', async () => {
+      const follow = followLinksOnDelete();
+      const target = new Directory(Paths.document, 'sentinel');
+      target.create({ intermediates: true });
+      const keep = new File(target, 'keep.txt');
+      keep.writeSync('not ours');
+      vaultMock.plantLink(pathOf(source().uri), pathOf(target.uri));
+      try {
+        const kept = await backupService.keepPickedFile(pickCopy().uri);
+
+        expect(keep.exists).toBe(true);
+        expect(vaultMock.linkTarget(pathOf(source().uri))).toBeNull();
+        expect(new File(kept).exists).toBe(true);
+      } finally {
+        follow.mockRestore();
+        target.delete();
+      }
+    });
+
+    it('lets the module remove only the folder itself in the documents folder, nothing below or beside it', async () => {
+      const kept = await backupService.keepPickedFile(pickCopy().uri);
+      const entry = new File(Paths.document, 'file_entry');
+      entry.writeSync('vault entry');
+
+      expect(() => vault.removeTreeNoFollow(pathOf(kept))).toThrow(/not inside/);
+      expect(() => vault.removeTreeNoFollow(pathOf(entry.uri))).toThrow(/not inside/);
+      expect(entry.exists).toBe(true);
+      entry.delete();
+    });
+  });
+
   describe('one operation at a time', () => {
     const extras = () => new Directory(Paths.cache, BACKUP_DIRECTORY, 'restore');
     const busy = { code: 'BACKUP_BUSY' };

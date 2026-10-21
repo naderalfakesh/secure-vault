@@ -45,9 +45,10 @@ export default function BackupScreen() {
     };
   }, []);
 
-  // Picks a file, reads its header, and only then asks for the passphrase.
-  // The picker's copy is removed once the restore is done or the sheet closes,
-  // and by the lock sweep otherwise. A cancelled picker says nothing.
+  // Picks a file, moves the picker's copy out of the purgeable cache, reads
+  // its header, and only then asks for the passphrase. The kept copy is
+  // removed once the restore is done or the sheet closes, and by the lock
+  // sweep otherwise. A cancelled picker says nothing.
   const pickBackup = useCallback(async () => {
     const session = captureSession();
     let picked: string | null = null;
@@ -59,13 +60,16 @@ export default function BackupScreen() {
       if (!asset) return;
       documentService.discardSystemImportCopy(asset.name);
       picked = asset.uri;
-      const info = await backupService.inspectBackup(asset.uri);
+      // Out of the purgeable cache before anything reads it; the cache copy goes.
+      const uri = await backupService.keepPickedFile(asset.uri);
+      picked = uri;
+      const info = await backupService.inspectBackup(uri);
       if (!mounted.current || !session.current()) {
-        backupService.discardPickedFile(asset.uri);
+        backupService.discardPickedFile(uri);
         return;
       }
       setRestore({
-        uri: asset.uri,
+        uri,
         name: asset.name,
         entries: info.entries,
         created: info.created,

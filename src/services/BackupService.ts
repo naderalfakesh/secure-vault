@@ -28,6 +28,17 @@ export const BACKUP_STAGING_DIRECTORY = 'backup-staging';
 export const RESTORE_STAGING_DIRECTORY = 'restore-staging';
 /** Cache folder of finished containers, the index copy, and the restore extras. */
 export const BACKUP_DIRECTORY = 'backup';
+/**
+ * Folder in the app's documents (Android `files`, iOS `Documents`) that the
+ * document picker's copy of a backup is moved into before it is inspected.
+ * The cache is purgeable: under low storage Android's storage service and
+ * iOS may delete a picked backup there while its restore sheet is open. The
+ * vault module removes this exact folder without following links, and
+ * `sweepCache` removes it at lock and launch like the cache folders.
+ */
+export const RESTORE_SOURCE_DIRECTORY = 'restore-source';
+/** The picked backup's name inside `RESTORE_SOURCE_DIRECTORY`; the picker's own name never reaches the disk. */
+const RESTORE_SOURCE_FILE = 'picked.svbackup';
 
 export interface BackupResult {
   uri: string;
@@ -392,21 +403,69 @@ class BackupService {
     }
   }
 
+  private restoreSource() {
+    return new Directory(Paths.document, RESTORE_SOURCE_DIRECTORY);
+  }
+
+  /** Whether `uri` lies inside `directory`, compared as decoded paths. */
+  private static isInside(uri: string, directory: Directory): boolean {
+    return toPath(uri).startsWith(toPath(directory.uri).replace(/\/?$/, '/'));
+  }
+
   /**
-   * Removes the document picker's copy of a picked backup. Anything outside
-   * the picker's cache folder is the user's own file and is left alone.
+   * Moves the document picker's copy of a backup out of the purgeable cache
+   * into `RESTORE_SOURCE_DIRECTORY` and returns where it is now; the cache
+   * copy is gone once this resolves. The move stays on the app's own volume,
+   * so it takes no extra space, and the restore's disk check counts the file
+   * as used, not as room. A file outside the picker's folder is the user's
+   * own and is returned untouched. On failure nothing is kept: the cache copy
+   * and the folder are removed and the error is BACKUP_RESTORE_STAGING_INVALID.
+   */
+  async keepPickedFile(uri: string): Promise<string> {
+    if (!BackupService.isInside(uri, new Directory(Paths.cache, PICKER_DIRECTORY))) return uri;
+    const folder = this.restoreSource();
+    try {
+      // A running restore still reads the last one.
+      if (this.operation === 'restore') {
+        throw Object.assign(new Error('Another backup operation is still running.'), {
+          code: 'BACKUP_BUSY',
+        });
+      }
+      // Whatever an earlier pick left, a link planted in its place included.
+      removeNoFollow(folder);
+      folder.create({ intermediates: true });
+      const target = new File(folder, RESTORE_SOURCE_FILE);
+      await new File(uri).move(target);
+      return new File(folder, RESTORE_SOURCE_FILE).uri;
+    } catch (error) {
+      removeQuietly(new File(uri));
+      if (this.operation !== 'restore') removeQuietly(folder);
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code === 'BACKUP_BUSY') throw error;
+      throw stagingError('BACKUP_RESTORE_STAGING_INVALID', error);
+    }
+  }
+
+  /**
+   * Removes a picked backup: the copy kept in `RESTORE_SOURCE_DIRECTORY`
+   * (with the folder), or one still in the picker's cache folder. Anything
+   * else is the user's own file and is left alone.
    */
   discardPickedFile(uri: string): void {
-    const folder = toPath(new Directory(Paths.cache, PICKER_DIRECTORY).uri).replace(/\/?$/, '/');
-    if (!toPath(uri).startsWith(folder)) return;
+    if (BackupService.isInside(uri, this.restoreSource())) {
+      removeQuietly(this.restoreSource());
+      return;
+    }
+    if (!BackupService.isInside(uri, new Directory(Paths.cache, PICKER_DIRECTORY))) return;
     removeQuietly(new File(uri));
   }
 
   /**
    * The lock and launch sweep for backup ciphertext: finished containers,
-   * the index copy, and the picker's copies, plus whatever a killed restore
-   * left in its staging folder. A restore in progress keeps all three
-   * folders, because it is still reading the picked file and writing its
+   * the index copy, the picker's copies and the picked backup kept in
+   * `RESTORE_SOURCE_DIRECTORY`, plus whatever a killed restore left in its
+   * staging folder. A restore in progress keeps all four folders, because it
+   * is still reading the picked file and writing its
    * extras and plaintext; it removes them itself when it ends. An export in progress is not
    * stopped natively; it fails at its next entry because the lock's
    * `DocumentService.clearCache` removes its staging folder, and the share
@@ -417,6 +476,7 @@ class BackupService {
     for (const name of [BACKUP_DIRECTORY, PICKER_DIRECTORY, RESTORE_STAGING_DIRECTORY]) {
       removeQuietly(new Directory(Paths.cache, name));
     }
+    removeQuietly(this.restoreSource());
   }
 
   inspectBackup(uri: string): Promise<BackupInfo> {

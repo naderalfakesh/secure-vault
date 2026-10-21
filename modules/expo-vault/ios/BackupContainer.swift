@@ -218,8 +218,11 @@ enum BackupContainer {
   /// symbolic links: `removeItem` unlinks a link itself and never recurses
   /// through one. Its parent is symlink-resolved and must lie inside one of
   /// `roots`, so neither `..` nor a linked ancestor can carry the removal out
-  /// of them. A missing entry, a dangling link's target included, is fine.
-  static func removeNoFollow(_ requested: String, roots: [URL]) throws {
+  /// of them. Each of `exact` also qualifies, but only itself: the same name
+  /// directly inside its resolved parent, never an entry below it, so a link
+  /// planted in its place is unlinked and its target left alone. A missing
+  /// entry, a dangling link's target included, is fine.
+  static func removeNoFollow(_ requested: String, roots: [URL], exact: [URL] = []) throws {
     guard requested.hasPrefix("/") else { throw RemovalError(reason: "not an absolute path") }
     let url = URL(fileURLWithPath: requested).standardizedFileURL
     let name = url.lastPathComponent
@@ -231,7 +234,11 @@ enum BackupContainer {
       let base = root.standardizedFileURL.resolvingSymlinksInPath().path
       return parent == base || parent.hasPrefix(base + "/")
     }
-    guard inside else { throw RemovalError(reason: "not inside the app's cache") }
+    let named = exact.contains { allowed in
+      allowed.lastPathComponent == name
+        && allowed.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath().path == parent
+    }
+    guard inside || named else { throw RemovalError(reason: "not inside the app's cache") }
     let target = URL(fileURLWithPath: parent).appendingPathComponent(name)
     // attributesOfItem does not follow links, so a dangling link still counts as there.
     guard (try? FileManager.default.attributesOfItem(atPath: target.path)) != nil else { return }

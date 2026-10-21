@@ -38,6 +38,8 @@ class ExpoVaultModule : Module() {
      */
     private val STRING_ENTRY_COPIES = 4
     private val AUTH_VALIDITY_SECONDS = 300
+    /** Folder in `filesDir` the picked backup is moved into, so low storage cannot purge it. */
+    private val RESTORE_SOURCE_NAME = "restore-source"
     private val keystoreProvider = "AndroidKeyStore"
     // Callers of the prompt that is currently open, settled together from its
     // callback. Touched on the main thread only (runOnUiThread and the main executor).
@@ -528,7 +530,13 @@ class ExpoVaultModule : Module() {
         }
 
         Function("removeTreeNoFollow") { path: String ->
-            BackupContainer.removeNoFollow(path, listOf(appContext.reactContext!!.cacheDir))
+            val context = appContext.reactContext!!
+            // The picked backup waits in `files/restore-source`, out of the purgeable cache.
+            BackupContainer.removeNoFollow(
+                path,
+                listOf(context.cacheDir),
+                listOf(File(context.filesDir, RESTORE_SOURCE_NAME))
+            )
         }
 
         AsyncFunction("getFileSize") { key: String, promise: Promise ->
