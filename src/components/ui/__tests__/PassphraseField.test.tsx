@@ -1,0 +1,84 @@
+import { fireEvent, render } from '@testing-library/react-native';
+
+import { lightColors } from '@/theme/colors';
+
+import { PassphraseField } from '../PassphraseField';
+import { StrengthMeter } from '../StrengthMeter';
+
+describe('PassphraseField', () => {
+  it('is a labelled secure field with no correction or capitalisation', async () => {
+    const onChangeText = jest.fn();
+    const view = await render(
+      <PassphraseField label="Passphrase" value="" onChangeText={onChangeText} />,
+    );
+    const input = view.getByLabelText('Passphrase');
+
+    expect(input).toHaveProp('secureTextEntry', true);
+    expect(input).toHaveProp('autoCorrect', false);
+    expect(input).toHaveProp('autoCapitalize', 'none');
+    expect(input).toHaveProp('spellCheck', false);
+    await fireEvent.changeText(input, 'قمر فوق جبل');
+    expect(onChangeText).toHaveBeenCalledWith('قمر فوق جبل');
+  });
+
+  it('shows and hides the passphrase with a named toggle', async () => {
+    const view = await render(
+      <PassphraseField label="Passphrase" value="x" onChangeText={jest.fn()} />,
+    );
+
+    await fireEvent.press(view.getByRole('button', { name: 'Show passphrase' }));
+    expect(view.getByLabelText('Passphrase')).toHaveProp('secureTextEntry', false);
+    await fireEvent.press(view.getByRole('button', { name: 'Hide passphrase' }));
+    expect(view.getByLabelText('Passphrase')).toHaveProp('secureTextEntry', true);
+  });
+
+  it('marks an error with a danger border and an alert', async () => {
+    const view = await render(
+      <PassphraseField
+        label="Repeat passphrase"
+        value="abc"
+        onChangeText={jest.fn()}
+        error="The passphrases don't match."
+      />,
+    );
+
+    expect(view.getByRole('alert')).toBeOnTheScreen();
+    expect(view.getByText("The passphrases don't match.")).toBeOnTheScreen();
+    expect(view.getByLabelText('Repeat passphrase')).toHaveProp(
+      'accessibilityHint',
+      "The passphrases don't match.",
+    );
+    expect(view.getByTestId('passphrase-box')).toHaveStyle({
+      borderColor: lightColors.danger,
+    });
+  });
+});
+
+describe('StrengthMeter', () => {
+  it('says nothing for an empty passphrase', async () => {
+    const view = await render(<StrengthMeter passphrase="" />);
+
+    expect(view.queryByText(/Weak|Fair|Good|Strong/)).toBeNull();
+  });
+
+  it('labels and colours the estimate', async () => {
+    const view = await render(<StrengthMeter passphrase="correct horse battery staple" />);
+
+    expect(view.getByLabelText('Passphrase strength: Strong')).toBeOnTheScreen();
+    expect(view.getByText('Strong', { includeHiddenElements: true })).toHaveStyle({
+      color: lightColors.success,
+    });
+  });
+
+  it('fills one danger segment for a weak passphrase', async () => {
+    const view = await render(<StrengthMeter passphrase="password" />);
+    const hidden = { includeHiddenElements: true };
+
+    expect(view.getByTestId('strength-segment-1', hidden)).toHaveStyle({
+      backgroundColor: lightColors.danger,
+    });
+    expect(view.getByTestId('strength-segment-2', hidden)).toHaveStyle({
+      backgroundColor: lightColors.surfaceMuted,
+    });
+  });
+});
