@@ -11,6 +11,7 @@ import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
+import { backupService } from '../services/BackupService';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -161,6 +162,28 @@ describe('Settings', () => {
     expect(view.getByRole('link', { name: 'Create a backup first' })).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
     expect(session.status).toBe('unlocked');
+  });
+
+  it.each([
+    ['export', 'Available when the backup that is being created finishes'],
+    ['restore', 'Available when the restore that is running finishes'],
+  ] as const)('says why Delete everything waits while an %s runs', async (kind, reason) => {
+    const view = await renderUnlocked('settings');
+    let finish!: () => void;
+    let running!: Promise<void>;
+    await act(async () => {
+      running = backupService.exclusive(kind, () => new Promise<void>((r) => (finish = r)));
+    });
+
+    expect(view.getByLabelText(`Delete everything, ${reason}`)).toBeDisabled();
+
+    await act(async () => {
+      finish();
+      await running;
+    });
+    expect(
+      view.getByRole('button', { name: 'Delete everything, Erase every document from this phone' }),
+    ).toBeEnabled();
   });
 });
 

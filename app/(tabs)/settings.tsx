@@ -256,7 +256,17 @@ export default function SettingsScreen() {
           <ListRow
             icon="trash"
             title={t('settings.erase')}
-            subtitle={t('settings.erase.subtitle')}
+            // A disabled row says why (ListRow): the erase waits for the
+            // backup work holding the slot, or is itself running.
+            subtitle={t(
+              busy === 'clear' || running === 'erase'
+                ? 'settings.erase.erasing'
+                : running === 'export'
+                  ? 'settings.erase.waitExport'
+                  : running === 'restore'
+                    ? 'settings.erase.waitRestore'
+                    : 'settings.erase.subtitle',
+            )}
             destructive
             onPress={openErase}
             disabled={blocked}
