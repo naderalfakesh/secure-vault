@@ -29,11 +29,26 @@ the new U+2068…U+2069 isolation around user text inside spoken labels.
 - `expo-localization` (`~58.0.5`, installed with `npx expo install`). Its
   config plugin is set to `supportsRTL: true`.
 - `resolveLocale` picks the first of the phone's languages that has a table,
-  and falls back to English. Dates use that locale's tag, which keeps the
-  phone's region ("9 Oct" in en-GB, "Oct 9" in en-US).
-- `src/i18n/__tests__/hardcoded-strings.test.ts` fails when a screen or
-  component writes JSX text or a text prop (`label`, `title`,
-  `accessibilityLabel`, …) as a literal.
+  and falls back to English. Dates always keep the phone's region: "9 Oct" in
+  en-GB, "Oct 9" in en-US. A phone language without a table keeps its region
+  with English: de-DE formats as `en-DE`, so "9 Oct 2026".
+- The backup file name keeps `SecureVault` and `.svbackup` out of the table.
+  Only the middle (`backup {date}`) is translatable.
+- `src/i18n/__tests__/hardcoded-strings.test.ts` walks the TypeScript syntax
+  tree of every `.ts` and `.tsx` file in `app/` and `src/` (`src/testing/hardcodedStrings.ts`).
+  It fails on:
+  - JSX text, on one line or many, and around `{name}`
+  - literals in JSX children (`{'…'}`, ternaries)
+  - text props and object keys (`label=`, `{ message: … }`), through `? :`,
+    `??`, `&&` and `+`
+  - any other literal that reads as a sentence, which covers `.ts` copy
+    modules
+
+  Errors, logs, imports, types and keys are exempt. A literal that must stay
+  is marked `// i18n-ignore: <reason>`; six do: the legacy default title,
+  three diagnostic strings and two error causes. Its first run found and
+  moved the SearchField placeholder and its Cancel label.
+
 - Not moved, on purpose: SQL, paths, test IDs, console text, heuristic
   keywords, error causes that never reach the screen, and the stored default
   title in the one-off legacy index migration, which is data.
@@ -108,8 +123,12 @@ English.
 - `src/__tests__/accessibility-audit.test.tsx` walks 12 screens: Library and
   Viewer (both with the Arabic title), Settings, Auto-lock, Protection,
   Backup hub, Change PIN, Add a document, Intro, Choose a PIN, Biometrics and
-  Lock. It fails on any control without a spoken name, and on any control
-  whose stated size plus hit slop is under 44 pt. Controls sized only by
+  Lock. Anything that takes a press (onPress, onClick, onLongPress) counts as
+  a control. It fails on a control without a role, on a control without a
+  spoken name, and on any control whose stated size plus hit slop is under
+  44 pt. Its first run found info rows (Version, the protection facts)
+  rendered as Pressables without a role; static ListRows are now plain text
+  views. Controls sized only by
   padding can't be measured in Jest and are left to the native pass.
   `src/testing/accessibilityAudit.test.tsx` proves the audit catches both
   faults.
@@ -169,6 +188,10 @@ No gaps were found, so nothing changed here.
    - Then turn the preview off, relaunch, and confirm the app is back to left
      to right.
    - On an Arabic-locale phone, the app stays left to right in English.
+   - Upgrade on an Arabic-locale Android phone: the first launch after the
+     upgrade is still mirrored, because React Native's old default allowed
+     RTL. That launch stores LTR, and every later launch is left to right.
+     Check that the mirrored first launch is usable.
    - With `ar-EG-u-nu-arab`, the keypad shows Arabic-Indic digits and unlocks
      with the same PIN.
 3. **AX5.** Set the largest accessibility text size and walk every board:
