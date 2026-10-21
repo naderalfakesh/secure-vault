@@ -316,7 +316,7 @@ export default function SettingsScreen() {
           <ListRow
             icon="eyeOff"
             title="Privacy screen"
-            subtitle="Blur in the app switcher and block screenshots"
+            subtitle="Cover the app in the app switcher and block screenshots"
             toggle={{
               value: settings.privacyScreen,
               onValueChange: (value) => void updateSettings({ privacyScreen: value }),
