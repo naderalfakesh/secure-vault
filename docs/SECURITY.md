@@ -221,7 +221,14 @@ The "Face ID" (biometric unlock) setting decides only whether the lock screen
 opens the biometric prompt by itself and shows the biometric key. Turned
 off, the lock screen asks for the PIN first; the device-unlock button stays,
 and the device key keeps its own OS gate, so iOS can still ask for Face ID or
-the passcode when the PIN path reads the key. Auto-lock
+the passcode when the PIN path reads the key.
+
+Onboarding's last step (enable biometrics) runs after setup has saved the
+PIN and unlocked the device key, but before the session is `unlocked`.
+Auto-lock does not time that step, and the privacy cover is not shown
+there: it is only offered for a new or emptied vault, so the vault holds no
+documents at that point. A kill or relaunch during the step opens the lock
+screen, because the key and the PIN record already exist. Auto-lock
 runs on a timer after the app leaves the foreground, with system pickers and
 share sheets excluded so the vault does not lock behind them. The privacy
 screen blurs the app in the switcher and blocks screenshots and recording
