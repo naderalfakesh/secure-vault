@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native-unistyles';
 import { Button, Group, InlineAlert, ListRow, Screen, Text } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockChoice } from '@/features/session/settings';
+import { t } from '@/i18n';
 
 /** Auto-lock (handover §6 Settings): a radio list, counted from leaving the app. */
 export default function AutoLockScreen() {
@@ -15,7 +16,7 @@ export default function AutoLockScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.bar}>
         <Button
-          label="Settings"
+          label={t('settings.title')}
           variant="plain"
           size="md"
           icon="back"
@@ -24,13 +25,10 @@ export default function AutoLockScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
-          Auto-lock
+          {t('settings.autoLock')}
         </Text>
-        <View accessibilityRole="radiogroup" accessibilityLabel="Auto-lock">
-          <Group
-            header="Lock the vault"
-            footer="Counted from when you leave SecureVault. The privacy cover hides the vault straight away either way."
-          >
+        <View accessibilityRole="radiogroup" accessibilityLabel={t('settings.autoLock')}>
+          <Group header={t('settings.autoLock.header')} footer={t('settings.autoLock.footer')}>
             {AUTO_LOCK_OPTIONS.map((option) => (
               <ListRow
                 key={option}
@@ -42,11 +40,7 @@ export default function AutoLockScreen() {
           </Group>
         </View>
         {settings.autoLockSeconds === -1 ? (
-          <InlineAlert
-            tone="warning"
-            announce
-            message="Anyone holding your unlocked phone can open the vault."
-          />
+          <InlineAlert tone="warning" announce message={t('settings.autoLock.neverWarning')} />
         ) : null}
       </ScrollView>
     </Screen>

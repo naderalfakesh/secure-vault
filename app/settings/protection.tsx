@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Group, ListRow, Screen, Text } from '@/components/ui';
 import { PROTECTION_LIMITS, protectionFacts } from '@/features/session/protectionCopy';
+import { t } from '@/i18n';
 
 /** How your data is protected (handover §7.6): plain facts, then the limits. */
 export default function ProtectionScreen() {
@@ -12,7 +13,7 @@ export default function ProtectionScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.bar}>
         <Button
-          label="Settings"
+          label={t('settings.title')}
           variant="plain"
           size="md"
           icon="back"
@@ -21,14 +22,14 @@ export default function ProtectionScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
-          How your data is protected
+          {t('settings.protection')}
         </Text>
-        <Group header="What SecureVault does" separatorInset="content">
+        <Group header={t('settings.protection.does')} separatorInset="content">
           {protectionFacts().map((fact) => (
             <ListRow key={fact} icon="check" tint="success" title={fact} />
           ))}
         </Group>
-        <Group header="What it can’t protect against" separatorInset="content">
+        <Group header={t('settings.protection.cant')} separatorInset="content">
           {PROTECTION_LIMITS.map((limit) => (
             <ListRow key={limit} icon="warning" tint="warning" title={limit} />
           ))}

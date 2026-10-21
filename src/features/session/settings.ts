@@ -1,5 +1,6 @@
 import type { LockoutState } from '@/features/auth/lockout';
 import { EMPTY_LOCKOUT, sanitizeLockout, unreadableLockout } from '@/features/auth/lockout';
+import { t, tp } from '@/i18n';
 
 import * as SecureStore from 'expo-secure-store';
 
@@ -29,24 +30,23 @@ export const DEFAULT_SETTINGS: SecuritySettings = {
 };
 
 export function autoLockLabel(seconds: AutoLockSeconds): string {
-  if (seconds === 0) return 'Immediately';
-  if (seconds === -1) return 'Never';
-  if (seconds < 60) return `${seconds} seconds`;
-  const minutes = seconds / 60;
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  if (seconds === 0) return t('settings.autoLock.immediately');
+  if (seconds === -1) return t('settings.autoLock.never');
+  if (seconds < 60) return t('settings.autoLock.seconds', { count: seconds });
+  return tp('settings.autoLock.minutes', seconds / 60);
 }
 
 /** A choice on the Auto-lock page: "Immediately", "After 5 minutes", "Never". */
 export function autoLockChoice(seconds: AutoLockSeconds): string {
   if (seconds === 0 || seconds === -1) return autoLockLabel(seconds);
-  return `After ${autoLockLabel(seconds)}`;
+  return t('settings.autoLock.after', { duration: autoLockLabel(seconds) });
 }
 
 /** Sentence for the Settings row, e.g. "After 1 minute in the background". */
 export function autoLockDescription(seconds: AutoLockSeconds): string {
-  if (seconds === 0) return 'As soon as you leave the app';
-  if (seconds === -1) return 'Stays open until you lock it';
-  return `After ${autoLockLabel(seconds)} in the background`;
+  if (seconds === 0) return t('settings.autoLock.onLeave');
+  if (seconds === -1) return t('settings.autoLock.untilLocked');
+  return t('settings.autoLock.afterBackground', { duration: autoLockLabel(seconds) });
 }
 
 /** Coerces whatever was persisted into valid settings. */

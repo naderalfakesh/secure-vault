@@ -30,6 +30,7 @@ import { selectIntelligence } from '@/features/intelligence';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import { t } from '@/i18n';
 import { type AppearancePreference, setAppearance, useAppearance } from '@/theme/appearance';
 
 const SOURCE_URL = 'https://github.com/naderalfakesh/secure-vault';
@@ -45,20 +46,16 @@ function appVersion(): string {
 }
 
 function eraseSubject(count: number | null): string {
-  if (count === null || count === 0) return 'All documents';
-  if (count === 1) return 'The 1 document';
-  return `All ${count} documents`;
+  if (count === null || count === 0) return t('settings.erase.subjectAll');
+  if (count === 1) return t('settings.erase.subjectOne');
+  return t('settings.erase.subjectMany', { count });
 }
 
 const APPEARANCE_CHOICES: { value: AppearancePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: t('settings.appearance.system') },
+  { value: 'light', label: t('settings.appearance.light') },
+  { value: 'dark', label: t('settings.appearance.dark') },
 ];
-
-// The erase finished, but the old PIN record survived both delete attempts.
-const PIN_NOT_CLEARED =
-  'Vault emptied, but the old PIN could not be removed. Set up the vault again now with a new PIN.';
 
 export default function SettingsScreen() {
   const toast = useToast();
@@ -99,40 +96,37 @@ export default function SettingsScreen() {
 
   const clearAll = useCallback(() => {
     // Destructive and irreversible: the one place a native confirmation is right.
-    Alert.alert(
-      'Delete everything?',
-      'Every document and the vault index are erased from this device. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete everything',
-          style: 'destructive',
-          onPress: async () => {
-            setErase(null);
-            setBusy('clear');
-            try {
-              const pinCleared = await backupService.exclusive('erase', async () => {
-                await documentService.eraseEverything();
-                await clearLastBackup();
-                return eraseVault();
-              });
-              toast.show(
-                pinCleared
-                  ? { message: 'Vault emptied' }
-                  : { message: PIN_NOT_CLEARED, tone: 'danger' },
-              );
-            } catch (e) {
-              toast.show({
-                message: describeBackupError(e, 'Could not clear the vault.'),
-                tone: 'danger',
-              });
-            } finally {
-              setBusy(null);
-            }
-          },
+    Alert.alert(t('settings.erase.title'), t('settings.erase.confirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.erase'),
+        style: 'destructive',
+        onPress: async () => {
+          setErase(null);
+          setBusy('clear');
+          try {
+            const pinCleared = await backupService.exclusive('erase', async () => {
+              await documentService.eraseEverything();
+              await clearLastBackup();
+              return eraseVault();
+            });
+            toast.show(
+              pinCleared
+                ? { message: t('settings.erase.done') }
+                : // The erase finished, but the old PIN record survived both delete attempts.
+                  { message: t('settings.erase.pinNotCleared'), tone: 'danger' },
+            );
+          } catch (e) {
+            toast.show({
+              message: describeBackupError(e, t('settings.erase.failed')),
+              tone: 'danger',
+            });
+          } finally {
+            setBusy(null);
+          }
         },
-      ],
-    );
+      },
+    ]);
   }, [toast, eraseVault]);
 
   return (
@@ -142,15 +136,19 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
-          Settings
+          {t('settings.title')}
         </Text>
 
-        <Group header="Security" separatorInset="content">
+        <Group header={t('settings.group.security')} separatorInset="content">
           {biometrics && biometrics.state !== 'unavailable' ? (
             <ListRow
               icon={biometryIcon(biometrics.kind)}
-              title={Platform.OS === 'ios' ? biometryName(biometrics.kind) : 'Biometric unlock'}
-              subtitle={biometricReason ?? 'Unlock without typing your PIN'}
+              title={
+                Platform.OS === 'ios'
+                  ? biometryName(biometrics.kind)
+                  : t('settings.biometricUnlock')
+              }
+              subtitle={biometricReason ?? t('settings.biometricUnlock.subtitle')}
               disabled={biometrics.state !== 'available'}
               toggle={{
                 value: biometrics.state === 'available' && settings.biometricUnlock,
@@ -162,21 +160,21 @@ export default function SettingsScreen() {
             <ListRow
               icon="settings"
               tint="neutral"
-              title="Open Settings"
+              title={t('settings.openSettings')}
               onPress={() => void Linking.openSettings().catch(() => {})}
               trailing={null}
             />
           ) : null}
           <ListRow
             icon="clock"
-            title="Auto-lock"
+            title={t('settings.autoLock')}
             value={autoLockLabel(settings.autoLockSeconds)}
             onPress={() => router.push('/settings/auto-lock')}
           />
           <ListRow
             icon="eyeOff"
-            title="Privacy cover"
-            subtitle="Hide the vault in the app switcher and block screenshots"
+            title={t('settings.privacyCover')}
+            subtitle={t('settings.privacyCover.subtitle')}
             toggle={{
               value: settings.privacyScreen,
               onValueChange: (value) => void updateSettings({ privacyScreen: value }),
@@ -185,8 +183,8 @@ export default function SettingsScreen() {
           {biometry !== 'none' ? (
             <ListRow
               icon="share"
-              title="Confirm before sharing"
-              subtitle={`Ask for ${biometryName(biometry)} before a copy leaves the vault`}
+              title={t('settings.confirmShare')}
+              subtitle={t('settings.confirmShare.subtitle', { biometry: biometryName(biometry) })}
               toggle={{
                 value: settings.biometricsForShare,
                 onValueChange: (value) => void updateSettings({ biometricsForShare: value }),
@@ -195,25 +193,25 @@ export default function SettingsScreen() {
           ) : null}
           <ListRow
             icon="key"
-            title="Change PIN"
+            title={t('settings.changePin')}
             onPress={() => router.push('/settings/change-pin')}
           />
-          <ListRow icon="lock" title="Lock now" onPress={lock} trailing={null} />
+          <ListRow icon="lock" title={t('settings.lockNow')} onPress={lock} trailing={null} />
         </Group>
 
-        <Group header="Data">
+        <Group header={t('settings.group.data')}>
           <ListRow
             icon="backup"
-            title="Backup"
-            subtitle="Create or restore an encrypted backup"
+            title={t('settings.backup')}
+            subtitle={t('settings.backup.subtitle')}
             onPress={() => router.push('/settings/backup')}
           />
         </Group>
 
-        <Group header="Appearance">
+        <Group header={t('settings.group.appearance')}>
           <View style={styles.appearance}>
             <SegmentedControl
-              accessibilityLabel="Appearance"
+              accessibilityLabel={t('settings.appearance')}
               options={APPEARANCE_CHOICES}
               value={appearance}
               onChange={(option) => void setAppearance(option)}
@@ -221,44 +219,44 @@ export default function SettingsScreen() {
           </View>
         </Group>
 
-        <Group header="Suggestions">
+        <Group header={t('settings.group.suggestions')}>
           <ListRow
             icon="sparkles"
             tint="neutral"
-            title="Detail suggestions"
+            title={t('settings.suggestions')}
             subtitle={
               engine === 'heuristic'
-                ? 'Text patterns read on this device. No on-device model is used yet.'
+                ? t('settings.suggestions.heuristic')
                 : engine
-                  ? `On-device model: ${engine}`
-                  : 'Checking'
+                  ? t('settings.suggestions.model', { engine })
+                  : t('settings.suggestions.checking')
             }
           />
         </Group>
 
-        <Group header="About" separatorInset="content">
+        <Group header={t('settings.group.about')} separatorInset="content">
           <ListRow
             icon="shield"
             tint="neutral"
-            title="How your data is protected"
+            title={t('settings.protection')}
             onPress={() => router.push('/settings/protection')}
           />
           <ListRow
             icon="document"
             tint="neutral"
-            title="Source code"
-            value="GitHub"
+            title={t('settings.sourceCode')}
+            value={t('settings.sourceCode.value')}
             onPress={() => void Linking.openURL(SOURCE_URL).catch(() => {})}
             trailing={null}
           />
-          <ListRow icon="info" tint="neutral" title="Version" value={appVersion()} />
+          <ListRow icon="info" tint="neutral" title={t('settings.version')} value={appVersion()} />
         </Group>
 
-        <Group header="Danger zone">
+        <Group header={t('settings.group.danger')}>
           <ListRow
             icon="trash"
-            title="Delete everything"
-            subtitle="Erase every document from this phone"
+            title={t('settings.erase')}
+            subtitle={t('settings.erase.subtitle')}
             destructive
             onPress={openErase}
             disabled={blocked}
@@ -272,14 +270,14 @@ export default function SettingsScreen() {
             <Icon name="trash" size={26} tone="danger" />
           </View>
           <Text variant="title2" accessibilityRole="header">
-            Delete everything?
+            {t('settings.erase.title')}
           </Text>
           <Text variant="callout" tone="secondary">
-            {`${eraseSubject(erase?.count ?? null)} and the vault index are erased from this phone. This can’t be undone. Backups you saved elsewhere aren’t affected.`}
+            {t('settings.erase.body', { subject: eraseSubject(erase?.count ?? null) })}
           </Text>
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel="Create a backup first"
+            accessibilityLabel={t('settings.erase.backupFirst')}
             onPress={() => {
               setErase(null);
               router.push('/settings/backup');
@@ -287,16 +285,16 @@ export default function SettingsScreen() {
             style={styles.link}
           >
             <Text variant="callout" tone="accent" style={styles.linkText}>
-              Create a backup first
+              {t('settings.erase.backupFirst')}
             </Text>
           </Pressable>
           <Button
-            label="Delete everything"
+            label={t('settings.erase')}
             variant="destructive"
             // The native alert opens over the sheet; the sheet closes once confirmed.
             onPress={clearAll}
           />
-          <Button label="Cancel" variant="plain" onPress={() => setErase(null)} />
+          <Button label={t('common.cancel')} variant="plain" onPress={() => setErase(null)} />
         </View>
       </Sheet>
     </Screen>
