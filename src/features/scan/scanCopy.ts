@@ -99,6 +99,11 @@ export function pagePosition(index: number, count: number, moving: boolean): str
   return `Page ${index + 1} of ${count}${moving ? ', moving' : ''}`;
 }
 
+/** Spoken after a page moves: "Moved to page 2 of 3". */
+export function movedTo(index: number, count: number): string {
+  return `Moved to page ${index + 1} of ${count}`;
+}
+
 const fieldNames: Record<string, string> = { expires: 'Expires', issued: 'Issued', number: 'No.' };
 
 /** A found value as a chip: "Expires 3 Jan 2027", "No. •••• 4821" (numbers are masked). */

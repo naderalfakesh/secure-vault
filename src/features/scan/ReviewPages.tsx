@@ -1,12 +1,18 @@
 import { useState } from 'react';
-import { type AccessibilityActionEvent, Pressable, ScrollView, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  type AccessibilityActionEvent,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, IconButton, Text } from '@/components/ui';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import type { PickedFile } from '@/types';
 
-import { pageLabel, pagePosition, scanText } from './scanCopy';
+import { movedTo, pageLabel, pagePosition, scanText } from './scanCopy';
 
 export type ReviewPagesProps = {
   pages: readonly PickedFile[];
@@ -16,11 +22,14 @@ export type ReviewPagesProps = {
   onAddPages?: () => void;
 };
 
-const ACTIONS = [
-  { name: 'moveEarlier', label: scanText('review.moveEarlier') },
-  { name: 'moveLater', label: scanText('review.moveLater') },
-  { name: 'remove', label: scanText('review.remove') },
-];
+/** The actions a page offers: no move past either end. */
+function pageActions(index: number, count: number) {
+  return [
+    ...(index > 0 ? [{ name: 'moveEarlier', label: scanText('review.moveEarlier') }] : []),
+    ...(index < count - 1 ? [{ name: 'moveLater', label: scanText('review.moveLater') }] : []),
+    { name: 'remove', label: scanText('review.remove') },
+  ];
+}
 
 /**
  * Scanned pages before anything is read or saved (handover §6 J1, F12): remove
@@ -38,6 +47,8 @@ export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPages
     if (target < 0 || target >= count) return;
     onMove(index, delta);
     if (active === index) setMoving(target);
+    // The label changes under the reader's focus; say where the page went.
+    AccessibilityInfo.announceForAccessibility(movedTo(target, count));
   };
 
   const remove = (index: number) => {
@@ -61,7 +72,7 @@ export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPages
               <Pressable
                 accessibilityLabel={pagePosition(index, count, active === index)}
                 accessibilityHint={scanText('review.hint')}
-                accessibilityActions={ACTIONS}
+                accessibilityActions={pageActions(index, count)}
                 onAccessibilityAction={onAction(index)}
                 onLongPress={() => setMoving(index)}
                 style={[styles.page, active === index && styles.pageMoving]}

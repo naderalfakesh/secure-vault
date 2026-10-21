@@ -800,3 +800,34 @@ describe('Add a document: saved without its found values', () => {
     expect(router.push).toHaveBeenCalledWith(`/documents/${saved.id}`);
   });
 });
+
+describe('Add a document: reorder at the ends', () => {
+  const actionNames = (element: { props: { accessibilityActions?: { name: string }[] } }) =>
+    (element.props.accessibilityActions ?? []).map((action) => action.name);
+
+  it('offers no move past either end', async () => {
+    const { view } = await scanInto(3);
+
+    expect(actionNames(view.getByLabelText('Page 1 of 3'))).toEqual(['moveLater', 'remove']);
+    expect(actionNames(view.getByLabelText('Page 2 of 3'))).toEqual([
+      'moveEarlier',
+      'moveLater',
+      'remove',
+    ]);
+    expect(actionNames(view.getByLabelText('Page 3 of 3'))).toEqual(['moveEarlier', 'remove']);
+  });
+
+  it('announces where a moved page landed', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    const { view } = await scanInto(3);
+
+    await fireEvent(view.getByLabelText('Page 1 of 3'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'moveLater' },
+    });
+    expect(announce).toHaveBeenLastCalledWith('Moved to page 2 of 3');
+
+    await fireEvent(view.getByLabelText('Page 3 of 3'), 'longPress');
+    await fireEvent.press(view.getByRole('button', { name: 'Move earlier' }));
+    expect(announce).toHaveBeenLastCalledWith('Moved to page 2 of 3');
+  });
+});
