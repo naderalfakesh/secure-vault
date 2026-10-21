@@ -142,6 +142,23 @@ describe('DocumentRepository', () => {
       expect(text).not.toMatch(/[\u0002\u0003]/);
     });
 
+    it('starts and ends the window on whole words when a word was split into tokens', async () => {
+      await repo.insert(
+        doc('1', {
+          title: 'Passport',
+          ocrText:
+            'ONE TWO THREE FOUR FIVE SIX SEVEN EIGHT ELECTRON-IC DOCUMENT PASSPORT NUMBER X1234567 NATIONALITY EXAMPLIAN DATE OF BIRTH 01 JAN-UARY 1990 SEX F',
+        }),
+      );
+
+      const [hit] = await repo.searchWithSnippets('nationality');
+      const text = (hit?.snippet ?? []).map((part) => part.text).join('');
+
+      expect(text).toBe(
+        '…DOCUMENT PASSPORT NUMBER X1234567 NATIONALITY EXAMPLIAN DATE OF BIRTH 01…',
+      );
+    });
+
     it('marks every query word and folds diacritics like the search does', async () => {
       await repo.insert(doc('1', { title: 'Visa', ocrText: 'Entrée permise jusqu’au 3 janvier' }));
 
