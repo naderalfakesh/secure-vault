@@ -138,3 +138,64 @@ the `lint {}` and `compileSdk` spellings.
   this note.
 - `assembleRelease` with R8.
 - Physical devices.
+
+## Polish
+
+Branch `fix/polish-pass` on 853d005, 2026-10-21. JavaScript, tests, docs and
+one config plugin; no Swift or Kotlin changed. Each fix has a test that failed
+before it. `npm run validate` passes: prettier, eslint, tsc, jest 29 suites
+and 267 tests, expo-doctor 20/20. Nothing was built or booted.
+
+| Item                                                                                                                                                           | Commit  | Test                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------- |
+| M. `content://` import copy (`temp_import_<n>`) removed after every save or preview, also on failure; the sweep matches that exact name instead of any `temp_` | e2b5451 | `importResidue.test.ts` "Android content:// import copies"              |
+| 7. An export unlinks a planted `backup` folder before writing into it; a folder that cannot be cleared stops it with `BACKUP_STAGING_INVALID`                  | 554ef2a | `BackupService.test.ts` "folders planted as symbolic links"             |
+| 8. A restore whose extras folder cannot be cleared fails with `BACKUP_RESTORE_STAGING_INVALID` and its sentence, not ERR_UNEXPECTED                            | a32cfae | same                                                                    |
+| 11. An erase that did not finish still clears the decrypted cache                                                                                              | 8a558cd | `DocumentService.test.ts`                                               |
+| 6. A refused PIN record delete during an erase is retried once; if it stays, the erase is reported with a sentence asking for setup                            | a5aaaaf | `SessionProvider.test.tsx`, `settings-backup.test.tsx`                  |
+| 1. A cancelled or lapsed key prompt shows a plain sentence on the lock screen, the document screen, the lists and the add screen                               | 8c16685 | `errors.test.ts`, `document-share.test.tsx`, `SessionProvider.test.tsx` |
+| 4. Setup with an invalidated key on a non-empty vault explains it in plain words                                                                               | dac7e40 | `SessionProvider.test.tsx`                                              |
+| 2. Home shows the Documents tab's error state while the index is closed                                                                                        | c4f32e0 | `home-screen.test.tsx`                                                  |
+| 3. Setup after "Delete everything" (in session or after a relaunch) no longer says the documents stay                                                          | 37fc6c5 | `setup-pin.test.tsx`                                                    |
+| 5. A save that settles after the lock but before the screen goes reports after the next unlock                                                                 | fa404f6 | `add-document.test.tsx` "a save the lock interrupts"                    |
+| 9. `withSqlCipherOpenSsl` writes a begin/end-marked block and replaces an older or unmarked one                                                                | db838b6 | `plugins/__tests__/withSqlCipherOpenSsl.test.js`                        |
+| 10. The iOS Inbox copy the system renamed for a duplicate ("scan 2.pdf") is removed too                                                                        | 4b52a6c | `importResidue.test.ts`                                                 |
+
+Item 5: the save already went to `postNotice` once the screen had unmounted.
+The gap was the moment between the lock (the session ends at once) and the
+gate unmounting the screen: a save that settled then showed a toast, and the
+lock cleared it. The add screen now checks whether its session ended.
+
+Item 9: the new marker was checked against the AGP 8 `build.gradle` of an
+older worktree (`sv-qa-batch5`): one block after the rewrite, no
+`packagingOptions`, the rest of the file unchanged, and a second run changes
+nothing. Not run through `expo prebuild`.
+
+Not changed:
+
+- 12. `installDatabaseFile` still moves the restored index back when
+      recording its name fails. Left in place, it would not fail closed when the
+      vault's `_database_file` names an index that still exists (a backup of the
+      same vault): the open would take the named, pre-restore file and then sweep
+      the unnamed restored one as a leftover. The current path ends as
+      `BACKUP_INDEX` and the user restores again, which is safer.
+- The in-memory post-erase hold and the test-only `createBackup`, as asked.
+
+Native checks for the next milestone QA:
+
+- Android: import a file that arrives as a `content://` URI (a PDF from a
+  cloud provider), save it and cancel one; no `temp_import_*` left in the cache.
+- Android: cancel the key prompt on reopen and on a document; the plain
+  sentence shows, and opening the document again prompts again.
+- Android: setup with an invalidated key on a vault that still has entries.
+- Both: Home with a fail-closed index; setup copy after "Delete everything"
+  and after a relaunch before setup.
+- Android: export with `cache/backup` planted as a link (nothing written
+  through it), and a restore with a link that resolves outside the cache.
+- Android: `npx expo prebuild` without `--clean` over an AGP 8 generated
+  project, then `assembleDebug`, and check `libcrypto.so` in the APK.
+- iOS: import the same file twice from Files so the Inbox copy is renamed;
+  the Inbox is empty afterwards.
+- Both: lock during a slow save; the outcome shows after the next unlock.
+- iOS: a refused Keychain delete during "Delete everything", if one can be
+  induced.
