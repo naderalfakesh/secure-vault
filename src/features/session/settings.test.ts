@@ -12,7 +12,14 @@ describe('security settings', () => {
       autoLockSeconds: 900,
       privacyScreen: false,
       biometricsForShare: true,
+      biometricUnlock: true,
     });
+  });
+
+  it('keeps biometric unlock on unless it was turned off', () => {
+    expect(DEFAULT_SETTINGS.biometricUnlock).toBe(true);
+    expect(sanitizeSettings({ biometricUnlock: false }).biometricUnlock).toBe(false);
+    expect(sanitizeSettings({ biometricUnlock: 'no' }).biometricUnlock).toBe(true);
   });
 
   it('labels the auto-lock options in plain words', () => {

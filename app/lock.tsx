@@ -18,13 +18,15 @@ import { useSession } from '@/features/session/SessionProvider';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
 
 export default function LockScreen() {
-  const { status, biometry, lockout, unlock, unlockWithPin, error } = useSession();
+  const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
   const security = useSecurityStatus();
   const promptedRef = useRef(false);
   const [checking, setChecking] = useState(false);
   const [lockLeft, setLockLeft] = useState(0);
   const [wrong, setWrong] = useState(false);
-  const hasBiometrics = biometry !== 'none';
+  // Biometric unlock off: the PIN comes first, and the device-unlock button
+  // below still opens the system prompt for whoever wants it.
+  const hasBiometrics = biometry !== 'none' && settings.biometricUnlock;
 
   // Returning users get the biometric prompt once, as soon as the screen appears.
   useEffect(() => {

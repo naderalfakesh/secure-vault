@@ -51,6 +51,27 @@ describe('LockScreen', () => {
 
   afterEach(() => jest.restoreAllMocks());
 
+  it('asks for the PIN first when biometric unlock was turned off', async () => {
+    await vault.createVault();
+    await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
+    await SecureStore.setItemAsync(
+      'securevault.settings',
+      JSON.stringify({ autoLockSeconds: 60, privacyScreen: true, biometricUnlock: false }),
+    );
+    const prompt = jest.spyOn(vaultMock, 'unlockWithBiometrics');
+    const view = await render(
+      <SessionProvider>
+        <LockScreen />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => expect(view.getByText('Enter your PIN')).toBeOnTheScreen());
+    expect(view.queryByRole('button', { name: 'Unlock with Face ID' })).toBeNull();
+    expect(prompt).not.toHaveBeenCalled();
+    // The device's own unlock stays offered; its prompt is the system's.
+    expect(view.getByRole('button', { name: 'Use Face ID or passcode' })).toBeOnTheScreen();
+  });
+
   it('fills the dots from the keypad and switches to the PIN subtitle', async () => {
     const view = await lockedVault();
 

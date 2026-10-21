@@ -13,12 +13,19 @@ export interface SecuritySettings {
   privacyScreen: boolean;
   /** Ask for biometrics again before sharing a decrypted file. */
   biometricsForShare: boolean;
+  /**
+   * The lock screen opens the biometric prompt on its own and shows the
+   * biometric key. Off, it asks for the PIN first; the device-unlock button
+   * and the OS prompt for the device key stay as they are.
+   */
+  biometricUnlock: boolean;
 }
 
 export const DEFAULT_SETTINGS: SecuritySettings = {
   autoLockSeconds: 60,
   privacyScreen: true,
   biometricsForShare: false,
+  biometricUnlock: true,
 };
 
 export function autoLockLabel(seconds: AutoLockSeconds): string {
@@ -55,6 +62,10 @@ export function sanitizeSettings(value: unknown): SecuritySettings {
       typeof raw.biometricsForShare === 'boolean'
         ? raw.biometricsForShare
         : DEFAULT_SETTINGS.biometricsForShare,
+    biometricUnlock:
+      typeof raw.biometricUnlock === 'boolean'
+        ? raw.biometricUnlock
+        : DEFAULT_SETTINGS.biometricUnlock,
   };
 }
 

@@ -306,6 +306,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
           const exists = key === 'present';
           setVaultExists(exists);
           setVaultEmpty(exists && entries === 0);
+          // The lock screen needs to know whether biometric unlock is on. The
+          // settings sit in the same store as the PIN record, readable before
+          // the device key; a failed read keeps the defaults.
+          if (next === 'locked') setSettings(await sessionStorage.loadSettings());
         }
         // A key without a PIN record is either the 2025 prototype's vault or an
         // interrupted setup. Both go through setup again, and setUp keeps the
