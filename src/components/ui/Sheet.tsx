@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
-import { Keyboard, Modal, Platform, Pressable, View } from 'react-native';
+import { Keyboard, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -32,6 +32,12 @@ export type SheetProps = PropsWithChildren<{
   dismissable?: boolean;
   /** `auto` fits the content; `medium` and `large` fix the height. */
   detent?: SheetDetent;
+  /**
+   * The body scrolls when it is taller than the sheet, as it is at the
+   * largest text sizes (§10.2). Turn it off only when the body is itself a
+   * scroll view or list.
+   */
+  scroll?: boolean;
   testID?: string;
 }>;
 
@@ -51,6 +57,7 @@ export function Sheet({
   headerAction,
   dismissable = true,
   detent = 'auto',
+  scroll = true,
   children,
   testID,
 }: SheetProps) {
@@ -64,22 +71,15 @@ export function Sheet({
     const target = visible ? 1 : 0;
     if (reduceMotion) {
       // Reduced motion: a cross-fade instead of the slide.
-      progress.value = withTiming(target, {
-        duration: theme.motion.durationBase,
-      });
+      progress.value = withTiming(target, { duration: theme.motion.durationBase });
       return;
     }
     progress.value = visible
       ? withSpring(target, theme.motion.spring)
-      : withTiming(target, {
-          duration: CLOSE_MS,
-          easing: Easing.in(Easing.cubic),
-        });
+      : withTiming(target, { duration: CLOSE_MS, easing: Easing.in(Easing.cubic) });
   }, [progress, reduceMotion, visible, theme.motion]);
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: Math.min(progress.value, 1),
-  }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: Math.min(progress.value, 1) }));
   const panelStyle = useAnimatedStyle(() => ({
     opacity: Math.min(progress.value, 1),
     transform: [{ translateY: reduceMotion ? 0 : (1 - progress.value) * SLIDE }],
@@ -134,12 +134,7 @@ export function Sheet({
               </View>
               <View style={styles.headerTitle}>
                 {title ? (
-                  <Text
-                    variant="headline"
-                    accessibilityRole="header"
-                    numberOfLines={2}
-                    style={styles.title}
-                  >
+                  <Text variant="headline" accessibilityRole="header" style={styles.title}>
                     {title}
                   </Text>
                 ) : null}
@@ -159,7 +154,19 @@ export function Sheet({
               </View>
             </View>
           ) : null}
-          {children}
+          {scroll ? (
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              alwaysBounceVertical={false}
+            >
+              {children}
+            </ScrollView>
+          ) : (
+            children
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -247,6 +254,13 @@ const styles = StyleSheet.create((theme) => {
       minHeight: theme.touchTarget,
       minWidth: theme.touchTarget,
       justifyContent: 'center',
+    },
+    body: {
+      flexShrink: 1,
+      flexGrow: 0,
+    },
+    bodyContent: {
+      gap: theme.spacing.sm,
     },
     close: {
       width: 36,

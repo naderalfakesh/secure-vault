@@ -736,6 +736,8 @@ function SortSheet({
       onClose={onClose}
       title={t('library.sortAndFilter')}
       detent="large"
+      // The body is its own scroll view.
+      scroll={false}
       headerAction={{
         label: t('library.sheet.reset'),
         onPress: () => {
@@ -818,6 +820,7 @@ function MoveSheet({
       title={t('library.move.title', { documents: tp('format.documents', count) })}
       dismissable={!busy}
       detent="large"
+      scroll={false}
     >
       <ScrollView contentContainerStyle={styles.sheetBody}>
         <Group header={t('library.move.collection')} separatorInset="content">

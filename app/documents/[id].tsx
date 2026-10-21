@@ -588,6 +588,8 @@ export default function DocumentViewerScreen() {
             setEditing(false);
           }}
           title={editing ? t('viewer.edit.title') : undefined}
+          // The details body is its own scroll view.
+          scroll={false}
           headerAction={
             editing
               ? { label: t('viewer.edit.cancel'), onPress: () => setEditing(false) }
