@@ -54,6 +54,12 @@
             "usePrecompiledModules": false
           }
         }
+      ],
+      [
+        "expo-localization",
+        {
+          "supportsRTL": true
+        }
       ]
     ],
     "experiments": {
