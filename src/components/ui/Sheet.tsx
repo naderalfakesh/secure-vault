@@ -14,6 +14,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
+import { GlassBackground, useGlass } from './Glass';
 import { Icon } from './Icon';
 import { Text } from './Text';
 
@@ -47,8 +48,9 @@ const SLIDE = 40;
 /**
  * Bottom sheet for choices, confirmations, and progress (handover §4). On iOS
  * it floats 8 pt in from the edges; on Android it is attached to the bottom.
- * Liquid Glass (iOS 26) is not wired yet; the sheet uses the solid elevated
- * surface, which is also its fallback.
+ * On iOS 26+ the panel is Liquid Glass (F16); on Android, older iOS, and with
+ * Reduce Transparency on it is the solid elevated surface. The privacy cover
+ * still covers it: it is drawn in a full-window overlay above every modal.
  */
 export function Sheet({
   visible,
@@ -66,6 +68,7 @@ export function Sheet({
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
   const keyboardHeight = useKeyboardHeight();
+  const glass = useGlass();
 
   useEffect(() => {
     const target = visible ? 1 : 0;
@@ -113,8 +116,14 @@ export function Sheet({
         </Animated.View>
         <Animated.View
           accessibilityViewIsModal
-          style={[styles.panel(detent), { paddingBottom: bottomPadding }, panelStyle]}
+          style={[
+            styles.panel(detent),
+            glass && styles.glassPanel,
+            { paddingBottom: bottomPadding },
+            panelStyle,
+          ]}
         >
+          {glass ? <GlassBackground style={styles.glassShape} /> : null}
           <View style={styles.grabber} />
           {hasHeader ? (
             <View style={styles.header}>
@@ -221,6 +230,16 @@ const styles = StyleSheet.create((theme) => {
       ...(detent === 'large' && { height: '92%' }),
       ...theme.elevation.sheet,
     }),
+    glassPanel: {
+      backgroundColor: 'transparent',
+    },
+    // The glass takes the panel's corners.
+    glassShape: {
+      borderTopLeftRadius: floating ? theme.radii.sheet : theme.radii.sheetAttached,
+      borderTopRightRadius: floating ? theme.radii.sheet : theme.radii.sheetAttached,
+      borderBottomLeftRadius: floating ? theme.radii.sheet : 0,
+      borderBottomRightRadius: floating ? theme.radii.sheet : 0,
+    },
     grabber: {
       alignSelf: 'center',
       width: 36,

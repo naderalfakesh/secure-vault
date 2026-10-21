@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
+import { GlassBackground, useGlass } from './Glass';
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
 
@@ -28,26 +30,31 @@ export const TAB_BAR_BOTTOM = 26;
 
 /**
  * Floating tab bar (handover §4): Library · central Scan button · Settings.
- * Liquid Glass (GlassView, iOS 26) needs the expo-glass-effect native module,
- * which is not installed yet, so every platform uses the solid surface with a
- * hairline, the handover's fallback.
+ * On iOS 26+ the capsule is Liquid Glass (F16); on Android, older iOS, and
+ * with Reduce Transparency on it is the solid surface with a hairline.
  */
 export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBarProps) {
   const insets = useSafeAreaInsets();
+  const glass = useGlass();
+  // A capsule at any height: larger text makes the bar taller.
+  const [height, setHeight] = useState(TAB_BAR_HEIGHT);
   const [first, ...rest] = tabs;
 
   return (
     <View
       accessibilityRole="tablist"
       // 26 pt above the edge on a home-indicator iPhone; clear of any system bar elsewhere.
+      onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
       style={[
         styles.bar,
+        glass && styles.glassBar,
         {
           bottom:
             insets.bottom > 0 ? Math.max(TAB_BAR_BOTTOM, insets.bottom - 8) : TAB_BAR_BOTTOM / 2,
         },
       ]}
     >
+      {glass ? <GlassBackground style={{ borderRadius: height / 2 }} /> : null}
       <Tab item={first} />
       <Pressable
         // An action, but it sits in the tab list, so it is a tab that is never selected.
@@ -100,6 +107,11 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
     ...theme.elevation.floating,
+  },
+  // Glass draws its own edge; the solid fill and the hairline go, the float shadow stays.
+  glassBar: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   // Tabs share the room either side of Scan, so larger text is not cut short.
   tab: (selected: boolean) => ({
