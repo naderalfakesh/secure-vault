@@ -130,7 +130,7 @@ describe('lock navigation', () => {
     expect(screen.getByRole('tab', { name: 'Settings' })).toBeSelected();
 
     await act(async () =>
-      fireEvent.press(screen.getByRole('button', { name: 'Scan or import a document' })),
+      fireEvent.press(screen.getByRole('tab', { name: 'Scan or import a document' })),
     );
     await screen.findByText('Add document');
   });

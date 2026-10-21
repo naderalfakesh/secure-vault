@@ -48,8 +48,11 @@ export function TabBar({ tabs, onScan, scanLabel = 'Scan a document' }: TabBarPr
     >
       <Tab item={first} />
       <Pressable
-        accessibilityRole="button"
+        // An action, but it sits in the tab list, so it is a tab that is never selected.
+        accessibilityRole="tab"
         accessibilityLabel={scanLabel}
+        accessibilityHint="Opens the scanner"
+        accessibilityState={{ selected: false }}
         onPress={onScan}
         style={({ pressed }) => [styles.scan, pressed && styles.pressed]}
       >

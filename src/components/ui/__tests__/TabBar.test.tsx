@@ -30,13 +30,29 @@ describe('TabBar', () => {
     expect(active).toHaveStyle({ backgroundColor: lightColors.primaryMuted });
     expect(view.getByRole('tab', { name: 'Settings' })).not.toBeSelected();
 
-    await fireEvent.press(view.getByRole('button', { name: 'Scan a document' }));
+    await fireEvent.press(view.getByRole('tab', { name: 'Scan a document' }));
     await fireEvent.press(view.getByRole('tab', { name: 'Settings' }));
     expect(scan).toHaveBeenCalledTimes(1);
     expect(settings).toHaveBeenCalledTimes(1);
-    expect(view.getByRole('button', { name: 'Scan a document' })).toHaveStyle({
+    expect(view.getByRole('tab', { name: 'Scan a document' })).toHaveStyle({
       width: 56,
       height: 56,
     });
+  });
+
+  it('keeps the Scan action inside the tab list as a never-selected tab', async () => {
+    const view = await render(
+      <TabBar
+        tabs={[
+          { key: 'library', label: 'Library', icon: 'library', selected: true, onPress: jest.fn() },
+        ]}
+        onScan={jest.fn()}
+      />,
+    );
+    const scan = view.getByRole('tab', { name: 'Scan a document' });
+
+    expect(scan).not.toBeSelected();
+    expect(scan.props.accessibilityHint).toBe('Opens the scanner');
+    expect(view.queryAllByRole('button')).toHaveLength(0);
   });
 });
