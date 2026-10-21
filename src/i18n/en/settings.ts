@@ -79,7 +79,10 @@ export const settings = {
     'There is no account, and SecureVault itself collects no analytics.',
   /** Google ML Kit disclosure (owner decision: ML Kit stays). Kept in step with docs/SECURITY.md. */
   'settings.protection.fact.mlkit':
-    'SecureVault uses Google ML Kit to read document text on this phone. On Android, it also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
+    'SecureVault uses Google ML Kit to read document text on this phone.{scanner} ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
+  /** Android only: the scanner is Google Play services; iOS scans with VisionKit. */
+  'settings.protection.fact.mlkitScanner':
+    ' It also uses the Google Play services document scanner.',
   'settings.protection.limit.pin':
     'Someone who knows your PIN, or holds your phone while the vault is unlocked.',
   'settings.protection.limit.share':

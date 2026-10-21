@@ -19,8 +19,17 @@ export function protectionFacts(): string[] {
     t('settings.protection.fact.pin'),
     t('settings.protection.fact.backup'),
     t('settings.protection.fact.account'),
-    t('settings.protection.fact.mlkit'),
   ];
+}
+
+/**
+ * The Google ML Kit disclosure, a notice rather than a protection, so the
+ * screen shows it with an info icon. The Play services scanner is Android's.
+ */
+export function mlKitDisclosure(): string {
+  return t('settings.protection.fact.mlkit', {
+    scanner: Platform.OS === 'android' ? t('settings.protection.fact.mlkitScanner') : '',
+  });
 }
 
 export const PROTECTION_LIMITS = [
