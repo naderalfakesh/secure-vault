@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
+import { textScale } from '@/theme/tokens';
 
 import { GlassBackground, useGlass } from './Glass';
 import { Icon } from './Icon';
@@ -143,7 +144,12 @@ export function Sheet({
               </View>
               <View style={styles.headerTitle}>
                 {title ? (
-                  <Text variant="headline" accessibilityRole="header" style={styles.title}>
+                  <Text
+                    variant="headline"
+                    accessibilityRole="header"
+                    maxFontSizeMultiplier={textScale.barTitleMax}
+                    style={styles.title}
+                  >
                     {title}
                   </Text>
                 ) : null}

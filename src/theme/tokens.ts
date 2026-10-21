@@ -67,6 +67,21 @@ export const motion = {
   toastWithActionMs: 8000,
 } as const;
 
+/**
+ * Text-size caps (§10.2). Body text scales uncapped; these few places cap it,
+ * as iOS caps its own large titles and bar labels, so a single word never
+ * breaks across lines at the largest sizes (AX5 is 3.57×, Android's largest
+ * 2×). `accessibilityText` is the font scale where layouts switch to their
+ * stacked, large-text form (iOS AX1 is 1.79×).
+ */
+export const textScale = {
+  largeTitleMax: 1.6,
+  barTitleMax: 2,
+  tabLabelMax: 1.35,
+  rowMax: 2.4,
+  accessibilityText: 1.7,
+} as const;
+
 /** Minimum hit target on both platforms. */
 export const touchTarget = 44;
 

@@ -50,5 +50,6 @@ export { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT, TabBar } from './TabBar';
 export type { TabBarItem, TabBarProps } from './TabBar';
 export { Text } from './Text';
 export type { TextTone } from './Text';
+export { useLargeText } from './useLargeText';
 export { ToastProvider, useToast } from './Toast';
 export type { ToastOptions } from './Toast';

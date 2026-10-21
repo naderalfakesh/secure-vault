@@ -17,6 +17,7 @@ import { type Source, SourceList, type SourceProblem } from '@/features/scan/Sou
 import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
+import { textScale } from '@/theme/tokens';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
 
@@ -597,7 +598,14 @@ function Header({
   return (
     <View style={styles.header}>
       <View style={styles.side}>{leading}</View>
-      <Text variant="headline" accessibilityRole="header" style={styles.title} numberOfLines={2}>
+      {/* A bar title: it wraps whole words and stops growing at 2×, so it is
+        never cut short at the largest text sizes. */}
+      <Text
+        variant="headline"
+        accessibilityRole="header"
+        maxFontSizeMultiplier={textScale.barTitleMax}
+        style={styles.title}
+      >
         {title ?? ''}
       </Text>
       <View style={[styles.side, styles.end]}>{trailing}</View>

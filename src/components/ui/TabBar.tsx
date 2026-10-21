@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
+import { textScale } from '@/theme/tokens';
 
 import { GlassBackground, useGlass } from './Glass';
 import { Icon, type IconName } from './Icon';
@@ -84,7 +85,14 @@ function Tab({ item }: { item: TabBarItem }) {
       style={styles.tab(item.selected)}
     >
       <Icon name={item.icon} size={22} tone={item.selected ? 'accent' : 'secondary'} />
-      <Text variant="caption" tone={item.selected ? 'accent' : 'secondary'} style={styles.label}>
+      {/* Bar labels stop at 1.35×, as the system tab bar's do, so a label never
+        splits mid-word; the tab keeps its full accessible name at every size. */}
+      <Text
+        variant="caption"
+        tone={item.selected ? 'accent' : 'secondary'}
+        maxFontSizeMultiplier={textScale.tabLabelMax}
+        style={styles.label}
+      >
         {item.label}
       </Text>
     </Pressable>

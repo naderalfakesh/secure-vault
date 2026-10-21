@@ -3,11 +3,13 @@ import { Pressable, type PressableProps, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { Palette } from '@/theme/colors';
+import { textScale } from '@/theme/tokens';
 
 import { useInGroup } from './Group';
 import { Icon, type IconName } from './Icon';
 import { Switch } from './Switch';
 import { Text, type TextTone } from './Text';
+import { useLargeText } from './useLargeText';
 
 /** Fill of the leading 30 pt icon tile. */
 export type ListRowTint = 'primary' | 'success' | 'warning' | 'danger' | 'neutral';
@@ -75,6 +77,9 @@ export function ListRow({
 }: ListRowProps) {
   const { theme } = useUnistyles();
   const inGroup = useInGroup();
+  // At the accessibility sizes the value moves under the title, so neither
+  // is squeezed into a sliver of the row.
+  const stacked = useLargeText();
   const isDestructive = destructive ?? tone === 'danger';
   // A switch row toggles from its switch, or from a screen reader's activation
   // of the row; a tap elsewhere on the row does nothing, as in system settings.
@@ -112,6 +117,19 @@ export function ListRow({
     accessory = <Icon name="chevronRight" size={18} tone="tertiary" />;
   }
 
+  // Row text stops at 2.4× (between AX2 and AX3) so a single word such as
+  // "Immediately" always fits the row and wraps whole, never mid-word.
+  const valueText = (
+    <Text
+      variant="body"
+      tone="secondary"
+      maxFontSizeMultiplier={textScale.rowMax}
+      style={stacked ? null : styles.value}
+    >
+      {value}
+    </Text>
+  );
+
   const body = (
     <>
       {icon ? (
@@ -120,20 +138,17 @@ export function ListRow({
         </View>
       ) : null}
       <View style={styles.body}>
-        <Text variant="body" tone={titleTone}>
+        <Text variant="body" tone={titleTone} maxFontSizeMultiplier={textScale.rowMax}>
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="footnote" tone="secondary">
+          <Text variant="footnote" tone="secondary" maxFontSizeMultiplier={textScale.rowMax}>
             {subtitle}
           </Text>
         ) : null}
+        {value && stacked ? valueText : null}
       </View>
-      {value ? (
-        <Text variant="body" tone="secondary" style={styles.value}>
-          {value}
-        </Text>
-      ) : null}
+      {value && !stacked ? valueText : null}
       {accessory}
     </>
   );

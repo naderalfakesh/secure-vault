@@ -850,8 +850,10 @@ function MoveSheet({
 }
 
 const styles = StyleSheet.create((theme) => ({
+  // At large text the title keeps its line and Select and Sort wrap below it.
   titleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: theme.spacing.xs,
     paddingStart: theme.layout.titleMargin,
@@ -860,7 +862,8 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 52,
   },
   titleText: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   headerBlock: {
     paddingBottom: theme.spacing.xs,
