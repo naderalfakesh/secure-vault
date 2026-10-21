@@ -44,7 +44,9 @@ backup passphrase ─── PBKDF2-HMAC-SHA256, 600 000 iterations, per-file sal
   exportable; the app holds a reference and the Keystore performs each
   AES-GCM call. Whether that runs in secure hardware depends on the device.
   Once the window lapses the module reports `KEY_LOCKED` and the app
-  re-prompts and retries (ADR 0003). One prompt is open at a time: a caller
+  re-prompts and retries (ADR 0003). When that prompt is cancelled or cannot
+  be shown, the screen says in a plain sentence that the device key was not
+  unlocked, never the Keystore's own "User not authenticated". One prompt is open at a time: a caller
   that needs the key while a prompt is showing waits for that prompt's answer
   instead of opening a second one, which would take over the first one's
   callback and leave it waiting forever.

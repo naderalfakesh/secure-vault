@@ -116,6 +116,8 @@ async function loadCappedLockout(): Promise<LockoutState | null> {
 }
 
 function describeError(e: unknown, fallback: string): string {
+  // A cancelled or lapsed Android key prompt carries the Keystore's own text.
+  if (isKeyLocked(e)) return KEY_NOT_UNLOCKED;
   const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
   if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
   if (e instanceof Error && e.message) return e.message;

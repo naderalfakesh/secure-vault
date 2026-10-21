@@ -28,6 +28,7 @@ import type { ExtractedField } from '@/data/DocumentRepository';
 import { type Document, DocumentCategory } from '@/types';
 import { formatDate, formatFileSize } from '@/utils/format';
 import { DocumentImage } from '@/features/documents/DocumentImage';
+import { plainErrorMessage } from '@/utils/errors';
 
 const fieldTitles: Record<string, string> = {
   expires: 'Expires',
@@ -86,7 +87,7 @@ export default function DocumentDetailScreen() {
         }
       })
       .catch((e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : 'Could not open the document.');
+        if (active) setError(plainErrorMessage(e, 'Could not open the document.'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -171,7 +172,7 @@ export default function DocumentDetailScreen() {
       }
     } catch (e) {
       toast.show({
-        message: e instanceof Error ? e.message : 'Could not read the text.',
+        message: plainErrorMessage(e, 'Could not read the text.'),
         tone: 'danger',
       });
     } finally {
@@ -211,7 +212,7 @@ export default function DocumentDetailScreen() {
       toast.show({ message: 'Details updated', tone: 'success' });
     } catch (e) {
       toast.show({
-        message: e instanceof Error ? e.message : 'Could not update the document.',
+        message: plainErrorMessage(e, 'Could not update the document.'),
         tone: 'danger',
       });
     }
@@ -245,7 +246,7 @@ export default function DocumentDetailScreen() {
     } catch (e) {
       setBusy(null);
       toast.show({
-        message: e instanceof Error ? e.message : 'Could not delete the document.',
+        message: plainErrorMessage(e, 'Could not delete the document.'),
         tone: 'danger',
       });
     }

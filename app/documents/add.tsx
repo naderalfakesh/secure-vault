@@ -31,6 +31,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { ocrService } from '@/services/OcrService';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { DocumentCategory, type PickedFile } from '@/types';
+import { plainErrorMessage } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
 
 import {
@@ -345,7 +346,7 @@ export default function AddDocumentScreen() {
     } catch (e) {
       if (mounted.current) setStep(null);
       report({
-        message: e instanceof Error ? e.message : 'Could not save the document.',
+        message: plainErrorMessage(e, 'Could not save the document.'),
         tone: 'danger',
       });
     } finally {

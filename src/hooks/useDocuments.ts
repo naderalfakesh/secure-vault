@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { documentService } from '../services/DocumentService';
 import type { Document, DocumentCategory, PickedFile } from '../types';
+import { plainErrorMessage } from '../utils/errors';
 
 /** "Delete everything" leaves the index closed until setup; the list is simply empty. */
 function isEmptiedVault(e: unknown): boolean {
@@ -57,7 +58,7 @@ export function useDocuments(): UseDocumentsReturn {
         setDocuments([]);
         return;
       }
-      setError(e.message || 'Failed to load documents');
+      setError(plainErrorMessage(e, 'Failed to load documents'));
       console.error('Failed to load documents:', e);
     } finally {
       setLoading(false);
@@ -85,7 +86,7 @@ export function useDocuments(): UseDocumentsReturn {
           setDocuments([]);
           setError(null);
         } else {
-          setError(e instanceof Error ? e.message : 'Failed to load documents');
+          setError(plainErrorMessage(e, 'Failed to load documents'));
         }
       })
       .finally(() => {

@@ -185,6 +185,26 @@ describe('SessionProvider', () => {
     expect(await vault.get('file_legacy')).toBe('ciphertext');
   });
 
+  it('shows a plain sentence when the device key prompt ends with the native key-locked text', async () => {
+    await vault.createVault();
+    await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));
+    jest
+      .spyOn(vault, 'unlockWithBiometrics')
+      .mockRejectedValue(
+        Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }),
+      );
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    await act(async () => {
+      await fireEvent.press(view.getByText('run unlock'));
+    });
+
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'The device key was not unlocked. Enter your PIN to try again.',
+    );
+  });
+
   it('starts locked when a vault exists and surfaces biometric failures', async () => {
     await vault.createVault();
     await SecureStore.setItemAsync('securevault.pin', hashPasscode('123456', { iterations: 64 }));

@@ -88,6 +88,39 @@ describe('Document sharing and the lock gate', () => {
     jest.restoreAllMocks();
   });
 
+  it('shows a plain sentence, not the native text, when the device key prompt was cancelled', async () => {
+    jest.spyOn(vault, 'getFile').mockRejectedValue(
+      Object.assign(new Error('Failed to decrypt file: User not authenticated'), {
+        code: 'KEY_LOCKED',
+      }),
+    );
+    const document = await documentService.addDocument(
+      { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 },
+      { title: 'Passport', category: DocumentCategory.ID },
+    );
+    routeParams.id = document.id;
+    const view = await render(
+      <SessionProvider>
+        <ToastProvider>
+          <Gate />
+        </ToastProvider>
+      </SessionProvider>,
+    );
+    await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
+    await act(async () => {
+      await session.setUp('123456');
+    });
+
+    await waitFor(() =>
+      expect(
+        view.getByText(
+          'The device key was not unlocked, so your documents stay closed. Try again.',
+        ),
+      ).toBeOnTheScreen(),
+    );
+    expect(view.queryByText(/not authenticated/)).toBeNull();
+  });
+
   it('shares the decrypted copy while the vault stays unlocked, then removes it', async () => {
     const discard = jest.fn();
     jest
