@@ -712,7 +712,8 @@ describe('Backup hub restore phases and outcomes', () => {
         'The restore stopped after the previous vault was removed. Restore the backup again.',
       ),
     ).toBeOnTheScreen();
-    expect(view.getByText('Stopped at entry 1 of 20')).toBeOnTheScreen();
+    // Entry 1 is the check entry; the restore stopped on entry 2.
+    expect(view.getByText('Stopped at entry 2 of 20')).toBeOnTheScreen();
     expect(view.getByRole('button', { name: 'Restore again' })).toBeOnTheScreen();
     expect(view.queryByText(/Nothing was changed/)).toBeNull();
   });

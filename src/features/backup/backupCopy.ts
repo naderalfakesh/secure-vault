@@ -94,7 +94,7 @@ export type RestoreOutcome =
   /** Nothing to retry on this device: only Close. */
   | { kind: 'close'; message: string }
   /** After the wipe: the vault is partly replaced. */
-  | { kind: 'partial'; message: string; stoppedAt: { done: number; total: number } | null }
+  | { kind: 'partial'; message: string; stoppedAt: { entry: number; total: number } | null }
   /** The documents are back but the index is not. */
   | { kind: 'index'; message: string };
 
@@ -116,7 +116,8 @@ export function restoreOutcome(error: unknown): RestoreOutcome {
     case 'BACKUP_NO_SPACE':
       return { kind: 'close', message: describeBackupError(error) };
     case 'BACKUP_PARTIAL': {
-      const stoppedAt = (error as { stoppedAt?: { done: number; total: number } | null }).stoppedAt;
+      const stoppedAt = (error as { stoppedAt?: { entry: number; total: number } | null })
+        .stoppedAt;
       return { kind: 'partial', message: describeBackupError(error), stoppedAt: stoppedAt ?? null };
     }
     case 'BACKUP_INDEX':

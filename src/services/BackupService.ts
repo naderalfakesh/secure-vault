@@ -51,8 +51,11 @@ export type RestoreProgressListener = (progress: RestoreProgress) => void;
 interface RestoreRun {
   wiped: boolean;
   cancelRequested: boolean;
-  /** The last Restoring event, for "Stopped at entry X of N". */
-  lastRestored: { done: number; total: number } | null;
+  /**
+   * For "Stopped at entry X of N": the entry after the last one the Restoring
+   * pass finished, numbered like its progress (the check entry is entry 1).
+   */
+  lastRestored: { entry: number; total: number } | null;
 }
 
 /** Work that must never overlap another: each one rewrites the vault or the backup folders. */
@@ -425,7 +428,7 @@ class BackupService {
           if (event.phase === 'import') {
             run.wiped = true;
             run.cancelRequested = false;
-            run.lastRestored = { done: event.done, total: event.total };
+            run.lastRestored = { entry: Math.min(event.done + 1, event.total), total: event.total };
           } else if (run.cancelRequested && !run.wiped) {
             // The native call clears the request when it starts, which may have
             // been after the request arrived; it is still checking, so ask again.

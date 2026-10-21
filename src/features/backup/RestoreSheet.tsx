@@ -261,7 +261,7 @@ function OutcomeView({
           name={backup.name}
           meta={
             outcome.stoppedAt
-              ? `Stopped at entry ${outcome.stoppedAt.done} of ${outcome.stoppedAt.total}`
+              ? `Stopped at entry ${outcome.stoppedAt.entry} of ${outcome.stoppedAt.total}`
               : undefined
           }
         />

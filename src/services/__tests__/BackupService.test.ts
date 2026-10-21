@@ -366,7 +366,7 @@ describe('BackupService', () => {
 
       await expect(
         backupService.restoreBackup(backup.uri, 'correct horse battery'),
-      ).rejects.toMatchObject({ code: 'BACKUP_PARTIAL', stoppedAt: { done: 2, total: 5 } });
+      ).rejects.toMatchObject({ code: 'BACKUP_PARTIAL', stoppedAt: { entry: 3, total: 5 } });
       expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).not.toMatch(/Nothing was changed/);
     });
 
