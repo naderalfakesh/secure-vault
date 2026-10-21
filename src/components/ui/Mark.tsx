@@ -1,4 +1,5 @@
-import { View } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { IconGlyph } from './Icon';
@@ -11,10 +12,20 @@ export type MarkProps = {
   muted?: boolean;
   /** The glyph inside the squircle; the lockout shows the clock instead of the mark. */
   glyph?: IconPath;
+  /** Style for the squircle, e.g. an animated transform. */
+  style?: StyleProp<AnimatedStyle<ViewStyle>>;
+  /** Style for the glyph alone, so a moving mark can size it apart from the squircle. */
+  glyphStyle?: StyleProp<AnimatedStyle<ViewStyle>>;
+  testID?: string;
 };
 
 /** Glyph sizes from the design (Lock board, §3.5 splash, privacy cover). */
 const glyphSizes: Record<number, number> = { 64: 38, 72: 44, 80: 46 };
+
+/** The glyph size the mark draws inside a squircle of this size. */
+export function markGlyphSize(size: number): number {
+  return glyphSizes[size] ?? Math.round(size * 0.6);
+}
 
 /**
  * The SecureVault mark (handover §3.5): the outline document-with-padlock
@@ -23,39 +34,51 @@ const glyphSizes: Record<number, number> = { 64: 38, 72: 44, 80: 46 };
  * splash does. The splash image, the lock screen, and the privacy cover share
  * these proportions.
  */
-export function Mark({ size = 72, muted = false, glyph = 'mark' }: MarkProps) {
+export function Mark({
+  size = 72,
+  muted = false,
+  glyph = 'mark',
+  style,
+  glyphStyle,
+  testID = 'mark',
+}: MarkProps) {
   const { theme, rt } = useUnistyles();
   const dark = rt.themeName === 'dark';
-  const glyphSize = glyphSizes[size] ?? Math.round(size * 0.6);
+  const glyphSize = markGlyphSize(size);
 
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        // 18 on 64, 20 on 72, 22 on 80: the design's corners, drawn as plain
-        // round corners so the mark matches the native splash image exactly.
-        borderRadius: Math.round(size * 0.28),
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: muted
-          ? theme.colors.surfaceMuted
-          : dark
-            ? theme.colors.primaryMuted
-            : theme.colors.primary,
-      }}
+    <Animated.View
+      style={[
+        {
+          width: size,
+          height: size,
+          // 18 on 64, 20 on 72, 22 on 80: the design's corners, drawn as plain
+          // round corners so the mark matches the native splash image exactly.
+          borderRadius: Math.round(size * 0.28),
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: muted
+            ? theme.colors.surfaceMuted
+            : dark
+              ? theme.colors.primaryMuted
+              : theme.colors.primary,
+        },
+        style,
+      ]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      testID="mark"
+      testID={testID}
     >
-      <IconGlyph
-        path={glyph}
-        size={glyphSize}
-        strokeWidth={1.5}
-        color={
-          muted ? theme.colors.textTertiary : dark ? theme.colors.primary : theme.colors.onPrimary
-        }
-      />
-    </View>
+      <Animated.View style={glyphStyle} testID="mark-glyph">
+        <IconGlyph
+          path={glyph}
+          size={glyphSize}
+          strokeWidth={1.5}
+          color={
+            muted ? theme.colors.textTertiary : dark ? theme.colors.primary : theme.colors.onPrimary
+          }
+        />
+      </Animated.View>
+    </Animated.View>
   );
 }
