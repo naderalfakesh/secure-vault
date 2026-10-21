@@ -13,6 +13,7 @@ import { DocumentCategory } from '../../types';
 import {
   BACKUP_DIRECTORY,
   BACKUP_STAGING_DIRECTORY,
+  backupFileName,
   backupService,
   describeBackupError,
   describeBackupErrorPlainly,
@@ -34,6 +35,14 @@ const emitProgress = (event: BackupProgress) =>
   (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);
 
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
+
+describe('backup file name', () => {
+  it('keeps the brand and the extension out of the translated part', () => {
+    expect(backupFileName(new Date('2026-10-13T12:00:00Z'))).toBe(
+      'SecureVault backup 2026-10-13.svbackup',
+    );
+  });
+});
 
 describe('passphrase policy', () => {
   it('rejects short, repeated, and mismatched passphrases', () => {

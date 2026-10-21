@@ -72,7 +72,8 @@ export const backup = {
     'SecureVault locked while you were sharing. The temporary copy was removed.',
   'backup.create.exportStopped':
     'The backup was cancelled before it could be shared. Nothing left the vault.',
-  'backup.fileName': 'SecureVault backup {date}.svbackup',
+  /** The localisable middle of the file name; the brand and `.svbackup` stay fixed. */
+  'backup.fileName': 'backup {date}',
   'backup.passphrase.tooShort': 'Use at least {count} characters.',
   'backup.passphrase.oneCharacter': 'Use more than one character.',
   'backup.passphrase.mismatch': 'The two passphrases do not match.',

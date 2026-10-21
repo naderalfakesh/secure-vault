@@ -149,8 +149,13 @@ export function describeBackupErrorPlainly(error: unknown, fallback: string): st
     : fallback;
 }
 
-function backupFileName(date = new Date()): string {
-  return t('backup.fileName', { date: date.toISOString().slice(0, 10) });
+/** The brand and the extension are never translated; only the middle is. */
+const BACKUP_BRAND = 'SecureVault';
+const BACKUP_EXTENSION = '.svbackup';
+
+export function backupFileName(date = new Date()): string {
+  const middle = t('backup.fileName', { date: date.toISOString().slice(0, 10) });
+  return `${BACKUP_BRAND} ${middle}${BACKUP_EXTENSION}`;
 }
 
 function toPath(uri: string): string {
