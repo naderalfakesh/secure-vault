@@ -10,6 +10,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
+import { pageFromOffset } from '@/utils/pager';
 
 import { ZoomablePage } from './ZoomablePage';
 
@@ -55,12 +56,20 @@ export function PageStage({
 
   const onMomentumEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const next = Math.round(event.nativeEvent.contentOffset.x / width);
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      // Offsets are measured from the left edge; in a right-to-left layout the
+      // first page sits at the right end, so the index counts from there.
+      const next = pageFromOffset({
+        offsetX: contentOffset.x,
+        pageWidth: layoutMeasurement.width || width,
+        contentWidth: contentSize.width,
+        pageCount: pages.length,
+      });
       if (next === shown.current) return;
       shown.current = next;
       onIndexChange(next);
     },
-    [width, onIndexChange],
+    [width, pages.length, onIndexChange],
   );
 
   const onZoom = useCallback(
@@ -78,6 +87,7 @@ export function PageStage({
       <FlatList
         ref={list}
         data={pages}
+        testID="page-stage-pager"
         horizontal
         pagingEnabled
         // A zoomed page pans instead of paging.
