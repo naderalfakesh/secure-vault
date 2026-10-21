@@ -69,6 +69,22 @@ describe('Icon', () => {
     expect(view.getByLabelText('About')).toBeOnTheScreen();
   });
 
+  it('mirrors directional SF Symbols on iOS too, since they are named for a side', async () => {
+    Object.defineProperty(I18nManager, 'isRTL', { configurable: true, value: true });
+    try {
+      const view = await render(
+        <>
+          <Icon name="back" accessibilityLabel="Back" />
+          <Icon name="backspace" accessibilityLabel="Delete" />
+        </>,
+      );
+      expect(view.getByLabelText('Back')).toHaveStyle({ transform: [{ scaleX: -1 }] });
+      expect(view.getByLabelText('Delete')).not.toHaveStyle({ transform: [{ scaleX: -1 }] });
+    } finally {
+      Object.defineProperty(I18nManager, 'isRTL', { configurable: true, value: false });
+    }
+  });
+
   describe('on Android', () => {
     const os = Platform.OS;
     beforeEach(() => {

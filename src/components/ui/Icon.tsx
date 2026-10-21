@@ -136,23 +136,25 @@ export function Icon({
   const glyph: Glyph = icons[name];
   const decorative = !accessibilityLabel;
 
+  // Directional glyphs are named for a side ("chevron.right"), which SF
+  // Symbols does not flip, so both platforms mirror them in a right-to-left
+  // layout. The keypad's backspace is not directional and never flips.
+  const flip = glyph.mirror && I18nManager.isRTL;
+
   if (Platform.OS === 'ios') {
-    // SF Symbols pick their right-to-left variants themselves.
     return (
       <SymbolView
         name={glyph.sf}
         size={size}
         tintColor={tint}
         weight={weight}
-        style={[{ width: size, height: size }, style]}
+        style={[{ width: size, height: size }, flip ? mirrored : null, style]}
         accessibilityLabel={accessibilityLabel}
         accessibilityElementsHidden={decorative}
         fallback={<FallbackGlyph glyph={glyph} size={size} color={tint} />}
       />
     );
   }
-
-  const flip = glyph.mirror && I18nManager.isRTL;
 
   return (
     <View
