@@ -11,10 +11,8 @@ afterEach(() => setAppLocaleForTesting(english));
 
 describe('string table', () => {
   it('keeps every namespace key unique, so no spread hides another', () => {
-    const total = Object.values(namespaces).reduce(
-      (sum, table) => sum + Object.keys(table).length,
-      0,
-    );
+    const tables: object[] = Object.values(namespaces);
+    const total = tables.reduce<number>((sum, table) => sum + Object.keys(table).length, 0);
     expect(Object.keys(en)).toHaveLength(total);
   });
 
