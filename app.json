@@ -9,12 +9,18 @@
     "scheme": "securevault",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.naderalfakesh.securevault"
+      "bundleIdentifier": "com.naderalfakesh.securevault",
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "monochromeImage": "./assets/adaptive-icon-monochrome.png",
+        "backgroundColor": "#3451D1"
       },
       "package": "com.naderalfakesh.securevault"
     },
