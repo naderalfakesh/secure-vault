@@ -25,7 +25,7 @@ import type { ExtractedField } from '@/data/DocumentRepository';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
-import { useSession } from '@/features/session/SessionProvider';
+import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
@@ -175,13 +175,25 @@ export default function DocumentViewerScreen() {
     }
     try {
       // The share sheet is system UI; the vault must not lock behind it.
-      await withoutAutoLock(() =>
-        Sharing.shareAsync(copy.uri, {
-          dialogTitle: document.title,
-          mimeType: document.fileType === 'pdf' ? 'application/pdf' : 'image/jpeg',
-          UTI: document.fileType === 'pdf' ? 'com.adobe.pdf' : 'public.jpeg',
-        }),
-      );
+      // A share that never settles (Android blocked the chooser) stops
+      // holding the copy once the vault locks; the lock sweep removes it too.
+      await Promise.race([
+        withoutAutoLock(
+          () =>
+            Sharing.shareAsync(copy.uri, {
+              dialogTitle: document.title,
+              mimeType: document.fileType === 'pdf' ? 'application/pdf' : 'image/jpeg',
+              UTI: document.fileType === 'pdf' ? 'com.adobe.pdf' : 'public.jpeg',
+            }),
+          sharePause(),
+        ),
+        session.ended(),
+      ]);
+      if (!session.current()) {
+        postNotice({
+          message: 'SecureVault locked while you were sharing. The temporary copy was removed.',
+        });
+      }
     } catch {
       // Sheet dismissed or sharing unavailable; the copy is discarded either way.
     } finally {

@@ -20,7 +20,7 @@ import {
   Text,
   useToast,
 } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { autoLockLabel } from '@/features/session/settings';
 import { biometryName } from '@/features/auth/lockCopy';
 import { selectIntelligence } from '@/features/intelligence';
@@ -63,6 +63,10 @@ const APPEARANCE_CHOICES: { value: AppearancePreference; label: string }[] = [
 // The erase finished, but the old PIN record survived both delete attempts.
 const PIN_NOT_CLEARED =
   'Vault emptied, but the old PIN could not be removed. Set up the vault again now with a new PIN.';
+
+// The vault locked while the share sheet was still open or never appeared.
+const SHARE_INTERRUPTED =
+  'SecureVault locked while you were sharing. The temporary copy was removed.';
 
 // Shown once the vault is unlocked; it names nothing about the vault.
 const EXPORT_STOPPED =
@@ -173,13 +177,24 @@ export default function SettingsScreen() {
             cancelled = true;
             return;
           }
-          await withoutAutoLock(() =>
-            Sharing.shareAsync(backup.uri, {
-              dialogTitle: backup.name,
-              mimeType: 'application/octet-stream',
-              UTI: 'public.data',
-            }),
-          );
+          // A share that never settles must not keep the export, and its slot, open.
+          await Promise.race([
+            withoutAutoLock(
+              () =>
+                Sharing.shareAsync(backup.uri, {
+                  dialogTitle: backup.name,
+                  mimeType: 'application/octet-stream',
+                  UTI: 'public.data',
+                }),
+              sharePause(),
+            ),
+            session.ended(),
+          ]);
+          if (!session.current()) {
+            // It may have been shared already, so this says less than EXPORT_STOPPED.
+            postNotice({ message: SHARE_INTERRUPTED });
+            return;
+          }
           toast.show({
             message: `Backup of ${backup.entries} entries (${formatFileSize(backup.bytes)}) shared`,
             tone: 'success',

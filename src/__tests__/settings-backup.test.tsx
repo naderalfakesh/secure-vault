@@ -174,6 +174,29 @@ describe('Settings backup and the lock gate', () => {
     expect(session.notice).toBeNull();
   });
 
+  it('frees the export and removes the backup when the vault locks under a share that never settles', async () => {
+    nativeExport();
+    share.mockImplementation(() => new Promise(() => {}));
+    const view = await renderUnlocked();
+
+    await runExport(view);
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(backupService.activity()).toBe('export');
+
+    await act(async () => {
+      session.lock();
+    });
+    await settleFor(50);
+
+    expect(view.getByText('locked')).toBeOnTheScreen();
+    expect(discard).toHaveBeenCalledWith(CONTAINER);
+    expect(backupService.activity()).toBeNull();
+    expect(session.notice).toEqual({
+      message: 'SecureVault locked while you were sharing. The temporary copy was removed.',
+    });
+    share.mockImplementation(async () => {});
+  });
+
   it('deletes a backup that finished after the vault locked and never opens the share sheet', async () => {
     nativeExport(() => session.lock());
     const view = await renderUnlocked();

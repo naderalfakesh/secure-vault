@@ -10,7 +10,12 @@ import { closeDocumentStore } from '@/data/database';
 import DocumentDetailScreen from '../../app/documents/[id]';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import * as SessionModule from '../features/session/SessionProvider';
+import {
+  AUTO_LOCK_RETURN_GRACE_MS,
+  SessionProvider,
+  useSession,
+} from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
@@ -34,6 +39,13 @@ const appState = AppState as unknown as {
   currentState: AppStateStatus;
   addEventListener: jest.Mock;
 };
+
+const listeners = new Set<(state: AppStateStatus) => void>();
+const moveTo = (state: AppStateStatus) =>
+  act(async () => {
+    appState.currentState = state;
+    for (const listener of [...listeners]) listener(state);
+  });
 
 let session: ReturnType<typeof useSession>;
 
@@ -80,7 +92,11 @@ describe('Document sharing and the lock gate', () => {
     secureStoreMock.__reset();
     await closeDocumentStore();
     appState.currentState = 'active';
-    appState.addEventListener.mockImplementation(() => ({ remove: () => {} }));
+    listeners.clear();
+    appState.addEventListener.mockImplementation((_event, listener) => {
+      listeners.add(listener);
+      return { remove: () => listeners.delete(listener) };
+    });
     share.mockClear();
   });
 
@@ -151,5 +167,39 @@ describe('Document sharing and the lock gate', () => {
     // The lock sweep may have run before the copy existed, so it runs again.
     expect(clearCache).toHaveBeenCalled();
     expect(session.notice).toEqual({ message: 'Sharing was cancelled because the vault locked.' });
+  });
+
+  it('locks after the return when Android blocked the chooser, and drops the copy', async () => {
+    // The Android pause: the chooser is its own activity, so it ends on return.
+    jest
+      .spyOn(SessionModule, 'sharePause')
+      .mockReturnValue({ maxAwayMs: 120_000, endsOnReturn: true });
+    try {
+      const discard = jest.fn();
+      jest
+        .spyOn(documentService, 'prepareShareFile')
+        .mockResolvedValue({ uri: 'file:///mock/cache/share/Passport.jpg', discard });
+      // "Background activity launch blocked": the share never settles.
+      share.mockImplementation(() => new Promise(() => {}));
+      const view = await renderUnlocked();
+      await act(async () => {
+        await session.updateSettings({ autoLockSeconds: 0 });
+      });
+
+      await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+      await moveTo('background');
+      await moveTo('active');
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, AUTO_LOCK_RETURN_GRACE_MS + 100));
+      });
+
+      expect(view.getByText('locked')).toBeOnTheScreen();
+      expect(discard).toHaveBeenCalledTimes(1);
+      expect(session.notice?.message).toBe(
+        'SecureVault locked while you were sharing. The temporary copy was removed.',
+      );
+    } finally {
+      share.mockImplementation(async () => {});
+    }
   });
 });
