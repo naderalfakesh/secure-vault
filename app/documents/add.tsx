@@ -67,7 +67,7 @@ export default function AddDocumentScreen() {
   const [step, setStep] = useState<ProcessingStep>('ocr');
   const [saveError, setSaveError] = useState<string | null>(null);
   // The files are in the vault and only the found values failed: no going back.
-  const [filesSaved, setFilesSaved] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [titleMissing, setTitleMissing] = useState(false);
@@ -147,7 +147,7 @@ export default function AddDocumentScreen() {
     setFields([]);
     setOcrText(undefined);
     setSaveError(null);
-    setFilesSaved(false);
+    setSavedId(null);
     saved.current = null;
   }, []);
 
@@ -416,7 +416,7 @@ export default function AddDocumentScreen() {
           ocrText,
         });
         saved.current = document;
-        if (mounted.current) setFilesSaved(true);
+        if (mounted.current) setSavedId(document.id);
       }
 
       if (mounted.current) setStep('index');
@@ -499,7 +499,15 @@ export default function AddDocumentScreen() {
           onCancel={discardAll}
           error={phase === 'saving' ? saveError : null}
           onRetry={save}
-          onBack={filesSaved ? undefined : () => setPhase('details')}
+          onBack={savedId ? undefined : () => setPhase('details')}
+          onOpen={
+            savedId
+              ? () => {
+                  router.back();
+                  router.push(`/documents/${savedId}`);
+                }
+              : undefined
+          }
         />
       );
       break;

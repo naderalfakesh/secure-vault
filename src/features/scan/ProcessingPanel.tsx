@@ -32,6 +32,8 @@ export type ProcessingPanelProps = {
   error?: string | null;
   onRetry?: () => void;
   onBack?: () => void;
+  /** The document is saved; leave for it without the values that failed. */
+  onOpen?: () => void;
 };
 
 /**
@@ -46,6 +48,7 @@ export function ProcessingPanel({
   error,
   onRetry,
   onBack,
+  onOpen,
 }: ProcessingPanelProps) {
   const { theme } = useUnistyles();
   const cancellable = isCancellable(step);
@@ -111,6 +114,13 @@ export function ProcessingPanel({
           <InlineAlert tone="danger" message={error ?? scanText('processing.failed')} />
           {onRetry ? (
             <Button label={scanText('processing.retry')} icon="refresh" onPress={onRetry} />
+          ) : null}
+          {onOpen ? (
+            <Button
+              label={scanText('processing.openDocument')}
+              variant="secondary"
+              onPress={onOpen}
+            />
           ) : null}
           {onBack ? (
             <Button

@@ -771,3 +771,32 @@ describe('Add a document: one source at a time', () => {
     await waitFor(() => expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1));
   });
 });
+
+describe('Add a document: saved without its found values', () => {
+  it('offers to open the saved document when the found values keep failing', async () => {
+    jest
+      .spyOn(ocrService, 'extractText')
+      .mockResolvedValueOnce({ text: PASSPORT_TEXT, blocks: [] });
+    jest.spyOn(documentService, 'setFields').mockRejectedValue(new Error('index busy'));
+    const add = jest.spyOn(documentService, 'addDocument');
+    const { view } = await scanInto(1);
+    await fireEvent.press(view.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+    });
+    await waitFor(() => expect(view.getByRole('button', { name: 'Try again' })).toBeOnTheScreen());
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Try again' }));
+    });
+    await waitFor(() => expect(view.getByRole('button', { name: 'Try again' })).toBeOnTheScreen());
+
+    await fireEvent.press(view.getByRole('button', { name: 'Open document' }));
+
+    const saved = await add.mock.results[0]?.value;
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(router.back).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith(`/documents/${saved.id}`);
+  });
+});

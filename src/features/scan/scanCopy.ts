@@ -49,6 +49,8 @@ export const scanCopy = {
   'processing.failed': 'Could not save the document.',
   'processing.retry': 'Try again',
   'processing.backToDetails': 'Back to details',
+  /** The files are saved and only the found values failed: leave without them. */
+  'processing.openDocument': 'Open document',
   'step.ocr': 'Reading the text',
   'step.suggest': 'Suggesting details',
   'step.encrypt': 'Encrypting',
