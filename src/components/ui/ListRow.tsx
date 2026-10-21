@@ -159,6 +159,23 @@ export function ListRow({
     );
   }
 
+  // A row with nothing to do (an info row such as "Version") is not a
+  // pressable at all, so it reads as text rather than an unnamed control.
+  // A disabled row keeps its button role and states that it is disabled.
+  if (!handlePress && !isRadio) {
+    return (
+      <View
+        accessible
+        accessibilityLabel={label}
+        accessibilityState={disabled ? { disabled: true } : undefined}
+        testID={props.testID}
+        style={styles.row(Boolean(subtitle), showDivider)}
+      >
+        {body}
+      </View>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole={role}

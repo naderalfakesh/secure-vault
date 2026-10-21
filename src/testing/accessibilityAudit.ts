@@ -65,11 +65,12 @@ function describe(node: Node): string {
 }
 
 /**
- * Walks a rendered screen and lists its accessibility problems: a control
- * with no spoken name (an icon-only button without a label), and a control
- * whose own size plus hit slop is under 44 pt, where the style states a
- * size. Controls sized only by padding and text cannot be measured here and
- * are left to the native checks.
+ * Walks a rendered screen and lists its accessibility problems: anything
+ * that takes a press (onPress, onClick, onLongPress) without a role, a
+ * control with no spoken name (an icon-only button without a label), and a
+ * control whose own size plus hit slop is under 44 pt, where the style
+ * states a size. Controls sized only by padding and text cannot be measured
+ * here and are left to the native checks.
  */
 export function auditAccessibility(json: Json): string[] {
   const problems: string[] = [];
@@ -81,10 +82,17 @@ export function auditAccessibility(json: Json): string[] {
       props['aria-hidden'] === true;
     if (hidden) return;
     const role = props.accessibilityRole ?? props.role;
-    const control =
-      props.accessible !== false &&
-      (CONTROL_ROLES.has(role) || (typeof props.onClick === 'function' && role !== undefined));
+    // Anything that takes a press is a control, whatever role it claims.
+    const pressable =
+      node.type !== 'TextInput' &&
+      (typeof props.onPress === 'function' ||
+        typeof props.onClick === 'function' ||
+        typeof props.onLongPress === 'function');
+    const control = props.accessible !== false && (CONTROL_ROLES.has(role) || pressable);
     if (control) {
+      if (!role || role === 'none') {
+        problems.push(`${describe(node)} takes a press but has no accessibilityRole`);
+      }
       const label = props.accessibilityLabel ?? props['aria-label'];
       if (!(typeof label === 'string' && label.trim()) && !hasText(node)) {
         problems.push(`${describe(node)} has no accessibility label`);
@@ -115,7 +123,9 @@ export function countControls(json: Json): number {
   let count = 0;
   const visit = (node: Node) => {
     const role = node.props.accessibilityRole ?? node.props.role;
-    if (CONTROL_ROLES.has(role)) count += 1;
+    const pressable =
+      typeof node.props.onPress === 'function' || typeof node.props.onClick === 'function';
+    if (CONTROL_ROLES.has(role) || pressable) count += 1;
     children(node).forEach(visit);
   };
   nodes(json).forEach(visit);

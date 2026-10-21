@@ -39,6 +39,22 @@ describe('accessibility audit', () => {
     expect(auditAccessibility(view.toJSON())).toEqual([]);
   });
 
+  it('treats anything with onPress as a control, so a missing role or name is caught', async () => {
+    const view = await render(
+      <View>
+        <Pressable onPress={() => {}} style={{ minHeight: 44, minWidth: 44 }}>
+          <View />
+        </Pressable>
+        <Text onPress={() => {}}>Open</Text>
+      </View>,
+    );
+    expect(auditAccessibility(view.toJSON())).toEqual([
+      expect.stringMatching(/no accessibilityRole/),
+      expect.stringMatching(/no accessibility label/),
+      expect.stringMatching(/no accessibilityRole/),
+    ]);
+  });
+
   it('skips controls hidden from assistive technology', async () => {
     const view = await render(
       <View accessibilityElementsHidden>
