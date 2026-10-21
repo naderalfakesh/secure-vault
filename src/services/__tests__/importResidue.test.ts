@@ -237,6 +237,39 @@ describe('import copies outside the vault', () => {
       putFile.mockRestore();
     });
 
+    it('gives up on a provider that stalls, and removes the copy once it settles', async () => {
+      let finish: () => void = () => {};
+      const copy = jest.spyOn(File.prototype, 'copy').mockImplementationOnce(function (
+        this: File,
+        destination,
+      ) {
+        new File((destination as File).uri).writeSync('partial');
+        return new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      });
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+      try {
+        const saving = documentService.addDocument(
+          { uri: `${provider}1`, name: 'a.jpg', type: 'image/jpeg' },
+          { title: 'Lease' },
+        );
+        const outcome = expect(saving).rejects.toMatchObject({ code: 'IMPORT_COPY_TIMEOUT' });
+        await jest.advanceTimersByTimeAsync(8000);
+        await outcome;
+        expect(importCopies()).toEqual([]);
+
+        // The stalled copy finishes later; what it wrote is removed then too.
+        finish();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(importCopies()).toEqual([]);
+      } finally {
+        jest.useRealTimers();
+        copy.mockRestore();
+      }
+    });
+
     it('removes a copy cut short by a failed copy', async () => {
       const copy = jest.spyOn(File.prototype, 'copy').mockImplementationOnce(async function (
         this: File,

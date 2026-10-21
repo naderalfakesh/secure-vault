@@ -52,6 +52,8 @@ const PREVIEW_FOLDER = /^pages_preview_\d+$/;
 /** `getLocalFilePath`'s plaintext copy of an Android `content://` file, directly in the cache. */
 const IMPORT_COPY_PREFIX = 'temp_import_';
 const IMPORT_COPY = /^temp_import_\d+$/;
+/** How long a content provider may take to hand over a file before the save gives up. */
+const IMPORT_COPY_TIMEOUT_MS = 8000;
 
 /**
  * Plaintext scratch that builds before the staging folders wrote and could
@@ -742,13 +744,33 @@ class DocumentService {
       return this.toPath(uri);
     }
     const tempFile = new File(Paths.cache, `${IMPORT_COPY_PREFIX}${Date.now()}`);
+    const copying = new File(uri).copy(tempFile);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stalled = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            Object.assign(new Error('The file took too long to read.'), {
+              code: 'IMPORT_COPY_TIMEOUT',
+            }),
+          ),
+        IMPORT_COPY_TIMEOUT_MS,
+      );
+    });
     try {
-      await new File(uri).copy(tempFile);
+      await Promise.race([copying, stalled]);
       return this.toPath(tempFile.uri);
     } catch (e) {
-      // A copy cut short by a read or write error is plaintext too.
+      // A copy cut short by a read or write error is plaintext too. The copy
+      // cannot be cancelled, so a stalled one is removed again once it settles.
       this.discardImportCopy(tempFile.uri);
+      copying.then(
+        () => this.discardImportCopy(tempFile.uri),
+        () => this.discardImportCopy(tempFile.uri),
+      );
       throw e;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }
