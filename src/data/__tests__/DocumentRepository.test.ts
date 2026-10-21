@@ -120,6 +120,104 @@ describe('DocumentRepository', () => {
     expect(soon.map((row) => [row.document.id, row.date])).toEqual([['1', '2026-12-01']]);
   });
 
+  describe('search snippets (FTS5 snippet())', () => {
+    it('marks the matched words in the page text with context either side', async () => {
+      await repo.insert(
+        doc('1', {
+          title: 'Lease agreement',
+          ocrText:
+            'This agreement is made between the landlord and the tenant. The lease term begins on 1 March 2026 and runs for one year from that date onwards.',
+        }),
+      );
+
+      const [hit] = await repo.searchWithSnippets('marc');
+
+      expect(hit?.document.id).toBe('1');
+      const parts = hit?.snippet ?? [];
+      expect(parts.filter((part) => part.match).map((part) => part.text)).toEqual(['March']);
+      const text = parts.map((part) => part.text).join('');
+      expect(text).toContain('begins on 1 March 2026');
+      // Long text is cut to a window with an ellipsis, never sent whole.
+      expect(text.startsWith('…') || text.endsWith('…')).toBe(true);
+      expect(text).not.toMatch(/[\u0002\u0003]/);
+    });
+
+    it('marks every query word and folds diacritics like the search does', async () => {
+      await repo.insert(doc('1', { title: 'Visa', ocrText: 'Entrée permise jusqu’au 3 janvier' }));
+
+      const [hit] = await repo.searchWithSnippets('entree janv');
+
+      expect(hit?.snippet?.filter((part) => part.match).map((part) => part.text)).toEqual([
+        'Entrée',
+        'janvier',
+      ]);
+    });
+
+    it('gives no snippet when only the title or tags match', async () => {
+      await repo.insert(
+        doc('1', { title: 'Passport', tags: ['travel'], ocrText: 'Republic of Example' }),
+      );
+      await repo.insert(doc('2', { title: 'Travel insurance' }));
+
+      const hits = await repo.searchWithSnippets('travel');
+
+      expect(hits.map((hit) => [hit.document.id, hit.snippet])).toEqual([
+        ['2', null],
+        ['1', null],
+      ]);
+      expect((await repo.searchWithSnippets('passport'))[0]?.snippet).toBeNull();
+    });
+
+    it('returns full documents with their tags and nothing for an empty query', async () => {
+      await repo.insert(doc('1', { title: 'Lease', tags: ['home', 'rent'], ocrText: 'rent' }));
+
+      const [hit] = await repo.searchWithSnippets('rent');
+
+      expect(hit?.document).toMatchObject({ id: '1', title: 'Lease', tags: ['home', 'rent'] });
+      expect(await repo.searchWithSnippets('  ')).toEqual([]);
+      expect(await repo.searchWithSnippets('"*')).toEqual([]);
+    });
+  });
+
+  describe('ordering', () => {
+    beforeEach(async () => {
+      await repo.insert(doc('1', { title: 'Passport', ocrText: 'card' }));
+      await repo.insert(doc('2', { title: 'Visa', ocrText: 'card' }));
+      await repo.insert(doc('3', { title: 'Lease', ocrText: 'card' }));
+      await repo.insert(doc('4', { title: 'Receipt', ocrText: 'card' }));
+      await repo.setFields('1', [{ key: 'expires', value: '2027-01-03', kind: 'date' }]);
+      await repo.setFields('2', [
+        { key: 'expires', value: '2026-11-30', kind: 'date' },
+        { key: 'issued', value: '2020-01-01', kind: 'date' },
+      ]);
+      // Not an expiry date: a number field and another date key are ignored.
+      await repo.setFields('3', [
+        { key: 'number', value: '0001', kind: 'text' },
+        { key: 'issued', value: '2001-01-01', kind: 'date' },
+      ]);
+    });
+
+    it('sorts by the expiry date in the fields table, undated documents last and newest first', async () => {
+      expect((await repo.list(null, 'expiry')).map((d) => d.id)).toEqual(['2', '1', '4', '3']);
+      expect(
+        (await repo.searchWithSnippets('card', 'expiry')).map((hit) => hit.document.id),
+      ).toEqual(['2', '1', '4', '3']);
+    });
+
+    it('sorts newest and oldest added', async () => {
+      expect((await repo.list(null, 'newest')).map((d) => d.id)).toEqual(['4', '3', '2', '1']);
+      expect((await repo.list(null, 'oldest')).map((d) => d.id)).toEqual(['1', '2', '3', '4']);
+      expect(
+        (await repo.searchWithSnippets('card', 'oldest')).map((hit) => hit.document.id),
+      ).toEqual(['1', '2', '3', '4']);
+    });
+
+    it('keeps one row per document when sorting by expiry', async () => {
+      expect(await repo.list(null, 'expiry')).toHaveLength(4);
+      expect((await repo.list(null, 'expiry'))[0]).toMatchObject({ id: '2', title: 'Visa' });
+    });
+  });
+
   it('neutralises FTS syntax in user input', () => {
     expect(toFtsQuery('pass 20')).toBe('"pass"* AND "20"*');
     expect(toFtsQuery('"OR" * drop')).toBe('"OR"* AND "drop"*');

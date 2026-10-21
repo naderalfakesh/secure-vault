@@ -20,6 +20,57 @@ export type ExtractedField = { key: string; value: string; kind: 'text' | 'date'
 
 export type NewDocument = Omit<Document, 'updatedAt'> & { updatedAt?: string };
 
+/**
+ * Orders the index can sort by. Title A–Z is sorted by the caller: SQLite's
+ * collations only fold ASCII, and titles are in any script.
+ */
+export type DocumentOrder = 'newest' | 'oldest' | 'expiry';
+
+/** A piece of a search snippet; `match` pieces are the words the query found. */
+export type SnippetPiece = { text: string; match?: boolean };
+
+/** A search result with a window of its page text around the match, if the text matched. */
+export type SearchHit = { document: Document; snippet: SnippetPiece[] | null };
+
+// The expiry date, when the document has one, for sorting (fields.key = 'expires').
+const EXPIRY_JOIN = `LEFT JOIN fields expiry ON expiry.document_id = d.id AND expiry.key = 'expires' AND expiry.kind = 'date'`;
+
+const ORDER_BY: Record<DocumentOrder, string> = {
+  newest: 'd.created_at DESC',
+  oldest: 'd.created_at ASC',
+  // Undated documents go last, newest first among themselves.
+  expiry: 'expiry.value IS NULL, expiry.value ASC, d.created_at DESC',
+};
+
+// snippet() wraps each matched token in these, which never occur in read text.
+const MATCH_START = String.fromCharCode(2);
+const MATCH_END = String.fromCharCode(3);
+// documents_fts columns: id, title, tags, ocr_text. Only the page text gets a
+// snippet; the title and tags are already on the row.
+const OCR_COLUMN = 3;
+const SNIPPET_TOKENS = 12;
+
+/** Splits snippet() output into plain and matched pieces; null when nothing in it matched. */
+export function parseSnippet(raw: string | null): SnippetPiece[] | null {
+  if (!raw || !raw.includes(MATCH_START)) return null;
+  const pieces: SnippetPiece[] = [];
+  const clean = (text: string) => text.replace(/\s+/g, ' ');
+  for (const [index, chunk] of raw.split(MATCH_START).entries()) {
+    if (index === 0) {
+      if (chunk) pieces.push({ text: clean(chunk).trimStart() });
+      continue;
+    }
+    const end = chunk.indexOf(MATCH_END);
+    const matched = end < 0 ? chunk : chunk.slice(0, end);
+    const rest = end < 0 ? '' : chunk.slice(end + MATCH_END.length);
+    if (matched) pieces.push({ text: clean(matched), match: true });
+    if (rest) pieces.push({ text: clean(rest).replaceAll(MATCH_END, '') });
+  }
+  const last = pieces[pieces.length - 1];
+  if (last && !last.match) last.text = last.text.trimEnd();
+  return pieces.some((piece) => piece.match) ? pieces : null;
+}
+
 // Tags are joined with the ASCII unit separator so a tag can contain commas.
 const TAG_SEPARATOR = String.fromCharCode(31);
 
@@ -63,15 +114,15 @@ export function toFtsQuery(input: string): string {
 export class DocumentRepository {
   constructor(private readonly db: SqlDatabase) {}
 
-  async list(category?: DocumentCategory | null): Promise<Document[]> {
-    const rows = category
-      ? await this.db.all<DocumentRow>(
-          `SELECT ${COLUMNS} FROM documents d WHERE d.category = ? ORDER BY d.created_at DESC`,
-          [category],
-        )
-      : await this.db.all<DocumentRow>(
-          `SELECT ${COLUMNS} FROM documents d ORDER BY d.created_at DESC`,
-        );
+  async list(
+    category?: DocumentCategory | null,
+    order: DocumentOrder = 'newest',
+  ): Promise<Document[]> {
+    const where = category ? 'WHERE d.category = ?' : '';
+    const rows = await this.db.all<DocumentRow>(
+      `SELECT ${COLUMNS} FROM documents d ${EXPIRY_JOIN} ${where} ORDER BY ${ORDER_BY[order]}`,
+      category ? [category] : [],
+    );
     return rows.map(toDocument);
   }
 
@@ -115,6 +166,27 @@ export class DocumentRepository {
       [fts],
     );
     return rows.map(toDocument);
+  }
+
+  /**
+   * Full-text search with FTS5's own `snippet()` of the page text, so the
+   * highlighted words are exactly the tokens the index matched (prefixes and
+   * folded diacritics included). An empty query finds nothing.
+   */
+  async searchWithSnippets(query: string, order: DocumentOrder = 'newest'): Promise<SearchHit[]> {
+    const fts = toFtsQuery(query);
+    if (!fts) return [];
+    const rows = await this.db.all<DocumentRow & { snippet: string | null }>(
+      `SELECT ${COLUMNS},
+         snippet(documents_fts, ${OCR_COLUMN}, char(2), char(3), '…', ${SNIPPET_TOKENS}) AS snippet
+       FROM documents_fts
+       JOIN documents d ON d.id = documents_fts.id
+       ${EXPIRY_JOIN}
+       WHERE documents_fts MATCH ?
+       ORDER BY ${ORDER_BY[order]}`,
+      [fts],
+    );
+    return rows.map((row) => ({ document: toDocument(row), snippet: parseSnippet(row.snippet) }));
   }
 
   async insert(doc: NewDocument): Promise<Document> {

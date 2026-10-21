@@ -4,7 +4,12 @@ import { Image } from 'expo-image';
 import { Platform } from 'react-native';
 
 import { allowDocumentStore, deleteDocumentStore, openDocumentStore } from '@/data/database';
-import type { DocumentRepository, ExtractedField } from '@/data/DocumentRepository';
+import type {
+  DocumentOrder,
+  DocumentRepository,
+  ExtractedField,
+  SearchHit,
+} from '@/data/DocumentRepository';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
 
 import ExpoVaultModule from '../../modules/expo-vault';
@@ -470,6 +475,16 @@ class DocumentService {
 
   async searchDocuments(query: string): Promise<Document[]> {
     return (await this.repository()).search(query);
+  }
+
+  /** Every document in the index's order: newest or oldest added, or soonest expiry. */
+  async listDocuments(order: DocumentOrder): Promise<Document[]> {
+    return (await this.repository()).list(null, order);
+  }
+
+  /** Search results with the index's own highlighted snippet of the page text. */
+  async searchWithSnippets(query: string, order: DocumentOrder): Promise<SearchHit[]> {
+    return (await this.repository()).searchWithSnippets(query, order);
   }
 
   async updateDocument(
