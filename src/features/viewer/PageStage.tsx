@@ -8,6 +8,9 @@ import {
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { t } from '@/i18n';
+import { isolate } from '@/utils/bidi';
+
 import { ZoomablePage } from './ZoomablePage';
 
 export interface PageStageProps {
@@ -91,7 +94,11 @@ export function PageStage({
         renderItem={({ item, index: itemIndex }) => (
           <ZoomablePage
             uri={item}
-            label={`Page ${itemIndex + 1} of ${pages.length}, ${title}`}
+            label={t('viewer.pageLabel', {
+              number: itemIndex + 1,
+              count: pages.length,
+              title: isolate(title),
+            })}
             onZoomChange={onZoom}
             onDismiss={onDismiss}
             onTap={onTap}

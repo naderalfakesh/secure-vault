@@ -36,21 +36,26 @@ import { DocumentImage } from '@/features/documents/DocumentImage';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
-import { shareCopy } from '@/features/viewer/shareCopy';
+import { shareText } from '@/features/viewer/shareCopy';
 import { ShareSheet, type ShareSheetStep } from '@/features/viewer/ShareSheet';
+import { type StringKey, t, tp } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
 import { type Document, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
-import { formatDate, formatExpiry, formatFileSize, pluralize } from '@/utils/format';
+import { formatDate, formatExpiry, formatFileSize, joinParts } from '@/utils/format';
 import { plainErrorMessage } from '@/utils/errors';
 
-const fieldTitles: Record<string, string> = {
-  expires: 'Expires',
-  issued: 'Issued',
-  number: 'Number',
+const fieldTitles: Record<string, StringKey> = {
+  expires: 'viewer.field.expires',
+  issued: 'viewer.field.issued',
+  number: 'viewer.field.number',
 };
+
+function fieldTitle(key: string): string {
+  return fieldTitles[key] ? t(fieldTitles[key]) : key;
+}
 
 /** Glass controls and text on the stage are white in both themes. */
 const STAGE_INK = '#FFFFFF';
@@ -65,7 +70,7 @@ const PREPARING_DELAY_MS = 400;
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function maskNumber(value: string): string {
-  return `•••• ${value.slice(-4)}`;
+  return t('viewer.maskedNumber', { last4: value.slice(-4) });
 }
 
 type LoadFailure = 'missing' | 'unreadable';
@@ -142,7 +147,7 @@ export default function DocumentViewerScreen() {
           kind: 'unreadable',
           detail:
             isKeyLocked(e) || code === 'KEY_INVALIDATED'
-              ? plainErrorMessage(e, 'It may be damaged.')
+              ? plainErrorMessage(e, t('viewer.unreadable.body'))
               : undefined,
         });
       })
@@ -160,7 +165,7 @@ export default function DocumentViewerScreen() {
     const timer = setTimeout(() => setSlow(true), PLACEHOLDER_DELAY_MS);
     return () => clearTimeout(timer);
   }, [loading]);
-  useAnnouncement(loading && slow ? `Opening page ${page + 1}` : null);
+  useAnnouncement(loading && slow ? t('viewer.opening', { number: page + 1 }) : null);
 
   // A revealed number is masked again as soon as the app leaves the screen.
   useEffect(() => {
@@ -199,7 +204,7 @@ export default function DocumentViewerScreen() {
       const confirmed = await stepUp();
       if (mounted.current) setConfirming(false);
       if (!confirmed) {
-        if (mounted.current) toast.show({ message: shareCopy['warning.notConfirmed'] });
+        if (mounted.current) toast.show({ message: shareText('warning.notConfirmed') });
         return;
       }
     }
@@ -235,7 +240,7 @@ export default function DocumentViewerScreen() {
     }
     if (!copy) {
       setBusy(null);
-      toast.show({ message: shareCopy.failed, tone: 'danger' });
+      toast.show({ message: shareText('failed'), tone: 'danger' });
       return;
     }
     try {
@@ -315,7 +320,7 @@ export default function DocumentViewerScreen() {
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
     await Clipboard.setStringAsync(document.ocrText);
-    toast.show({ message: 'Text copied', tone: 'success' });
+    toast.show({ message: t('viewer.textCopied'), tone: 'success' });
   }, [document, toast]);
 
   const runOcr = useCallback(async () => {
@@ -328,13 +333,13 @@ export default function DocumentViewerScreen() {
         const ocrText = ocrService.cleanText(result.text);
         await documentService.updateDocument(document.id, { ocrText });
         setDocument({ ...document, ocrText });
-        toast.show({ message: 'Text read on this device', tone: 'success' });
+        toast.show({ message: t('viewer.ocr.done'), tone: 'success' });
       } else {
-        toast.show({ message: 'No readable text was found on the first page.' });
+        toast.show({ message: t('viewer.ocr.none') });
       }
     } catch (e) {
       toast.show({
-        message: plainErrorMessage(e, 'Couldn’t read the text.'),
+        message: plainErrorMessage(e, t('viewer.ocr.failed')),
         tone: 'danger',
       });
     } finally {
@@ -372,10 +377,10 @@ export default function DocumentViewerScreen() {
       });
       if (updated) setDocument(updated);
       setEditing(false);
-      toast.show({ message: 'Details updated', tone: 'success' });
+      toast.show({ message: t('viewer.edit.saved'), tone: 'success' });
     } catch (e) {
       toast.show({
-        message: plainErrorMessage(e, 'Couldn’t update the details. Nothing was changed.'),
+        message: plainErrorMessage(e, t('viewer.edit.failed')),
         tone: 'danger',
       });
     }
@@ -402,28 +407,36 @@ export default function DocumentViewerScreen() {
       <Screen>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.failureBar}>
-          <Button label="Library" variant="plain" size="md" icon="back" onPress={goToLibrary} />
+          <Button
+            label={t('viewer.library')}
+            variant="plain"
+            size="md"
+            icon="back"
+            onPress={goToLibrary}
+          />
         </View>
         <View style={styles.failure} accessibilityRole="alert">
           <View style={styles.failureIcon}>
             <Icon name={missing ? 'document' : 'warning'} size={30} tone="secondary" />
           </View>
           <Text variant="title3" align="center" accessibilityRole="header">
-            {missing
-              ? 'This document is no longer in the vault.'
-              : 'This document couldn’t be opened.'}
+            {t(missing ? 'viewer.missing.title' : 'viewer.unreadable.title')}
           </Text>
           <Text variant="callout" tone="secondary" align="center">
-            {missing ? 'A restore may have replaced it.' : (failure.detail ?? 'It may be damaged.')}
+            {missing ? t('viewer.missing.body') : (failure.detail ?? t('viewer.unreadable.body'))}
           </Text>
-          <Button label={missing ? 'Go to Library' : 'Back to Library'} onPress={goToLibrary} />
+          <Button
+            label={t(missing ? 'viewer.missing.button' : 'viewer.unreadable.button')}
+            onPress={goToLibrary}
+          />
         </View>
       </Screen>
     );
   }
 
   const multiPage = pages.length > 1;
-  const pageLine = pages.length > 0 ? `Page ${page + 1} of ${pages.length}` : '';
+  const pageLine =
+    pages.length > 0 ? t('viewer.pageLine', { number: page + 1, count: pages.length }) : '';
   const expires = fields.find((field) => field.key === 'expires' && field.kind === 'date');
 
   return (
@@ -448,7 +461,7 @@ export default function DocumentViewerScreen() {
             </View>
           ) : !loading ? (
             <Text variant="footnote" style={styles.dim}>
-              Preview unavailable
+              {t('viewer.previewUnavailable')}
             </Text>
           ) : null}
         </View>
@@ -459,12 +472,12 @@ export default function DocumentViewerScreen() {
           <IconButton
             icon="back"
             variant="glass"
-            accessibilityLabel="Back to Library"
+            accessibilityLabel={t('viewer.backToLibrary')}
             onPress={goToLibrary}
           />
           <View style={styles.titleBlock}>
             {document ? (
-              <Text variant="headline" numberOfLines={1} style={styles.ink}>
+              <Text variant="headline" numberOfLines={2} style={styles.ink}>
                 {isolate(document.title)}
               </Text>
             ) : null}
@@ -478,14 +491,14 @@ export default function DocumentViewerScreen() {
             <IconButton
               icon="share"
               variant="glass"
-              accessibilityLabel="Share a copy"
+              accessibilityLabel={t('viewer.shareCopy')}
               onPress={openShare}
               disabled={!document || pages.length === 0 || busy === 'share'}
             />
             <IconButton
               icon="more"
               variant="glass"
-              accessibilityLabel="More actions"
+              accessibilityLabel={t('viewer.moreActions')}
               onPress={() => setDetails(true)}
               disabled={!document}
             />
@@ -500,9 +513,9 @@ export default function DocumentViewerScreen() {
         >
           <Banner
             icon="lock"
-            lead={shareCopy['interrupted.lead']}
-            message={shareCopy['interrupted.body']}
-            actions={[{ label: shareCopy['interrupted.again'], onPress: shareAgain }]}
+            lead={shareText('interrupted.lead')}
+            message={shareText('interrupted.body')}
+            actions={[{ label: shareText('interrupted.again'), onPress: shareAgain }]}
             onDismiss={() => clearShareInterrupted()}
           />
         </View>
@@ -516,13 +529,16 @@ export default function DocumentViewerScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.strip}
               accessibilityRole="tablist"
-              accessibilityLabel="Pages"
+              accessibilityLabel={t('viewer.pages')}
             >
               {pages.map((uri, index) => (
                 <Pressable
                   key={uri}
                   accessibilityRole="tab"
-                  accessibilityLabel={`Page ${index + 1} of ${pages.length}`}
+                  accessibilityLabel={t('viewer.pageLine', {
+                    number: index + 1,
+                    count: pages.length,
+                  })}
                   accessibilityState={{ selected: index === page }}
                   onPress={() => setPage(index)}
                   style={styles.stripPage(index === page)}
@@ -534,13 +550,13 @@ export default function DocumentViewerScreen() {
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Details"
+            accessibilityLabel={t('viewer.details')}
             onPress={() => setDetails(true)}
             style={styles.detailsPill}
           >
             <Icon name="info" size={18} color={STAGE_INK} />
             <Text variant="callout" style={[styles.ink, styles.pillLabel]}>
-              Details
+              {t('viewer.details')}
             </Text>
           </Pressable>
         </View>
@@ -550,13 +566,11 @@ export default function DocumentViewerScreen() {
         <ShareSheet
           step={shareStep}
           fileName={document.title}
-          fileMeta={[
-            pluralize(Math.max(pages.length, 1), 'page'),
-            document.fileType === 'pdf' ? 'PDF' : 'Image',
+          fileMeta={joinParts([
+            tp('format.pages', Math.max(pages.length, 1)),
+            t(document.fileType === 'pdf' ? 'viewer.fileType.pdf' : 'viewer.fileType.image'),
             formatFileSize(document.fileSize),
-          ]
-            .filter(Boolean)
-            .join(' · ')}
+          ])}
           fileIcon={document.fileType === 'pdf' ? 'pdf' : 'image'}
           confirmFirst={settings.biometricsForShare}
           biometry={biometry}
@@ -573,8 +587,12 @@ export default function DocumentViewerScreen() {
             setDetails(false);
             setEditing(false);
           }}
-          title={editing ? 'Edit details' : undefined}
-          headerAction={editing ? { label: 'Cancel', onPress: () => setEditing(false) } : undefined}
+          title={editing ? t('viewer.edit.title') : undefined}
+          headerAction={
+            editing
+              ? { label: t('viewer.edit.cancel'), onPress: () => setEditing(false) }
+              : undefined
+          }
           detent={editing ? 'large' : 'auto'}
         >
           <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
@@ -602,32 +620,39 @@ export default function DocumentViewerScreen() {
                       ) : null}
                     </View>
                   </View>
-                  <Button label="Edit" variant="secondary" size="md" onPress={openEditor} />
+                  <Button
+                    label={t('viewer.edit.button')}
+                    variant="secondary"
+                    size="md"
+                    onPress={openEditor}
+                  />
                 </View>
 
                 {fields.length > 0 || document.tags.length > 0 ? (
-                  <Group header="Found on this device">
+                  <Group header={t('viewer.found')}>
                     {fields.map((field) =>
                       field.kind === 'date' ? (
                         <ListRow
                           key={field.key}
-                          title={fieldTitles[field.key] ?? field.key}
+                          title={fieldTitle(field.key)}
                           value={formatDate(field.value)}
                         />
                       ) : (
                         <ListRow
                           key={field.key}
-                          title={fieldTitles[field.key] ?? field.key}
+                          title={fieldTitle(field.key)}
                           value={revealNumber ? field.value : maskNumber(field.value)}
                           trailing={
                             <Button
-                              label={revealNumber ? 'Hide' : 'Show'}
+                              label={t(revealNumber ? 'viewer.number.hide' : 'viewer.number.show')}
                               variant="plain"
                               size="md"
                               icon={revealNumber ? 'eyeOff' : 'eye'}
-                              accessibilityLabel={
-                                revealNumber ? 'Hide document number' : 'Show document number'
-                              }
+                              accessibilityLabel={t(
+                                revealNumber
+                                  ? 'viewer.number.hideLabel'
+                                  : 'viewer.number.showLabel',
+                              )}
                               onPress={() => setRevealNumber((value) => !value)}
                             />
                           }
@@ -636,8 +661,10 @@ export default function DocumentViewerScreen() {
                     )}
                     {document.tags.length > 0 ? (
                       <ListRow
-                        title="Tags"
-                        accessibilityLabel={`Tags: ${document.tags.join(', ')}`}
+                        title={t('viewer.tags')}
+                        accessibilityLabel={t('viewer.tagsLabel', {
+                          tags: document.tags.join(t('viewer.tagsSeparator')),
+                        })}
                         trailing={
                           <View style={styles.tagChips}>
                             {document.tags.map((tag) => (
@@ -652,13 +679,10 @@ export default function DocumentViewerScreen() {
 
                 {document.ocrText ? null : (
                   <View style={styles.noText}>
-                    <InlineAlert
-                      tone="info"
-                      message="No readable text was found, so this document isn’t searchable by its contents yet."
-                    />
+                    <InlineAlert tone="info" message={t('viewer.noText')} />
                     <Button
-                      label="Read again"
-                      loadingLabel="Reading the text…"
+                      label={t('viewer.readAgain')}
+                      loadingLabel={t('viewer.reading')}
                       variant="tinted"
                       size="md"
                       loading={busy === 'ocr'}
@@ -673,21 +697,21 @@ export default function DocumentViewerScreen() {
                     <ListRow
                       icon="text"
                       tint="neutral"
-                      title="Text read from the pages"
-                      value="Copy"
+                      title={t('viewer.ocrText')}
+                      value={t('viewer.copy')}
                       onPress={copyText}
                     />
                   ) : null}
                   <ListRow
                     icon="share"
                     tint="neutral"
-                    title="Share a copy…"
+                    title={t('viewer.shareFromDetails')}
                     onPress={shareFromDetails}
                     disabled={pages.length === 0 || busy === 'share'}
                   />
                   <ListRow
                     icon="trash"
-                    title="Delete"
+                    title={t('viewer.delete')}
                     destructive
                     onPress={remove}
                     disabled={busy === 'delete'}
@@ -695,14 +719,12 @@ export default function DocumentViewerScreen() {
                 </Group>
 
                 <Text variant="footnote" tone="tertiary" style={styles.footer}>
-                  {[
-                    `Added ${formatDate(document.createdAt)}`,
-                    pages.length > 0 ? pluralize(pages.length, 'page') : null,
+                  {joinParts([
+                    t('viewer.added', { date: formatDate(document.createdAt) }),
+                    pages.length > 0 ? tp('format.pages', pages.length) : null,
                     formatFileSize(document.fileSize),
-                    'Encrypted on this device',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                    t('viewer.encrypted'),
+                  ])}
                 </Text>
               </>
             )}
@@ -732,26 +754,26 @@ function EditDetails({
     <View style={styles.form}>
       <View style={styles.field}>
         <Text variant="label" tone="tertiary">
-          Title
+          {t('viewer.edit.titleField')}
         </Text>
         <TextInput
           value={draft.title}
           onChangeText={(title) => onChange({ ...draft, title })}
           style={[styles.input, titleError && styles.inputError]}
           placeholderTextColor={theme.colors.textTertiary}
-          accessibilityLabel="Title"
+          accessibilityLabel={t('viewer.edit.titleField')}
           aria-invalid={titleError}
           returnKeyType="done"
         />
         {titleError ? (
           <Text variant="footnote" tone="danger" accessibilityRole="alert">
-            Give the document a title.
+            {t('viewer.edit.titleMissing')}
           </Text>
         ) : null}
       </View>
       <View style={styles.field}>
         <Text variant="label" tone="tertiary">
-          Collection
+          {t('viewer.edit.collection')}
         </Text>
         <View style={styles.chips}>
           {allCategories.map((category) => (
@@ -767,19 +789,19 @@ function EditDetails({
       </View>
       <View style={styles.field}>
         <Text variant="label" tone="tertiary">
-          Tags
+          {t('viewer.edit.tags')}
         </Text>
         <TextInput
           value={draft.tags}
           onChangeText={(tags) => onChange({ ...draft, tags })}
           style={styles.input}
-          placeholder="Separate with commas"
+          placeholder={t('viewer.edit.tagsPlaceholder')}
           placeholderTextColor={theme.colors.textTertiary}
-          accessibilityLabel="Tags"
+          accessibilityLabel={t('viewer.edit.tags')}
           autoCapitalize="none"
         />
       </View>
-      <Button label="Save" onPress={onSave} />
+      <Button label={t('viewer.edit.save')} onPress={onSave} />
     </View>
   );
 }
