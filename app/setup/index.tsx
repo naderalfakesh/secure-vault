@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   type NativeScrollEvent,
@@ -12,43 +12,58 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, type IconName, Screen, Text } from '@/components/ui';
+import { Button, Icon, IconButton, type IconName, Screen, Text } from '@/components/ui';
+import { biometryIcon } from '@/features/auth/lockCopy';
+import { unlockSlideBody } from '@/features/auth/onboardingCopy';
+import { useSession } from '@/features/session/SessionProvider';
 
-const slides: { icon: IconName; title: string; body: string }[] = [
-  {
-    icon: 'files',
-    title: 'One place for the papers that matter',
-    body: 'Passports, IDs, insurance cards, leases, receipts. Scan them once and find them in seconds.',
-  },
-  {
-    icon: 'shield',
-    title: 'Encrypted on this phone',
-    body: Platform.select({
-      ios: "Every page is encrypted before it's saved. The key is created on this phone and kept by the iOS Keychain. There's no account to sign up for.",
-      default:
-        "Every page is encrypted before it's saved. The key is created on this phone and kept by the Android Keystore. There's no account to sign up for.",
-    }),
-  },
-  {
-    icon: 'faceId',
-    title: 'Unlock the way you already do',
-    body: Platform.select({
-      ios: 'Face ID, Touch ID, or your device passcode opens the vault. A 6-digit PIN is always there as a fallback.',
-      default:
-        'Your fingerprint, face unlock, or screen lock opens the vault. A 6-digit PIN is always there as a fallback.',
-    }),
-  },
-];
+type Slide = { icon: IconName; title: string; body: string };
 
+function introSlides(unlockBody: string, unlockIcon: IconName): Slide[] {
+  return [
+    {
+      icon: 'files',
+      title: 'One place for the papers that matter',
+      body: 'Passports, IDs, insurance cards, leases, receipts. Scan them once and find them in seconds.',
+    },
+    {
+      icon: 'lock',
+      title: 'Encrypted on this phone',
+      body: Platform.select({
+        ios: 'Every page is encrypted before it’s saved. The key is created on this phone and kept by the iOS Keychain. There’s no account to sign up for.',
+        default:
+          'Every page is encrypted before it’s saved. The key is created on this phone and kept by the Android Keystore. There’s no account to sign up for.',
+      }),
+    },
+    { icon: unlockIcon, title: 'Unlock the way you already do', body: unlockBody },
+  ];
+}
+
+/** J0 intro, steps 1–3 (handover §6, §7.5). */
 export default function OnboardingScreen() {
+  const { biometry, vaultExists, vaultEmpty, setupHeld } = useSession();
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [page, setPage] = useState(0);
+  const slides = introSlides(
+    unlockSlideBody(biometry),
+    biometry === 'none' ? 'unlock' : biometryIcon(biometry),
+  );
   const last = page === slides.length - 1;
+
+  // A key that guards documents only needs a PIN; it never sees "set up your
+  // vault". A held setup has a key too, and stays where it is.
+  if (vaultExists && !vaultEmpty && !setupHeld) return <Redirect href="/setup/pin" />;
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setPage(Math.round(event.nativeEvent.contentOffset.x / width));
+  };
+
+  const goTo = (next: number) => {
+    setPage(next);
+    // Reduced motion shows one step at a time without the slide.
+    if (!reduceMotion) scrollRef.current?.scrollTo({ x: next * width, animated: true });
   };
 
   const next = () => {
@@ -56,38 +71,62 @@ export default function OnboardingScreen() {
       router.push('/setup/pin');
       return;
     }
-    scrollRef.current?.scrollTo({ x: (page + 1) * width, animated: !reduceMotion });
+    goTo(page + 1);
   };
+
+  const renderSlide = (slide: Slide) => (
+    <View key={slide.title} style={[styles.slide, { width }]}>
+      <View style={styles.art}>
+        <View style={styles.badge}>
+          <Icon name={slide.icon} size={40} tone="accent" />
+        </View>
+      </View>
+      <Text variant="title1" accessibilityRole="header">
+        {slide.title}
+      </Text>
+      <Text variant="body" tone="secondary">
+        {slide.body}
+      </Text>
+    </View>
+  );
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.skipRow}>
-        <Button label="Skip" variant="plain" size="md" onPress={() => router.push('/setup/pin')} />
+      <View style={styles.bar}>
+        {page > 0 ? (
+          <IconButton icon="back" accessibilityLabel="Back" onPress={() => goTo(page - 1)} />
+        ) : (
+          <View />
+        )}
+        {last ? null : (
+          <Button
+            label="Skip"
+            variant="plain"
+            size="md"
+            onPress={() => router.push('/setup/pin')}
+          />
+        )}
       </View>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={onScroll}
-        style={styles.pager}
-      >
-        {slides.map((slide) => (
-          <View key={slide.title} style={[styles.slide, { width }]} accessibilityRole="summary">
-            <View style={styles.badge}>
-              <Icon name={slide.icon} size={40} tone="accent" />
-            </View>
-            <Text variant="title1" align="center" accessibilityRole="header">
-              {slide.title}
-            </Text>
-            <Text variant="body" tone="secondary" align="center" style={styles.body}>
-              {slide.body}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
+      {reduceMotion ? (
+        <View style={styles.pager}>{renderSlide(slides[page])}</View>
+      ) : (
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onScroll}
+          style={styles.pager}
+        >
+          {slides.map(renderSlide)}
+        </ScrollView>
+      )}
       <View style={styles.footer}>
-        <View style={styles.dots} accessibilityLabel={`Page ${page + 1} of ${slides.length}`}>
+        <View
+          style={styles.dots}
+          accessible
+          accessibilityLabel={`Step ${page + 1} of ${slides.length}`}
+        >
           {slides.map((slide, index) => (
             <View key={slide.title} style={styles.dot(index === page)} />
           ))}
@@ -99,9 +138,11 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  skipRow: {
+  bar: {
+    minHeight: 52,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.sm,
   },
   pager: {
@@ -109,22 +150,25 @@ const styles = StyleSheet.create((theme) => ({
   },
   slide: {
     flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.sm,
+  },
+  art: {
+    height: 240,
+    borderRadius: theme.radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    gap: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    marginBottom: theme.spacing.lg,
   },
   badge: {
     width: 96,
     height: 96,
-    borderRadius: theme.radii.pill,
+    borderRadius: theme.radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.primaryMuted,
-    marginBottom: theme.spacing.sm,
-  },
-  body: {
-    maxWidth: 320,
   },
   footer: {
     padding: theme.spacing.md,

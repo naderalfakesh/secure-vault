@@ -5,6 +5,7 @@ export default function SetupLayout() {
     <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="pin" />
+      <Stack.Screen name="biometrics" />
     </Stack>
   );
 }
