@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
+import { useThrottledAnnouncement } from './announce';
 import { Text } from './Text';
 
 export type ProgressBlockProps = {
@@ -17,6 +18,9 @@ export type ProgressBlockProps = {
 
 /** Determinate progress (handover §4): label, optional detail, 6 pt bar. */
 export function ProgressBlock({ label, detail, progress, testID }: ProgressBlockProps) {
+  // A polite live region on Android; iOS ignores live regions, so it hears
+  // the line when it appears and then at most every few seconds.
+  useThrottledAnnouncement(label);
   const percent = Math.round(
     Math.min(1, Math.max(0, Number.isFinite(progress) ? progress : 0)) * 100,
   );

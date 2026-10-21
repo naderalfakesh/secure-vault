@@ -12,6 +12,8 @@ import { StyleSheet } from 'react-native-unistyles';
 import { t } from '@/i18n';
 import { motion } from '@/theme/tokens';
 
+import { useAnnouncement } from './announce';
+
 export type PinDotsProps = {
   count?: number;
   filled: number;
@@ -36,14 +38,17 @@ export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDots
     offset.value = withSequence(...steps, withTiming(0, { duration: step }));
   }, [shake, reduceMotion, offset]);
 
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: offset.value }],
-  }));
+  const style = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
+  const label = t('ui.pinDots.entered', { filled, count });
+  // Android speaks the live region itself; iOS needs the announcement. An
+  // empty row is not announced, so a reset after a wrong PIN leaves the
+  // error sentence to speak.
+  useAnnouncement(label, filled > 0);
 
   return (
     <Animated.View
       accessible
-      accessibilityLabel={t('ui.pinDots.entered', { filled, count })}
+      accessibilityLabel={label}
       accessibilityLiveRegion="polite"
       style={[styles.dots, style]}
     >
