@@ -19,6 +19,7 @@ export function protectionFacts(): string[] {
     t('settings.protection.fact.pin'),
     t('settings.protection.fact.backup'),
     t('settings.protection.fact.account'),
+    t('settings.protection.fact.mlkit'),
   ];
 }
 

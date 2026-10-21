@@ -52,9 +52,12 @@ a native run on both platforms, and a note under
   Photos and Files as secondary sources; PDFs rendered natively so one viewer
   handles everything
 - On-device text reading with suggested titles, categories, tags, and typed
-  fields; expiry dates surface on Home as "Expiring soon". Pages and their
-  text stay on the phone, but Google ML Kit sends Google anonymous usage
-  metrics that cannot be turned off (see `docs/SECURITY.md`)
+  fields; expiry dates surface on Home as "Expiring soon". Text is read on
+  the device by Google ML Kit (and, on Android, scanned by the Google Play
+  services document scanner). ML Kit sends Google usage and performance
+  metrics, which include a per-installation identifier. It does not send your
+  images or the text it reads. This cannot be turned off (see
+  `docs/SECURITY.md`)
 - A pinch-zoom page viewer with a thumbnail strip, sharing under the
   document's own name with guaranteed cleanup, and delete with undo
 - Passphrase-protected `.svbackup` files that hold the documents and the

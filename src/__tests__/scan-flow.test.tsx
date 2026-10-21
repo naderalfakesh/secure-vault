@@ -444,7 +444,9 @@ describe('Add a document: processing', () => {
     expect(view.getByLabelText('Reading the text, in progress')).toBeOnTheScreen();
     expect(view.getByLabelText('Encrypting, not started')).toBeOnTheScreen();
     expect(
-      view.getByText('Runs on this device. Your pages and their text aren’t uploaded.'),
+      view.getByText(
+        'Text is read on this device. Google ML Kit sends Google usage metrics, but not your pages or their text.',
+      ),
     ).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
 

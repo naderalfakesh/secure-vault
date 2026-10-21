@@ -73,7 +73,10 @@ export const settings = {
   'settings.protection.fact.backup':
     'Backups are encrypted with a key made from your passphrase. SecureVault doesn’t keep the passphrase.',
   'settings.protection.fact.account':
-    'There is no account, and SecureVault itself collects no analytics. Google ML Kit, which reads text on this phone, may send Google anonymous usage metrics such as the device model and how long a scan took. Google says it doesn’t send the pages or the text it reads.',
+    'There is no account, and SecureVault itself collects no analytics.',
+  /** Google ML Kit disclosure (owner decision: ML Kit stays). Kept in step with docs/SECURITY.md. */
+  'settings.protection.fact.mlkit':
+    'SecureVault uses Google ML Kit to read document text on this phone. On Android, it also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
   'settings.protection.limit.pin':
     'Someone who knows your PIN, or holds your phone while the vault is unlocked.',
   'settings.protection.limit.share':

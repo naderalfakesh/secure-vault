@@ -57,10 +57,14 @@ switches do not apply, and the bundled and unbundled models log the same
 way. Behaviour is therefore unchanged, and these places now say what is
 true: the protection page fact, the processing sheet footer, the
 `docs/SECURITY.md` threat model (with a new "Google ML Kit metrics" section),
-and the README. Open owner decision: keep ML Kit with the disclosure, or
-replace text recognition with Apple Vision on iOS. On Android only, the
-network permission could also be removed from release builds, but that
-would not cover the Play services scanner.
+and the README. Owner decision (review round 1): keep ML Kit on both
+platforms and disclose it. The final wording, the same everywhere, says
+that ML Kit reads text on the device (with the Play services scanner on
+Android), that it sends Google usage and performance metrics that include a
+per-installation identifier (so they are never called anonymous), that it
+does not send images or the text it reads, and that this cannot be turned
+off. `docs/SECURITY.md` lists the data categories from the privacy manifest
+and Google's disclosure pages.
 
 **M3.** Kept and fixed rather than removed. No picker hands over a
 `content://` URI today, but the Android scanner's page URIs come from Google

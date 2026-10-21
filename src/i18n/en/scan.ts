@@ -34,7 +34,8 @@ export const scan = {
   'scan.review.doneMoving': 'Done',
   'scan.processing.reading': 'Reading the document',
   'scan.processing.saving': 'Saving the document',
-  'scan.processing.footer': 'Runs on this device. Your pages and their text aren’t uploaded.',
+  'scan.processing.footer':
+    'Text is read on this device. Google ML Kit sends Google usage metrics, but not your pages or their text.',
   'scan.processing.cancel': 'Cancel',
   'scan.processing.done': 'Done',
   'scan.processing.working': 'Working…',

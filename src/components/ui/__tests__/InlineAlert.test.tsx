@@ -21,12 +21,14 @@ describe('InlineAlert', () => {
   it('keeps info callouts quiet and without the alert role', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     const view = await render(
-      <InlineAlert message="Runs on this device. Your pages and their text aren’t uploaded." />,
+      <InlineAlert message="Text is read on this device. Google ML Kit sends Google usage metrics, but not your pages or their text." />,
     );
 
     expect(view.queryByRole('alert')).toBeNull();
     expect(
-      view.getByLabelText('Runs on this device. Your pages and their text aren’t uploaded.'),
+      view.getByLabelText(
+        'Text is read on this device. Google ML Kit sends Google usage metrics, but not your pages or their text.',
+      ),
     ).toBeOnTheScreen();
     expect(announce).not.toHaveBeenCalled();
   });

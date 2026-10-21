@@ -12,9 +12,9 @@ intact and its Keychain and Keystore work as documented. It does not defend agai
 or rooted device with a debugger attached, a malicious OS update, or someone
 who knows the app PIN and has the unlocked phone in hand. There is no
 account, and SecureVault itself sends nothing anywhere and collects no
-analytics. Google ML Kit, which reads text (and, on Android, scans pages
-through Google Play services), does send Google usage metrics; see
-"Google ML Kit metrics" below.
+analytics. Google ML Kit, which reads document text on the device (and, on
+Android, the Google Play services document scanner), sends Google usage and
+performance metrics; see "Google ML Kit metrics" below.
 
 ## Key hierarchy
 
@@ -388,32 +388,44 @@ disabled until it ends.
 
 ## Google ML Kit metrics
 
-Text recognition uses Google ML Kit on both platforms, and the Android
-document scanner is ML Kit's Google Play services scanner. ML Kit runs on
-the device: Google's ML Kit terms say it does not send the images it reads
-or the text it finds. It does send Google performance and usage metrics,
-which its data disclosure pages list as the device model and OS version, the
-app's bundle ID and version, a per-installation identifier, latency, the
-image format and size, event types and error codes, encrypted in transit.
-On iOS, `MLKitCommon` carries its own Clearcut uploader, which keeps its
-queue in `Library/Caches/CCTClearcutLogger` and reads Phenotype
-configuration (the milestone QA found both in the app container); its
-privacy manifest declares device ID, performance, product interaction,
-diagnostic and other data for analytics, not linked to the user and not used
-for tracking. On Android the bundled text recognition logs through Google's
-data transport, and the scanner runs inside Google Play services, outside the
-app.
+SecureVault uses Google ML Kit to read document text on the device, on both
+platforms. On Android it also uses the Google Play services document
+scanner, which runs inside Google Play services, outside the app. The app
+keeps both, and discloses them on the protection page and the processing
+sheet.
 
-Neither ML Kit nor the scanner offers a setting, Info.plist key, or manifest
-flag that turns these metrics off. The `firebase_*` and
+What is sent:
+
+- ML Kit sends Google usage and performance metrics. Google's ML Kit data
+  disclosure pages list: device information (manufacturer, model, OS version
+  and build, ML hardware accelerators), app information (bundle ID or
+  package name and app version), a per-installation identifier, performance
+  metrics such as latency, API configuration such as image format and
+  resolution, input and output size, feature version, event types and error
+  codes. They are encrypted in transit.
+- The `MLKitCommon` privacy manifest (pod 13.0.0) declares these collected
+  data types, for analytics (and, except diagnostics, app functionality),
+  not linked to the user and not used for tracking: device ID, performance
+  data, product interaction, other diagnostic data, other user content, and
+  other data types.
+- ML Kit does not send your images or the text it reads: Google's ML Kit
+  terms say processing happens on the device and that input data and
+  results are not sent to Google servers. The manifest's "other user
+  content" entry is Google's own declaration and is not explained further.
+- The per-installation identifier means the metrics are not anonymous, even
+  though Google says the identifier is not meant to identify a user or a
+  device.
+
+How it is sent: on iOS, `MLKitCommon` carries its own Clearcut uploader,
+which queues events in `Library/Caches/CCTClearcutLogger` and reads Phenotype
+configuration (the milestone 1 QA found both in the app container). On
+Android the bundled text recognition logs through Google's data transport,
+and the scanner logs from Google Play services.
+
+This cannot be turned off. Neither ML Kit nor the scanner offers a setting,
+Info.plist key or manifest flag for it. The `firebase_*` and
 `FirebaseDataCollectionDefaultEnabled` switches belong to Firebase, which
 SecureVault does not use, and the bundled and unbundled models log alike.
-SecureVault therefore does not claim to collect no analytics on ML Kit's
-behalf: the protection page and the processing sheet say what is and is not
-sent. Cutting the metrics would mean replacing ML Kit (Apple Vision on iOS;
-on Android there is no Google-free equivalent in the current stack), or, on
-Android only, removing the network permission from release builds, which
-would not cover the Play services scanner. That is an owner decision.
 
 ## Honest limits
 

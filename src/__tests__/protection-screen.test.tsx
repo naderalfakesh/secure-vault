@@ -20,8 +20,11 @@ describe('How your data is protected', () => {
       view.getByText(/There is no account, and SecureVault itself collects no analytics\./),
     ).toBeOnTheScreen();
     expect(
-      view.getByText(/Google ML Kit, .* may send Google anonymous usage metrics/),
+      view.getByText(
+        'SecureVault uses Google ML Kit to read document text on this phone. On Android, it also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
+      ),
     ).toBeOnTheScreen();
+    expect(view.queryByText(/anonymous/i)).toBeNull();
     expect(
       view.queryByText(/^There is no account, and SecureVault collects no analytics\.$/),
     ).toBeNull();
