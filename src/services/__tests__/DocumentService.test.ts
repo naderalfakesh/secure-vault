@@ -118,6 +118,26 @@ describe('DocumentService', () => {
     expect(scratch.exists).toBe(false);
   });
 
+  it('leaves no document or vault entries behind when writing its pages fails', async () => {
+    const { repository } = await openDocumentStore();
+    const pages = [picked, { ...picked, uri: '/tmp/page-2.jpg', name: 'page-2.jpg' }];
+    const setPages = jest
+      .spyOn(repository, 'setPages')
+      .mockRejectedValueOnce(new Error('index busy'));
+
+    await expect(documentService.addDocument(pages, { title: 'Lease' })).rejects.toThrow(
+      'index busy',
+    );
+
+    expect(await documentService.getAllDocuments()).toHaveLength(0);
+    expect(await vault.getAllKeys()).toEqual([]);
+
+    // A retry from the same pick makes exactly one document.
+    await documentService.addDocument(pages, { title: 'Lease' });
+    expect(await documentService.getAllDocuments()).toHaveLength(1);
+    setPages.mockRestore();
+  });
+
   it('names shared copies after the document and strips unsafe characters', () => {
     expect(shareFileName('Passport: Jane/Doe?')).toBe('Passport Jane Doe');
     expect(shareFileName('   ')).toBe('document');

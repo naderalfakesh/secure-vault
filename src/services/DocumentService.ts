@@ -186,31 +186,44 @@ class DocumentService {
       this.discardImportCopy(sourcePath);
     }
 
+    // A save that fails part way leaves nothing behind, so a retry from the
+    // same pick makes one document, never a second.
     const pageKeys: string[] = [];
-    for (const [index, page] of files.slice(1).entries()) {
-      const pageKey = `${PAGE_PREFIX}${id}_${index + 1}`;
-      const pagePath = await this.getLocalFilePath(page.uri);
-      try {
-        await ExpoVaultModule.putFile(pageKey, pagePath);
-      } finally {
-        this.discardImportCopy(pagePath);
+    let inserted = false;
+    let document: Document;
+    try {
+      for (const [index, page] of files.slice(1).entries()) {
+        const pageKey = `${PAGE_PREFIX}${id}_${index + 1}`;
+        const pagePath = await this.getLocalFilePath(page.uri);
+        try {
+          pageKeys.push(pageKey);
+          await ExpoVaultModule.putFile(pageKey, pagePath);
+        } finally {
+          this.discardImportCopy(pagePath);
+        }
       }
-      pageKeys.push(pageKey);
-    }
 
-    const document = await repository.insert({
-      id,
-      title: metadata.title || file.name || 'Untitled document',
-      category: metadata.category || DocumentCategory.OTHER,
-      tags: metadata.tags || [],
-      ocrText: metadata.ocrText,
-      thumbnailKey,
-      fileKey,
-      fileType,
-      fileSize: file.size || 0,
-      createdAt: metadata.createdAt ?? now,
-    });
-    if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
+      document = await repository.insert({
+        id,
+        title: metadata.title || file.name || 'Untitled document',
+        category: metadata.category || DocumentCategory.OTHER,
+        tags: metadata.tags || [],
+        ocrText: metadata.ocrText,
+        thumbnailKey,
+        fileKey,
+        fileType,
+        fileSize: file.size || 0,
+        createdAt: metadata.createdAt ?? now,
+      });
+      inserted = true;
+      if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
+    } catch (e) {
+      if (inserted) await repository.remove(id).catch(() => false);
+      for (const key of [fileKey, thumbnailKey, ...pageKeys]) {
+        await ExpoVaultModule.deleteFile(key).catch(() => {});
+      }
+      throw e;
+    }
     // Kept until now so a failed save can be retried from the same pick.
     for (const source of files) this.discardPickedCopy(source.uri);
     this.notify();
