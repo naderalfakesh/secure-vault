@@ -25,9 +25,22 @@ export default function LockScreen() {
   const security = useSecurityStatus();
   const promptedRef = useRef(false);
   const [checking, setChecking] = useState(false);
-  const [lockLeft, setLockLeft] = useState(0);
+  // Read the lockout on the first render, so the mark's first report to the
+  // splash handoff already knows whether the clock squircle is showing.
+  const [lockLeft, setLockLeft] = useState(() =>
+    Math.ceil(lockRemainingMs(lockout, Date.now()) / 1000),
+  );
   const [wrong, setWrong] = useState(false);
   const markRef = useRef<ViewInstance>(null);
+  const reportMark = (lockedOutNow: boolean) => {
+    // The splash handoff carries the splash mark here (§3.5); the lockout's
+    // clock is a different glyph, so it only cross-fades.
+    if (lockedOutNow) {
+      reportSplashTarget(null);
+      return;
+    }
+    markRef.current?.measureInWindow((x, y, width) => reportSplashTarget({ x, y, size: width }));
+  };
   // Biometric unlock off: the PIN comes first, and the device-unlock button
   // below still opens the system prompt for whoever wants it.
   const hasBiometrics = biometry !== 'none' && settings.biometricUnlock;
@@ -68,6 +81,12 @@ export default function LockScreen() {
   });
 
   const lockedOut = lockLeft > 0;
+
+  // Re-report when the glyph changes: a lockout that lands after the first
+  // layout withdraws the target, so the handoff fades instead of gliding.
+  useEffect(() => {
+    reportMark(lockedOut);
+  }, [lockedOut]);
   const showWrong = wrong && !lockedOut;
   const showError = Boolean(error) && !lockedOut && !showWrong;
   const alerting = showWrong || showError;
@@ -92,21 +111,7 @@ export default function LockScreen() {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.hero}>
-        <View
-          ref={markRef}
-          collapsable={false}
-          onLayout={() => {
-            // The splash handoff carries the splash mark here (§3.5); the
-            // lockout's clock is a different glyph, so it only cross-fades.
-            if (lockedOut) {
-              reportSplashTarget(null);
-              return;
-            }
-            markRef.current?.measureInWindow((x, y, width) =>
-              reportSplashTarget({ x, y, size: width }),
-            );
-          }}
-        >
+        <View ref={markRef} collapsable={false} onLayout={() => reportMark(lockedOut)}>
           <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
         </View>
         <Text variant="title2" align="center" accessibilityRole="header" style={styles.title}>
