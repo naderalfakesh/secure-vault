@@ -1,7 +1,7 @@
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
@@ -25,16 +25,22 @@ function RootNavigator() {
   const ready = status !== 'loading';
   const unlocked = status === 'unlocked';
 
+  // The stored Appearance setting overrides the system theme, lock screen
+  // included. It is read alongside the session, and the splash stays until
+  // both are in, so the first frame is already in the chosen theme.
+  const [themed, setThemed] = useState(false);
+
   useEffect(() => {
-    if (ready) {
+    if (ready && themed) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [ready]);
+  }, [ready, themed]);
 
   useEffect(() => {
     documentService.sweepLegacyScratch();
-    // The stored Appearance setting overrides the system theme, lock screen included.
-    void loadAppearance();
+    loadAppearance()
+      .catch(() => {})
+      .finally(() => setThemed(true));
   }, []);
 
   useEffect(() => {
