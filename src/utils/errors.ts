@@ -17,5 +17,17 @@ export function plainErrorMessage(error: unknown, fallback: string): string {
   const code =
     typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
   if (code === 'KEY_INVALIDATED') return KEY_INVALIDATED_MESSAGE;
-  return error instanceof Error && error.message ? error.message : fallback;
+  if (!(error instanceof Error) || !error.message || namesPath(error.message)) return fallback;
+  return error.message;
+}
+
+/**
+ * A platform message that names a file (a URI, or an absolute path of two or
+ * more folders) is a diagnostic, not a sentence, and can expose where the
+ * vault keeps its plaintext copies; the screen's own fallback is shown instead.
+ */
+function namesPath(message: string): boolean {
+  return (
+    /\b(file|content):\/\//.test(message) || /(^|[\s'"(=:])\/[^\s/'"]+\/[^\s'"]+/.test(message)
+  );
 }

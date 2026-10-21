@@ -25,4 +25,19 @@ describe('plainErrorMessage', () => {
       'Could not open the document.',
     );
   });
+
+  it('never shows a platform message that names a file path', () => {
+    const fallback = 'Couldn’t save the document.';
+    for (const message of [
+      'Failed to read /data/user/0/com.naderalfakesh.securevault/cache/ImagePicker/1.jpg',
+      "File 'file:///var/mobile/Containers/Data/Application/X/Library/Caches/a.pdf' does not exist",
+      'Unable to open content://com.android.providers.media.documents/document/image%3A12',
+      "ENOENT: no such file or directory, open '/private/var/mobile/tmp/scan.jpg'",
+    ]) {
+      expect(plainErrorMessage(new Error(message), fallback)).toBe(fallback);
+    }
+    expect(plainErrorMessage(new Error('Pick 1/2 pages first.'), fallback)).toBe(
+      'Pick 1/2 pages first.',
+    );
+  });
 });
