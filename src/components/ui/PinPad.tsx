@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
+import { displayDigit } from '@/i18n/digits';
 
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
@@ -63,7 +64,7 @@ export function PinPad({
                 ) : key === 'bio' ? (
                   <Icon name={biometricIcon} size={30} tone="accent" />
                 ) : (
-                  <Text variant="pinDigit">{key}</Text>
+                  <Text variant="pinDigit">{displayDigit(key)}</Text>
                 )}
               </Pressable>
             );
