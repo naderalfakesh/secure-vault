@@ -123,9 +123,20 @@ async function loadCappedLockout(): Promise<LockoutState | null> {
   return capped;
 }
 
-function describeError(e: unknown, fallback: string): string {
+/** What a cancelled or lapsed key prompt means where it happened; setup has no PIN yet. */
+const keyNotUnlocked = {
+  unlock: KEY_NOT_UNLOCKED,
+  setup: 'The device key was not unlocked. Try again.',
+  changePin: 'The device key was not unlocked, so the PIN was not changed. Try again.',
+} as const;
+
+function describeError(
+  e: unknown,
+  fallback: string,
+  context: keyof typeof keyNotUnlocked = 'unlock',
+): string {
   // A cancelled or lapsed Android key prompt carries the Keystore's own text.
-  if (isKeyLocked(e)) return KEY_NOT_UNLOCKED;
+  if (isKeyLocked(e)) return keyNotUnlocked[context];
   const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
   if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
   if (e instanceof Error && e.message) return e.message;
@@ -344,7 +355,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         changeStatus('unlocked');
         return true;
       } catch (e) {
-        setError(describeError(e, 'Could not set up the vault.'));
+        setError(describeError(e, 'Could not set up the vault.', 'setup'));
         return false;
       }
     },
@@ -359,7 +370,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
       return true;
     } catch (e) {
-      setError(describeError(e, 'Could not change the PIN.'));
+      setError(describeError(e, 'Could not change the PIN.', 'changePin'));
       return false;
     }
   }, []);

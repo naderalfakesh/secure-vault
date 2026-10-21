@@ -32,6 +32,8 @@ function Probe() {
       <Text testID="failures">{String(session.lockout.failures)}</Text>
       <Text testID="locked-until">{String(session.lockout.lockedUntil)}</Text>
       <Text testID="autolock">{String(session.settings.autoLockSeconds)}</Text>
+      <Text testID="vault-empty">{String(session.vaultEmpty)}</Text>
+      <Text onPress={() => void session.changePin('123456', '654321')}>run change pin</Text>
       <Text onPress={() => void session.setUp('123456')}>run setup</Text>
       <Text onPress={() => void session.unlock()}>run unlock</Text>
       <Text onPress={() => void session.unlockWithPin('123456')}>run pin ok</Text>
@@ -205,6 +207,45 @@ describe('SessionProvider', () => {
 
     expect(view.getByTestId('error')).toHaveTextContent(
       'The device key was not unlocked. Enter your PIN to try again.',
+    );
+  });
+
+  it('does not ask for a PIN that setup has not created yet when the key prompt ends key-locked', async () => {
+    jest
+      .spyOn(vault, 'unlockWithBiometrics')
+      .mockRejectedValue(
+        Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }),
+      );
+
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await act(async () => {
+      await fireEvent.press(view.getByText('run setup'));
+    });
+
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'The device key was not unlocked. Try again.',
+    );
+    expect(view.getByTestId('error')).not.toHaveTextContent(/PIN/);
+  });
+
+  it('says the PIN was not changed when the key prompt ends key-locked', async () => {
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+    jest
+      .spyOn(SecureStore, 'setItemAsync')
+      .mockRejectedValue(
+        Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }),
+      );
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('run change pin'));
+    });
+
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'The device key was not unlocked, so the PIN was not changed. Try again.',
     );
   });
 
