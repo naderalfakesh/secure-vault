@@ -193,6 +193,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const pausesRef = useRef(
     new Set<{ maxAwayMs: number; endsOnReturn: boolean; awayAt: number | null }>(),
   );
+  // True when the time away being judged began as a pause ended in the background.
+  const pauseEndedAwayRef = useRef(false);
   const autoLockRef = useRef(settings.autoLockSeconds);
   useEffect(() => {
     autoLockRef.current = settings.autoLockSeconds;
@@ -470,8 +472,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
       try {
         return await work();
       } finally {
-        // A pause that was ended early no longer owns the time away.
-        if (pausesRef.current.delete(entry)) backgroundedAt.current = null;
+        if (pausesRef.current.delete(entry)) {
+          if (AppState.currentState === 'active' || entry.awayAt === null) {
+            backgroundedAt.current = null;
+          } else {
+            // Ended while still away (iOS handed the share to another app): the
+            // pause excused the time until now, and the rest of the time away
+            // is judged on return like any other.
+            backgroundedAt.current = Date.now();
+            pauseEndedAwayRef.current = true;
+          }
+        }
         settleWaiters();
       }
     },
@@ -532,11 +543,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
       const pauses = pausesRef.current;
       if (statusRef.current === 'unlocked' && pauses.size === 0) {
         if (next === 'background' || next === 'inactive') {
+          if (backgroundedAt.current === null) pauseEndedAwayRef.current = false;
           backgroundedAt.current ??= Date.now();
         } else if (next === 'active' && backgroundedAt.current !== null) {
           const idleMs = Date.now() - backgroundedAt.current;
+          const endedOnTheWayBack = pauseEndedAwayRef.current && idleMs < AUTO_LOCK_RETURN_GRACE_MS;
           backgroundedAt.current = null;
-          judgeAway(idleMs);
+          pauseEndedAwayRef.current = false;
+          // A picker result that lands just before the app is active again
+          // (Android) is part of coming back, not time away.
+          if (!endedOnTheWayBack) judgeAway(idleMs);
         }
       } else if (statusRef.current === 'unlocked') {
         const now = Date.now();

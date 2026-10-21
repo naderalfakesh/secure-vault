@@ -475,6 +475,48 @@ describe('SessionProvider session capture', () => {
     clock.mockRestore();
   });
 
+  it('judges the time away after a pause that ends while the app is still away', async () => {
+    await unlocked(0);
+    const share = pending();
+    let done!: Promise<void>;
+    await act(async () => {
+      done = session.withoutAutoLock(() => share.promise, sharePause());
+    });
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    // iOS hands the share to another app: the sheet settles just after leaving.
+    await moveTo('background');
+    await act(async () => {
+      share.settle();
+      await done;
+    });
+    clock.mockReturnValue(now + 60 * 60_000);
+    await moveTo('active');
+
+    expect(session.status).toBe('locked');
+    clock.mockRestore();
+  });
+
+  it('does not lock when a picker settles on the way back to the app', async () => {
+    await unlocked(0);
+    const picker = pending();
+    let done!: Promise<void>;
+    await act(async () => {
+      done = session.withoutAutoLock(() => picker.promise);
+    });
+
+    // Android delivers the picker result just before the app is active again.
+    await moveTo('background');
+    await act(async () => {
+      picker.settle();
+      await done;
+    });
+    await moveTo('active');
+
+    expect(session.status).toBe('unlocked');
+  });
+
   it('ends a share pause on return only on Android, and bounds it on both', () => {
     const os = Platform.OS;
     try {
