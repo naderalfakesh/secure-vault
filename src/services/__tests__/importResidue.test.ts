@@ -495,6 +495,27 @@ describe('import copies outside the vault', () => {
   });
 
   describe('rendered PDF previews', () => {
+    it.each([
+      ['fails', () => Promise.reject(new Error('not a pdf'))],
+      ['yields no page', () => Promise.resolve([])],
+    ])('leaves no empty preview folder when the render %s', async (_case, outcome) => {
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1760000000123);
+      const folder = new Directory(Paths.cache, 'pages_preview_1760000000123');
+      const render = jest.spyOn(vault, 'renderPdfPages').mockImplementationOnce(() => {
+        // The native renderer makes its folder before it finds the file unreadable.
+        folder.create({ intermediates: true, idempotent: true });
+        return outcome() as ReturnType<typeof vault.renderPdfPages>;
+      });
+
+      await expect(
+        documentService.previewForFile('file:///mock/tmp/broken.pdf', 'application/pdf'),
+      ).resolves.toBeNull();
+
+      expect(folder.exists).toBe(false);
+      render.mockRestore();
+      now.mockRestore();
+    });
+
     it('removes the folder a preview was rendered into, and no other', () => {
       const preview = plant(
         new Directory(Paths.cache, 'pages_preview_1760000000000'),

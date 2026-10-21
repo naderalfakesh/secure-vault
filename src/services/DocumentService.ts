@@ -387,12 +387,23 @@ class DocumentService {
   async previewForFile(uri: string, mimeType: string): Promise<string | null> {
     if (!mimeType.includes('pdf')) return uri;
     let path: string | null = null;
+    const folderName = `${PREVIEW_PREFIX}${Date.now()}`;
+    // A render that fails or yields no page leaves no empty preview folder behind.
+    const removeFolder = () => {
+      try {
+        removeNoFollow(new Directory(this.cacheUri, folderName));
+      } catch {
+        // Swept by clearCache.
+      }
+    };
     try {
       path = await this.getLocalFilePath(uri);
-      const { path: directory } = this.getCacheLocation(`${PREVIEW_PREFIX}${Date.now()}`);
+      const { path: directory } = this.getCacheLocation(folderName);
       const [page] = await ExpoVaultModule.renderPdfPages(path, PAGE_MAX_PIXELS, directory);
+      if (!page) removeFolder();
       return page ? this.toUri(page.uri) : null;
     } catch {
+      removeFolder();
       return null;
     } finally {
       // The save copies a content:// file again; the preview is the rendered page.
