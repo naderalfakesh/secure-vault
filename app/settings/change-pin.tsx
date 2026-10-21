@@ -1,9 +1,9 @@
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Icon, PinDots, PinPad, Screen, Text, useToast } from '@/components/ui';
+import { Button, Icon, PinDots, PinPad, Screen, Text, useToast } from '@/components/ui';
 import { formatCountdown, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { lockRemainingMs } from '@/features/auth/lockout';
 import { usePinEntry } from '@/features/auth/usePinEntry';
@@ -97,18 +97,16 @@ export default function ChangePinScreen() {
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Cancel"
-          accessibilityHint="Leaves your PIN as it is"
-          onPress={() => router.back()}
-          disabled={stage === 'saving'}
-          style={styles.cancel}
-        >
-          <Text variant="body" tone={stage === 'saving' ? 'tertiary' : 'accent'}>
-            Cancel
-          </Text>
-        </Pressable>
+        <View style={styles.cancel}>
+          <Button
+            label="Cancel"
+            accessibilityHint="Leaves your PIN as it is"
+            variant="plain"
+            size="md"
+            onPress={() => router.back()}
+            disabled={stage === 'saving'}
+          />
+        </View>
         <Text variant="subheadline" tone="secondary" style={styles.step}>
           {`Step ${steps[stage]} of 3`}
         </Text>
@@ -161,9 +159,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.md,
   },
   cancel: {
-    minWidth: 64,
-    minHeight: theme.touchTarget,
-    justifyContent: 'center',
+    minWidth: 72,
+    alignItems: 'flex-start',
   },
   step: {
     fontWeight: '600',

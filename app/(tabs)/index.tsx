@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, View } from 'react-native';
+import { FlatList, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -306,7 +306,9 @@ export default function LibraryScreen() {
 
   const header = selecting ? (
     <View style={styles.selectBar}>
-      <TextButton
+      <Button
+        variant="plain"
+        size="md"
         label={allSelected ? 'Deselect all' : 'Select all'}
         onPress={() =>
           setSelected(allSelected ? new Set() : new Set(shown.map((document) => document.id)))
@@ -315,7 +317,7 @@ export default function LibraryScreen() {
       <Text variant="headline" accessibilityRole="header" accessibilityLiveRegion="polite">
         {`${selected.size} selected`}
       </Text>
-      <TextButton label="Done" strong onPress={stopSelecting} />
+      <Button label="Done" variant="plain" size="md" onPress={stopSelecting} />
     </View>
   ) : (
     <View style={styles.headerBlock}>
@@ -324,7 +326,7 @@ export default function LibraryScreen() {
           <Text variant="largeTitle" accessibilityRole="header" style={styles.titleText}>
             Library
           </Text>
-          <TextButton label="Select" onPress={() => startSelecting()} />
+          <Button label="Select" variant="plain" size="md" onPress={() => startSelecting()} />
           <IconButton
             icon="sort"
             accessibilityLabel="Sort and filter"
@@ -342,7 +344,9 @@ export default function LibraryScreen() {
             onCancel={leaveList}
           />
         </View>
-        {listMode && !focused ? <TextButton label="Cancel" onPress={leaveList} /> : null}
+        {listMode && !focused ? (
+          <Button label="Cancel" variant="plain" size="md" onPress={leaveList} />
+        ) : null}
       </View>
       {listMode ? null : (
         <View style={styles.trustLine}>
@@ -408,17 +412,14 @@ export default function LibraryScreen() {
           <Text variant="footnote" tone="secondary" accessibilityLiveRegion="polite">
             {resultLine(shown.length, searching, filter)}
           </Text>
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label={SORT_BUTTON_LABELS[sort]}
             accessibilityLabel={`Sort and filter, ${SORT_BUTTON_LABELS[sort]}`}
+            variant="plain"
+            size="md"
+            icon="sort"
             onPress={() => setSheet('sort')}
-            style={styles.sortButton}
-          >
-            <Icon name="sort" size={16} tone="accent" />
-            <Text variant="subheadline" tone="accent" style={styles.sortLabel}>
-              {SORT_BUTTON_LABELS[sort]}
-            </Text>
-          </Pressable>
+          />
         </View>
       </View>
     );
@@ -480,17 +481,18 @@ export default function LibraryScreen() {
         />
         {selecting ? (
           <SelectionBar bottom={insets.bottom}>
-            <BarAction
+            <Button
               label="Move to…"
+              variant="plain"
               icon="folder"
               disabled={selected.size === 0 || deleting}
               onPress={() => setSheet('move')}
             />
-            <BarAction
+            <Button
               label={`Delete ${selected.size}`}
               accessibilityLabel={`Delete ${pluralize(selected.size, 'document')}`}
+              variant="plainDestructive"
               icon="trash"
-              danger
               disabled={selected.size === 0 || deleting}
               onPress={deleteSelected}
             />
@@ -605,29 +607,6 @@ function LargeTitle() {
   );
 }
 
-function TextButton({
-  label,
-  onPress,
-  strong = false,
-}: {
-  label: string;
-  onPress: () => void;
-  strong?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={styles.textButton}
-    >
-      <Text variant="body" tone="accent" style={strong ? styles.strong : undefined}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function SectionHeader({
   title,
   trailing,
@@ -647,7 +626,9 @@ function SectionHeader({
           {trailing}
         </Text>
       ) : null}
-      {action ? <TextButton label={action.label} onPress={action.onPress} /> : null}
+      {action ? (
+        <Button label={action.label} variant="plain" size="md" onPress={action.onPress} />
+      ) : null}
     </View>
   );
 }
@@ -663,39 +644,6 @@ function SelectionBar({ bottom, children }: { bottom: number; children: ReactNod
     >
       {children}
     </View>
-  );
-}
-
-function BarAction({
-  label,
-  accessibilityLabel,
-  icon,
-  danger = false,
-  disabled = false,
-  onPress,
-}: {
-  label: string;
-  accessibilityLabel?: string;
-  icon: 'folder' | 'trash';
-  danger?: boolean;
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const tone = disabled ? 'tertiary' : danger ? 'danger' : 'accent';
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [styles.barAction, pressed && styles.pressed]}
-    >
-      <Icon name={icon} size={20} tone={tone} />
-      <Text variant="callout" tone={tone} style={styles.strong}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -861,27 +809,6 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 52,
     paddingHorizontal: theme.spacing.md,
   },
-  textButton: {
-    minHeight: theme.touchTarget,
-    minWidth: theme.touchTarget,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.xxs,
-  },
-  strong: {
-    fontWeight: '600',
-  },
-  barAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    minHeight: 56,
-    paddingHorizontal: 20,
-    borderRadius: theme.radii.pill,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
   home: {
     gap: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
@@ -946,15 +873,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: theme.layout.titleMargin,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xxs,
-    minHeight: theme.touchTarget,
-  },
-  sortLabel: {
-    fontWeight: '500',
   },
   listRow: {
     marginHorizontal: theme.spacing.md,
