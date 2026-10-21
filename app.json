@@ -10,6 +10,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.naderalfakesh.securevault",
+      "buildNumber": "1",
       "icon": {
         "light": "./assets/icon.png",
         "dark": "./assets/icon-dark.png",
@@ -22,7 +23,8 @@
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
         "backgroundColor": "#3451D1"
       },
-      "package": "com.naderalfakesh.securevault"
+      "package": "com.naderalfakesh.securevault",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -1,10 +1,12 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Linking, Text } from 'react-native';
 
+import appJson from '../../app.json';
 import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
 import vault from '../../modules/expo-vault';
@@ -118,6 +120,21 @@ describe('Settings', () => {
     await fireEvent.press(view.getByRole('button', { name: /^How your data is protected/ }));
 
     expect(router.push).toHaveBeenCalledWith('/settings/protection');
+  });
+
+  it('shows the version with the native build number from the app config', async () => {
+    // The test runtime's manifest lacks the native fields; give it the app config's.
+    const config = Constants.expoConfig as NonNullable<typeof Constants.expoConfig>;
+    const saved = { ios: config.ios, android: config.android };
+    config.ios = { ...config.ios, buildNumber: appJson.expo.ios.buildNumber };
+    config.android = { ...config.android, versionCode: appJson.expo.android.versionCode };
+    try {
+      const view = await renderUnlocked('settings');
+
+      expect(view.getByText('1.0.0 (1)')).toBeOnTheScreen();
+    } finally {
+      Object.assign(config, saved);
+    }
   });
 
   it('opens the Auto-lock page from its row, which shows the current choice', async () => {
