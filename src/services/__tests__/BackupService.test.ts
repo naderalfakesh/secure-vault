@@ -39,7 +39,19 @@ const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jp
 
 describe('backup file name', () => {
   it('keeps the brand and the extension out of the translated part', () => {
-    expect(backupFileName(new Date('2026-10-13T12:00:00Z'))).toBe(
+    expect(backupFileName(new Date(2026, 9, 13, 12))).toBe(
+      'SecureVault backup 2026-10-13.svbackup',
+    );
+  });
+
+  it('names the local calendar day, not the UTC one', () => {
+    // 00:30 local on 14 October; in any zone east of UTC that is still the 13th in UTC.
+    const lateNight = new Date(2026, 9, 14, 0, 30);
+    jest.spyOn(lateNight, 'toISOString').mockReturnValue('2026-10-13T21:30:00.000Z');
+
+    expect(backupFileName(lateNight)).toBe('SecureVault backup 2026-10-14.svbackup');
+    // 23:30 local on 13 October; west of UTC that is already the 14th in UTC.
+    expect(backupFileName(new Date(2026, 9, 13, 23, 30))).toBe(
       'SecureVault backup 2026-10-13.svbackup',
     );
   });
