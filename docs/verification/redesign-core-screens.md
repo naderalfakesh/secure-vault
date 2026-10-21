@@ -122,9 +122,43 @@ decision. Dark mode is unchanged. Both new colours also pass on `surface`,
   names are isolated with FSI/PDI; layouts use start/end.
 - "Import from Files or Photos" opens the same Add sheet as Scan, until J1.
 
+## Review round 2 (after the rebase onto 99e6cec)
+
+- **Change PIN and the key-locked sentence**: `changePin` now resolves
+  `changed`, `wrong-pin` or `failed`; a failure shows the session's
+  change-PIN sentence instead of "Wrong PIN". The provider test waits for the
+  sentence instead of racing the key stretching.
+- **Delete and the lock**: the delete loop captures the session, stops when it
+  ends, sweeps the cache again, and reports through the notice after unlock,
+  with no Undo (the undo copies are gone). Viewer and multi-select both.
+- **Privacy cover above modals (iOS)**: the cover renders in a
+  react-native-screens `FullWindowOverlay`, which adds it to the key window
+  when it mounts, so it sits above presented sheets. After a lock while away
+  it stays up for 800 ms on return while a sheet finishes dismissing. No
+  native code. Needs native QA: the app-switcher snapshot with the import
+  sheet open, and the return with a sheet open. Android is not changed: RN
+  modals there are dialog windows, and whether `FLAG_SECURE` covers them in
+  Recents still needs a check on a device or emulator.
+- **Share pauses auto-lock (Android)**: pauses are bounded. A share sheet
+  excuses at most 2 minutes away, and other system UI at most 10. On Android a
+  share still pending 1 s after the return is ended and the time away is
+  judged as usual, so auto-lock Immediately locks. Screens race the share
+  against the end of the session, so the copy is discarded, the export slot
+  freed, and "SecureVault locked while you were sharing. The temporary copy
+  was removed." is shown after unlock. The lock sweep removes `cache/share`.
+  iOS keeps the sheet open without locking within the bound.
+- **Lows**: the device-unlock button is labelled by what its prompt accepts
+  ("Use Face ID or passcode", or "Use device passcode" without biometrics,
+  because the native prompt is biometrics-or-passcode and a passcode-only
+  prompt would be native work); Android says "biometric unlock" so no sentence
+  has two "or"s; the selection count is also announced on iOS; Scan is a tab
+  that is never selected; tab labels flex; Library and Change PIN text actions
+  use `Button` (new `plainDestructive` variant). The viewer's glass Details
+  pill stays a `Pressable`: no glass text-button primitive exists yet.
+
 ## Checks
 
-- `npm run validate`: exit 0 (prettier, expo lint, tsc, jest 60 suites / 393
+- `npm run validate`: exit 0 (prettier, expo lint, tsc, jest 60 suites / 415
   tests, expo-doctor 20/20).
 - iOS and Android native runs: **not run**; the native milestone QA is next.
 - Physical devices: not run.
