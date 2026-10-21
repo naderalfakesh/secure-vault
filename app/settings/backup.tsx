@@ -52,6 +52,7 @@ export default function BackupScreen() {
   const pickBackup = useCallback(async () => {
     const session = captureSession();
     let picked: string | null = null;
+    let pickedName = '';
     try {
       const result = await withoutAutoLock(() =>
         DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }),
@@ -60,6 +61,7 @@ export default function BackupScreen() {
       if (!asset) return;
       documentService.discardSystemImportCopy(asset.name);
       picked = asset.uri;
+      pickedName = asset.name;
       // Out of the purgeable cache before anything reads it; the cache copy goes.
       const uri = await backupService.keepPickedFile(asset.uri);
       picked = uri;
@@ -78,6 +80,18 @@ export default function BackupScreen() {
       if (picked) backupService.discardPickedFile(picked);
       if (mounted.current && session.current()) {
         const code = (e as { code?: unknown } | null)?.code;
+        if (code === 'BACKUP_UNSUPPORTED' && picked) {
+          // A backup from a newer version: said in the restore sheet, like
+          // every other restore outcome. The picker's copy is already gone.
+          setRestore({
+            uri: picked,
+            name: pickedName,
+            entries: 0,
+            created: '',
+            problem: describeBackupError(e),
+          });
+          return;
+        }
         toast.show({
           // A file that is not a backup at all: a toast, no sheet.
           message: code === 'BACKUP_INVALID' ? copy['picker.notBackup'] : describeBackupError(e),

@@ -574,7 +574,7 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
     },
   );
 
-  it('shows a header the app does not support as a toast and opens no sheet', async () => {
+  it('shows a header the app does not support inline in the restore sheet', async () => {
     pickReturns('backup.svbackup');
     jest
       .spyOn(vault, 'inspectBackup')
@@ -595,8 +595,17 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
         ),
       ).toBeOnTheScreen(),
     );
+    // In the sheet, with its one button, not in a toast; no passphrase is asked for.
+    expect(view.getByText('Restore from backup')).toBeOnTheScreen();
+    const close = view.getAllByRole('button', { name: 'Close' });
+    expect(close.length).toBeGreaterThan(0);
     expect(view.queryByLabelText('Backup passphrase')).toBeNull();
+    expect(view.queryByRole('button', { name: 'Restore and replace vault' })).toBeNull();
     expect(discardPicked).toHaveBeenCalledWith(KEPT);
+    await act(async () => {
+      await fireEvent.press(close[close.length - 1]);
+    });
+    await waitFor(() => expect(view.queryByText('Restore from backup')).toBeNull());
   });
 });
 

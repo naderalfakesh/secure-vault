@@ -36,6 +36,8 @@ export interface PickedBackup {
   /** Entries the header declares, the check entry not counted. */
   entries: number;
   created: string;
+  /** The header was read but cannot be restored (a newer format): the sheet opens on it. */
+  problem?: string;
 }
 
 type Stage =
@@ -71,7 +73,11 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
   const toast = useToast();
   const { captureSession, postNotice } = useSession();
   const [passphrase, setPassphrase] = useState('');
-  const [stage, setStage] = useState<Stage>({ name: 'inspect', outcome: null });
+  const [stage, setStage] = useState<Stage>(() =>
+    backup?.problem
+      ? { name: 'outcome', outcome: { kind: 'close', message: backup.problem } }
+      : { name: 'inspect', outcome: null },
+  );
   const [cancelling, setCancelling] = useState(false);
   const mounted = useRef(true);
 
