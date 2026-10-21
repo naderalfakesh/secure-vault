@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import {
@@ -41,10 +41,37 @@ export type SessionCapture = {
    * system UI such as a share sheet.
    */
   confirm: () => Promise<boolean>;
+  /**
+   * Resolves once that session has ended (locked or erased). Race system UI
+   * against it so work never waits on a sheet that outlived the session.
+   */
+  ended: () => Promise<void>;
 };
 
 /** How a PIN attempt ended. Only `wrong-pin` counts towards the lockout. */
 export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
+
+/**
+ * Limits on pausing auto-lock for system UI. `maxAwayMs` bounds the time away
+ * a pause can excuse; `endsOnReturn` is for UI that cannot still be open once
+ * the app is back in the foreground (Android's share chooser is an activity of
+ * its own), so a pause still pending shortly after the return is ended.
+ */
+export type AutoLockPause = { maxAwayMs?: number; endsOnReturn?: boolean };
+
+/** Time away a pause excuses by default: pickers, the camera, the scanner. */
+export const DEFAULT_PAUSE_MAX_AWAY_MS = 10 * 60_000;
+/** How long after the return an `endsOnReturn` pause may still settle on its own. */
+export const AUTO_LOCK_RETURN_GRACE_MS = 1000;
+
+/**
+ * The pause for a share sheet. On iOS the sheet is in-process and may stay up
+ * while the user is away briefly; on Android the chooser is its own activity,
+ * so a share still pending after the return was blocked or is gone.
+ */
+export function sharePause(): AutoLockPause {
+  return { maxAwayMs: 2 * 60_000, endsOnReturn: Platform.OS === 'android' };
+}
 
 /** How a PIN change ended. `failed` leaves the reason in `error`. */
 export type PinChangeResult = 'changed' | 'wrong-pin' | 'failed';
@@ -81,7 +108,7 @@ export type SessionContextValue = {
    * Runs `work` with auto-lock paused. System pickers, the camera, the scanner,
    * and share sheets send the app to the background without the user leaving it.
    */
-  withoutAutoLock: <T>(work: () => Promise<T>) => Promise<T>;
+  withoutAutoLock: <T>(work: () => Promise<T>, pause?: AutoLockPause) => Promise<T>;
   /** Captures the current unlocked session so long work can tell whether it ended. */
   captureSession: () => SessionCapture;
   /** A message for work that ended behind the lock; shown once the vault is unlocked. */
@@ -162,7 +189,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<SessionNotice | null>(null);
   const backgroundedAt = useRef<number | null>(null);
-  const suspendedRef = useRef(0);
+  // Running pauses of auto-lock, each with the time it was left the foreground.
+  const pausesRef = useRef(
+    new Set<{ maxAwayMs: number; endsOnReturn: boolean; awayAt: number | null }>(),
+  );
+  const autoLockRef = useRef(settings.autoLockSeconds);
+  useEffect(() => {
+    autoLockRef.current = settings.autoLockSeconds;
+  }, [settings.autoLockSeconds]);
   const statusRef = useRef(status);
   // Bumped every time the vault leaves `unlocked`, so work that started in an
   // earlier session never mistakes a later unlock for its own.
@@ -414,14 +448,30 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return cleared;
   }, [applyLockout, changeStatus]);
 
+  /** Locks when time away has passed the auto-lock limit. */
+  const judgeAway = useCallback(
+    (awayMs: number) => {
+      const limit = autoLockRef.current;
+      if (statusRef.current === 'unlocked' && limit >= 0 && awayMs >= limit * 1000) {
+        changeStatus('locked');
+      }
+    },
+    [changeStatus],
+  );
+
   const withoutAutoLock = useCallback(
-    async <T,>(work: () => Promise<T>) => {
-      suspendedRef.current += 1;
+    async <T,>(work: () => Promise<T>, pause: AutoLockPause = {}) => {
+      const entry = {
+        maxAwayMs: pause.maxAwayMs ?? DEFAULT_PAUSE_MAX_AWAY_MS,
+        endsOnReturn: pause.endsOnReturn ?? false,
+        awayAt: null as number | null,
+      };
+      pausesRef.current.add(entry);
       try {
         return await work();
       } finally {
-        suspendedRef.current -= 1;
-        backgroundedAt.current = null;
+        // A pause that was ended early no longer owns the time away.
+        if (pausesRef.current.delete(entry)) backgroundedAt.current = null;
         settleWaiters();
       }
     },
@@ -445,7 +495,17 @@ export function SessionProvider({ children }: PropsWithChildren) {
         waitersRef.current.add(settle);
         settle();
       });
-    return { current, confirm };
+    const ended = () =>
+      new Promise<void>((resolve) => {
+        const settle = () => {
+          if (current()) return;
+          waitersRef.current.delete(settle);
+          resolve();
+        };
+        waitersRef.current.add(settle);
+        settle();
+      });
+    return { current, confirm, ended };
   }, []);
 
   const postNotice = useCallback((next: SessionNotice) => setNotice(next), []);
@@ -464,24 +524,55 @@ export function SessionProvider({ children }: PropsWithChildren) {
   );
 
   // Auto-lock: remember when the app left the foreground and compare on return.
+  // While system UI pauses it, the time away is excused only within that
+  // pause's limits, so a pause that never ends cannot keep the vault open.
   useEffect(() => {
+    const timers = new Set<ReturnType<typeof setTimeout>>();
     const onChange = (next: AppStateStatus) => {
-      if (statusRef.current === 'unlocked' && suspendedRef.current === 0) {
+      const pauses = pausesRef.current;
+      if (statusRef.current === 'unlocked' && pauses.size === 0) {
         if (next === 'background' || next === 'inactive') {
           backgroundedAt.current ??= Date.now();
         } else if (next === 'active' && backgroundedAt.current !== null) {
           const idleMs = Date.now() - backgroundedAt.current;
           backgroundedAt.current = null;
-          const limit = settings.autoLockSeconds;
-          if (limit >= 0 && idleMs >= limit * 1000) changeStatus('locked');
+          judgeAway(idleMs);
+        }
+      } else if (statusRef.current === 'unlocked') {
+        const now = Date.now();
+        for (const entry of [...pauses]) {
+          if (next === 'background' || next === 'inactive') {
+            entry.awayAt ??= now;
+            continue;
+          }
+          if (next !== 'active' || entry.awayAt === null) continue;
+          const awayMs = now - entry.awayAt;
+          entry.awayAt = null;
+          if (awayMs > entry.maxAwayMs) {
+            pauses.delete(entry);
+            judgeAway(awayMs);
+          } else if (entry.endsOnReturn) {
+            const timer = setTimeout(() => {
+              timers.delete(timer);
+              // Still pending: the system UI never showed, or is gone without settling.
+              if (pauses.delete(entry)) {
+                judgeAway(awayMs);
+                settleWaiters();
+              }
+            }, AUTO_LOCK_RETURN_GRACE_MS);
+            timers.add(timer);
+          }
         }
       }
       // Waiting work resumes only after the return to the foreground was judged.
       settleWaiters();
     };
     const subscription = AppState.addEventListener('change', onChange);
-    return () => subscription.remove();
-  }, [settings.autoLockSeconds, changeStatus, settleWaiters]);
+    return () => {
+      subscription.remove();
+      timers.forEach(clearTimeout);
+    };
+  }, [judgeAway, settleWaiters]);
 
   const value = useMemo(
     () => ({

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { AppState, type AppStateStatus, Text } from 'react-native';
+import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 
 import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
 import { hashPasscode } from '../auth/passcode';
@@ -10,6 +10,8 @@ import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import { documentService } from '@/services/DocumentService';
 import {
   type PinUnlockResult,
+  AUTO_LOCK_RETURN_GRACE_MS,
+  sharePause,
   type SessionCapture,
   SessionProvider,
   useSession,
@@ -390,6 +392,99 @@ describe('SessionProvider session capture', () => {
     await moveTo('active');
     await waitFor(() => expect(outcome).toBe(true));
     expect(session.status).toBe('unlocked');
+  });
+
+  function pending() {
+    let settle!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    return { promise, settle };
+  }
+
+  const wait = (ms: number) =>
+    act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    });
+
+  it('does not lock behind system UI that is still open on return', async () => {
+    await unlocked(0);
+    const picker = pending();
+    let done!: Promise<void>;
+    await act(async () => {
+      done = session.withoutAutoLock(() => picker.promise);
+    });
+
+    await moveTo('background');
+    await moveTo('active');
+    await wait(AUTO_LOCK_RETURN_GRACE_MS + 100);
+
+    expect(session.status).toBe('unlocked');
+    await act(async () => {
+      picker.settle();
+      await done;
+    });
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('locks on return when a share sheet that should end on return is still pending', async () => {
+    await unlocked(0);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { endsOnReturn: true, maxAwayMs: 60_000 });
+    });
+
+    // Android blocked the chooser: the app left, and the share never settles.
+    await moveTo('background');
+    await moveTo('active');
+    expect(session.status).toBe('unlocked');
+    await wait(AUTO_LOCK_RETURN_GRACE_MS + 100);
+
+    expect(session.status).toBe('locked');
+  });
+
+  it('keeps the vault open when a share that ends on return settles within the grace', async () => {
+    await unlocked(0);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { endsOnReturn: true, maxAwayMs: 60_000 });
+    });
+
+    await moveTo('background');
+    await moveTo('active');
+    await act(async () => share.settle());
+    await wait(AUTO_LOCK_RETURN_GRACE_MS + 100);
+
+    expect(session.status).toBe('unlocked');
+  });
+
+  it('locks on return once the time away passes the pause limit', async () => {
+    await unlocked(0);
+    const share = pending();
+    await act(async () => {
+      void session.withoutAutoLock(() => share.promise, { maxAwayMs: 1000 });
+    });
+    const now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+
+    await moveTo('background');
+    clock.mockReturnValue(now + 5000);
+    await moveTo('active');
+
+    expect(session.status).toBe('locked');
+    clock.mockRestore();
+  });
+
+  it('ends a share pause on return only on Android, and bounds it on both', () => {
+    const os = Platform.OS;
+    try {
+      Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+      expect(sharePause()).toEqual({ maxAwayMs: 120_000, endsOnReturn: true });
+      Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
+      expect(sharePause()).toEqual({ maxAwayMs: 120_000, endsOnReturn: false });
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    }
   });
 
   it('holds a notice until the vault is unlocked and forgets it when the vault is erased', async () => {
