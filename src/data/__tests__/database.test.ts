@@ -633,6 +633,53 @@ describe('index name, erase and legacy import', () => {
     await expect(openDocumentStore()).resolves.toBeDefined();
   });
 
+  // The Delete everything toast describes KEY_LOCKED and KEY_INVALIDATED as
+  // "nothing was changed", which holds only while the key is never used once
+  // anything has been removed.
+  it('uses the device key only before the first removal of an erase', async () => {
+    await vault.put('_database_file', restored);
+    files = new Set([restored, `${restored}-wal`]);
+    const calls: string[] = [];
+    for (const name of ['get', 'put', 'getFile', 'putFile', 'delete', 'deleteFile'] as const) {
+      const original = (vault[name] as (...args: unknown[]) => Promise<unknown>).bind(vault);
+      jest.spyOn(vault, name).mockImplementation(((...args: unknown[]) => {
+        calls.push(name);
+        return original(...args);
+      }) as never);
+    }
+    (deleteEncryptedDatabase as jest.Mock).mockImplementation(async (name: string) => {
+      calls.push('deleteEncryptedDatabase');
+      files.delete(name);
+    });
+
+    await deleteDocumentStore(async () => {
+      for (const key of await vault.getAllKeys()) {
+        await vault.delete(key).catch(() => {});
+        await vault.deleteFile(key).catch(() => {});
+      }
+    });
+
+    const firstRemoval = calls.findIndex((name) => name.startsWith('delete'));
+    expect(calls[firstRemoval]).toBe('deleteEncryptedDatabase');
+    expect(calls.slice(0, firstRemoval)).toContain('get');
+    expect(
+      calls
+        .slice(firstRemoval)
+        .filter((name) => ['get', 'put', 'getFile', 'putFile'].includes(name)),
+    ).toEqual([]);
+    expect(await vault.getAllKeys()).toEqual([]);
+  });
+
+  it('finishes an erase whose index name read found the key invalidated', async () => {
+    await vault.put('_database_file', 'securevault.db');
+    files = new Set(['securevault.db']);
+    failGet('_database_file', keyInvalidated);
+
+    await expect(deleteDocumentStore(removeEntries)).resolves.toBeUndefined();
+    expect([...files]).toEqual([]);
+    expect(await vault.getAllKeys()).toEqual([]);
+  });
+
   it('does not hold opens back after an erase that could not start', async () => {
     await vault.put('_database_file', restored);
     files = new Set([restored]);
