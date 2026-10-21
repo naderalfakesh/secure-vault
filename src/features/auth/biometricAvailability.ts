@@ -52,11 +52,11 @@ export function biometricUnavailableReason(availability: BiometricAvailability):
   const name = biometryName(availability.kind);
   if (availability.state === 'notEnrolled') {
     return Platform.OS === 'ios'
-      ? `${name} isn't set up on this phone. Set it up in the Settings app, then come back.`
-      : "Fingerprint or face unlock isn't set up on this phone.";
+      ? `${name} isn’t set up on this phone. Set it up in the Settings app, then come back.`
+      : 'Fingerprint or face unlock isn’t set up on this phone.';
   }
   if (availability.state === 'denied') {
-    return `SecureVault isn't allowed to use ${name}. You can allow it in Settings.`;
+    return `SecureVault isn’t allowed to use ${name}. You can allow it in Settings.`;
   }
   return null;
 }

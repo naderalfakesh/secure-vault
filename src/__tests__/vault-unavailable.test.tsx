@@ -30,7 +30,7 @@ const routes = {
   },
 };
 
-const TITLE = "SecureVault can't open right now";
+const TITLE = 'SecureVault can’t open right now';
 const keyReadFailure = () =>
   Object.assign(new Error('KeyStore load failed'), { code: 'HAS_VAULT_FAILED' });
 
@@ -62,7 +62,7 @@ describe('Vault unavailable', () => {
     expect(await screen.findByRole('header', { name: TITLE })).toBeOnTheScreen();
     expect(
       screen.getByText(
-        "Your phone didn't give SecureVault access to its key. Nothing in the vault was touched.",
+        'Your phone didn’t give SecureVault access to its key. Nothing in the vault was touched.',
       ),
     ).toBeOnTheScreen();
     expect(

@@ -78,15 +78,15 @@ describe('biometric availability', () => {
 
   it('gives the reason a disabled Face ID row shows', () => {
     expect(biometricUnavailableReason({ state: 'notEnrolled', kind: 'faceId' })).toBe(
-      "Face ID isn't set up on this phone. Set it up in the Settings app, then come back.",
+      'Face ID isn’t set up on this phone. Set it up in the Settings app, then come back.',
     );
     expect(biometricUnavailableReason({ state: 'denied', kind: 'faceId' })).toBe(
-      "SecureVault isn't allowed to use Face ID. You can allow it in Settings.",
+      'SecureVault isn’t allowed to use Face ID. You can allow it in Settings.',
     );
     expect(biometricUnavailableReason({ state: 'available', kind: 'faceId' })).toBeNull();
     expect(
       onAndroid(() => biometricUnavailableReason({ state: 'notEnrolled', kind: 'biometrics' })),
-    ).toBe("Fingerprint or face unlock isn't set up on this phone.");
+    ).toBe('Fingerprint or face unlock isn’t set up on this phone.');
   });
 
   it('words the onboarding step for the biometric on this phone', () => {

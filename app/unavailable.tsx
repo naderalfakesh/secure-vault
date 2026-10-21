@@ -6,9 +6,9 @@ import { Button, Icon, Screen, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { useSession } from '@/features/session/SessionProvider';
 
-const UNAVAILABLE_TITLE = "SecureVault can't open right now";
+const UNAVAILABLE_TITLE = 'SecureVault can’t open right now';
 const BODY =
-  "Your phone didn't give SecureVault access to its key. Nothing in the vault was touched.";
+  'Your phone didn’t give SecureVault access to its key. Nothing in the vault was touched.';
 const HINT = 'Try again. If this keeps happening, restart your phone and open SecureVault again.';
 const TRYING = 'Trying again…';
 
