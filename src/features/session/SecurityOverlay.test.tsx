@@ -1,4 +1,4 @@
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor, within } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
@@ -6,6 +6,17 @@ import { AppState, type AppStateStatus } from 'react-native';
 import vault from '../../../modules/expo-vault';
 import { SecurityOverlay } from './SecurityOverlay';
 import { SessionProvider, useSession } from './SessionProvider';
+
+// The native overlay window, as a plain view the test can look inside.
+jest.mock('react-native-screens', () => {
+  const { View } = jest.requireActual('react-native');
+  return {
+    ...jest.requireActual('react-native-screens'),
+    FullWindowOverlay: ({ children }: { children: React.ReactNode }) => (
+      <View testID="full-window-overlay">{children}</View>
+    ),
+  };
+});
 
 jest.mock('expo-screen-capture', () => ({
   preventScreenCaptureAsync: jest.fn(async () => {}),
@@ -83,5 +94,37 @@ describe('Privacy cover', () => {
 
     await moveTo('inactive');
     expect(cover(view)).toBeNull();
+  });
+
+  it('draws the cover in a full-window overlay on iOS, above native modals', async () => {
+    const view = await renderUnlocked();
+
+    await moveTo('inactive');
+
+    const overlay = view.getByTestId('full-window-overlay', { includeHiddenElements: true });
+    expect(
+      within(overlay).getByTestId('privacy-cover', { includeHiddenElements: true }),
+    ).toBeTruthy();
+  });
+
+  it('keeps the cover up briefly after a return to a vault that locked while away', async () => {
+    jest.useFakeTimers();
+    try {
+      const view = await renderUnlocked();
+      await moveTo('background');
+      await act(async () => session.lock());
+      expect(cover(view)).toBeOnTheScreen();
+
+      await moveTo('active');
+      // A sheet that was open is still being dismissed under it.
+      expect(cover(view)).toBeOnTheScreen();
+
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(cover(view)).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
