@@ -69,7 +69,7 @@ function Rule({ met, label }: { met: boolean; label: string }) {
       style={styles.rule}
     >
       <Icon name={met ? 'check' : 'info'} size={16} tone={met ? 'success' : 'tertiary'} />
-      <Text variant="footnote" tone={met ? 'primary' : 'secondary'}>
+      <Text variant="footnote" tone={met ? 'primary' : 'secondary'} style={styles.ruleText}>
         {label}
       </Text>
     </View>
@@ -249,7 +249,7 @@ export function CreateBackupSheet({ visible, onClose, onShared }: CreateBackupSh
           {matches ? (
             <View accessible accessibilityLabel={copy['create.match']} style={styles.rule}>
               <Icon name="check" size={16} tone="success" />
-              <Text variant="footnote" tone="success">
+              <Text variant="footnote" tone="success" style={styles.ruleText}>
                 {copy['create.match']}
               </Text>
             </View>
@@ -283,5 +283,9 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.spacing.xs,
     minHeight: 22,
+  },
+  // Rules wrap at the largest text sizes instead of running off the sheet.
+  ruleText: {
+    flexShrink: 1,
   },
 }));
