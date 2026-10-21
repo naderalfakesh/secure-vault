@@ -1,4 +1,6 @@
-import { formatDate, formatExpiry, formatFileSize, formatRelativeDate, pluralize } from './format';
+import { tp } from '@/i18n';
+
+import { formatDate, formatExpiry, formatFileSize, formatRelativeDate, joinParts } from './format';
 
 describe('format', () => {
   it('formats sizes in the unit a person expects', () => {
@@ -9,8 +11,15 @@ describe('format', () => {
   });
 
   it('pluralizes counts', () => {
-    expect(pluralize(1, 'document')).toBe('1 document');
-    expect(pluralize(0, 'document')).toBe('0 documents');
+    expect(tp('format.documents', 1)).toBe('1 document');
+    expect(tp('format.documents', 0)).toBe('0 documents');
+    expect(tp('format.entries', 2)).toBe('2 entries');
+  });
+
+  it('joins the parts of a meta line and drops empty ones', () => {
+    expect(joinParts(['Identity', null, '2 pages', false, 'Today'])).toBe(
+      'Identity · 2 pages · Today',
+    );
   });
 
   it('returns an empty string for an invalid date', () => {
