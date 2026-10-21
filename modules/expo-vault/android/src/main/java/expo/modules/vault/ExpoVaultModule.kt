@@ -3,6 +3,7 @@ package expo.modules.vault
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
@@ -25,6 +26,12 @@ class ExpoVaultModule : Module() {
 
     private val keyAlias = "encryptionKey"
     private val RESOURCE_MESSAGE = "This device does not have enough memory to read this backup."
+    /**
+     * Copies of an `s` plaintext the restore pass holds at once: `readBytes`, the Keystore
+     * cipher's growing output buffer (up to twice the result while it doubles) and the result
+     * array. Provisional until measured on the S-s fixtures; never below 3.
+     */
+    private val STRING_ENTRY_COPIES = 4
     private val AUTH_VALIDITY_SECONDS = 300
     private val keystoreProvider = "AndroidKeyStore"
     // Callers of the prompt that is currently open, settled together from its
@@ -269,6 +276,7 @@ class ExpoVaultModule : Module() {
             } catch (e: Throwable) {
                 when (e) {
                     is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
+                    is BackupContainer.ResourceException -> promise.reject("BACKUP_RESOURCE", e.message, e)
                     is OutOfMemoryError -> promise.reject("BACKUP_RESOURCE", RESOURCE_MESSAGE, e)
                     is Exception -> promise.reject("BACKUP_INVALID", e.message, e)
                     else -> throw e
@@ -295,6 +303,8 @@ class ExpoVaultModule : Module() {
                     if (!hasIndex(metas)) throw BackupContainer.CorruptException("no document index")
                 }, { phase, done, total ->
                     sendEvent("backupProgress", mapOf("phase" to phase.wireName, "done" to done, "total" to total))
+                }, { layout ->
+                    preflightRestore(layout)
                 }) { meta, plain ->
                     // The whole handler runs with the plaintext's removal guaranteed, so a
                     // key probe or wipe failure cannot leave a decrypted entry in the cache.
@@ -352,6 +362,8 @@ class ExpoVaultModule : Module() {
                     e is BackupContainer.StagingException -> promise.reject("BACKUP_RESTORE_STAGING_INVALID", e.message, e)
                     e is BackupContainer.PassphraseException -> promise.reject("BACKUP_PASSPHRASE", e.message, e)
                     e is BackupContainer.UnsupportedException -> promise.reject("BACKUP_UNSUPPORTED", e.message, e)
+                    e is BackupContainer.ResourceException -> promise.reject("BACKUP_RESOURCE", e.message, e)
+                    e is BackupContainer.NoSpaceException -> promise.reject("BACKUP_NO_SPACE", e.message, e)
                     e is BackupContainer.CorruptException -> promise.reject("BACKUP_INVALID", e.message, e)
                     e is InvalidKeyException -> promise.reject("BACKUP_INVALID", e.message, e)
                     else -> promise.reject(code, e.message, e)
@@ -527,6 +539,20 @@ class ExpoVaultModule : Module() {
     private fun hasIndex(metas: List<BackupContainer.Meta>): Boolean =
         metas.count { it.kind == "x" && it.key == "database" } == 1 &&
             metas.any { it.kind == "s" && it.key == "_database_key" }
+
+    /**
+     * Runs after every entry has decrypted once and before the vault is cleared. The largest
+     * `s` entry must fit in memory (a trial allocation, see [BackupContainer.reserveMemory]),
+     * and the restored vault plus the pass's temporary files must fit in the free space plus
+     * what the old vault's entries give back. Either refusal leaves the vault untouched.
+     */
+    private fun preflightRestore(layout: List<BackupContainer.EntryInfo>) {
+        val needs = BackupContainer.restoreNeeds(layout)
+        BackupContainer.reserveMemory(needs.largestString, STRING_ENTRY_COPIES)
+        val filesDir = appContext.reactContext!!.filesDir
+        val freed = vaultEntryFiles().sumOf { it.length() }
+        BackupContainer.checkSpace(needs.disk, StatFs(filesDir.path).availableBytes, freed)
+    }
 
     /** The vault file for [key], after the grammar check and a containment check on the resolved path. */
     private fun vaultFile(key: String): File {

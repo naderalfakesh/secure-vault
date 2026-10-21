@@ -39,6 +39,12 @@ object BackupContainer {
     /** A header setting no committed exporter writes: a newer format, or KDF or cipher settings outside the verified set. */
     class UnsupportedException(reason: String) :
         Exception("This backup uses settings this version of the app does not support: $reason.")
+    /** The device cannot hold what the restore needs in memory; raised before anything is removed. */
+    class ResourceException(reason: String) :
+        Exception("This device does not have enough memory to restore this backup: $reason.")
+    /** The restore needs more disk than is free plus what the old vault frees; raised before anything is removed. */
+    class NoSpaceException(val needed: Long, val available: Long) :
+        Exception("This device does not have enough free space to restore this backup (needs $needed bytes, has $available).")
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
     class RemovalException(reason: String) : Exception("The cache entry cannot be removed: $reason")
 
@@ -110,6 +116,9 @@ object BackupContainer {
 
     /** The check entry, the database key string and the index extra: the smallest backup the app writes. */
     private const val MIN_ENTRIES = 3
+
+    /** The `SVC1` magic and chunk-size field that open every payload; a plaintext is at most the rest. */
+    private const val STREAM_HEADER_BYTES = 8L
 
     fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): SecretKey {
         val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
@@ -406,6 +415,65 @@ object BackupContainer {
             layout
         }
 
+    /** What the restore pass needs, worked out from the pre-pass before anything is removed. */
+    data class RestoreNeeds(
+        /** Upper bound of the largest `s` plaintext, which the restore pass holds in memory whole. */
+        val largestString: Long,
+        /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
+        val disk: Long,
+    )
+
+    /**
+     * Every payload is re-encrypted into the vault (or moved out as an extra) at about its own
+     * size, and at the peak one entry's payload copy and plaintext sit in staging next to it.
+     * Each length is already bounded by the bytes left in the file, so the sums fit a Long.
+     * An `s` plaintext is at most its payload minus the stream header.
+     */
+    fun restoreNeeds(layout: List<EntryInfo>): RestoreNeeds {
+        var total = 0L
+        var largest = 0L
+        var largestString = 0L
+        for (entry in layout) {
+            if (entry.meta.kind == "c") continue
+            total += entry.payloadLength
+            largest = maxOf(largest, entry.payloadLength)
+            if (entry.meta.kind == "s") {
+                largestString = maxOf(largestString, maxOf(0L, entry.payloadLength - STREAM_HEADER_BYTES))
+            }
+        }
+        return RestoreNeeds(largestString, total + 2 * largest)
+    }
+
+    /**
+     * Trial allocation for an `s` entry: [copies] arrays of [bytes] each are allocated and
+     * dropped at once. The VM collects garbage before it throws, so this refuses only memory
+     * the process really cannot get; heap arithmetic would count garbage as used. It lowers the
+     * chance of a failure after the wipe but cannot rule one out, because memory can be taken
+     * between this check and the restore pass.
+     */
+    fun reserveMemory(bytes: Long, copies: Int) {
+        if (bytes <= 0) return
+        // The largest array the VM can make; a longer plaintext can never be read whole.
+        if (bytes > Int.MAX_VALUE - 8) throw ResourceException("an entry of $bytes bytes")
+        try {
+            val held = Array(copies) { ByteArray(bytes.toInt()) }
+            // Touch every array so the allocation cannot be dropped as unused.
+            held.forEach { it[it.size - 1] = 1 }
+        } catch (e: OutOfMemoryError) {
+            throw ResourceException("an entry of $bytes bytes")
+        }
+    }
+
+    /**
+     * The restore needs [needed] bytes; [free] are free now and the wipe gives back [freed]
+     * (the old vault's entries). No margin is added: the bound is the formula, and a
+     * device that fills up during the pass still ends as a partial restore.
+     */
+    fun checkSpace(needed: Long, free: Long, freed: Long) {
+        val available = free + freed
+        if (needed > available) throw NoSpaceException(needed, available)
+    }
+
     /**
      * Reads one entry's metadata and payload length, leaving [input] at the
      * payload. Both lengths are checked against the bytes left in the file.
@@ -440,7 +508,9 @@ object BackupContainer {
      *
      * [validate] sees each entry's metadata on every pass; [validateAll] sees the
      * whole list once, after the pre-pass and before the key is derived, for rules
-     * about which entries must be present.
+     * about which entries must be present. [preflight] sees the pre-pass layout once,
+     * after the verify pass and before the restore pass, so a device that cannot
+     * hold the restore refuses it with the vault untouched.
      *
      * Every payload copy and plaintext lives in [staging], which is swept before anything is read
      * (a [StagingException] is thrown with the vault untouched) and again, best effort, when the
@@ -449,11 +519,13 @@ object BackupContainer {
     fun read(
         source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit = {},
-        progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
+        progress: (ReadPhase, Int, Int) -> Unit,
+        preflight: (List<EntryInfo>) -> Unit = {},
+        handle: (Meta, File) -> Unit
     ) {
         sweep(staging)
         try {
-            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, handle)
+            readEntries(source, passphrase, staging.dir, validate, validateAll, progress, preflight, handle)
         } finally {
             try {
                 sweep(staging)
@@ -466,7 +538,9 @@ object BackupContainer {
     private fun readEntries(
         source: File, passphrase: String, scratch: File, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit,
-        progress: (ReadPhase, Int, Int) -> Unit, handle: (Meta, File) -> Unit
+        progress: (ReadPhase, Int, Int) -> Unit,
+        preflight: (List<EntryInfo>) -> Unit,
+        handle: (Meta, File) -> Unit
     ) {
         val layout = readLayout(source)
         val metas = layout.map { it.meta }
@@ -486,6 +560,7 @@ object BackupContainer {
                 }
             }
         }
+        preflight(layout)
         walk(source, scratch, validate, { done, total -> progress(ReadPhase.RESTORE, done, total) }) { meta, payload ->
             if (meta.kind == "c") {
                 verifyCheck(payload, key, scratch)

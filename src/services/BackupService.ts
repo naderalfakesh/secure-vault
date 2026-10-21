@@ -67,7 +67,9 @@ export function describeBackupError(
     case 'BACKUP_PARTIAL':
       return 'The restore stopped after the previous vault was removed. Restore the backup again.';
     case 'BACKUP_RESOURCE':
-      return "This device doesn't have enough memory to read this backup. Nothing was changed.";
+      return "This device doesn't have enough memory to restore this backup. Nothing was changed.";
+    case 'BACKUP_NO_SPACE':
+      return "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.";
     case 'BACKUP_INDEX':
       return 'Your documents were restored, but the index could not be opened. Restore a backup again.';
     case 'BACKUP_STAGING_INVALID':
@@ -93,6 +95,7 @@ const knownBackupErrors = new Set([
   'BACKUP_UNSUPPORTED',
   'BACKUP_PARTIAL',
   'BACKUP_RESOURCE',
+  'BACKUP_NO_SPACE',
   'BACKUP_INDEX',
   'BACKUP_STAGING_INVALID',
   'BACKUP_RESTORE_STAGING_INVALID',

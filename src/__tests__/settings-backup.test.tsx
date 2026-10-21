@@ -443,3 +443,76 @@ describe('Settings "Delete everything"', () => {
     );
   });
 });
+
+describe('Settings restore refusals that leave the vault unchanged', () => {
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    pick.mockReset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    [
+      'BACKUP_UNSUPPORTED',
+      "This backup uses settings this version of the app doesn't support. Nothing was changed.",
+    ],
+    [
+      'BACKUP_RESOURCE',
+      "This device doesn't have enough memory to restore this backup. Nothing was changed.",
+    ],
+    [
+      'BACKUP_NO_SPACE',
+      "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.",
+    ],
+    [
+      'BACKUP_INVALID',
+      'This file is not a SecureVault backup, or it is damaged. Nothing was changed.',
+    ],
+  ])(
+    'shows %s in the restore sheet as a plain sentence and keeps Restore available',
+    async (code, sentence) => {
+      jest
+        .spyOn(vault, 'importBackup')
+        .mockRejectedValueOnce(
+          Object.assign(new Error('/var/mobile/Containers/Data/x: native text'), { code }),
+        );
+      const view = await renderUnlocked();
+
+      await startRestore(view);
+
+      expect(view.getByText(sentence)).toBeOnTheScreen();
+      expect(view.queryByText(/native text/)).toBeNull();
+      expect(view.getByText('Restore')).toBeOnTheScreen();
+      expect(backupService.activity()).toBeNull();
+    },
+  );
+
+  it('shows a header the app does not support as a toast and opens no sheet', async () => {
+    pick.mockResolvedValue({ canceled: false, assets: [{ uri: PICKED, name: 'backup.svbackup' }] });
+    jest
+      .spyOn(vault, 'inspectBackup')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('600001 iterations'), { code: 'BACKUP_UNSUPPORTED' }),
+      );
+    const discardPicked = jest.spyOn(backupService, 'discardPickedFile');
+    const view = await renderUnlocked();
+
+    await act(async () => {
+      await fireEvent.press(view.getByText('Restore from backup'));
+    });
+
+    await waitFor(() =>
+      expect(
+        view.getByText(
+          "This backup uses settings this version of the app doesn't support. Nothing was changed.",
+        ),
+      ).toBeOnTheScreen(),
+    );
+    expect(view.queryByLabelText('Backup passphrase')).toBeNull();
+    expect(discardPicked).toHaveBeenCalledWith(PICKED);
+  });
+});

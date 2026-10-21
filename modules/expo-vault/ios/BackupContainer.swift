@@ -1,6 +1,7 @@
 import CommonCrypto
 import CryptoKit
 import Foundation
+import os
 
 enum BackupError: LocalizedError {
   case corrupt(String)
@@ -8,6 +9,12 @@ enum BackupError: LocalizedError {
   /// A header setting no committed exporter writes: a newer format, or KDF or
   /// cipher settings outside the verified set.
   case unsupported(String)
+  /// The device cannot hold what the restore needs in memory; raised before
+  /// anything is removed.
+  case resource(String)
+  /// The restore needs more disk than is free plus what the old vault frees;
+  /// raised before anything is removed.
+  case noSpace(needed: Int64, available: Int64)
 
   var errorDescription: String? {
     switch self {
@@ -15,6 +22,9 @@ enum BackupError: LocalizedError {
     case .passphrase: return "That passphrase does not match this backup."
     case .unsupported(let reason):
       return "This backup uses settings this version of the app does not support: \(reason)."
+    case .resource(let reason): return "This device does not have enough memory to restore this backup: \(reason)."
+    case .noSpace(let needed, let available):
+      return "This device does not have enough free space to restore this backup (needs \(needed) bytes, has \(available))."
     }
   }
 }
@@ -50,6 +60,26 @@ enum BackupContainer {
   /// The check entry, the database key string and the index extra: the
   /// smallest backup the app writes.
   static let minEntries = 3
+
+  /// The `SVC1` magic and chunk-size field that open every payload; a
+  /// plaintext is at most the rest.
+  static let streamHeaderBytes: UInt64 = 8
+
+  /// Transient copies `JSONDecoder` makes of a header or meta: the bytes read
+  /// and the parsed form.
+  static let jsonCopies = 2
+
+  /// What the process may still allocate before the OS ends it, or nil when
+  /// the OS gives no figure (`os_proc_available_memory` returns 0 outside an
+  /// app process with a memory limit). A trial allocation is not used on iOS:
+  /// a successful `malloc` does not mean the pages can be touched before the
+  /// process is killed.
+  static func availableMemory() -> Int? {
+    let available = os_proc_available_memory()
+    return available > 0 ? available : nil
+  }
+
+  typealias MemoryProbe = () -> Int?
 
   struct Header: Codable {
     var version: Int
@@ -279,10 +309,10 @@ enum BackupContainer {
     return (entries.count, bytes)
   }
 
-  static func readHeader(from source: URL) throws -> Header {
+  static func readHeader(from source: URL, memory: MemoryProbe = availableMemory) throws -> Header {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
-    return try readHeader(input)
+    return try readHeader(input, memory: memory)
   }
 
   /// Only the version, read first so a newer format is named as such even
@@ -292,14 +322,15 @@ enum BackupContainer {
   }
 
   /// Expects `input` at the start of the file. The header length is checked
-  /// against the bytes left in the file before it is read. Then, in the same
-  /// order as on Android: the version must be an integer (above 1 is a newer
-  /// format, below 1 a damaged header); every field the exporter writes must be
+  /// against the bytes left in the file and against the memory the OS says
+  /// the process can still use, before it is read. Then, in the same order as
+  /// on Android: the version must be an integer (above 1 is a newer format,
+  /// below 1 a damaged header); every field the exporter writes must be
   /// present with its JSON type and the counts must fit their types
   /// (otherwise `corrupt`); and the KDF name, cipher and iteration count must
   /// be the ones a committed exporter wrote (otherwise `unsupported`). All of
   /// it runs before any key is derived.
-  private static func readHeader(_ input: FileHandle) throws -> Header {
+  private static func readHeader(_ input: FileHandle, memory: MemoryProbe) throws -> Header {
     guard try VaultCrypto.read(input, count: magic.count) == magic else {
       throw BackupError.corrupt("not a SecureVault backup")
     }
@@ -307,6 +338,7 @@ enum BackupContainer {
     guard lengthData.count == 4 else { throw BackupError.corrupt("header") }
     let length = Int(readBe32(lengthData))
     guard length <= (try remaining(input)) else { throw BackupError.corrupt("truncated") }
+    try ensureMemory(for: length, memory: memory, what: "a header of \(length) bytes")
     let data = try VaultCrypto.read(input, count: length)
     guard let field = try? JSONDecoder().decode(VersionField.self, from: data) else {
       throw BackupError.corrupt("header")
@@ -330,6 +362,14 @@ enum BackupContainer {
     return header
   }
 
+  /// Refuses a declared length whose decoding would need more memory than the
+  /// OS says is left. Unknown memory (no figure from the OS) is not a refusal.
+  private static func ensureMemory(for length: Int, memory: MemoryProbe, what: String) throws {
+    guard let available = memory() else { return }
+    let (needed, overflow) = length.multipliedReportingOverflow(by: jsonCopies)
+    if overflow || needed > available { throw BackupError.resource(what) }
+  }
+
   /// The salt must decode to at least one byte, as on Android, so an empty or
   /// undecodable salt is a damaged header rather than a wrong passphrase.
   private static func salt(of header: Header) throws -> Data {
@@ -346,8 +386,8 @@ enum BackupContainer {
   /// Entry metadata only, read by seeking past each payload. No key is derived
   /// and nothing is decrypted, so a bad key or a truncated file is found before
   /// the vault is touched.
-  static func readMetas(from source: URL) throws -> [Meta] {
-    try readLayout(from: source).map(\.meta)
+  static func readMetas(from source: URL, memory: MemoryProbe = availableMemory) throws -> [Meta] {
+    try readLayout(from: source, memory: memory).map(\.meta)
   }
 
   /// The pre-pass: every entry's metadata and declared payload length, with
@@ -356,14 +396,14 @@ enum BackupContainer {
   /// kind; every kind is one the exporter writes; no two other entries share a
   /// key (they come from one directory listing plus the index extra); and the
   /// file ends right after the last declared entry. Anything else is `corrupt`.
-  static func readLayout(from source: URL) throws -> [EntryInfo] {
+  static func readLayout(from source: URL, memory: MemoryProbe = availableMemory) throws -> [EntryInfo] {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
-    let header = try readHeader(input)
+    let header = try readHeader(input, memory: memory)
     var layout: [EntryInfo] = []
     var keys = Set<String>()
     for index in 0..<header.entries {
-      let (meta, size) = try readEntryHead(input, index: index)
+      let (meta, size) = try readEntryHead(input, index: index, memory: memory)
       guard kinds.contains(meta.kind) else { throw BackupError.corrupt("entry \(index) kind") }
       if index == 0 {
         guard meta.kind == "c", meta.key == checkKey else { throw BackupError.corrupt("check entry") }
@@ -378,13 +418,60 @@ enum BackupContainer {
     return layout
   }
 
+  /// What the restore pass needs, worked out from the pre-pass before anything is removed.
+  struct RestoreNeeds {
+    /// Upper bound of the largest `s` plaintext, which the restore pass holds in memory whole.
+    var largestString: UInt64
+    /// Bytes the restored vault, extras and the restore pass's temporary files can take at their peak.
+    var disk: UInt64
+  }
+
+  /// Every payload is re-encrypted into the vault (or moved out as an extra)
+  /// at about its own size, and at the peak one entry's payload copy and
+  /// plaintext sit in staging next to it. Each length is already bounded by
+  /// the bytes left in the file, so the sums fit 64 bits. An `s` plaintext is
+  /// at most its payload minus the stream header.
+  static func restoreNeeds(_ layout: [EntryInfo]) -> RestoreNeeds {
+    var total: UInt64 = 0
+    var largest: UInt64 = 0
+    var largestString: UInt64 = 0
+    for entry in layout where entry.meta.kind != "c" {
+      total += entry.payloadLength
+      largest = max(largest, entry.payloadLength)
+      if entry.meta.kind == "s" {
+        largestString = max(largestString, entry.payloadLength > streamHeaderBytes ? entry.payloadLength - streamHeaderBytes : 0)
+      }
+    }
+    return RestoreNeeds(largestString: largestString, disk: total + 2 * largest)
+  }
+
+  /// Refuses an `s` entry whose `copies` whole copies would not fit in the
+  /// memory the OS says is left. Unknown memory is not a refusal. This lowers
+  /// the chance of the OS ending the restore after the wipe but cannot rule it
+  /// out, because memory pressure can rise during the pass.
+  static func checkMemory(bytes: UInt64, copies: Int, available: Int?) throws {
+    guard bytes > 0, let available else { return }
+    let (needed, overflow) = bytes.multipliedReportingOverflow(by: UInt64(copies))
+    if overflow || needed > UInt64(max(0, available)) { throw BackupError.resource("an entry of \(bytes) bytes") }
+  }
+
+  /// The restore needs `needed` bytes; `free` are free now and the wipe gives
+  /// back `freed` (the old vault's entries). No margin is added: a device that
+  /// fills up during the pass still ends as a partial restore.
+  static func checkSpace(needed: UInt64, free: UInt64, freed: UInt64) throws {
+    let available = free &+ freed
+    if needed > available { throw BackupError.noSpace(needed: Int64(clamping: needed), available: Int64(clamping: available)) }
+  }
+
   /// Reads one entry's metadata and payload length, leaving `input` at the
-  /// payload. Both lengths are checked against the bytes left in the file.
-  private static func readEntryHead(_ input: FileHandle, index: Int) throws -> (Meta, UInt64) {
+  /// payload. Both lengths are checked against the bytes left in the file, and
+  /// the meta length against the memory the OS says is left.
+  private static func readEntryHead(_ input: FileHandle, index: Int, memory: MemoryProbe) throws -> (Meta, UInt64) {
     let metaLength = try VaultCrypto.read(input, count: 4)
     guard metaLength.count == 4 else { throw BackupError.corrupt("entry \(index)") }
     let metaSize = Int(readBe32(metaLength))
     guard metaSize <= (try remaining(input)) else { throw BackupError.corrupt("truncated") }
+    try ensureMemory(for: metaSize, memory: memory, what: "an entry name of \(metaSize) bytes")
     guard let meta = try? JSONDecoder().decode(Meta.self, from: VaultCrypto.read(input, count: metaSize)) else {
       throw BackupError.corrupt("entry \(index)")
     }
@@ -422,7 +509,10 @@ enum BackupContainer {
   ///
   /// `validate` sees each entry's metadata on every pass; `validateAll` sees
   /// the whole list once, after the pre-pass and before the key is derived,
-  /// for rules about which entries must be present.
+  /// for rules about which entries must be present. `preflight` sees the
+  /// pre-pass layout once, after the verify pass and before the restore pass,
+  /// so a device that cannot hold the restore refuses it with the vault
+  /// untouched.
   ///
   /// Every payload copy and plaintext lives in `staging`, which is swept
   /// before anything is read (a staging error is thrown with the vault
@@ -430,25 +520,29 @@ enum BackupContainer {
   static func read(
     from source: URL, passphrase: String, staging: StagingDirectory, validate: (Meta) throws -> Void,
     validateAll: ([Meta]) throws -> Void = { _ in },
-    progress: (ReadPhase, Int, Int) -> Void, handle: (Meta, URL) throws -> Void
+    progress: (ReadPhase, Int, Int) -> Void,
+    preflight: ([EntryInfo]) throws -> Void = { _ in },
+    memory: MemoryProbe = availableMemory,
+    handle: (Meta, URL) throws -> Void
   ) throws {
     try sweep(staging)
     defer { try? sweep(staging) }
-    let layout = try readLayout(from: source)
+    let layout = try readLayout(from: source, memory: memory)
     let metas = layout.map(\.meta)
     for meta in metas { try validate(meta) }
     try validateAll(metas)
-    let header = try readHeader(from: source)
+    let header = try readHeader(from: source, memory: memory)
     let key = try deriveKey(passphrase: passphrase, salt: try salt(of: header), iterations: header.kdf.iterations)
 
-    try walk(source, staging: staging, validate: validate, progress: { progress(.verify, $0, $1) }) { meta, payload in
+    try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.verify, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
         try verifyCheck(payload, key: key, staging: staging)
       } else {
         do { try VaultCrypto.verifyFile(at: payload, key: key) } catch { throw BackupError.corrupt("entry \(meta.key)") }
       }
     }
-    try walk(source, staging: staging, validate: validate, progress: { progress(.restore, $0, $1) }) { meta, payload in
+    try preflight(layout)
+    try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.restore, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
         try verifyCheck(payload, key: key, staging: staging)
         return
@@ -478,15 +572,15 @@ enum BackupContainer {
   /// its payload is copied to a temporary file that `visit` may read but not
   /// keep, and progress is reported per entry.
   private static func walk(
-    _ source: URL, staging: StagingDirectory, validate: (Meta) throws -> Void, progress: Progress,
-    visit: (Meta, URL) throws -> Void
+    _ source: URL, staging: StagingDirectory, validate: (Meta) throws -> Void, memory: MemoryProbe,
+    progress: Progress, visit: (Meta, URL) throws -> Void
   ) throws {
     let input = try FileHandle(forReadingFrom: source)
     defer { try? input.close() }
-    let header = try readHeader(input)
+    let header = try readHeader(input, memory: memory)
     for index in 0..<header.entries {
       // Lengths and metadata are checked again in case the file changed since the pre-pass.
-      let (meta, size) = try readEntryHead(input, index: index)
+      let (meta, size) = try readEntryHead(input, index: index, memory: memory)
       try validate(meta)
       let payload = temporaryFile(in: staging)
       defer { try? FileManager.default.removeItem(at: payload) }

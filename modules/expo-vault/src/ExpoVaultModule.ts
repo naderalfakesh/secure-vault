@@ -101,9 +101,8 @@ export interface SecureVault {
    * Reads the container header without a passphrase. Rejects with
    * BACKUP_UNSUPPORTED for a newer format or KDF and cipher settings no
    * committed exporter wrote (iterations other than 600 000 included),
-   * BACKUP_RESOURCE when the device cannot hold a declared length (Android
-   * only), and BACKUP_INVALID for anything else that is not a version-1
-   * header.
+   * BACKUP_RESOURCE when the device cannot hold the declared header, and
+   * BACKUP_INVALID for anything else that is not a version-1 header.
    */
   inspectBackup(sourcePath: string): Promise<BackupInfo>;
   /**
@@ -112,9 +111,11 @@ export interface SecureVault {
    * and the structure a version-1 exporter writes (BACKUP_INVALID: check
    * entry first, known kinds, unique keys, exactly one `database` extra, a
    * `_database_key` string, no trailing bytes). Every entry is then decrypted
-   * once, so a wrong passphrase (BACKUP_PASSPHRASE), any of these, or a
-   * declared length the device cannot hold (BACKUP_RESOURCE, Android only)
-   * leaves the vault untouched. A failure from the first removal on rejects with
+   * once, and the device must have the memory for the largest string entry
+   * (BACKUP_RESOURCE, which also covers a header or entry name too large to
+   * read) and the disk for the restored vault (BACKUP_NO_SPACE). A wrong
+   * passphrase (BACKUP_PASSPHRASE) or any of these leaves the vault
+   * untouched. A failure from the first removal on rejects with
    * BACKUP_PARTIAL. Extra files land in `extraDir` and are listed in the
    * result. Payload copies and decrypted entries live only in `stagingDir`,
    * which must be the app cache's own `restore-staging` folder

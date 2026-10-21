@@ -5,6 +5,10 @@ import CryptoKit
 
 public class ExpoVaultModule: Module {
   private let keychainService = "com.naderalfakesh.securevault.vault"
+  /// Copies of an `s` plaintext the restore pass holds at once:
+  /// `Data(contentsOf:)`, the sealed ciphertext and its `.combined` form.
+  /// Provisional until measured on the S-s fixtures; never below 3.
+  private static let stringEntryCopies = 3
 
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
@@ -177,6 +181,7 @@ public class ExpoVaultModule: Module {
         } catch let error as BackupError {
             switch error {
             case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
+            case .resource: promise.reject("BACKUP_RESOURCE", error.localizedDescription)
             default: promise.reject("BACKUP_INVALID", error.localizedDescription)
             }
         } catch {
@@ -206,6 +211,8 @@ public class ExpoVaultModule: Module {
                 guard Self.hasIndex(metas) else { throw BackupError.corrupt("no document index") }
             }, progress: { phase, done, total in
                 self.sendEvent("backupProgress", ["phase": phase.rawValue, "done": done, "total": total])
+            }, preflight: { layout in
+                try self.preflightRestore(layout)
             }) { meta, plain in
                 // Registered first, so a wipe failure cannot leave the decrypted entry behind.
                 defer { try? FileManager.default.removeItem(at: plain) }
@@ -245,6 +252,8 @@ public class ExpoVaultModule: Module {
             case .passphrase: promise.reject("BACKUP_PASSPHRASE", error.localizedDescription)
             case .unsupported: promise.reject("BACKUP_UNSUPPORTED", error.localizedDescription)
             case .corrupt: promise.reject("BACKUP_INVALID", error.localizedDescription)
+            case .resource: promise.reject("BACKUP_RESOURCE", error.localizedDescription)
+            case .noSpace: promise.reject("BACKUP_NO_SPACE", error.localizedDescription)
             }
         } catch VaultKeyError.invalid(let key) {
             promise.reject("BACKUP_INVALID", VaultKeyError.invalid(key).localizedDescription)
@@ -403,6 +412,29 @@ public class ExpoVaultModule: Module {
   private static func hasIndex(_ metas: [BackupContainer.Meta]) -> Bool {
     metas.filter { $0.kind == "x" && $0.key == "database" }.count == 1
       && metas.contains { $0.kind == "s" && $0.key == "_database_key" }
+  }
+
+  /// Runs after every entry has decrypted once and before the vault is
+  /// cleared. The largest `s` entry, held whole in memory three times over,
+  /// must fit in what the OS says the process can still use, and the restored
+  /// vault plus the pass's temporary files must fit in the free space plus
+  /// what the old vault's entries give back. A figure the OS does not give is
+  /// not a refusal. Either refusal leaves the vault untouched.
+  private func preflightRestore(_ layout: [BackupContainer.EntryInfo]) throws {
+    let needs = BackupContainer.restoreNeeds(layout)
+    try BackupContainer.checkMemory(
+      bytes: needs.largestString, copies: Self.stringEntryCopies, available: BackupContainer.availableMemory()
+    )
+    let directory = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    let values = try directory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey])
+    // The figure for user-requested work counts space the system can purge on demand.
+    let free = values.volumeAvailableCapacityForImportantUsage.map { Int64($0) } ?? values.volumeAvailableCapacity.map { Int64($0) }
+    guard let free else { return }
+    var freed: UInt64 = 0
+    for url in try vaultEntryURLs() {
+      freed += UInt64(try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0)
+    }
+    try BackupContainer.checkSpace(needed: needs.disk, free: UInt64(max(0, free)), freed: freed)
   }
 
   /// Second line of defence after the grammar: the resolved path must stay

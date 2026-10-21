@@ -48,7 +48,13 @@ describe('passphrase policy', () => {
       "This backup uses settings this version of the app doesn't support. Nothing was changed.",
     );
     expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).toMatch(/previous vault was removed/);
-    expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toMatch(/enough memory/);
+    expect(describeBackupError({ code: 'BACKUP_PARTIAL' })).not.toMatch(/Nothing was changed/);
+    expect(describeBackupError({ code: 'BACKUP_RESOURCE' })).toBe(
+      "This device doesn't have enough memory to restore this backup. Nothing was changed.",
+    );
+    expect(describeBackupError({ code: 'BACKUP_NO_SPACE' })).toBe(
+      "This device doesn't have enough free space to restore this backup. Nothing was changed. Free up some space and try again.",
+    );
     expect(describeBackupError({ code: 'BACKUP_INDEX' })).toMatch(/index could not be opened/);
     expect(describeBackupError({ code: 'BACKUP_STAGING_INVALID' })).toMatch(
       /temporary files could not be cleared/,
@@ -80,6 +86,11 @@ describe('passphrase policy', () => {
     expect(
       describeBackupErrorPlainly({ code: 'BACKUP_RESTORE_STAGING_INVALID' }, 'fallback'),
     ).toMatch(/nothing was changed/);
+    for (const code of ['BACKUP_UNSUPPORTED', 'BACKUP_RESOURCE', 'BACKUP_NO_SPACE']) {
+      expect(describeBackupErrorPlainly({ code, message: '/var/mobile/x' }, 'fallback')).toMatch(
+        /Nothing was changed/,
+      );
+    }
   });
 });
 
@@ -182,6 +193,69 @@ describe('BackupService', () => {
         reload.mockRestore();
       }
     });
+  });
+
+  describe('refusals the module makes before the vault is cleared', () => {
+    // Each code is one the native restore raises before its first removal:
+    // header settings, structure, memory for the largest string entry, disk.
+    const refusals = [
+      [
+        'BACKUP_UNSUPPORTED',
+        'This backup uses settings this version of the app does not support: 1200000 iterations.',
+      ],
+      ['BACKUP_INVALID', 'The backup file is not valid: trailing data'],
+      [
+        'BACKUP_RESOURCE',
+        'This device does not have enough memory to restore this backup: an entry of 40000000 bytes.',
+      ],
+      [
+        'BACKUP_NO_SPACE',
+        'This device does not have enough free space to restore this backup (needs 9 bytes, has 1).',
+      ],
+    ] as const;
+
+    it.each(refusals)(
+      'passes %s on unchanged, keeps the vault and the index, and clears its staging',
+      async (code, message) => {
+        await vault.put('_database_key', 'cd'.repeat(32));
+        const backup = await backupService.createBackup('correct horse battery');
+        await vault.put('_database_key', 'ef'.repeat(32));
+        const keys = await vault.getAllKeys();
+        jest
+          .spyOn(vault, 'importBackup')
+          .mockRejectedValueOnce(Object.assign(new Error(message), { code }));
+        const reload = jest.spyOn(documentService, 'reload');
+        try {
+          await expect(
+            backupService.restoreBackup(backup.uri, 'correct horse battery'),
+          ).rejects.toMatchObject({ code, message });
+          expect(reload).not.toHaveBeenCalled();
+          expect(await vault.get('_database_key')).toBe('ef'.repeat(32));
+          expect(await vault.getAllKeys()).toEqual(keys);
+          expect(new Directory(Paths.cache, RESTORE_STAGING_DIRECTORY).exists).toBe(false);
+          expect(backupService.activity()).toBeNull();
+          expect(describeBackupError({ code, message })).toMatch(/Nothing was changed/);
+        } finally {
+          jest.restoreAllMocks();
+        }
+      },
+    );
+
+    it.each(['BACKUP_UNSUPPORTED', 'BACKUP_RESOURCE', 'BACKUP_INVALID'])(
+      'passes a %s header refusal from inspect on unchanged',
+      async (code) => {
+        jest
+          .spyOn(vault, 'inspectBackup')
+          .mockRejectedValueOnce(Object.assign(new Error('native text'), { code }));
+        try {
+          await expect(
+            backupService.inspectBackup('file:///mock/cache/DocumentPicker/a.svbackup'),
+          ).rejects.toMatchObject({ code });
+        } finally {
+          jest.restoreAllMocks();
+        }
+      },
+    );
   });
 
   it('rejects a wrong passphrase without touching the vault', async () => {
