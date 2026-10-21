@@ -2,6 +2,8 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { useUnistyles } from 'react-native-unistyles';
 
+import { darkColors, lightColors } from '@/theme/colors';
+
 import { IconGlyph } from './Icon';
 import type { IconPath } from './iconPaths';
 
@@ -16,6 +18,11 @@ export type MarkProps = {
   style?: StyleProp<AnimatedStyle<ViewStyle>>;
   /** Style for the glyph alone, so a moving mark can size it apart from the squircle. */
   glyphStyle?: StyleProp<AnimatedStyle<ViewStyle>>;
+  /**
+   * Draw in this scheme's colours instead of the app theme's. The splash
+   * handoff repaints the native splash, which follows the system scheme.
+   */
+  scheme?: 'light' | 'dark';
   testID?: string;
 };
 
@@ -40,10 +47,12 @@ export function Mark({
   glyph = 'mark',
   style,
   glyphStyle,
+  scheme,
   testID = 'mark',
 }: MarkProps) {
   const { theme, rt } = useUnistyles();
-  const dark = rt.themeName === 'dark';
+  const dark = scheme ? scheme === 'dark' : rt.themeName === 'dark';
+  const colors = scheme ? (dark ? darkColors : lightColors) : theme.colors;
   const glyphSize = markGlyphSize(size);
 
   return (
@@ -58,10 +67,10 @@ export function Mark({
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: muted
-            ? theme.colors.surfaceMuted
+            ? colors.surfaceMuted
             : dark
-              ? theme.colors.primaryMuted
-              : theme.colors.primary,
+              ? colors.primaryMuted
+              : colors.primary,
         },
         style,
       ]}
@@ -74,9 +83,7 @@ export function Mark({
           path={glyph}
           size={glyphSize}
           strokeWidth={1.5}
-          color={
-            muted ? theme.colors.textTertiary : dark ? theme.colors.primary : theme.colors.onPrimary
-          }
+          color={muted ? colors.textTertiary : dark ? colors.primary : colors.onPrimary}
         />
       </Animated.View>
     </Animated.View>

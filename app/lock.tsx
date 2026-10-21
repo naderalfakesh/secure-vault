@@ -49,7 +49,17 @@ export default function LockScreen() {
       reportSplashTarget(null);
       return;
     }
-    markRef.current?.measureInWindow((x, y, width) => reportSplashTarget({ x, y, size: width }));
+    // The handoff measures again just before it moves, after the safe-area
+    // insets have settled.
+    const measure = () =>
+      new Promise<{ x: number; y: number; size: number } | null>((resolve) => {
+        const node = markRef.current;
+        if (!node) resolve(null);
+        else node.measureInWindow((x, y, width) => resolve({ x, y, size: width }));
+      });
+    markRef.current?.measureInWindow((x, y, width) =>
+      reportSplashTarget({ x, y, size: width }, measure),
+    );
   };
   // Biometric unlock off: the PIN comes first, and the device-unlock button
   // below still opens the system prompt for whoever wants it.

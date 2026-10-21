@@ -1,10 +1,10 @@
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { initialWindowMetrics, SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUnistyles } from 'react-native-unistyles';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -94,7 +94,11 @@ function RootNavigator() {
 
   // The handoff repaints the native splash, then carries its mark to the lock
   // screen's once the splash hides (§3.5).
-  const handoff = <SplashHandoff released={ready && themed} />;
+  // While it runs, screens appear without a transition: the lock screen must
+  // not slide in under the gliding mark (§3.5).
+  const [handingOff, setHandingOff] = useState(true);
+  const endHandoff = useCallback(() => setHandingOff(false), []);
+  const handoff = <SplashHandoff released={ready && themed} onDone={endHandoff} />;
 
   if (!ready) {
     return handoff;
@@ -102,7 +106,12 @@ function RootNavigator() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, animation: reduceMotion ? 'fade' : 'default' }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: handingOff ? 'none' : reduceMotion ? 'fade' : 'default',
+        }}
+      >
         {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
         <Stack.Protected guard={unlocked}>
           <Stack.Screen name="(tabs)" />
@@ -171,7 +180,9 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={rootStyle}>
-        <SafeAreaProvider>
+        {/* Real insets from the first frame, so the lock mark does not move by a
+          status bar after the splash handoff has measured it. */}
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <SessionProvider>
             <ToastProvider>
               <StatusBar style="auto" />
