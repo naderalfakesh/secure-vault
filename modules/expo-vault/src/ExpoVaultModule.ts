@@ -82,6 +82,14 @@ export interface SecureVault {
    * else, or an entry left behind, throws. Synchronous.
    */
   removeTreeNoFollow(path: string): void;
+  /**
+   * iOS: sets `isExcludedFromBackup` on `path`, which must be one of the app's
+   * own folders directly in Documents (`restore-source` or
+   * `securevault-session`); anything else throws. A folder's flag covers what
+   * it holds. Android does nothing: the app's backup rules include only
+   * shared preferences, so the files folder is never backed up. Synchronous.
+   */
+  excludeFromBackup(path: string): void;
 
   // Backup & restore
   /**

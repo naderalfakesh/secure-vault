@@ -40,6 +40,8 @@ export function createVaultMock(): SecureVault & {
   plantLink(path: string, target: string): void;
   linkTarget(path: string): string | null;
   links(): string[];
+  /** Folders `excludeFromBackup` flagged, as iOS would. */
+  excludedFromBackup(): string[];
   /** Sends a progress event to the listeners, as the native module does mid-call. */
   emitProgress(progress: BackupProgress): void;
 } {
@@ -58,6 +60,8 @@ export function createVaultMock(): SecureVault & {
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
   const links = new Map<string, string>();
+  // Folders flagged for exclusion from device backups, as iOS records them.
+  const excluded = new Set<string>();
   // The native cancel state: opened when an import ends (a cancel from before its start is
   // kept), read after its checking pass, which also passes the last cancel point.
   let restoreState: 'open' | 'cancel' | 'committed' = 'open';
@@ -186,6 +190,17 @@ export function createVaultMock(): SecureVault & {
     },
     scheduleShareExpiry() {},
     cancelShareExpiry() {},
+    excludeFromBackup(path) {
+      const key = trimSlashes(path);
+      const allowed = ['restore-source', 'securevault-session'].map(
+        (name) => `${pathOf(Paths.document.uri)}/${name}`,
+      );
+      if (!allowed.includes(key)) throw new Error('Only the app’s own folders can be excluded');
+      excluded.add(key);
+    },
+    excludedFromBackup() {
+      return [...excluded];
+    },
     removeTreeNoFollow(path) {
       if (!path.startsWith('/'))
         throw new Error('The cache entry cannot be removed: not an absolute path');
@@ -235,6 +250,7 @@ export function createVaultMock(): SecureVault & {
     },
     reset() {
       restoreState = 'open';
+      excluded.clear();
       strings = new Map();
       files = new Map();
       created = false;

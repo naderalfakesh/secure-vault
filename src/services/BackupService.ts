@@ -7,7 +7,7 @@ import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import vault, { type BackupInfo, type BackupProgress } from '../../modules/expo-vault';
 import { documentService, PICKER_DIRECTORY } from './DocumentService';
-import { removeNoFollow } from './removeNoFollow';
+import { excludeFromBackupQuietly, removeNoFollow } from './removeNoFollow';
 
 export const MIN_PASSPHRASE_LENGTH = 8;
 const DATABASE_ENTRY = 'database';
@@ -442,6 +442,8 @@ class BackupService {
       // Whatever an earlier pick left, a link planted in its place included.
       removeNoFollow(folder);
       folder.create({ intermediates: true });
+      // Ciphertext that is gone after the restore has no place in a device backup.
+      excludeFromBackupQuietly(folder);
       const target = new File(folder, RESTORE_SOURCE_FILE);
       await new File(uri).move(target);
       return new File(folder, RESTORE_SOURCE_FILE).uri;

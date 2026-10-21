@@ -5,6 +5,8 @@ import { t, tp } from '@/i18n';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
+import { excludeFromBackupQuietly } from '@/services/removeNoFollow';
+
 export const AUTO_LOCK_OPTIONS = [0, 60, 300, 900, -1] as const;
 export type AutoLockSeconds = (typeof AUTO_LOCK_OPTIONS)[number];
 
@@ -110,6 +112,9 @@ function markWritten(name: string) {
   try {
     const file = markerFile(name);
     if (!file.exists) file.create({ intermediates: true });
+    // Never in an iCloud or iTunes backup: a restored phone has no markers
+    // and reads its records alone, as before markers existed.
+    excludeFromBackupQuietly(markerDirectory());
   } catch {
     // Repaired by the next read that finds the record.
   }

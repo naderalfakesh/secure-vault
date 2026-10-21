@@ -540,6 +540,11 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        // iOS flags the folder for exclusion from device backups. Nothing to do here: the backup
+        // rules expo-secure-store installs include only shared preferences (SecureStore itself
+        // excluded), so the files folder, the vault entries and these folders, never leaves.
+        Function("excludeFromBackup") { _: String -> }
+
         Function("removeTreeNoFollow") { path: String ->
             val context = appContext.reactContext!!
             // The picked backup waits in `files/restore-source`, out of the purgeable cache.

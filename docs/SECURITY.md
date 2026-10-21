@@ -168,7 +168,12 @@ backup brought the documents folder back without the Keychain or Keystore,
 and setup runs as before. "Delete everything" removes the markers before
 the records; if a marker cannot be removed, no record is deleted and the
 erase reports that the old PIN could not be removed. iOS's Keychain does not
-drop entries like this, but the same rule applies there.
+drop entries like this, but the same rule applies there. The marker folder
+is excluded from iCloud and iTunes backups (`isExcludedFromBackup`), and
+Android's backup rules include only shared preferences, so the files folder
+never leaves the device. A restored phone therefore has no markers: a PIN
+record that came back with it reads as present and is marked again, and one
+that did not is a first run, exactly as before markers existed.
 
 ### Backup key
 
@@ -363,7 +368,9 @@ disabled until it ends.
   restore is still reading them, and a second pick is refused then. The
   vault module removes `restore-source` as a whole, the same no-follow way
   as the cache folders, and never an entry below it or beside it in the
-  documents folder. An export
+  documents folder. On iOS the folder is excluded from device backups
+  when it is created; on Android the backup rules leave the files folder
+  out. An export
   that is running when the vault locks is not cancelled natively: the lock
   also empties the cache's `backup-staging` folder, so it fails at its next
   entry, at most the entry being written was staged after the lock, and a

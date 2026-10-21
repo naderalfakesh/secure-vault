@@ -12,3 +12,19 @@ import ExpoVaultModule from '../../modules/expo-vault';
 export function removeNoFollow(entry: File | Directory): void {
   ExpoVaultModule.removeTreeNoFollow(decodeURIComponent(entry.uri.replace(/^file:\/\//, '')));
 }
+
+/**
+ * Keeps one of the app's own folders in the documents folder out of device
+ * backups (iOS sets `isExcludedFromBackup` on it, which covers what it holds;
+ * Android's backup rules already leave the files folder out). Best effort:
+ * the caller's write has happened either way.
+ */
+export function excludeFromBackupQuietly(folder: Directory): void {
+  try {
+    ExpoVaultModule.excludeFromBackup(
+      decodeURIComponent(folder.uri.replace(/^file:\/\//, '')).replace(/\/$/, ''),
+    );
+  } catch {
+    // Written again, and excluded again, on the next write.
+  }
+}

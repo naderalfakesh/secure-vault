@@ -1041,6 +1041,14 @@ describe('BackupService', () => {
       expect(pathOf(kept).startsWith(pathOf(Paths.cache.uri))).toBe(false);
     });
 
+    it('keeps the folder out of device backups (iOS)', async () => {
+      await backupService.keepPickedFile(pickCopy().uri);
+
+      expect(
+        (vault as unknown as { excludedFromBackup(): string[] }).excludedFromBackup(),
+      ).toContain(pathOf(source().uri).replace(/\/$/, ''));
+    });
+
     it('replaces the copy an earlier pick left behind', async () => {
       await backupService.keepPickedFile(pickCopy('first').uri);
 

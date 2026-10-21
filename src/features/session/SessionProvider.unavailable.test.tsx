@@ -334,6 +334,28 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     expect(marker('lockout').exists).toBe(true);
   });
 
+  it('keeps the marker folder out of device backups (iOS), so a restored phone has none', async () => {
+    await setUpVault();
+
+    const markers = decodeURIComponent(
+      new Directory(Paths.document, SESSION_MARKER_DIRECTORY).uri.replace(/^file:\/\//, ''),
+    ).replace(/\/$/, '');
+    expect((vault as unknown as { excludedFromBackup(): string[] }).excludedFromBackup()).toContain(
+      markers,
+    );
+  });
+
+  it('falls back to the PIN record alone after a device restore brought no markers', async () => {
+    await setUpVault();
+    // A restore of the same phone: Keychain items and documents back, excluded markers not.
+    new Directory(Paths.document, SESSION_MARKER_DIRECTORY).delete();
+
+    const view = await renderProbe();
+
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    expect(marker('pin').exists).toBe(true);
+  });
+
   it('is unavailable, not setup, when a PIN record that was written reads as absent', async () => {
     await setUpVault();
     await corrupt(PIN_ENTRY);

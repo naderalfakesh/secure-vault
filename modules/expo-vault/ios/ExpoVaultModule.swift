@@ -14,6 +14,8 @@ public class ExpoVaultModule: Module {
   private static let stringEntryCopies = 3
   /// Folder in Documents the picked backup is moved into, so Caches purging cannot remove it.
   private static let restoreSourceName = "restore-source"
+  /// Folder in Documents that holds the PIN and lockout markers.
+  private static let sessionMarkerName = "securevault-session"
   /// Set by `cancelRestore`, read by the running restore between entries of
   /// its checking pass. `importBackup` clears it when it ends. A cancel that
   /// arrives before the call starts is kept and honoured at its first check,
@@ -405,6 +407,23 @@ public class ExpoVaultModule: Module {
     Function("cancelShareExpiry") { (_: String) in }
 
     // Mirrors Android, where expo-file-system's delete follows a link.
+    // Keeps one of the app's own Documents folders out of iCloud and iTunes
+    // backups; the flag on a folder covers what it holds. Only the two named
+    // folders directly in Documents qualify, once the parent's links resolve.
+    Function("excludeFromBackup") { (path: String) throws in
+      let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+      var url = URL(fileURLWithPath: path).standardizedFileURL
+      let parent = url.deletingLastPathComponent().resolvingSymlinksInPath().path
+      guard parent == documents.standardizedFileURL.resolvingSymlinksInPath().path,
+        [Self.restoreSourceName, Self.sessionMarkerName].contains(url.lastPathComponent)
+      else {
+        throw BackupContainer.RemovalError(reason: "not one of the app's own folders")
+      }
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      try url.setResourceValues(values)
+    }
+
     Function("removeTreeNoFollow") { (path: String) throws in
       let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
       let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
