@@ -111,6 +111,14 @@ describe('Settings', () => {
     expect(openSettings).toHaveBeenCalled();
   });
 
+  it('opens How your data is protected from About', async () => {
+    const view = await renderUnlocked('settings');
+
+    await fireEvent.press(view.getByRole('button', { name: /^How your data is protected/ }));
+
+    expect(router.push).toHaveBeenCalledWith('/settings/protection');
+  });
+
   it('opens the Auto-lock page from its row, which shows the current choice', async () => {
     const view = await renderUnlocked('settings');
 

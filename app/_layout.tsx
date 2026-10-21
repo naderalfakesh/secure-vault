@@ -87,6 +87,7 @@ function RootNavigator() {
         />
         <Stack.Screen name="documents/add" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings/auto-lock" />
+        <Stack.Screen name="settings/protection" />
         <Stack.Screen
           name="settings/change-pin"
           options={{

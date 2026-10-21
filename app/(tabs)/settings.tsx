@@ -473,11 +473,7 @@ export default function SettingsScreen() {
             icon="shield"
             tint="neutral"
             title="How your data is protected"
-            subtitle={Platform.select({
-              ios: 'Encrypted on this phone with AES-256-GCM. The key is kept by the iOS Keychain.',
-              default:
-                'Encrypted on this phone with AES-256-GCM. The key is kept by the Android Keystore.',
-            })}
+            onPress={() => router.push('/settings/protection')}
           />
           <ListRow
             icon="document"
