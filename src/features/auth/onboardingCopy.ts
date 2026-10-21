@@ -1,33 +1,32 @@
 import { Platform } from 'react-native';
 
+import { t } from '@/i18n';
+
 import type { BiometryType } from '../../../modules/expo-vault';
 
 /** Intro step 3 (handover §7.5), worded for the biometric this phone has. */
 export function unlockSlideBody(biometry: BiometryType): string {
-  const rest =
-    'A 6-digit PIN is always there as a backup, and the vault locks itself when you leave.';
+  const rest = t('onboarding.intro.3.rest');
   if (Platform.OS !== 'ios') {
     return biometry === 'none'
-      ? `Your screen lock opens the vault. ${rest}`
-      : `Your fingerprint or face opens the vault. ${rest}`;
+      ? t('onboarding.intro.3.screenLock', { rest })
+      : t('onboarding.intro.3.fingerprintOrFace', { rest });
   }
-  if (biometry === 'faceId') return `Face ID opens the vault. ${rest}`;
-  if (biometry === 'touchId') return `Touch ID opens the vault. ${rest}`;
-  if (biometry === 'biometrics') return `Face ID or Touch ID opens the vault. ${rest}`;
-  return `Your device passcode opens the vault. ${rest}`;
+  if (biometry === 'faceId') return t('onboarding.intro.3.faceId', { rest });
+  if (biometry === 'touchId') return t('onboarding.intro.3.touchId', { rest });
+  if (biometry === 'biometrics') return t('onboarding.intro.3.faceOrTouchId', { rest });
+  return t('onboarding.intro.3.passcode', { rest });
 }
 
 /** The Choose PIN subtitle. */
 export function choosePinHint(biometry: BiometryType): string {
-  if (biometry === 'none') return 'You’ll use it with your device passcode to open the vault.';
-  if (Platform.OS !== 'ios') {
-    return 'Your backup way in when fingerprint or face unlock isn’t available.';
-  }
-  const name = biometry === 'touchId' ? 'Touch ID' : 'Face ID';
-  return `Your backup way in when ${name} isn’t available.`;
+  if (biometry === 'none') return t('onboarding.pin.hintPasscode');
+  if (Platform.OS !== 'ios') return t('onboarding.pin.hintAndroid');
+  const name = biometry === 'touchId' ? t('lock.touchId') : t('lock.faceId');
+  return t('onboarding.pin.hintBiometry', { biometry: name });
 }
 
-export const EASY_PIN_WARNING = 'This PIN is easy to guess.';
+export const EASY_PIN_WARNING = t('onboarding.pin.easy');
 
 /**
  * One digit repeated, or a straight run up or down (123456, 654321). Only a

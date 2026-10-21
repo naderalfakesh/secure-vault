@@ -8,6 +8,7 @@ import { Button, Icon, Screen, Text } from '@/components/ui';
 import { biometricStepCopy, useBiometricAvailability } from '@/features/auth/biometricAvailability';
 import { biometryIcon } from '@/features/auth/lockCopy';
 import { useSession } from '@/features/session/SessionProvider';
+import { t } from '@/i18n';
 
 /**
  * J0 Enable biometrics, after the PIN is saved (handover §6, §7.5). "Use Face
@@ -36,8 +37,8 @@ export default function BiometricsStepScreen() {
     let allowed = false;
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock SecureVault',
-        cancelLabel: 'Not now',
+        promptMessage: t('onboarding.biometrics.prompt'),
+        cancelLabel: t('onboarding.biometrics.notNow'),
         disableDeviceFallback: true,
       });
       allowed = result.success;
@@ -70,7 +71,12 @@ export default function BiometricsStepScreen() {
       </View>
       <View style={styles.footer}>
         <Button label={copy.action} onPress={enableBiometrics} disabled={busy} />
-        <Button label="Not now" variant="plain" onPress={notNow} disabled={busy} />
+        <Button
+          label={t('onboarding.biometrics.notNow')}
+          variant="plain"
+          onPress={notNow}
+          disabled={busy}
+        />
       </View>
     </Screen>
   );

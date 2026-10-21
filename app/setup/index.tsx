@@ -16,6 +16,7 @@ import { Button, Icon, IconButton, type IconName, Screen, Text } from '@/compone
 import { biometryIcon } from '@/features/auth/lockCopy';
 import { unlockSlideBody } from '@/features/auth/onboardingCopy';
 import { useSession } from '@/features/session/SessionProvider';
+import { t } from '@/i18n';
 
 type Slide = { icon: IconName; title: string; body: string };
 
@@ -23,19 +24,18 @@ function introSlides(unlockBody: string, unlockIcon: IconName): Slide[] {
   return [
     {
       icon: 'files',
-      title: 'One place for the papers that matter',
-      body: 'Passports, IDs, insurance cards, leases, receipts. Scan them once and find them in seconds.',
+      title: t('onboarding.intro.1.title'),
+      body: t('onboarding.intro.1.body'),
     },
     {
       icon: 'lock',
-      title: 'Encrypted on this phone',
-      body: Platform.select({
-        ios: 'Every page is encrypted before it’s saved. The key is created on this phone and kept by the iOS Keychain. There’s no account to sign up for.',
-        default:
-          'Every page is encrypted before it’s saved. The key is created on this phone and kept by the Android Keystore. There’s no account to sign up for.',
-      }),
+      title: t('onboarding.intro.2.title'),
+      body:
+        Platform.OS === 'ios'
+          ? t('onboarding.intro.2.bodyIos')
+          : t('onboarding.intro.2.bodyAndroid'),
     },
-    { icon: unlockIcon, title: 'Unlock the way you already do', body: unlockBody },
+    { icon: unlockIcon, title: t('onboarding.intro.3.title'), body: unlockBody },
   ];
 }
 
@@ -94,13 +94,17 @@ export default function OnboardingScreen() {
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.bar}>
         {page > 0 ? (
-          <IconButton icon="back" accessibilityLabel="Back" onPress={() => goTo(page - 1)} />
+          <IconButton
+            icon="back"
+            accessibilityLabel={t('common.back')}
+            onPress={() => goTo(page - 1)}
+          />
         ) : (
           <View />
         )}
         {last ? null : (
           <Button
-            label="Skip"
+            label={t('onboarding.intro.skip')}
             variant="plain"
             size="md"
             onPress={() => router.push('/setup/pin')}
@@ -125,13 +129,13 @@ export default function OnboardingScreen() {
         <View
           style={styles.dots}
           accessible
-          accessibilityLabel={`Step ${page + 1} of ${slides.length}`}
+          accessibilityLabel={t('onboarding.intro.step', { step: page + 1, total: slides.length })}
         >
           {slides.map((slide, index) => (
             <View key={slide.title} style={styles.dot(index === page)} />
           ))}
         </View>
-        <Button label={last ? 'Set up your vault' : 'Continue'} onPress={next} />
+        <Button label={last ? t('onboarding.intro.setUp') : t('common.continue')} onPress={next} />
       </View>
     </Screen>
   );

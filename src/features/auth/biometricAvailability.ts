@@ -4,6 +4,7 @@ import { AppState, Platform } from 'react-native';
 
 import type { BiometryType } from '../../../modules/expo-vault';
 import { biometryName } from './lockCopy';
+import { t } from '@/i18n';
 
 /**
  * Why biometrics can or cannot be used (F13). `denied` is iOS only: the user
@@ -63,16 +64,16 @@ export function biometricUnavailableReason(availability: BiometricAvailability):
   const name = biometryName(availability.kind);
   if (availability.state === 'notEnrolled') {
     return Platform.OS === 'ios'
-      ? `${name} isn’t set up on this phone. Set it up in the Settings app, then come back.`
-      : 'Fingerprint or face unlock isn’t set up on this phone.';
+      ? t('onboarding.biometrics.notEnrolledIos', { biometry: name })
+      : t('onboarding.biometrics.notEnrolledAndroid');
   }
   if (availability.state === 'noPasscode') {
     return Platform.OS === 'ios'
-      ? `This phone has no passcode. Set a passcode and ${name} in the Settings app, then come back.`
-      : 'This phone has no screen lock. Set one up with fingerprint or face unlock, then come back.';
+      ? t('onboarding.biometrics.noPasscodeIos', { biometry: name })
+      : t('onboarding.biometrics.noPasscodeAndroid');
   }
   if (availability.state === 'denied') {
-    return `SecureVault isn’t allowed to use ${name}. You can allow it in Settings.`;
+    return t('onboarding.biometrics.denied', { biometry: name });
   }
   return null;
 }
@@ -83,19 +84,22 @@ export function biometricStepCopy(kind: BiometryType): {
   body: string;
   action: string;
 } {
-  const rest = 'Your PIN still works, and you can change this in Settings.';
+  const rest = t('onboarding.biometrics.rest');
   if (Platform.OS !== 'ios') {
     return {
-      title: 'Unlock with fingerprint or face?',
-      body: `Open the vault without typing your PIN. ${rest}`,
-      action: 'Use fingerprint or face',
+      title: t('onboarding.biometrics.titleAndroid'),
+      body: t('onboarding.biometrics.bodyAndroid', { rest }),
+      action: t('onboarding.biometrics.actionAndroid'),
     };
   }
   const name = biometryName(kind);
   return {
-    title: `Unlock with ${name}?`,
-    body: `${kind === 'touchId' ? 'Open the vault with a touch.' : 'Open the vault with a glance.'} ${rest}`,
-    action: `Use ${name}`,
+    title: t('onboarding.biometrics.title', { biometry: name }),
+    body: t(
+      kind === 'touchId' ? 'onboarding.biometrics.bodyTouch' : 'onboarding.biometrics.bodyGlance',
+      { rest },
+    ),
+    action: t('onboarding.biometrics.action', { biometry: name }),
   };
 }
 

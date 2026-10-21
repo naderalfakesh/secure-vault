@@ -9,10 +9,9 @@ import { useBiometricAvailability } from '@/features/auth/biometricAvailability'
 import { choosePinHint, EASY_PIN_WARNING, isEasyPin } from '@/features/auth/onboardingCopy';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
+import { t } from '@/i18n';
 
 type Stage = 'create' | 'easy' | 'confirm' | 'saving';
-
-const MISMATCH = 'The PINs didn’t match. Start again.';
 
 /** J0 Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
 export default function CreatePinScreen() {
@@ -67,27 +66,29 @@ export default function CreatePinScreen() {
 
   const title =
     stage === 'confirm' || stage === 'saving'
-      ? 'Enter it again'
+      ? t('onboarding.pin.confirmTitle')
       : keepsDocuments
-        ? 'Add a PIN to your vault'
-        : 'Choose a 6-digit PIN';
-  const saving = keepsDocuments ? 'Saving your PIN' : 'Creating your vault key';
+        ? t('onboarding.pin.addTitle')
+        : t('onboarding.pin.chooseTitle');
+  const saving = keepsDocuments ? t('onboarding.pin.savingPin') : t('onboarding.pin.creatingKey');
   const hint = mismatch
-    ? MISMATCH
+    ? t('onboarding.pin.mismatch')
     : stage === 'easy'
       ? EASY_PIN_WARNING
       : stage === 'confirm'
-        ? 'Same PIN, once more.'
+        ? t('onboarding.pin.confirmHint')
         : stage === 'saving'
           ? saving
           : keepsDocuments
-            ? 'Your documents stay where they are. The PIN is a second way in.'
+            ? t('onboarding.pin.addHint')
             : vaultEmpty
-              ? 'Your vault is empty. The PIN is your fallback when biometrics are unavailable.'
+              ? t('onboarding.pin.emptyVaultHint')
               : choosePinHint(biometry);
   const alerting = Boolean(error) || mismatch || stage === 'easy';
   const message = error ?? hint;
-  useAnnouncement(stage === 'saving' ? saving : null);
+  const failing = Boolean(error) || mismatch;
+  // iOS ignores live regions: speak the saving state and every error.
+  useAnnouncement(stage === 'saving' ? saving : alerting ? message : null);
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -95,11 +96,17 @@ export default function CreatePinScreen() {
         {keepsDocuments ? (
           <View />
         ) : (
-          <IconButton icon="back" accessibilityLabel="Back" onPress={() => router.back()} />
+          <IconButton
+            icon="back"
+            accessibilityLabel={t('common.back')}
+            onPress={() => router.back()}
+          />
         )}
         {keepsDocuments ? null : (
           <Text variant="footnote" tone="secondary">
-            {stage === 'confirm' || stage === 'saving' ? 'Step 2 of 2' : 'Step 1 of 2'}
+            {stage === 'confirm' || stage === 'saving'
+              ? t('onboarding.pin.step2')
+              : t('onboarding.pin.step1')}
           </Text>
         )}
       </View>
@@ -116,7 +123,7 @@ export default function CreatePinScreen() {
           style={styles.message}
           accessible
           accessibilityRole={alerting ? 'alert' : undefined}
-          accessibilityLiveRegion="polite"
+          accessibilityLiveRegion={failing ? 'assertive' : 'polite'}
           accessibilityLabel={message}
         >
           {alerting ? (
@@ -137,7 +144,7 @@ export default function CreatePinScreen() {
         {stage === 'easy' ? (
           <View style={styles.easy}>
             <Button
-              label="Use it anyway"
+              label={t('onboarding.pin.useAnyway')}
               variant="tinted"
               size="md"
               onPress={() => {
@@ -146,7 +153,7 @@ export default function CreatePinScreen() {
               }}
             />
             <Button
-              label="Choose another"
+              label={t('onboarding.pin.chooseAnother')}
               variant="plain"
               size="md"
               onPress={() => {
