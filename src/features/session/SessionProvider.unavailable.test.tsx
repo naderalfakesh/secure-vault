@@ -271,6 +271,20 @@ describe('SessionProvider setup re-check', () => {
     expect(view.getByTestId('held')).toHaveTextContent('false');
   });
 
+  it('relaunches to the lock screen when a held setup is killed before it finishes', async () => {
+    const first = await renderProbe();
+    await waitFor(() => expect(first.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(first.getByText('run held setup'));
+    await waitFor(() => expect(first.getByTestId('held')).toHaveTextContent('true'));
+
+    // A kill: the provider goes away without finishSetup; the stores remain.
+    await first.unmount();
+    const relaunch = await renderProbe();
+
+    await waitFor(() => expect(relaunch.getByTestId('status')).toHaveTextContent('locked'));
+    expect(relaunch.getByTestId('held')).toHaveTextContent('false');
+  });
+
   it('ignores a finish when no setup is being held', async () => {
     const view = await renderProbe();
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
