@@ -74,20 +74,20 @@ The screen still owns every plaintext copy through `held` and `shown` refs,
 now updated synchronously with the state so a cleanup in the same tick sees
 the latest set.
 
-| Path                                           | Copies                                                                                                     |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Save succeeds                                  | Service removes them after the vault has them (unchanged).                                                 |
-| Save in flight, screen closes                  | Save owns them; removed when it settles if the screen is gone.                                             |
-| Save fails, screen here                        | Kept for Try again.                                                                                        |
-| Lock during a save                             | Outcome via `postNotice` (unchanged tests).                                                                |
-| Vault locked before the save wrote             | New: nothing is written, copies removed, "Could not save the document." posted.                            |
-| Remove a page                                  | That copy at once.                                                                                         |
-| Discard, Cancel while reading, Back to sources | All copies and the PDF preview.                                                                            |
-| Back to pages (scan)                           | Kept; still on screen.                                                                                     |
-| Screen closes or the gate removes it           | All copies and the preview (review, reading and details tested).                                           |
-| Late scanner, picker, photo, read results      | Removed or dropped (Add pages after close, late OCR after Cancel or lock).                                 |
-| Unsupported or unreadable import               | Picked copy, Inbox copy, preview.                                                                          |
-| Kill                                           | Lock and launch sweeps unchanged (`ImagePicker`, scanner, `DocumentPicker`, `pages_*`, Inbox, scan pages). |
+| Path                                                       | Copies                                                                                                     |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Save succeeds                                              | Service removes them after the vault has them (unchanged).                                                 |
+| Save in flight, screen closes                              | Save owns them; removed when it settles if the screen is gone.                                             |
+| Save fails, screen here                                    | Kept for Try again.                                                                                        |
+| Lock during a save                                         | Outcome via `postNotice` (unchanged tests).                                                                |
+| Vault locked before the save wrote                         | New: nothing is written, copies removed, "Could not save the document." posted.                            |
+| Remove a page                                              | That copy at once.                                                                                         |
+| Discard; Cancel while reading or Back from a photo or file | All copies and the PDF preview.                                                                            |
+| Back to pages (scan)                                       | Kept; still on screen.                                                                                     |
+| Screen closes or the gate removes it                       | All copies and the preview (review, reading and details tested).                                           |
+| Late scanner, picker, photo, read results                  | Removed or dropped (Add pages after close, late OCR after Cancel or lock).                                 |
+| Unsupported or unreadable import                           | Picked copy, Inbox copy, preview.                                                                          |
+| Kill                                                       | Lock and launch sweeps unchanged (`ImagePicker`, scanner, `DocumentPicker`, `pages_*`, Inbox, scan pages). |
 
 The save has no loop of its own; it checks the session after opening the
 index, before the first write, the way deletes check between documents.
@@ -104,6 +104,26 @@ index, before the first write, the way deletes check between documents.
   under "This can't be stopped.", "Back to details", the "Page n of N,
   moving" label.
 - `.maestro/first-document.yaml` was already out of date on the base.
+
+## Review fixes (approved review, Lows)
+
+- A save whose pages or index row fail part way is rolled back (row and
+  vault entries), so Try again makes one document.
+- One source at a time: a second tap while a pick is settling (a large PDF
+  rendering) is ignored, and replacing a pick always removes the old copies.
+- Files saved but found values failing: "Open document" closes the flow and
+  opens the viewer (copy written here; the deck has none).
+- A generic binary type (`application/octet-stream`) defers to the
+  extension, and the file is saved under the extension's type. A
+  password-protected PDF cannot be told apart from a damaged one without
+  native work, so it keeps the generic sentence.
+- No Move earlier on the first page or Move later on the last; a move is
+  announced ("Moved to page 2 of 3").
+- "Scanned document", "Back to pages" and "Back to sources" are in the copy
+  table; the details placeholder isolates the file name.
+- Cancel while reading a scan returns to review with the pages kept (the
+  handover is silent; the pages were already chosen). A photo or file still
+  goes back to the sources and loses its copies.
 
 ## Tests
 
