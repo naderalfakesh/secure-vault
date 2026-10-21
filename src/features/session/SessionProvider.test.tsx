@@ -600,6 +600,19 @@ describe('SessionProvider session capture', () => {
     clock.mockRestore();
   });
 
+  it('clears only the share-interrupted mark it was given', async () => {
+    await unlocked();
+    await act(async () => session.markShareInterrupted('doc-1'));
+    const older = session.shareInterrupted!;
+    await act(async () => session.markShareInterrupted('doc-1'));
+
+    await act(async () => session.clearShareInterrupted(older));
+    expect(session.shareInterrupted).toEqual({ documentId: 'doc-1' });
+
+    await act(async () => session.clearShareInterrupted(session.shareInterrupted!));
+    expect(session.shareInterrupted).toBeNull();
+  });
+
   it('keeps a share-interrupted mark across the lock until it is cleared or the vault is erased', async () => {
     await unlocked();
     expect(session.shareInterrupted).toBeNull();

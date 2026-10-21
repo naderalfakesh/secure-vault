@@ -144,7 +144,8 @@ export type SessionContextValue = {
    */
   shareInterrupted: ShareInterruption | null;
   markShareInterrupted: (documentId: string) => void;
-  clearShareInterrupted: () => void;
+  /** Clears the mark; given one, only while that same mark is still the current one. */
+  clearShareInterrupted: (only?: ShareInterruption) => void;
   /**
    * Forget the PIN, settings, and lockout after the vault was emptied; returns
    * to setup. Resolves false when the secure store refused to delete them,
@@ -644,7 +645,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     (documentId: string) => setShareInterrupted({ documentId }),
     [],
   );
-  const clearShareInterrupted = useCallback(() => setShareInterrupted(null), []);
+  const clearShareInterrupted = useCallback(
+    (only?: ShareInterruption) =>
+      setShareInterrupted((current) => (!only || current === only ? null : current)),
+    [],
+  );
 
   const stepUp = useCallback(
     () =>
