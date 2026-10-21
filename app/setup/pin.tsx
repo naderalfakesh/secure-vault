@@ -11,7 +11,9 @@ import { useSession } from '@/features/session/SessionProvider';
 type Stage = 'create' | 'confirm' | 'saving';
 
 export default function CreatePinScreen() {
-  const { setUp, error, vaultExists } = useSession();
+  const { setUp, error, vaultExists, vaultEmpty } = useSession();
+  // After "Delete everything" the key stays but no documents do.
+  const keepsDocuments = vaultExists && !vaultEmpty;
   const [stage, setStage] = useState<Stage>('create');
   const [first, setFirst] = useState('');
   const [mismatch, setMismatch] = useState(false);
@@ -53,7 +55,7 @@ export default function CreatePinScreen() {
   const title =
     stage === 'confirm'
       ? 'Enter it again'
-      : vaultExists
+      : keepsDocuments
         ? 'Add a PIN to your vault'
         : 'Choose a 6-digit PIN';
   const hint = mismatch
@@ -62,9 +64,11 @@ export default function CreatePinScreen() {
       ? 'Same PIN, once more.'
       : stage === 'saving'
         ? 'Creating your vault key'
-        : vaultExists
+        : keepsDocuments
           ? 'Your documents stay where they are. The PIN is a second way in.'
-          : 'Your fallback when biometrics are unavailable.';
+          : vaultEmpty
+            ? 'Your vault is empty. The PIN is your fallback when biometrics are unavailable.'
+            : 'Your fallback when biometrics are unavailable.';
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>

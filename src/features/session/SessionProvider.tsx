@@ -55,6 +55,11 @@ export type SessionContextValue = {
   status: SessionStatus;
   /** True during setup when a device key already exists (upgrade from the prototype, or an interrupted setup). */
   vaultExists: boolean;
+  /**
+   * True during setup when that device key guards no entries at all, e.g.
+   * after "Delete everything": there are no documents that stay.
+   */
+  vaultEmpty: boolean;
   biometry: BiometryType;
   settings: SecuritySettings;
   lockout: LockoutState;
@@ -137,6 +142,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [biometry, setBiometry] = useState<BiometryType>('none');
   const [vaultExists, setVaultExists] = useState(false);
+  const [vaultEmpty, setVaultEmpty] = useState(false);
   const [settings, setSettings] = useState<SecuritySettings>(DEFAULT_SETTINGS);
   const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
@@ -177,18 +183,25 @@ export function SessionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [exists, type, hasPin, storedLockout] = await Promise.all([
+      const [exists, type, hasPin, storedLockout, entries] = await Promise.all([
         vault.hasVault().catch(() => false),
         vault.biometryType().catch(() => 'none' as const),
         sessionStorage.hasPinRecord(),
         // Readable before the device key is authenticated, so a relaunch keeps
         // the attempt counter and any pause that is still running.
         loadCappedLockout(),
+        // The listing reads the folder only and needs no device key; when it
+        // fails, setup keeps saying the documents stay.
+        vault.getAllKeys().then(
+          (keys) => keys.length,
+          () => null,
+        ),
       ]);
       if (!active) return;
       setBiometry(type);
       applyLockout(storedLockout ?? unreadableLockout(Date.now()));
       setVaultExists(exists);
+      setVaultEmpty(exists && entries === 0);
       // A key without a PIN record is either the 2025 prototype's vault or an
       // interrupted setup. Both go through setup again, and setUp keeps the
       // existing key so nothing already encrypted is lost.
@@ -327,6 +340,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
         setSettings(DEFAULT_SETTINGS);
         applyLockout(EMPTY_LOCKOUT);
         setVaultExists(true);
+        setVaultEmpty(false);
         changeStatus('unlocked');
         return true;
       } catch (e) {
@@ -378,6 +392,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     applyLockout(EMPTY_LOCKOUT);
     setError(null);
     setNotice(null);
+    setVaultEmpty(true);
     changeStatus('setup');
     return cleared;
   }, [applyLockout, changeStatus]);
@@ -455,6 +470,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     () => ({
       status,
       vaultExists,
+      vaultEmpty,
       biometry,
       settings,
       lockout,
@@ -476,6 +492,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     [
       status,
       vaultExists,
+      vaultEmpty,
       biometry,
       settings,
       lockout,
