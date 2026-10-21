@@ -23,9 +23,25 @@ export const backupCopy = Object.fromEntries(
 ) as Record<BackupCopyKey, string>;
 
 /** "Checking 18 of 48" / "Restoring 7 of 48"; just "Checking…" until the first entry is done. */
+/**
+ * The module counts the passphrase check entry as entry 1 of every pass;
+ * people only see their own entries, as the file card and the outcome toast
+ * count them ("32 entries", never "of 33").
+ */
+export function withoutCheckEntry(done: number, total: number): { done: number; total: number } {
+  return { done: Math.max(done - 1, 0), total: Math.max(total - 1, 0) };
+}
+
 export function restoreProgressLabel(phase: 'verify' | 'import', done: number, total: number) {
-  if (done <= 0) return t(`backup.restore.progress.${phase}Start`);
-  return t(`backup.restore.progress.${phase}`, { done, total });
+  const shown = withoutCheckEntry(done, total);
+  if (shown.done <= 0) return t(`backup.restore.progress.${phase}Start`);
+  return t(`backup.restore.progress.${phase}`, shown);
+}
+
+/** "Stopped at entry 2 of 32": the entry being restored, the check entry not counted. */
+export function stoppedAtLabel(stoppedAt: { entry: number; total: number }): string {
+  const shown = withoutCheckEntry(stoppedAt.entry, stoppedAt.total);
+  return t('backup.restore.stoppedAt', { entry: Math.max(shown.done, 1), total: shown.total });
 }
 
 /** "48 entries · made 12 Oct 2026", or without the date when the header has none. */

@@ -28,6 +28,7 @@ import {
   restoreOutcome,
   restoreProgressLabel,
   type RestoreOutcome,
+  stoppedAtLabel,
 } from './backupCopy';
 
 export interface PickedBackup {
@@ -265,14 +266,7 @@ function OutcomeView({
         </View>
         <FileCard
           name={backup.name}
-          meta={
-            outcome.stoppedAt
-              ? t('backup.restore.stoppedAt', {
-                  entry: outcome.stoppedAt.entry,
-                  total: outcome.stoppedAt.total,
-                })
-              : undefined
-          }
+          meta={outcome.stoppedAt ? stoppedAtLabel(outcome.stoppedAt) : undefined}
         />
         <Button label={copy['restore.again']} icon="refresh" onPress={onRestoreAgain} />
         <Button label={copy['restore.close']} variant="plain" onPress={onClose} />

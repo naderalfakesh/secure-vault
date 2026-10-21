@@ -709,7 +709,8 @@ describe('Backup hub restore phases and outcomes', () => {
 
     await startRestore(view);
 
-    expect(view.getByText('Checking 3 of 20')).toBeOnTheScreen();
+    // The check entry is entry 1 of the module's 20; the sheet counts the 19 documents' entries.
+    expect(view.getByText('Checking 2 of 19')).toBeOnTheScreen();
     expect(view.getByText('Step 1 of 2')).toBeOnTheScreen();
     expect(view.getByText('Nothing has been changed yet.')).toBeOnTheScreen();
     // Not dismissable while it runs.
@@ -743,10 +744,10 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(view.getByRole('button', { name: 'Cancel' })).toBeOnTheScreen();
 
     await act(async () => {
-      emitProgress({ phase: 'import', done: 1, total: 20 });
+      emitProgress({ phase: 'import', done: 2, total: 20 });
     });
 
-    expect(view.getByText('Restoring 1 of 20')).toBeOnTheScreen();
+    expect(view.getByText('Restoring 1 of 19')).toBeOnTheScreen();
     expect(view.getByText('Step 2 of 2')).toBeOnTheScreen();
     expect(view.getByTestId('restore-cant-stop').props.accessibilityLabel).toBe(
       'This can’t be stopped. The previous vault has been removed. Keep SecureVault open until this finishes.',
@@ -766,8 +767,8 @@ describe('Backup hub restore phases and outcomes', () => {
         'The restore stopped after the previous vault was removed. Restore the backup again.',
       ),
     ).toBeOnTheScreen();
-    // Entry 1 is the check entry; the restore stopped on entry 2.
-    expect(view.getByText('Stopped at entry 2 of 20')).toBeOnTheScreen();
+    // Entry 1 is the check entry; the restore stopped on the second of the 19 entries.
+    expect(view.getByText('Stopped at entry 2 of 19')).toBeOnTheScreen();
     expect(view.getByRole('button', { name: 'Restore again' })).toBeOnTheScreen();
     expect(view.queryByText(/Nothing was changed/)).toBeNull();
   });
