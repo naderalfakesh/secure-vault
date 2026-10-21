@@ -25,6 +25,7 @@ import {
 } from '../services/DocumentService';
 
 jest.mock('expo-image-picker', () => ({
+  getCameraPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })),
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })),
   launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: null })),
@@ -54,13 +55,22 @@ describe('AddDocumentScreen capture row', () => {
     jest.clearAllMocks();
   });
 
-  it('offers the platform scanner when it is supported', async () => {
+  it('offers the platform scanner and a plain photo when both exist', async () => {
     setScannerSupported(true);
     setCameraAvailable(true);
     const view = await renderScreen();
 
     expect(view.getByRole('button', { name: /Scan with the camera/ })).toBeOnTheScreen();
-    expect(view.queryByText('Take a photo')).toBeNull();
+    expect(view.getByRole('button', { name: /Take a photo/ })).toBeOnTheScreen();
+  });
+
+  it('leaves the scanner out when only a plain camera exists', async () => {
+    setScannerSupported(false);
+    setCameraAvailable(true);
+    const view = await renderScreen();
+
+    expect(view.queryByText('Scan with the camera')).toBeNull();
+    expect(view.getByRole('button', { name: /Take a photo/ })).toBeEnabled();
   });
 
   it('falls back to a photo and opens the native camera when a camera exists', async () => {
@@ -81,7 +91,7 @@ describe('AddDocumentScreen capture row', () => {
     setCameraAvailable(false);
     const view = await renderScreen();
 
-    const row = view.getByLabelText('Take a photo, No camera on this device');
+    const row = view.getByLabelText('Take a photo, This device has no camera');
     expect(row).toBeDisabled();
     expect(view.queryByRole('button', { name: /Take a photo/ })).toBeNull();
     await fireEvent.press(row);
@@ -339,16 +349,36 @@ describe('AddDocumentScreen photo and scan copies', () => {
     jest.clearAllMocks();
   });
 
-  it('removes scanned pages when the user goes back to the sources', async () => {
+  it('removes scanned pages when the user goes back to the pages and discards them', async () => {
     const pages = [plant(scanner(), '1001.jpg'), plant(scanner(), '1002.jpg')];
     queueScan(pages.map((page) => ({ uri: page.uri, width: 10, height: 10 })));
     const view = await renderScreen();
 
     await fireEvent.press(view.getByRole('button', { name: /Scan with the camera/ }));
+    await waitFor(() => expect(view.getByRole('button', { name: 'Continue' })).toBeOnTheScreen());
+    await fireEvent.press(view.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
-    await fireEvent.press(view.getByLabelText('Back to sources'));
+    await fireEvent.press(view.getByLabelText('Back to pages'));
+    expect(pages.map((page) => page.exists)).toEqual([true, true]);
+    await fireEvent.press(view.getByRole('button', { name: 'Discard' }));
 
     expect(pages.map((page) => page.exists)).toEqual([false, false]);
+  });
+
+  it('removes scanned pages when the screen closes on the details', async () => {
+    const pages = [plant(scanner(), '1001.jpg')];
+    queueScan(pages.map((page) => ({ uri: page.uri, width: 10, height: 10 })));
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: /Scan with the camera/ }));
+    await waitFor(() => expect(view.getByRole('button', { name: 'Continue' })).toBeOnTheScreen());
+    await fireEvent.press(view.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+    await act(async () => {
+      view.unmount();
+    });
+
+    expect(pages[0]?.exists).toBe(false);
   });
 
   it('removes a photo the library hands back after the screen has closed', async () => {

@@ -1,172 +1,178 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Linking, Platform, View } from 'react-native';
+import { StyleSheet } from 'react-native-unistyles';
 
-import {
-  Button,
-  Card,
-  Chip,
-  Icon,
-  IconButton,
-  type IconName,
-  ListRow,
-  Screen,
-  Text,
-  useToast,
-} from '@/components/ui';
-import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
-import { documentService } from '@/services/DocumentService';
-import { suggestForText } from '@/features/intelligence';
-import { useSession } from '@/features/session/SessionProvider';
-import { ocrService } from '@/services/OcrService';
+import { Button, IconButton, Screen, Text, useToast } from '@/components/ui';
 import type { ExtractedField } from '@/data/DocumentRepository';
-import { DocumentCategory, type PickedFile } from '@/types';
+import { suggestForText } from '@/features/intelligence';
+import { DetailsForm } from '@/features/scan/DetailsForm';
+import { importKind, mimeTypeFor, movePage, stripExtension } from '@/features/scan/pages';
+import { type ProcessingStep, ProcessingPanel } from '@/features/scan/ProcessingPanel';
+import { ReviewPages } from '@/features/scan/ReviewPages';
+import { pageCount, scanText } from '@/features/scan/scanCopy';
+import { type Source, SourceList, type SourceProblem } from '@/features/scan/SourceList';
+import { useSession } from '@/features/session/SessionProvider';
+import { documentService } from '@/services/DocumentService';
+import { ocrService } from '@/services/OcrService';
+import { type Document, DocumentCategory, type PickedFile } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
-import { formatDate } from '@/utils/format';
 
 import {
   isCameraAvailable,
   isScannerSupported,
   scanDocuments,
 } from '../../modules/expo-document-scanner';
-import { DocumentImage } from '@/features/documents/DocumentImage';
-
-type Source = 'scan' | 'camera' | 'library' | 'files';
-type SaveStep = 'ocr' | 'suggest' | 'encrypt' | 'index';
-
-type SourceRow = {
-  key: Source;
-  icon: IconName;
-  title: string;
-  subtitle: string;
-  disabled?: boolean;
-};
 
 /**
- * The capture row depends on the hardware: the platform scanner when it exists,
- * otherwise a plain photo, and a disabled photo row when there is no camera at
- * all (the simulator). The native camera picker aborts the app on a camera-less
- * device, so that row must never be pressable there.
+ * sources → (scan) review pages → reading → details → saving → Library.
+ * A failed save stays on the saving step with Try again.
  */
-function captureRow(): SourceRow {
-  if (isScannerSupported()) {
-    return {
-      key: 'scan',
-      icon: 'scan',
-      title: 'Scan with the camera',
-      subtitle: 'Finds the edges, straightens the page, and captures several pages',
-    };
-  }
-  if (isCameraAvailable()) {
-    return {
-      key: 'camera',
-      icon: 'camera',
-      title: 'Take a photo',
-      subtitle: 'Best for cards, passports, and single pages',
-    };
-  }
-  return {
-    key: 'camera',
-    icon: 'camera',
-    title: 'Take a photo',
-    subtitle: 'No camera on this device',
-    disabled: true,
-  };
-}
+type Phase = 'sources' | 'review' | 'reading' | 'details' | 'saving';
 
-const importRows: SourceRow[] = [
-  {
-    key: 'library',
-    icon: 'photos',
-    title: 'Choose from Photos',
-    subtitle: 'A photo you already took',
-  },
-  { key: 'files', icon: 'files', title: 'Import a file', subtitle: 'PDF or image from Files' },
-];
+/** Where the pages came from: a scan goes back to its pages, anything else to the sources. */
+type Origin = 'scan' | 'single';
 
-const stepLabel: Record<SaveStep, string> = {
-  ocr: 'Reading the text',
-  suggest: 'Suggesting details',
-  encrypt: 'Encrypting',
-  index: 'Saving to your vault',
-};
-const stepOrder: SaveStep[] = ['ocr', 'suggest', 'encrypt', 'index'];
+const SCANNED_TITLE = 'Scanned document';
 
-function fieldLabel(key: string): string {
-  return { expires: 'Expires', issued: 'Issued', number: 'Number' }[key] ?? key;
-}
+/** Thrown when the vault locked before the save wrote anything. */
+class SaveStopped extends Error {}
 
-function stripExtension(name: string): string {
-  return name.replace(/\.[^/.]+$/, '');
-}
-
+/**
+ * J1 Scan and import (handover §6 J1, F12).
+ *
+ * Picker, photo and scanner copies are plaintext. This screen owns them from
+ * the moment a source hands them over: a removed page loses its copy at once,
+ * and every way out without saving (Discard, Cancel, Back to the sources, a
+ * late result after the screen closed, the screen closing, the lock gate
+ * taking the screen away) removes them. A save in flight owns them instead:
+ * the vault module still has to read them, and the service removes them when
+ * it has. The lock and launch sweeps catch anything a kill leaves.
+ */
 export default function AddDocumentScreen() {
   const toast = useToast();
   const { withoutAutoLock, captureSession, postNotice } = useSession();
-  const { theme } = useUnistyles();
-  const [files, setFiles] = useState<PickedFile[]>([]);
-  const file = files[0] ?? null;
-  const [preview, setPreview] = useState<string | null>(null);
+  // Hardware answers that do not change while the screen is open.
+  const [scannerSupported] = useState(isScannerSupported);
+  const [cameraAvailable] = useState(isCameraAvailable);
+
+  const [phase, setPhase] = useState<Phase>('sources');
+  const [origin, setOrigin] = useState<Origin>('single');
+  const [files, setFilesState] = useState<PickedFile[]>([]);
+  const [preview, setPreviewState] = useState<string | null>(null);
+  const [problem, setProblem] = useState<SourceProblem | null>(null);
+  const [cameraDenied, setCameraDenied] = useState(false);
+  const [step, setStep] = useState<ProcessingStep>('ocr');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // The files are in the vault and only the found values failed: no going back.
+  const [filesSaved, setFilesSaved] = useState(false);
+
   const [title, setTitle] = useState('');
+  const [titleMissing, setTitleMissing] = useState(false);
   const [category, setCategory] = useState<DocumentCategory>(DocumentCategory.OTHER);
+  const [categorySuggested, setCategorySuggested] = useState(false);
   const [tags, setTags] = useState('');
-  const [step, setStep] = useState<SaveStep | null>(null);
-  const [ocrText, setOcrText] = useState<string | undefined>(undefined);
   const [fields, setFields] = useState<ExtractedField[]>([]);
-  const [engine, setEngine] = useState<string | null>(null);
-  const sources = useMemo(() => [captureRow(), ...importRows], []);
-  // Picker, camera, and scanner copies are plaintext: they go once the
-  // document is saved, and whenever this screen lets go of them unsaved.
+  const [ocrText, setOcrText] = useState<string | undefined>(undefined);
+
+  // The copies this screen holds, kept in step with the state synchronously so
+  // a cleanup in the same tick sees the latest set.
   const held = useRef<PickedFile[]>([]);
   // A PDF's rendered first page; a photo's preview is its own picked copy.
   const shown = useRef<string | null>(null);
   const mounted = useRef(true);
   // A save in flight owns the copies: the vault module still has to read them.
   const saving = useRef(false);
+  // Bumped whenever a read is cancelled or superseded; a late read result is dropped.
+  const readRun = useRef(0);
+  // Set once the files are in the vault, so Try again only repeats what failed.
+  const saved = useRef<Document | null>(null);
 
-  useEffect(() => {
-    held.current = files;
-  }, [files]);
+  const setFiles = useCallback((next: PickedFile[]) => {
+    held.current = next;
+    setFilesState(next);
+  }, []);
 
-  useEffect(() => {
-    shown.current = preview;
-  }, [preview]);
+  const setPreview = useCallback((next: string | null) => {
+    shown.current = next;
+    setPreviewState(next);
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      readRun.current += 1;
       if (shown.current) documentService.discardPreview(shown.current);
       if (saving.current) return;
       for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
     };
   }, []);
 
-  const accept = useCallback(
-    async (picked: PickedFile[], previewUri: string | null, suggestedTitle: string) => {
-      setFiles(picked);
-      setPreview(previewUri);
-      setTitle(suggestedTitle);
-      setOcrText(undefined);
-      setFields([]);
-      setEngine(null);
-      const first = picked[0];
-      if (!first || !previewUri) return;
-      // Read the text and suggest details before the form appears, so the
-      // user corrects instead of types. Both steps stay best effort.
+  // Camera access refused earlier (or in Settings) shows the callout straight
+  // away; coming back from Settings with access on hides it again.
+  useEffect(() => {
+    if (!cameraAvailable) return;
+    let active = true;
+    const check = () => {
+      ImagePicker.getCameraPermissionsAsync()
+        .then((permission) => {
+          if (!active) return;
+          if (permission.granted) setCameraDenied(false);
+          else if (!permission.canAskAgain) setCameraDenied(true);
+        })
+        .catch(() => {});
+    };
+    check();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') check();
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [cameraAvailable]);
+
+  const clearDetails = useCallback((suggestedTitle = '') => {
+    setTitle(suggestedTitle);
+    setTitleMissing(false);
+    setCategory(DocumentCategory.OTHER);
+    setCategorySuggested(false);
+    setTags('');
+    setFields([]);
+    setOcrText(undefined);
+    setSaveError(null);
+    setFilesSaved(false);
+    saved.current = null;
+  }, []);
+
+  /** Drops every copy this screen holds and goes back to the sources. */
+  const discardAll = useCallback(() => {
+    readRun.current += 1;
+    for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
+    if (shown.current) documentService.discardPreview(shown.current);
+    setFiles([]);
+    setPreview(null);
+    clearDetails();
+    setPhase('sources');
+  }, [setFiles, setPreview, clearDetails]);
+
+  /**
+   * Reads the text of the first page and suggests details, so the user
+   * corrects instead of types. Both steps are best effort and cancellable.
+   */
+  const read = useCallback(
+    async (previewUri: string, suggestedTitle: string) => {
+      const run = (readRun.current += 1);
+      const current = () => run === readRun.current && mounted.current;
+      clearDetails(suggestedTitle);
       setStep('ocr');
+      setPhase('reading');
       try {
         const result = await ocrService.extractText(previewUri);
+        if (!current()) return;
         const text =
           result.text && ocrService.isTextMeaningful(result.text)
             ? ocrService.cleanText(result.text)
@@ -175,42 +181,71 @@ export default function AddDocumentScreen() {
         if (text) {
           setStep('suggest');
           const suggestion = await suggestForText(text);
+          if (!current()) return;
           if (suggestion.title) setTitle(suggestion.title);
-          if (suggestion.category) setCategory(suggestion.category);
+          if (suggestion.category) {
+            setCategory(suggestion.category);
+            setCategorySuggested(true);
+          }
           if (suggestion.tags.length) setTags(suggestion.tags.join(', '));
           setFields(suggestion.fields);
-          setEngine(suggestion.engine);
         }
       } catch {
         // The form still works without suggestions.
-      } finally {
-        setStep(null);
       }
+      if (current()) setPhase('details');
     },
-    [],
+    [clearDetails],
   );
 
+  /** A single photo or file: straight to reading. */
+  const acceptSingle = useCallback(
+    (picked: PickedFile, previewUri: string, suggestedTitle: string) => {
+      setProblem(null);
+      setOrigin('single');
+      setFiles([picked]);
+      setPreview(previewUri);
+      void read(previewUri, suggestedTitle);
+    },
+    [read, setFiles, setPreview],
+  );
+
+  /** iOS's scanner and the camera picker need camera access; a refusal shows the callout. */
+  const cameraAllowed = useCallback(async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      if (mounted.current) setCameraDenied(true);
+      return false;
+    }
+    return true;
+  }, []);
+
   const pickFrom = useCallback(
-    async (source: Source) => {
+    async (source: Source, addingPages = false) => {
       try {
         if (source === 'scan') {
+          if (!isCameraAvailable()) return;
+          // VisionKit uses the app's camera access; ML Kit's scanner runs in
+          // Play services and needs none.
+          if (Platform.OS === 'ios' && !(await cameraAllowed())) return;
           const pages = await scanDocuments();
           if (pages.length === 0) return;
           if (!mounted.current) {
             for (const page of pages) documentService.discardPickedCopy(page.uri);
             return;
           }
-          accept(
-            pages.map((page, index) => ({
-              uri: page.uri,
-              name: `scan-${Date.now()}-${index + 1}.jpg`,
-              type: 'image/jpeg',
-            })),
-            pages[0]?.uri ?? null,
-            'Scanned document',
-          );
+          const picked = pages.map((page, index) => ({
+            uri: page.uri,
+            name: `scan-${Date.now()}-${index + 1}.jpg`,
+            type: 'image/jpeg',
+          }));
+          setProblem(null);
+          setOrigin('scan');
+          setFiles(addingPages ? [...held.current, ...picked] : picked);
+          setPhase('review');
           return;
         }
+
         if (source === 'files') {
           const result = await DocumentPicker.getDocumentAsync({
             type: ['application/pdf', 'image/*'],
@@ -219,43 +254,39 @@ export default function AddDocumentScreen() {
           const asset = result.canceled ? null : result.assets[0];
           if (!asset) return;
           documentService.discardSystemImportCopy(asset.name);
-          const type = asset.mimeType ?? 'application/pdf';
+          const kind = importKind(asset.name, asset.mimeType);
+          if (!kind) {
+            documentService.discardPickedCopy(asset.uri);
+            if (mounted.current) setProblem({ kind: 'unsupported', name: asset.name });
+            return;
+          }
+          const type = asset.mimeType || mimeTypeFor(asset.name, kind);
           // A PDF's first page is rendered so it can be previewed and read
-          // like a photo.
-          const preview = await documentService.previewForFile(asset.uri, type);
+          // like a photo; one that cannot be rendered cannot be viewed either.
+          const previewUri = await documentService.previewForFile(asset.uri, type);
           if (!mounted.current) {
-            if (preview) documentService.discardPreview(preview);
+            if (previewUri) documentService.discardPreview(previewUri);
             documentService.discardPickedCopy(asset.uri);
             return;
           }
-          accept(
-            [{ uri: asset.uri, name: asset.name, type, size: asset.size }],
-            preview,
+          if (!previewUri) {
+            documentService.discardPickedCopy(asset.uri);
+            setProblem({ kind: 'unsupported', name: asset.name });
+            return;
+          }
+          acceptSingle(
+            { uri: asset.uri, name: asset.name, type, size: asset.size },
+            previewUri,
             stripExtension(asset.name),
           );
           return;
         }
 
-        if (source === 'camera' && !isCameraAvailable()) {
-          toast.show({ message: 'This device has no camera.', tone: 'danger' });
-          return;
+        if (source === 'camera') {
+          if (!isCameraAvailable()) return;
+          if (!(await cameraAllowed())) return;
         }
-
-        const permission =
-          source === 'camera'
-            ? await ImagePicker.requestCameraPermissionsAsync()
-            : await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          toast.show({
-            message:
-              source === 'camera'
-                ? 'Camera access is off. Enable it in Settings to scan.'
-                : 'Photos access is off. Enable it in Settings to import.',
-            tone: 'danger',
-          });
-          return;
-        }
-
+        // The system photo picker needs no photo library access.
         const result =
           source === 'camera'
             ? await ImagePicker.launchCameraAsync({ quality: 0.85 })
@@ -267,19 +298,18 @@ export default function AddDocumentScreen() {
           return;
         }
         const name = asset.fileName ?? `scan-${Date.now()}.jpg`;
-        accept(
-          [{ uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize }],
+        acceptSingle(
+          { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize },
           asset.uri,
-          source === 'camera' ? 'Scanned document' : stripExtension(name),
+          source === 'camera' ? SCANNED_TITLE : stripExtension(name),
         );
       } catch (e) {
-        toast.show({
-          message: e instanceof Error ? e.message : 'Could not open that source.',
-          tone: 'danger',
-        });
+        if (mounted.current) {
+          setProblem({ kind: 'failed', message: plainErrorMessage(e, scanText('sources.failed')) });
+        }
       }
     },
-    [accept, toast],
+    [acceptSingle, cameraAllowed, setFiles],
   );
 
   const pick = useCallback(
@@ -287,24 +317,54 @@ export default function AddDocumentScreen() {
     [withoutAutoLock, pickFrom],
   );
 
-  const reset = useCallback(() => {
-    for (const picked of held.current) documentService.discardPickedCopy(picked.uri);
-    if (shown.current) documentService.discardPreview(shown.current);
-    setFiles([]);
-    setPreview(null);
-    setOcrText(undefined);
-    setFields([]);
-    setEngine(null);
-    setTitle('');
-    setTags('');
-    setCategory(DocumentCategory.OTHER);
-  }, []);
+  const addPages = useCallback(
+    () => withoutAutoLock(() => pickFrom('scan', true)),
+    [withoutAutoLock, pickFrom],
+  );
+
+  const removePage = useCallback(
+    (index: number) => {
+      const page = held.current[index];
+      if (!page) return;
+      documentService.discardPickedCopy(page.uri);
+      const rest = held.current.filter((_, at) => at !== index);
+      setFiles(rest);
+      // No pages left: back to the sources.
+      if (rest.length === 0) discardAll();
+    },
+    [setFiles, discardAll],
+  );
+
+  const reorder = useCallback(
+    (index: number, delta: -1 | 1) => setFiles(movePage(held.current, index, delta)),
+    [setFiles],
+  );
+
+  const continueToRead = useCallback(() => {
+    const first = held.current[0];
+    if (!first) return;
+    // A scan's preview is its own first page: nothing extra to remove later.
+    setPreview(first.uri);
+    void read(first.uri, SCANNED_TITLE);
+  }, [read, setPreview]);
+
+  const backFromDetails = useCallback(() => {
+    if (origin === 'scan') {
+      readRun.current += 1;
+      setPreview(null);
+      setPhase('review');
+      return;
+    }
+    discardAll();
+  }, [origin, discardAll, setPreview]);
 
   const save = useCallback(async () => {
-    if (!file) return;
+    if (saving.current) return;
+    const pages = held.current;
+    if (pages.length === 0) return;
     const cleanTitle = title.trim();
     if (!cleanTitle) {
-      toast.show({ message: 'Give the document a title first.' });
+      setTitleMissing(true);
       return;
     }
 
@@ -320,339 +380,219 @@ export default function AddDocumentScreen() {
       else postNotice(notice);
     };
     saving.current = true;
+    setSaveError(null);
+    setStep('encrypt');
+    setPhase('saving');
     try {
       await documentService.initialize();
+      // Nothing is written once the vault has locked, as with deletes.
+      if (startedUnlocked && !session.current()) throw new SaveStopped();
 
-      if (mounted.current) setStep('encrypt');
-      const saved = await documentService.addDocument(files, {
-        title: cleanTitle,
-        category,
-        tags: tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-        ocrText,
-      });
+      let document = saved.current;
+      if (!document) {
+        document = await documentService.addDocument(pages, {
+          title: cleanTitle,
+          category,
+          tags: tags
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+          ocrText,
+        });
+        saved.current = document;
+        if (mounted.current) setFilesSaved(true);
+      }
 
       if (mounted.current) setStep('index');
-      if (fields.length > 0) await documentService.setFields(saved.id, fields);
-      const message = ocrText ? 'Saved with searchable text' : 'Saved to your vault';
+      if (fields.length > 0) await documentService.setFields(document.id, fields);
+      const id = document.id;
+      const message = scanText(ocrText ? 'saved.withText' : 'saved.plain');
       if (mounted.current && !lockedMeanwhile()) {
         router.back();
         toast.show({
           message,
           tone: 'success',
-          action: { label: 'View', onPress: () => router.push(`/documents/${saved.id}`) },
+          action: { label: scanText('saved.view'), onPress: () => router.push(`/documents/${id}`) },
         });
       } else {
         report({ message, tone: 'success' });
       }
     } catch (e) {
-      if (mounted.current) setStep(null);
-      report({
-        message: plainErrorMessage(e, 'Could not save the document.'),
-        tone: 'danger',
-      });
+      const message =
+        e instanceof SaveStopped
+          ? scanText('processing.failed')
+          : plainErrorMessage(e, scanText('processing.failed'));
+      if (mounted.current && !lockedMeanwhile()) {
+        // Inline, with Try again; the pages stay for the retry.
+        setSaveError(message);
+      } else {
+        report({ message, tone: 'danger' });
+      }
     } finally {
       saving.current = false;
       // A failed save keeps the copies for a retry only while the screen is here.
       if (!mounted.current) {
-        for (const picked of files) documentService.discardPickedCopy(picked.uri);
+        for (const picked of pages) documentService.discardPickedCopy(picked.uri);
       }
     }
-  }, [file, files, title, ocrText, fields, category, tags, toast, captureSession, postNotice]);
+  }, [title, ocrText, fields, category, tags, toast, captureSession, postNotice]);
 
-  const header = (
-    <View style={styles.header}>
-      <IconButton
-        icon={file ? 'back' : 'close'}
-        accessibilityLabel={file ? 'Back to sources' : 'Cancel'}
-        variant="tinted"
-        onPress={file ? reset : () => router.back()}
-      />
-      <Text variant="headline" style={styles.headerTitle}>
-        {file
-          ? files.length > 1
-            ? `Details · ${files.length} pages`
-            : 'Details'
-          : 'Add a document'}
-      </Text>
-      <View style={styles.headerSpacer} />
-    </View>
-  );
+  const thumbnails = origin === 'scan' ? files.map((page) => page.uri) : preview ? [preview] : [];
 
-  if (!file) {
-    return (
-      <Screen edges={['top', 'bottom', 'left', 'right']}>
-        {header}
-        <View style={styles.sources}>
-          <Text variant="subheadline" tone="secondary">
-            The file is encrypted the moment it is saved. Text is read on this device only.
-          </Text>
-          <Card>
-            {sources.map((source, index) => (
-              <ListRow
-                key={source.key}
-                icon={source.icon}
-                title={source.title}
-                subtitle={source.subtitle}
-                onPress={() => pick(source.key)}
-                disabled={source.disabled}
-                iconTone={source.disabled ? 'tertiary' : undefined}
-                divider={index < sources.length - 1}
-              />
-            ))}
-          </Card>
-        </View>
-      </Screen>
-    );
+  let header: ReactNode;
+  let body: ReactNode;
+  switch (phase) {
+    case 'review':
+      header = (
+        <Header
+          leading={
+            <Button
+              label={scanText('review.discard')}
+              variant="plain"
+              size="md"
+              onPress={discardAll}
+            />
+          }
+          title={pageCount(files.length)}
+          trailing={
+            <Button
+              label={scanText('review.continue')}
+              variant="plain"
+              size="md"
+              onPress={continueToRead}
+            />
+          }
+        />
+      );
+      body = (
+        <ReviewPages
+          pages={files}
+          onRemove={removePage}
+          onMove={reorder}
+          onAddPages={scannerSupported ? addPages : undefined}
+        />
+      );
+      break;
+    case 'reading':
+    case 'saving':
+      header = <Header />;
+      body = (
+        <ProcessingPanel
+          step={step}
+          thumbnails={thumbnails}
+          onCancel={discardAll}
+          error={phase === 'saving' ? saveError : null}
+          onRetry={save}
+          onBack={filesSaved ? undefined : () => setPhase('details')}
+        />
+      );
+      break;
+    case 'details':
+      header = (
+        <Header
+          leading={
+            <Button
+              label={scanText('details.back')}
+              accessibilityLabel={origin === 'scan' ? 'Back to pages' : 'Back to sources'}
+              variant="plain"
+              size="md"
+              icon="back"
+              onPress={backFromDetails}
+            />
+          }
+          title={scanText('details.title')}
+        />
+      );
+      body = (
+        <DetailsForm
+          thumbnails={thumbnails}
+          fallbackName={files[0]?.name ?? ''}
+          title={title}
+          onTitle={(next) => {
+            setTitle(next);
+            if (next.trim()) setTitleMissing(false);
+          }}
+          titleMissing={titleMissing}
+          category={category}
+          categorySuggested={categorySuggested}
+          onCategory={setCategory}
+          fields={fields}
+          onRemoveField={(key) => setFields((current) => current.filter((f) => f.key !== key))}
+          tags={tags}
+          onTags={setTags}
+          onSave={save}
+        />
+      );
+      break;
+    default:
+      header = (
+        <Header
+          title={scanText('sources.title')}
+          trailing={
+            <IconButton
+              icon="close"
+              accessibilityLabel={scanText('close')}
+              onPress={() => router.back()}
+            />
+          }
+        />
+      );
+      body = (
+        <SourceList
+          scannerSupported={scannerSupported}
+          cameraAvailable={cameraAvailable}
+          cameraDenied={cameraDenied}
+          problem={problem}
+          onPick={pick}
+          onOpenSettings={() => void Linking.openSettings().catch(() => {})}
+        />
+      );
   }
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       {header}
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-          <View style={styles.preview}>
-            {preview ? (
-              <DocumentImage
-                source={{ uri: preview }}
-                style={styles.previewImage}
-                contentFit="contain"
-                accessibilityLabel="Preview"
-              />
-            ) : (
-              <View style={styles.previewPlaceholder}>
-                <Icon name="pdf" size={36} tone="tertiary" />
-                <Text variant="footnote" tone="secondary" numberOfLines={1}>
-                  {file.name}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <Field label="Title">
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Passport, lease, receipt"
-              placeholderTextColor={theme.colors.textTertiary}
-              accessibilityLabel="Title"
-              returnKeyType="done"
-            />
-          </Field>
-
-          <Field label="Category">
-            <View style={styles.chips}>
-              {allCategories.map((item) => (
-                <Chip
-                  key={item}
-                  label={categoryLabel(item)}
-                  icon={categoryIcons[item]}
-                  selected={category === item}
-                  onPress={() => setCategory(item)}
-                />
-              ))}
-            </View>
-          </Field>
-
-          {fields.length > 0 ? (
-            <Field
-              label="Found in the text"
-              hint={
-                engine === 'heuristic'
-                  ? 'Guessed on this device from the text. Tap a value to remove it.'
-                  : undefined
-              }
-            >
-              <View style={styles.chips}>
-                {fields.map((field) => (
-                  <Chip
-                    key={field.key}
-                    label={`${fieldLabel(field.key)}: ${field.kind === 'date' ? formatDate(field.value) : field.value}`}
-                    icon={field.kind === 'date' ? 'calendar' : 'tag'}
-                    onPress={() =>
-                      setFields((current) => current.filter((f) => f.key !== field.key))
-                    }
-                  />
-                ))}
-              </View>
-            </Field>
-          ) : null}
-
-          <Field label="Tags" hint="Separate with commas">
-            <TextInput
-              style={styles.input}
-              value={tags}
-              onChangeText={setTags}
-              placeholder="travel, 2026"
-              placeholderTextColor={theme.colors.textTertiary}
-              accessibilityLabel="Tags"
-              autoCapitalize="none"
-            />
-          </Field>
-        </ScrollView>
-        <View style={styles.actions}>
-          <Button label="Save to vault" onPress={save} icon="lock" />
-        </View>
-      </KeyboardAvoidingView>
-
-      {step !== null ? (
-        // Rendered inside the screen rather than as a native modal: a modal
-        // presented while the system picker is still dismissing is never
-        // torn down on iOS and keeps swallowing touches afterwards.
-        <View
-          style={styles.progressBackdrop}
-          accessibilityViewIsModal
-          accessibilityLiveRegion="polite"
-        >
-          <Card padded style={styles.progressCard}>
-            <Text variant="title3">
-              {step === 'ocr' || step === 'suggest' ? 'Reading the document' : 'Saving'}
-            </Text>
-            <View style={styles.progress}>
-              {stepOrder.map((item) => {
-                const done = stepOrder.indexOf(item) < stepOrder.indexOf(step);
-                const active = item === step;
-                return (
-                  <View
-                    key={item}
-                    style={styles.progressRow}
-                    accessibilityLabel={`${stepLabel[item]}${done ? ', done' : active ? ', in progress' : ''}`}
-                  >
-                    {active ? (
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
-                    ) : (
-                      <Icon
-                        name={done ? 'check' : 'clock'}
-                        size={18}
-                        tone={done ? 'success' : 'tertiary'}
-                      />
-                    )}
-                    <Text variant="body" tone={active || done ? 'primary' : 'tertiary'}>
-                      {stepLabel[item]}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
-        </View>
-      ) : null}
+      {body}
     </Screen>
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
+function Header({
+  leading,
+  title,
+  trailing,
 }: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
+  leading?: ReactNode;
+  title?: string;
+  trailing?: ReactNode;
 }) {
   return (
-    <View style={styles.field}>
-      <Text variant="label" tone="tertiary">
-        {label}
+    <View style={styles.header}>
+      <View style={styles.side}>{leading}</View>
+      <Text variant="headline" accessibilityRole="header" style={styles.title} numberOfLines={2}>
+        {title ?? ''}
       </Text>
-      {children}
-      {hint ? (
-        <Text variant="caption" tone="tertiary">
-          {hint}
-        </Text>
-      ) : null}
+      <View style={[styles.side, styles.end]}>{trailing}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs,
+    minHeight: 52,
+    paddingHorizontal: theme.spacing.xs,
   },
-  headerTitle: {
+  side: {
+    minWidth: 96,
+    alignItems: 'flex-start',
+  },
+  end: {
+    alignItems: 'flex-end',
+  },
+  title: {
     flex: 1,
     textAlign: 'center',
-  },
-  headerSpacer: {
-    width: theme.touchTarget,
-  },
-  sources: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.md,
-  },
-  form: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
-  preview: {
-    height: 220,
-    borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surfaceMuted,
-    overflow: 'hidden',
-  },
-  previewImage: {
-    flex: 1,
-  },
-  previewPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-    padding: theme.spacing.md,
-  },
-  field: {
-    gap: theme.spacing.xs,
-  },
-  input: {
-    minHeight: theme.touchTarget + 4,
-    paddingHorizontal: theme.spacing.sm,
-    borderRadius: theme.radii.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    color: theme.colors.textPrimary,
-    ...theme.typography.body,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-  },
-  actions: {
-    padding: theme.spacing.md,
-    paddingTop: theme.spacing.xs,
-  },
-  progressBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.scrim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  progressCard: {
-    width: '100%',
-    maxWidth: 360,
-    gap: theme.spacing.md,
-  },
-  progress: {
-    gap: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    minHeight: 28,
   },
 }));
