@@ -27,9 +27,9 @@ describe('lock copy', () => {
     expect(formatCountdown(-4)).toBe('0:00');
   });
 
-  it('names the attempts left before a pause', () => {
-    expect(wrongPinMessage(2)).toBe('Wrong PIN. 2 attempts left before a pause.');
-    expect(wrongPinMessage(1)).toBe('Wrong PIN. 1 attempt left before a pause.');
+  it('names the attempts left', () => {
+    expect(wrongPinMessage(2)).toBe('Wrong PIN. 2 attempts left.');
+    expect(wrongPinMessage(1)).toBe('Wrong PIN. 1 attempt left.');
   });
 
   it('names what the device prompt really accepts: biometrics or the passcode', () => {

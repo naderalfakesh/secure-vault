@@ -5,8 +5,8 @@ export const lock = {
   'lock.lockoutTitle': 'Try again in {time}',
   'lock.lockoutBody':
     'Too many wrong PINs. Each further run of wrong attempts makes the pause longer.',
-  'lock.wrongPin.one': 'Wrong PIN. {count} attempt left before a pause.',
-  'lock.wrongPin.other': 'Wrong PIN. {count} attempts left before a pause.',
+  'lock.wrongPin.one': 'Wrong PIN. {count} attempt left.',
+  'lock.wrongPin.other': 'Wrong PIN. {count} attempts left.',
   'lock.biometricSubtitle': 'Use {biometry} or enter your PIN',
   'lock.biometricKey': 'Unlock with {biometry}',
   'lock.biometricKeyAndroid': 'Unlock with fingerprint or face',

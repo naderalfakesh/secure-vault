@@ -95,7 +95,9 @@ describe('LockScreen PIN unlock with a locked device key', () => {
 
     await enterPin(view, '000000');
 
-    await waitFor(() => expect(view.getByText(/Wrong PIN\. 4 attempts left/)).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(view.getByText(/^Wrong PIN\. 4 attempts left\.$/)).toBeOnTheScreen(),
+    );
     expect(native.unlockWithBiometrics).not.toHaveBeenCalled();
     expect((await sessionStorage.loadLockout())?.failures).toBe(1);
   });
@@ -117,7 +119,9 @@ describe('LockScreen PIN unlock with a locked device key', () => {
 
     await enterPin(view, '000000');
 
-    await waitFor(() => expect(view.getByText(/Wrong PIN\. 2 attempts left/)).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(view.getByText(/^Wrong PIN\. 2 attempts left\.$/)).toBeOnTheScreen(),
+    );
     expect(native.unlockWithBiometrics).toHaveBeenCalledTimes(1);
     expect(await sessionStorage.loadLockout()).toEqual({ failures: 3, lockedUntil: 0 });
   });
