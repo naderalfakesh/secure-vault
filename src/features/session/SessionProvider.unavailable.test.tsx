@@ -562,6 +562,43 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     expect(await SecureStore.getItemAsync(PIN_ENTRY)).not.toBeNull();
   });
 
+  it('keeps a declined Face ID declined when a new PIN replaces a lost one', async () => {
+    await setUpVault();
+    const declined = { ...(await sessionStorage.loadSettings()), biometricUnlock: false };
+    await sessionStorage.saveSettings(declined);
+    await corrupt(PIN_ENTRY);
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+
+    await fireEvent.press(view.getByText('run reset pin'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+
+    expect(await sessionStorage.loadSettings()).toEqual(declined);
+  });
+
+  it('starts a vault set up after Delete everything from the default settings', async () => {
+    await setUpVault();
+    await sessionStorage.saveSettings({
+      ...(await sessionStorage.loadSettings()),
+      biometricUnlock: false,
+      autoLockSeconds: 0,
+    });
+    const view = await renderProbe();
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('locked'));
+    for (const key of await vault.getAllKeys()) await vault.delete(key);
+    await fireEvent.press(view.getByText('run erase'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+
+    await fireEvent.press(view.getByText('run setup'));
+    await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unlocked'));
+
+    const settings = await sessionStorage.loadSettings();
+    expect(settings.biometricUnlock).toBe(true);
+    expect(settings.autoLockSeconds).toBe(60);
+  });
+
   const keyInvalidated = () =>
     Object.assign(new Error('Key permanently invalidated'), { code: 'KEY_INVALIDATED' });
 

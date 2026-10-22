@@ -619,13 +619,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
           if (!(await vault.unlockWithBiometrics())) return false;
           await vault.put(KEY_PROBE_ENTRY, 'ok');
         }
+        // Settings stored by an earlier setup are kept: a new PIN after a lost
+        // one (Add a PIN, which offers no biometrics step) must not turn Face ID
+        // back on when the owner declined it. "Delete everything" removed them,
+        // so a new vault starts from the defaults.
+        const kept = await sessionStorage.loadSettings();
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
         lostPinResetRef.current = false;
-        await sessionStorage.saveSettings(DEFAULT_SETTINGS);
+        await sessionStorage.saveSettings(kept);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
         // Only setup creates the index and its key, once the screens behind the gate mount.
         documentService.allowIndex();
-        setSettings(DEFAULT_SETTINGS);
+        setSettings(kept);
         applyLockout(EMPTY_LOCKOUT);
         setVaultExists(true);
         setVaultEmpty(false);
