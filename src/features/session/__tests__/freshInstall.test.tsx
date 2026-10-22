@@ -143,6 +143,38 @@ describe('reconcileInstall (iOS: Keychain items outlive the app)', () => {
     expect(vaultMock.hasInstallMarker()).toBe(false);
   });
 
+  it('deletes the key last, so a run cut short leaves no PIN without its key and the next one finishes', async () => {
+    await keychainLeftovers();
+    const remove = SecureStore.deleteItemAsync;
+    jest.spyOn(SecureStore, 'deleteItemAsync').mockImplementation(async (key, opts) => {
+      if (key === 'securevault.lockout') throw new Error('-25308');
+      return remove(key, opts);
+    });
+    const deleteKey = jest.spyOn(vault, 'deleteDeviceKey');
+
+    await expect(reconcileInstall()).resolves.toBe('undecided');
+    expect(deleteKey).not.toHaveBeenCalled();
+    expect(await vault.hasVault()).toBe(true);
+    expect(vaultMock.hasInstallMarker()).toBe(false);
+
+    jest.mocked(SecureStore.deleteItemAsync).mockRestore();
+    await expect(reconcileInstall()).resolves.toBe('cleared');
+    expect(await vault.hasVault()).toBe(false);
+    expect(await storedEntries()).toEqual([]);
+  });
+
+  it('finishes on the next launch when only the key delete failed', async () => {
+    await keychainLeftovers();
+    jest.spyOn(vault, 'deleteDeviceKey').mockRejectedValueOnce(new Error('-25300'));
+
+    await expect(reconcileInstall()).resolves.toBe('undecided');
+    expect(await storedEntries()).toEqual([]);
+    expect(await vault.hasVault()).toBe(true);
+
+    await expect(reconcileInstall()).resolves.toBe('cleared');
+    expect(await vault.hasVault()).toBe(false);
+  });
+
   it('does nothing on Android, where uninstalling removes the key and the store', async () => {
     Platform.OS = 'android';
     await keychainLeftovers();

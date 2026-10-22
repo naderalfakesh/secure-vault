@@ -33,6 +33,9 @@ export type InstallCheck = 'kept' | 'cleared' | 'undecided';
 
 /** Whether any of the vault's files are on disk: its entries, the index, or the PIN markers. */
 async function filesOnDisk(): Promise<boolean> {
+  // The vault's entry listing is the deciding check: it throws when the folder
+  // cannot be read. `.exists` below reads false on a stat error too, so the
+  // index and marker checks only add evidence of an update.
   if ((await vault.getAllKeys()).length > 0) return true;
   if (hasIndexFiles()) return true;
   return new Directory(Paths.document, SESSION_MARKER_DIRECTORY).exists;
@@ -72,10 +75,13 @@ export async function reconcileInstall(): Promise<InstallCheck> {
       vault.setInstallMarker();
       return 'kept';
     }
-    await vault.deleteDeviceKey();
+    // The secure-store entries first and the key last: a run cut short never
+    // leaves a PIN without its key, and while the key is there the next
+    // launch finds it and finishes the job.
     await Promise.all(
       SECURE_STORE_ENTRIES.map((entry) => SecureStore.deleteItemAsync(entry, options)),
     );
+    await vault.deleteDeviceKey();
     vault.setInstallMarker();
     return 'cleared';
   } catch {

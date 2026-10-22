@@ -264,9 +264,11 @@ the old device key and PIN record and open the old lock screen in front of an
 empty vault. Launch therefore first checks a flag in UserDefaults, which is
 deleted with the app. Without the flag, Keychain items (the device key or the
 PIN record) with none of the vault's files on disk (no vault entries, no
-index file, no PIN markers) are a reinstall: the device key's Keychain items
-(service `com.naderalfakesh.securevault.vault`) and every secure-store entry
-the app writes are deleted, and launch goes to onboarding. The vault's files
+index file, no PIN markers) are a reinstall: every secure-store entry the
+app writes is deleted, then the device key's Keychain items (service
+`com.naderalfakesh.securevault.vault`), and launch goes to onboarding. The
+key goes last, so a run cut short never leaves a PIN without its key, and
+the key still there makes the next launch finish the job. The vault's files
 on disk mean an update from a build before the flag (an update keeps
 UserDefaults and the files alike), and everything is kept. The flag is set
 in both cases and on a first install. A read or delete that fails decides

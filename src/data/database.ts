@@ -68,6 +68,8 @@ function databaseDirectory(name: string): Directory {
 function mainIndexFiles(): string[] {
   try {
     const directory = databaseDirectory(DEFAULT_DATABASE_NAME);
+    // `.exists` also reads false on a stat error; the vault's entry listing,
+    // which throws, is the deciding check wherever this one is used with it.
     if (!directory.exists) return [];
     return directory
       .list()
