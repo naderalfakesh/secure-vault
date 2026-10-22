@@ -412,7 +412,11 @@ disabled until it ends.
   folder picker (expo-file-system's Storage Access Framework picker, which
   keeps a grant to that folder), and the staged container is removed after a
   save, a cancelled picker, or a failure; a copy that fails or that a lock
-  cuts short is deleted from the chosen folder. The document picker copies a backup
+  cuts short is deleted from the chosen folder. If the app is killed while that copy is
+  being written, a partial file can stay in the chosen folder: it lies
+  outside the app, so no sweep can reach it. It is ciphertext without its
+  end, never plaintext, and the restore preflight refuses it as not a valid
+  backup. The document picker copies a backup
   chosen for restore into the cache's `DocumentPicker` folder, which the
   system may purge under low storage (Android's storage service did, with
   the restore sheet open). Before the app reads the header, that copy is
