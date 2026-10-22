@@ -2,19 +2,19 @@
 
 **A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a Keychain- or Keystore-protected key, an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
 
-> SecureVault is a technical portfolio project. The screenshots use a
-> fictional "Republic of Example" passport and lease; it is not a published
+> SecureVault is a technical portfolio project. The screenshots show
+> synthetic sample documents made for this purpose; it is not a published
 > product.
 
 [![CI](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml)
 
-| Home with an expiry warning                                                                                            | A passport read on device                                                                                            | Two-page PDF, rendered natively                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| <img src="docs/images/home-expiring-ios.png" alt="Home screen with an Expiring soon row for a passport" width="260" /> | <img src="docs/images/add-suggestions-ios.png" alt="Details form pre-filled from the passport's text" width="260" /> | <img src="docs/images/pdf-pages-ios.png" alt="Document screen for a two-page lease with a page strip" width="260" /> |
+| Library                                                                                                                  | Viewer, always on a dark stage                                                                                      | Add a document                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/images/redesign-ios-library-light.png" alt="Library with recent documents and collections" width="260" /> | <img src="docs/images/redesign-ios-viewer-dark.png" alt="Viewer showing a sample car insurance page" width="260" /> | <img src="docs/images/redesign-ios-add-light.png" alt="Add a document: scan, photo, Photos or a file" width="260" /> |
 
-| Lock screen                                                                                        | Restore from a backup                                                                                                     | Dark mode                                                                                      |
-| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| <img src="docs/images/lock-ios.png" alt="Lock screen with a PIN keypad and Face ID" width="260" /> | <img src="docs/images/restore-sheet-ios.png" alt="Restore sheet showing the backup's entry count and date" width="260" /> | <img src="docs/images/settings-dark-ios.png" alt="Settings screen in dark mode" width="260" /> |
+| Lock screen                                                                                                      | Backup hub (Android)                                                                                             | Dark mode (Android)                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/images/redesign-ios-lock-dark.png" alt="Lock screen with a PIN keypad and Face ID" width="260" /> | <img src="docs/images/redesign-android-backup-light.png" alt="Backup hub with create and restore" width="260" /> | <img src="docs/images/redesign-android-library-dark.png" alt="Library in dark mode on Android" width="260" /> |
 
 ## The rebuild
 
