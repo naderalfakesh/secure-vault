@@ -7,6 +7,8 @@ export const session = {
   'session.pinUnreadable': 'Your PIN could not be read right now. Try again.',
   'session.keyNotUnlocked.unlock': 'The device key was not unlocked. Enter your PIN to try again.',
   'session.keyNotUnlocked.setup': 'The device key was not unlocked. Try again.',
+  'session.keyNotUnlocked.resetPin':
+    'The device key was not unlocked, so no new PIN was set. Try again.',
   'session.keyNotUnlocked.changePin':
     'The device key was not unlocked, so the PIN was not changed. Try again.',
   'session.unlockKeyFailed': 'Could not unlock the vault key.',

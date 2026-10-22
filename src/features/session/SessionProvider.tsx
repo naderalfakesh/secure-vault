@@ -295,6 +295,7 @@ function launchStatus(key: KeyRead, pin: KeyRead, orphaned = false): SessionStat
 const keyNotUnlocked = {
   unlock: KEY_NOT_UNLOCKED,
   setup: t('session.keyNotUnlocked.setup'),
+  resetPin: t('session.keyNotUnlocked.resetPin'),
   changePin: t('session.keyNotUnlocked.changePin'),
 } as const;
 
@@ -450,7 +451,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     resettingPinRef.current = true;
     try {
       if (!(await vault.unlockWithBiometrics())) {
-        setError(KEY_NOT_UNLOCKED);
+        // The PIN is what was lost, so there is none to enter instead.
+        setError(keyNotUnlocked.resetPin);
         return false;
       }
       // An invalidated key is reported at once, with no second prompt. With
@@ -472,7 +474,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       if (next !== 'setup') lostPinResetRef.current = false;
       return next === 'setup';
     } catch (e) {
-      setError(describeError(e, t('session.unlockKeyFailed')));
+      setError(describeError(e, t('session.unlockKeyFailed'), 'resetPin'));
       return false;
     } finally {
       resettingPinRef.current = false;

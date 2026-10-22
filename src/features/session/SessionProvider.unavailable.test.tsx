@@ -621,7 +621,10 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     });
 
     expect(view.getByTestId('status')).toHaveTextContent('unavailable');
-    expect(view.getByTestId('error')).toHaveTextContent(/.+/);
+    // The PIN is the thing that was lost: nothing asks for it.
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'The device key was not unlocked, so no new PIN was set. Try again.',
+    );
   });
 
   it('offers no new PIN for an unreadable store that lost nothing', async () => {
