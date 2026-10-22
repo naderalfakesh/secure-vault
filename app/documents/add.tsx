@@ -5,7 +5,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { AppState, Linking, Platform, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, IconButton, Screen, Text, useToast } from '@/components/ui';
+import { Button, IconButton, Screen, Text, useLargeText, useToast } from '@/components/ui';
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { suggestForText } from '@/features/intelligence';
 import { DetailsForm } from '@/features/scan/DetailsForm';
@@ -595,19 +595,38 @@ function Header({
   title?: string;
   trailing?: ReactNode;
 }) {
+  const stacked = useLargeText();
+  // A bar title: it stops growing at 1.6× and shrinks to keep its words whole.
+  // At the largest text sizes it gets a row of its own under the controls, so
+  // the controls never squeeze it to nothing (F4).
+  const titleText = title ? (
+    <Text
+      variant="headline"
+      accessibilityRole="header"
+      maxFontSizeMultiplier={textScale.barTitleMax}
+      fit
+      style={stacked ? styles.centered : styles.title}
+    >
+      {title}
+    </Text>
+  ) : null;
+  if (stacked) {
+    return (
+      <View>
+        {leading || trailing ? (
+          <View style={styles.header}>
+            <View style={styles.stackedSide}>{leading}</View>
+            <View style={[styles.stackedSide, styles.end]}>{trailing}</View>
+          </View>
+        ) : null}
+        {titleText ? <View style={styles.stackedTitle}>{titleText}</View> : null}
+      </View>
+    );
+  }
   return (
     <View style={styles.header}>
       <View style={styles.side}>{leading}</View>
-      {/* A bar title: it wraps whole words and stops growing at 2×, so it is
-        never cut short at the largest text sizes. */}
-      <Text
-        variant="headline"
-        accessibilityRole="header"
-        maxFontSizeMultiplier={textScale.barTitleMax}
-        style={styles.title}
-      >
-        {title ?? ''}
-      </Text>
+      {titleText ?? <View style={styles.title} />}
       <View style={[styles.side, styles.end]}>{trailing}</View>
     </View>
   );
@@ -630,5 +649,16 @@ const styles = StyleSheet.create((theme) => ({
   title: {
     flex: 1,
     textAlign: 'center',
+  },
+  centered: {
+    textAlign: 'center',
+  },
+  stackedSide: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  stackedTitle: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.xs,
   },
 }));
