@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
-import { I18nManager } from 'react-native';
+import { I18nManager, Platform } from 'react-native';
 
 import { lightColors } from '@/theme/colors';
 
@@ -25,13 +25,28 @@ describe('Switch', () => {
     expect(view.getByRole('switch', { name: 'Face ID' })).toBeDisabled();
   });
 
-  it('mirrors the thumb in a right-to-left layout', async () => {
-    const rtl = jest.replaceProperty(I18nManager, 'isRTL', true);
-    const view = await render(<Switch value accessibilityLabel="Face ID" />);
-    expect(view.getByRole('switch', { name: 'Face ID' })).toHaveStyle({
-      transform: [{ scaleX: -1 }],
+  describe('right to left (F6)', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    function renderSwitch(os: 'ios' | 'android') {
+      jest.replaceProperty(Platform, 'OS', os);
+      jest.replaceProperty(I18nManager, 'isRTL', true);
+      return render(<Switch value accessibilityLabel="Face ID" testID="switch" />);
+    }
+
+    it('mirrors the Android switch once, so "on" sits at the end', async () => {
+      const view = await renderSwitch('android');
+      expect(view.getByTestId('switch')).toHaveStyle({
+        transform: [{ scaleX: -1 }],
+      });
     });
-    rtl.restore();
+
+    it('leaves the iOS switch to mirror itself natively', async () => {
+      const view = await renderSwitch('ios');
+      expect(view.getByTestId('switch')).not.toHaveStyle({
+        transform: [{ scaleX: -1 }],
+      });
+    });
   });
 
   it('keeps the thumb as drawn left to right', async () => {
