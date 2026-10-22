@@ -454,6 +454,9 @@ public class ExpoVaultModule: Module {
     // Android only: its chooser pauses the app while JavaScript timers stop.
     // iOS suspends the whole app instead, and the lock path dismisses the sheet.
     Function("scheduleShareExpiry") { (_: String, _: Double) in }
+    // Android only: the share sheet runs in-process here, and a share handed to
+    // another app settles while the app is away.
+    Function("lastStoppedAt") { () -> Double in 0 }
     Function("cancelShareExpiry") { (_: String) in }
 
     // Mirrors Android, where expo-file-system's delete follows a link.

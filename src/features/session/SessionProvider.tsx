@@ -66,8 +66,31 @@ export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
  */
 export type AutoLockPause = { maxAwayMs?: number; endsOnReturn?: boolean };
 
-/** A running pause, with the time it was left the foreground. */
-type PauseEntry = { maxAwayMs: number; endsOnReturn: boolean; awayAt: number | null };
+/** A running pause, with the time it began and the time it was left the foreground. */
+type PauseEntry = {
+  maxAwayMs: number;
+  endsOnReturn: boolean;
+  startedAt: number;
+  awayAt: number | null;
+};
+
+/**
+ * When the user left the app while `entry` ran, or null. Android's share
+ * chooser is translucent and only pauses the activity; a stop means Home,
+ * Recents, the screen turning off, or a target opened over the app. Its
+ * result reaches the app only on the return, so this is the one sign of when
+ * the user went away. iOS reports no stops: its sheet runs in-process.
+ */
+function leftDuring(entry: PauseEntry): number | null {
+  if (!entry.endsOnReturn) return null;
+  let stoppedAt = 0;
+  try {
+    stoppedAt = vault.lastStoppedAt();
+  } catch {
+    // A build without the call: the return is judged as before.
+  }
+  return stoppedAt >= entry.startedAt ? stoppedAt : null;
+}
 
 /** Time away a pause excuses by default: pickers, the camera, the scanner. */
 export const DEFAULT_PAUSE_MAX_AWAY_MS = 10 * 60_000;
@@ -712,6 +735,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       const entry = {
         maxAwayMs: pause.maxAwayMs ?? DEFAULT_PAUSE_MAX_AWAY_MS,
         endsOnReturn: pause.endsOnReturn ?? false,
+        startedAt: Date.now(),
         awayAt: null as number | null,
       };
       pausesRef.current.add(entry);
@@ -732,12 +756,23 @@ export function SessionProvider({ children }: PropsWithChildren) {
             pauseEndedAwayRef.current = false;
             judgeAway(Date.now() - awayAt);
           } else {
-            // Ended while still away within its bound (iOS handed the share to
-            // another app, or a picker result landed on the way back): the pause
-            // excused the time until now, and the rest of the time away is
-            // judged on return like any other.
-            backgroundedAt.current = Date.now();
-            pauseEndedAwayRef.current = true;
+            const left = leftDuring(entry);
+            if (left !== null) {
+              // Android: the user left the app under the chooser (Home, or a
+              // target opened over it), and its result only arrives with the
+              // return. The pause excused the time until then; from then on the
+              // user was simply away, judged without the return grace.
+              backgroundedAt.current = left;
+              pauseEndedAwayRef.current = false;
+              judgeAway(Date.now() - left);
+            } else {
+              // Ended while still away within its bound (iOS handed the share to
+              // another app, or a picker result landed on the way back): the pause
+              // excused the time until now, and the rest of the time away is
+              // judged on return like any other.
+              backgroundedAt.current = Date.now();
+              pauseEndedAwayRef.current = true;
+            }
           }
         }
         settleWaiters();
@@ -859,9 +894,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
           if (next !== 'active' || entry.awayAt === null) continue;
           const awayMs = now - entry.awayAt;
           entry.awayAt = null;
+          const left = leftDuring(entry);
           if (awayMs > entry.maxAwayMs) {
             pauses.delete(entry);
             judgeAway(awayMs);
+          } else if (left !== null) {
+            // The user left the app under the chooser: the time since is away time.
+            pauses.delete(entry);
+            judgeAway(now - left);
           } else if (entry.endsOnReturn) {
             const timer = setTimeout(() => {
               timers.delete(timer);

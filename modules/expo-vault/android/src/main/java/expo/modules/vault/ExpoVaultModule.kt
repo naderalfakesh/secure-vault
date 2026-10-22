@@ -1,9 +1,12 @@
 package expo.modules.vault
 
+import android.app.Activity
+import android.app.Application
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.storage.StorageManager
@@ -52,6 +55,22 @@ class ExpoVaultModule : Module() {
     // The cancel request of the running restore, tied to its run id (see [RestoreCancel]), so a
     // cancel that lands after one restore ended can never stop the next one.
     private val restoreCancel = RestoreCancel()
+    // Wall-clock time an activity of the app was last stopped (Home, Recents, another app
+    // opened over it), 0 before any. The share chooser is translucent, so it leaves the
+    // activity paused, never stopped: a stop while a share pause runs means the user left.
+    @Volatile private var lastStoppedAt = 0L
+    private val stopWatcher = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityStopped(activity: Activity) {
+            if (!activity.isChangingConfigurations) lastStoppedAt = System.currentTimeMillis()
+        }
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+        override fun onActivityStarted(activity: Activity) {}
+        override fun onActivityResumed(activity: Activity) {}
+        override fun onActivityPaused(activity: Activity) {}
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
+    private var watchedApplication: Application? = null
     private val ivPreferences: SharedPreferences by lazy {
         appContext.reactContext!!.getSharedPreferences("ExpoVault_IVs", Context.MODE_PRIVATE)
     }
@@ -60,6 +79,20 @@ class ExpoVaultModule : Module() {
         Name("ExpoVault")
 
         Events("backupProgress")
+
+        OnCreate {
+            val application = appContext.reactContext?.applicationContext as? Application
+            application?.registerActivityLifecycleCallbacks(stopWatcher)
+            watchedApplication = application
+        }
+
+        OnDestroy {
+            watchedApplication?.unregisterActivityLifecycleCallbacks(stopWatcher)
+            watchedApplication = null
+        }
+
+        // When an activity of the app was last stopped, in epoch milliseconds; 0 before any.
+        Function("lastStoppedAt") { lastStoppedAt.toDouble() }
 
         AsyncFunction("createVault") { promise: Promise ->
             try {

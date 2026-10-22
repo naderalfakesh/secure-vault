@@ -201,6 +201,13 @@ export interface SecureVault {
   scheduleShareExpiry(path: string, delayMs: number): void;
   /** Cancels the expiry scheduled for `path`; one for another path is kept. Synchronous. */
   cancelShareExpiry(path: string): void;
+  /**
+   * Android: when an activity of the app was last stopped (Home, Recents,
+   * another app opened over it), in epoch milliseconds; 0 before any. The
+   * share chooser is translucent and only pauses the activity, so a stop while
+   * it is up means the user left the app. iOS always returns 0. Synchronous.
+   */
+  lastStoppedAt(): number;
   addListener(
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,

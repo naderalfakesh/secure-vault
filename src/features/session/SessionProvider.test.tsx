@@ -23,6 +23,7 @@ const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as {
   reset(): void;
   unlockWithBiometrics: () => Promise<boolean>;
+  stopActivity(at?: number): void;
 };
 
 function Probe() {
@@ -700,6 +701,96 @@ describe('SessionProvider session capture', () => {
       await moveTo('active');
 
       expect(session.status).toBe('locked');
+    });
+
+    describe('Home from the chooser within its bound (F2)', () => {
+      /**
+       * Opens the chooser's pause and leaves the foreground. Home stops the
+       * activity `homeAfterMs` later; Android delivers the chooser's result only
+       * with the return, `returnAfterMs` after the app first left.
+       */
+      async function leaveWithHome(homeAfterMs: number) {
+        let settle!: (value: { action: string }) => void;
+        const work = new Promise<{ action: string }>((resolve) => {
+          settle = resolve;
+        });
+        let done!: Promise<{ action: string }>;
+        await act(async () => {
+          done = session.withoutAutoLock(() => work, androidShare);
+        });
+        const now = Date.now();
+        const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+        await moveTo('background');
+        vaultMock.stopActivity(now + homeAfterMs);
+        return {
+          now,
+          clock,
+          /** The result lands just before the app is active again, as Android orders it. */
+          resultThenActive: async (returnAfterMs: number) => {
+            clock.mockReturnValue(now + returnAfterMs);
+            await act(async () => {
+              settle({ action: 'dismissed' });
+              await done;
+            });
+            clock.mockReturnValue(now + returnAfterMs + 150);
+            await moveTo('active');
+          },
+          /** The app is active again first, and the result follows. */
+          activeThenResult: async (returnAfterMs: number) => {
+            clock.mockReturnValue(now + returnAfterMs);
+            await moveTo('active');
+            clock.mockReturnValue(now + returnAfterMs + 150);
+            await act(async () => {
+              settle({ action: 'dismissed' });
+              await done;
+            });
+          },
+        };
+      }
+
+      it('locks on return with auto-lock Immediately when the result lands first', async () => {
+        await unlocked(0);
+        const trip = await leaveWithHome(10_000);
+        await trip.resultThenActive(22_000);
+
+        expect(session.status).toBe('locked');
+      });
+
+      it('locks on return with auto-lock Immediately when the return comes first', async () => {
+        await unlocked(0);
+        const trip = await leaveWithHome(10_000);
+        await trip.activeThenResult(22_000);
+        await wait(AUTO_LOCK_RETURN_GRACE_MS + 100);
+
+        expect(session.status).toBe('locked');
+      });
+
+      it('counts only the time since Home against a longer auto-lock', async () => {
+        await unlocked(60);
+        const trip = await leaveWithHome(70_000);
+        // 70 s under the chooser are excused; the 30 s since Home are not past 1 minute.
+        await trip.resultThenActive(100_000);
+
+        expect(session.status).toBe('unlocked');
+      });
+
+      it('locks once the time since Home passes a longer auto-lock', async () => {
+        await unlocked(60);
+        const trip = await leaveWithHome(10_000);
+        await trip.resultThenActive(75_000);
+
+        expect(session.status).toBe('locked');
+      });
+
+      it('ignores a stop from before the chooser opened, so Back within the bound stays open', async () => {
+        await unlocked(0);
+        vaultMock.stopActivity(Date.now() - 5_000);
+        const { clock, now } = await settleAway(90_000, { action: 'dismissed' });
+        clock.mockReturnValue(now + 90_200);
+        await moveTo('active');
+
+        expect(session.status).toBe('unlocked');
+      });
     });
 
     it('applies the same rule to a picker that answers after its bound', async () => {

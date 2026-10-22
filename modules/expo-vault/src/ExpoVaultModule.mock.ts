@@ -46,12 +46,15 @@ export function createVaultMock(): SecureVault & {
   emitProgress(progress: BackupProgress): void;
   /** Removes the iOS install flag, as deleting the app does; `reset` sets it again. */
   clearInstallMarker(): void;
+  /** Records an Android activity stop at `at` (epoch ms), as Home or another app over it does. */
+  stopActivity(at?: number): void;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
   let created = false;
   // Tests start as an install that has run before, so reinstall handling stays out of their way.
   let installMarker = true;
+  let stoppedAt = 0;
   // Backups are kept in memory keyed by their path, protected by the passphrase.
   const backups = new Map<
     string,
@@ -222,6 +225,12 @@ export function createVaultMock(): SecureVault & {
     },
     scheduleShareExpiry() {},
     cancelShareExpiry() {},
+    lastStoppedAt() {
+      return stoppedAt;
+    },
+    stopActivity(at = Date.now()) {
+      stoppedAt = at;
+    },
     excludeFromBackup(path) {
       const key = trimSlashes(path);
       const allowed = ['restore-source', 'securevault-session'].map(
@@ -290,6 +299,7 @@ export function createVaultMock(): SecureVault & {
       files = new Map();
       created = false;
       installMarker = true;
+      stoppedAt = 0;
       links.clear();
     },
   };
