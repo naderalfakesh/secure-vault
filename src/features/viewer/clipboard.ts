@@ -1,18 +1,16 @@
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import * as Clipboard from 'expo-clipboard';
 import { Platform } from 'react-native';
+
+import vault from '../../../modules/expo-vault';
 
 /** How long iOS keeps copied document text on the clipboard. */
 export const COPIED_TEXT_EXPIRY_MS = 2 * 60_000;
 
 /**
- * The last copy this session made, as a digest so the text itself is not kept
- * in memory a second time, with the time iOS removes it on its own.
+ * The last copy this session made: the clipboard's change stamp right after
+ * it (never the text), and the time iOS removes it on its own.
  */
-let copied: { digest: string; expiresAt: number } | null = null;
-
-const digestOf = (text: string) => bytesToHex(sha256(utf8ToBytes(text)));
+let copied: { stamp: string | null; expiresAt: number } | null = null;
 
 function options(expiresAt: number): Clipboard.SetStringOptions {
   return {
@@ -24,28 +22,38 @@ function options(expiresAt: number): Clipboard.SetStringOptions {
   };
 }
 
+/** The clipboard's change stamp, or null when it cannot be told. */
+function currentStamp(): string | null {
+  try {
+    return vault.clipboardStamp();
+  } catch {
+    return null;
+  }
+}
+
 /** Copies a document's text with the platform's privacy options. */
 export async function copySensitiveText(text: string, now = Date.now()): Promise<void> {
   const expiresAt = now + COPIED_TEXT_EXPIRY_MS;
   await Clipboard.setStringAsync(text, options(expiresAt));
-  copied = { digest: digestOf(text), expiresAt };
+  copied = { stamp: currentStamp(), expiresAt };
 }
 
 /**
- * Called when the vault locks: empties the clipboard when it still holds the
- * text this session copied, and leaves anything copied since alone. Resolves
- * true when it cleared it. Never throws; the clipboard may be unreadable while
- * the app is in the background.
+ * Called when the vault locks: empties the clipboard when nothing was copied
+ * since this session's copy, judged by the clipboard's change stamp alone.
+ * The content is never read, so iOS shows no paste prompt and Android no
+ * "pasted" toast, and another app's newer copy is left alone. When the stamp
+ * cannot be told, the clipboard is left as it is. Resolves true when it
+ * cleared it; never throws.
  */
 export async function clearCopiedText(now = Date.now()): Promise<boolean> {
   const mine = copied;
   copied = null;
-  if (!mine) return false;
-  // iOS has removed it already; reading now would only meet someone else's copy.
+  if (!mine || mine.stamp === null) return false;
+  // iOS has removed it already.
   if (Platform.OS === 'ios' && now >= mine.expiresAt) return false;
+  if (currentStamp() !== mine.stamp) return false;
   try {
-    const current = await Clipboard.getStringAsync();
-    if (!current || digestOf(current) !== mine.digest) return false;
     await Clipboard.setStringAsync('', options(now + COPIED_TEXT_EXPIRY_MS));
     return true;
   } catch {

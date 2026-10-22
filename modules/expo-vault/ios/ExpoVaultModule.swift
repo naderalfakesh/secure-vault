@@ -82,6 +82,11 @@ public class ExpoVaultModule: Module {
       promise.resolve(status != errSecItemNotFound)
     }
 
+    // Reading the count never reads the content, so it never prompts.
+    Function("clipboardStamp") { () -> String? in
+      return String(UIPasteboard.general.changeCount)
+    }
+
     Function("hasInstallMarker") { () -> Bool in
       return UserDefaults.standard.bool(forKey: Self.installMarkerKey)
     }

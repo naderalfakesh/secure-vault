@@ -481,10 +481,16 @@ disabled until it ends.
   clipboard, which other apps can read. On iOS it is copied local-only (not
   offered to other devices through Universal Clipboard) and expires after 2
   minutes; on Android it is marked sensitive, so the clipboard preview and
-  keyboards do not show it, and it has no expiry. When the vault locks, the
-  clipboard is emptied if it still holds that text; anything copied since is
-  left alone. A copy that is still there after the app was killed stays
-  until iOS expires it or something else is copied.
+  keyboards do not show it, and it has no expiry. Right after the copy the
+  app notes the clipboard's change stamp (iOS `UIPasteboard.changeCount`,
+  Android 8 and later the primary clip's timestamp), never the text. When
+  the vault locks, the clipboard is emptied only if that stamp is unchanged,
+  so another app's newer copy is left alone. The content is never read back,
+  so iOS shows no "Allow Paste" prompt and Android no "pasted from your
+  clipboard" toast. Where the stamp cannot be told (Android before 8, or a
+  clipboard the app cannot see from the background), the copy is left until
+  something else replaces it. A copy that is still there after the app was
+  killed stays until iOS expires it or something else is copied.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
 

@@ -91,6 +91,9 @@ export function createVaultMock(): SecureVault & {
     async unlockWithBiometrics() {
       return true;
     },
+    clipboardStamp() {
+      return '0';
+    },
     hasInstallMarker() {
       return installMarker;
     },

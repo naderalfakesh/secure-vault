@@ -1,5 +1,6 @@
 package expo.modules.vault
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
@@ -504,6 +505,10 @@ class ExpoVaultModule : Module() {
         // Deletes a share copy's folder after `delayMs`, also while the chooser
         // keeps the activity paused. Only a folder directly inside the cache's
         // `share` folder qualifies. One expiry at a time: a new one replaces it.
+        // The primary clip's description only, never the clip: reading the clip
+        // shows Android 12's "pasted from your clipboard" toast.
+        Function("clipboardStamp") { clipboardStamp() }
+
         Function("scheduleShareExpiry") { path: String, delayMs: Double ->
             val shareRoot = File(appContext.reactContext!!.cacheDir, "share")
             val parent = File(path).parentFile?.canonicalPath
@@ -708,5 +713,19 @@ class ExpoVaultModule : Module() {
         keyStore.load(null)
         return keyStore.getKey(keyAlias, null) as? SecretKey
             ?: throw IllegalStateException("Vault key not found. Create the vault first.")
+    }
+
+    /** When the primary clip was set, or null when that cannot be told. */
+    private fun clipboardStamp(): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return null
+        val context = appContext.reactContext ?: return null
+        val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            ?: return null
+        val description = try {
+            manager.primaryClipDescription
+        } catch (e: SecurityException) {
+            null
+        } ?: return null
+        return description.timestamp.toString()
     }
 }

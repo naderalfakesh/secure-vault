@@ -55,6 +55,15 @@ export interface SecureVault {
    * deleted with the app, unlike Keychain items. Synchronous.
    */
   hasInstallMarker(): boolean;
+  /**
+   * A stamp that changes whenever anything is copied to the system clipboard,
+   * read without reading the content, so it never shows iOS's paste prompt or
+   * Android's "pasted from your clipboard" toast. iOS: `UIPasteboard`'s
+   * `changeCount`. Android 8 and later: the primary clip's timestamp. Null
+   * when it cannot be told (an empty clipboard, Android before 8, or a
+   * clipboard the app cannot see from the background). Synchronous.
+   */
+  clipboardStamp(): string | null;
   /** iOS only: records that this install has run. Synchronous. */
   setInstallMarker(): void;
   /**
