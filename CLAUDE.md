@@ -28,6 +28,10 @@ Required native config. Do not remove any of it:
   `EXCLUDED_ARCHS = arm64`, so `expo run:ios` sees Apple Silicon simulators.
 - `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's `libcrypto.so`,
   which AGP drops when the project path contains spaces.
+- The `expo-sqlite` plugin options `useSQLCipher: true` and `enableFTS: true`
+  in `app.json`. Without SQLCipher the index would be plain SQLite (the
+  adapter refuses to open it, `SQLCIPHER_UNAVAILABLE`), and without FTS5
+  search fails.
 - `expo-build-properties`: `ios.usePrecompiledModules: false`, because
   prebuilt Expo frameworks are tied to one Swift version. SDK 58 generates a
   `SceneDelegate` itself, so `ios.enableSceneSupport` is no longer set, and it
