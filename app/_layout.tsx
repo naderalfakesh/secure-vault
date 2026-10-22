@@ -90,10 +90,16 @@ function RootNavigator() {
   // not slide in under the fading splash (§3.5).
   const [handingOff, setHandingOff] = useState(true);
   const endHandoff = useCallback(() => setHandingOff(false), []);
-  const handoff = <SplashHandoff released={ready && themed} onDone={endHandoff} />;
+  // Keyed, and a child of the same fragment in both returns, so the overlay
+  // is the same instance before and after the session is ready. Remounted, it
+  // read the scheme again after the pinned Appearance had been applied and
+  // flipped from the system colours to the pinned ones just before its fade.
+  const handoff = (
+    <SplashHandoff key="splash-handoff" released={ready && themed} onDone={endHandoff} />
+  );
 
   if (!ready) {
-    return handoff;
+    return <>{handoff}</>;
   }
 
   return (

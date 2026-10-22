@@ -2,6 +2,7 @@ import { act, render } from '@testing-library/react-native';
 import { Appearance } from 'react-native';
 import * as Reanimated from 'react-native-reanimated';
 
+import * as AppearanceSetting from '@/theme/appearance';
 import { darkColors, lightColors } from '@/theme/colors';
 
 import { HANDOFF_FADE_MS, HANDOFF_FALLBACK_MS, SplashHandoff } from './SplashHandoff';
@@ -107,6 +108,53 @@ describe('SplashHandoff', () => {
     await view.rerender(<SplashHandoff released={false} />);
     expect(view.getByTestId('splash-handoff', hidden)).toHaveStyle({
       backgroundColor: lightColors.background,
+    });
+  });
+
+  describe('when the pinned Appearance differs from the system scheme', () => {
+    beforeEach(() => {
+      jest.spyOn(Appearance, 'getColorScheme').mockReturnValue('light');
+      jest.spyOn(AppearanceSetting, 'getAppearance').mockReturnValue('dark');
+    });
+
+    it('stays opaque in the system colours, then goes at once instead of fading', async () => {
+      const fade = jest.spyOn(Reanimated, 'withTiming');
+      const onDone = jest.fn();
+      const view = await render(<SplashHandoff released onDone={onDone} />);
+      await act(async () => {
+        jest.advanceTimersByTime(HANDOFF_FADE_MS - 20);
+      });
+      const overlay = view.getByTestId('splash-handoff', hidden);
+      expect(overlay).toHaveStyle({ backgroundColor: lightColors.background, opacity: 1 });
+      expect(onDone).not.toHaveBeenCalled();
+      await act(async () => {
+        jest.advanceTimersByTime(40);
+      });
+      expect(view.queryByTestId('splash-handoff', hidden)).toBeNull();
+      expect(onDone).toHaveBeenCalledTimes(1);
+      expect(fade).not.toHaveBeenCalled();
+    });
+
+    it('is held the same way with reduced motion, then goes at once', async () => {
+      jest.spyOn(Reanimated, 'useReducedMotion').mockReturnValue(true);
+      const view = await render(<SplashHandoff released />);
+      expect(view.getByTestId('splash-handoff', hidden)).toHaveStyle({
+        backgroundColor: lightColors.background,
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(HANDOFF_FADE_MS + 20);
+      });
+      expect(view.queryByTestId('splash-handoff', hidden)).toBeNull();
+    });
+
+    it('still fades when the pinned scheme matches the system', async () => {
+      jest.spyOn(AppearanceSetting, 'getAppearance').mockReturnValue('light');
+      const fade = jest.spyOn(Reanimated, 'withTiming');
+      await render(<SplashHandoff released />);
+      await act(async () => {
+        jest.advanceTimersByTime(HANDOFF_FADE_MS / 2);
+      });
+      expect(fade).toHaveBeenCalledWith(0, expect.objectContaining({ duration: HANDOFF_FADE_MS }));
     });
   });
 });
