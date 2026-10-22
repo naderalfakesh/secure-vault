@@ -681,6 +681,25 @@ describe('BackupService', () => {
       expect(containers()).toHaveLength(0);
     });
 
+    it('discards a finished container without following links', async () => {
+      const spy = jest.spyOn(vault, 'exportBackup').mockImplementation(async (destPath) => {
+        new File(`file://${destPath}`).writeSync('SVB1 complete');
+        return { entries: 1, bytes: 13 };
+      });
+      let backup;
+      try {
+        backup = await backupService.createBackup('correct horse battery');
+      } finally {
+        spy.mockRestore();
+      }
+      const remove = jest.spyOn(vault, 'removeTreeNoFollow');
+
+      backupService.discardBackup(backup.uri);
+
+      expect(remove).toHaveBeenCalledWith(decodeURIComponent(backup.uri.replace(/^file:\/\//, '')));
+      expect(containers()).toHaveLength(0);
+    });
+
     // Makes removing the staging folder fail once the module has been called.
     const failStagingRemoval = (called: () => boolean) => {
       const remove = Directory.prototype.delete;

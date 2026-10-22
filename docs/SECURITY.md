@@ -442,7 +442,9 @@ disabled until it ends.
 - Every whole-folder removal in these sweeps (the two staging folders,
   `backup` and its restore extras, `DocumentPicker`, `ImagePicker`,
   `mlkit_docscan_ui_client`, the preview, viewer and share folders, and the
-  iOS Inbox) goes through the vault module, which never follows a symbolic
+  iOS Inbox), as well as a share copy's folder when its share ends and a
+  finished backup container once it was handed off, goes through the vault
+  module, which never follows a symbolic
   link: a link planted in place of one of these folders, or anywhere inside
   one, is removed itself and what it points at is left alone. The module
   only removes entries inside the app's cache (and, on iOS, its `tmp`) once

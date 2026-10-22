@@ -178,6 +178,28 @@ describe('DocumentService', () => {
     expect(cancel).toHaveBeenCalledWith(folder);
   });
 
+  it('removes the share copy folder without following links, on discard and after a failed copy', async () => {
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    decryptedCopyOf(doc.id);
+    const remove = jest.spyOn(vault, 'removeTreeNoFollow');
+
+    const copy = await documentService.prepareShareFile(doc.id);
+    const folder = decodeURIComponent(copy!.uri.replace(/^file:\/\//, '')).replace(
+      /\/Passport\.jpeg$/,
+      '',
+    );
+    copy!.discard();
+    expect(remove).toHaveBeenCalledWith(folder);
+    expect(new Directory(`file://${folder}`).exists).toBe(false);
+
+    remove.mockClear();
+    jest
+      .spyOn(documentService, 'getDocumentFile')
+      .mockResolvedValue(new File(Paths.cache, 'decrypted_missing.jpg').uri);
+    await expect(documentService.prepareShareFile(doc.id)).rejects.toThrow();
+    expect(remove).toHaveBeenCalledWith(expect.stringMatching(/\/share\/[^/]+$/));
+  });
+
   it('removes a partial share copy when the copy fails', async () => {
     const doc = await documentService.addDocument(picked, { title: 'Passport' });
     // A decrypted source that is not there: the copy throws mid-way.

@@ -407,8 +407,8 @@ class BackupService {
   /** Removes a backup file once it has been handed off. */
   discardBackup(uri: string): void {
     try {
-      const file = new File(uri);
-      if (file.exists) file.delete();
+      // A link planted in its place is unlinked, never followed.
+      removeNoFollow(new File(uri));
     } catch {
       // Swept with the rest of the cache on lock.
     }

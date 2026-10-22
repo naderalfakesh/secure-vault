@@ -478,9 +478,11 @@ class DocumentService {
     directory.create({ intermediates: true, idempotent: true });
     const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
     const folder = this.toPath(directory.uri).replace(/\/+$/, '');
+    // Never followed through a link: expo-file-system's delete on Android
+    // empties a link's target before removing the link.
     const remove = () => {
       try {
-        if (directory.exists) directory.delete();
+        ExpoVaultModule.removeTreeNoFollow(folder);
       } catch {
         // Swept by clearCache.
       }
