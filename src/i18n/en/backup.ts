@@ -14,6 +14,7 @@ export const backup = {
   'backup.hub.footnote':
     'You decide where the file goes: Files, a computer or a drive. A backup made on iPhone restores on Android, and the other way round.',
   'backup.picker.notBackup': 'That file isn’t a SecureVault backup.',
+  'backup.picker.failed': 'The file picker couldn’t open. Try again in a moment.',
 
   'backup.create.title': 'Encrypted backup',
   'backup.create.intro':

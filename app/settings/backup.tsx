@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, Stack } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Card, Group, Icon, ListRow, Screen, Text, useToast } from '@/components/ui';
@@ -13,6 +13,39 @@ import { useSession } from '@/features/session/SessionProvider';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+
+/**
+ * "Choose another file" opens the picker only once the restore sheet's modal
+ * is gone: iOS presents the picker on the top view controller, and one being
+ * dismissed takes the picker down with it without telling expo-document-picker,
+ * whose in-progress flag then refuses every later pick until a relaunch. iOS
+ * reports the dismissal; this is the fallback if it never comes, and the
+ * delay on Android, where the picker is its own activity.
+ */
+const SHEET_GONE_FALLBACK_MS = Platform.OS === 'ios' ? 1000 : 250;
+/** The one retry after the picker said another pick was still in progress. */
+const PICKER_RETRY_MS = 600;
+
+const PICKER_OPTIONS = { type: '*/*', copyToCacheDirectory: true } as const;
+
+function pickerBusy(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  return (
+    code === 'ERR_PICKING_IN_PROGRESS' ||
+    (typeof message === 'string' && /picking in progress/i.test(message))
+  );
+}
+
+/** Opens the system picker, once more after a short wait if a pick is still closing. */
+async function openPicker(): Promise<DocumentPicker.DocumentPickerResult> {
+  try {
+    return await DocumentPicker.getDocumentAsync(PICKER_OPTIONS);
+  } catch (error) {
+    if (!pickerBusy(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, PICKER_RETRY_MS));
+    return DocumentPicker.getDocumentAsync(PICKER_OPTIONS);
+  }
+}
 
 /**
  * Settings › Backup (handover §6 J6): create a backup, and the app's only
@@ -27,6 +60,11 @@ export default function BackupScreen() {
   const [lastBackup, setLastBackup] = useState<Date | null>(null);
   const [creating, setCreating] = useState(false);
   const [restore, setRestore] = useState<PickedBackup | null>(null);
+  // Each pick starts a fresh sheet; closing keeps the same one so its modal
+  // can report that it has gone (the pick after "Choose another file" waits).
+  const [sheetKey, setSheetKey] = useState(0);
+  const pickWhenGone = useRef(false);
+  const goneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // An export or restore, this screen's or one started before the last lock,
   // holds the service's one slot; nothing else may start until it ends.
   const running = useBackupActivity();
@@ -42,7 +80,13 @@ export default function BackupScreen() {
     return () => {
       active = false;
       mounted.current = false;
+      if (goneTimer.current) clearTimeout(goneTimer.current);
     };
+  }, []);
+
+  const openRestore = useCallback((picked: PickedBackup) => {
+    setSheetKey((key) => key + 1);
+    setRestore(picked);
   }, []);
 
   // Picks a file, moves the picker's copy out of the purgeable cache, reads
@@ -53,10 +97,17 @@ export default function BackupScreen() {
     const session = captureSession();
     let picked: string | null = null;
     let pickedName = '';
+    let result: DocumentPicker.DocumentPickerResult;
     try {
-      const result = await withoutAutoLock(() =>
-        DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true }),
-      );
+      result = await withoutAutoLock(openPicker);
+    } catch {
+      // Never the module's text: a plain sentence, and the next tap tries again.
+      if (mounted.current && session.current()) {
+        toast.show({ message: copy['picker.failed'], tone: 'danger' });
+      }
+      return;
+    }
+    try {
       const asset = result.canceled ? null : result.assets[0];
       if (!asset) return;
       documentService.discardSystemImportCopy(asset.name);
@@ -70,7 +121,7 @@ export default function BackupScreen() {
         backupService.discardPickedFile(uri);
         return;
       }
-      setRestore({
+      openRestore({
         uri,
         name: asset.name,
         entries: info.entries,
@@ -83,7 +134,7 @@ export default function BackupScreen() {
         if (code === 'BACKUP_UNSUPPORTED' && picked) {
           // A backup from a newer version: said in the restore sheet, like
           // every other restore outcome. The picker's copy is already gone.
-          setRestore({
+          openRestore({
             uri: picked,
             name: pickedName,
             entries: 0,
@@ -99,17 +150,27 @@ export default function BackupScreen() {
         });
       }
     }
-  }, [toast, withoutAutoLock, captureSession]);
+  }, [toast, withoutAutoLock, captureSession, openRestore]);
 
   const closeRestore = useCallback(() => {
     if (restore) backupService.discardPickedFile(restore.uri);
     setRestore(null);
   }, [restore]);
 
+  const sheetGone = useCallback(() => {
+    if (goneTimer.current) clearTimeout(goneTimer.current);
+    goneTimer.current = null;
+    if (!pickWhenGone.current) return;
+    pickWhenGone.current = false;
+    if (mounted.current) void pickBackup();
+  }, [pickBackup]);
+
   const chooseAnother = useCallback(() => {
+    if (pickWhenGone.current) return;
+    pickWhenGone.current = true;
     closeRestore();
-    void pickBackup();
-  }, [closeRestore, pickBackup]);
+    goneTimer.current = setTimeout(sheetGone, SHEET_GONE_FALLBACK_MS);
+  }, [closeRestore, sheetGone]);
 
   const restored = useCallback(() => {
     setRestore(null);
@@ -181,11 +242,12 @@ export default function BackupScreen() {
         onShared={setLastBackup}
       />
       <RestoreSheet
-        key={restore?.uri ?? 'none'}
+        key={sheetKey}
         backup={restore}
         onClose={closeRestore}
         onChooseAnother={chooseAnother}
         onRestored={restored}
+        onDismissed={sheetGone}
       />
     </Screen>
   );

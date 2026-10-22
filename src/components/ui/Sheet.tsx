@@ -46,6 +46,12 @@ export type SheetProps = PropsWithChildren<{
    * scroll view or list.
    */
   scroll?: boolean;
+  /**
+   * Called once the modal has finished going away, so the next system
+   * presentation (a picker) is not handed a view controller being dismissed.
+   * iOS only; React Native's Modal reports no dismissal on Android.
+   */
+  onDismissed?: () => void;
   testID?: string;
 }>;
 
@@ -69,6 +75,7 @@ export function Sheet({
   detent = 'auto',
   scroll = true,
   children,
+  onDismissed,
   testID,
 }: SheetProps) {
   const { theme } = useUnistyles();
@@ -121,6 +128,7 @@ export function Sheet({
       animationType="none"
       statusBarTranslucent
       onRequestClose={dismissable ? onClose : () => {}}
+      onDismiss={onDismissed}
       testID={testID}
     >
       <View style={[styles.root, { paddingBottom: keyboardHeight }]}>

@@ -621,6 +621,109 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
   });
 });
 
+describe('Backup hub picker after "Choose another file"', () => {
+  const BUSY = Object.assign(
+    new Error(
+      "Calling the 'getDocumentAsync' function has failed → Caused by: Different document picking in progress. Await other document picking first",
+    ),
+    { code: 'ERR_PICKING_IN_PROGRESS' },
+  );
+
+  beforeEach(() => {
+    vaultMock.reset();
+    secureStoreMock.__reset();
+    pick.mockReset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("opens the picker again only once the restore sheet's modal has gone", async () => {
+    jest
+      .spyOn(vault, 'importBackup')
+      .mockRejectedValueOnce(Object.assign(new Error('damaged'), { code: 'BACKUP_INVALID' }));
+    const view = await renderUnlocked();
+    await startRestore(view);
+    expect(pick).toHaveBeenCalledTimes(1);
+
+    // The modal's dismissal callback, as iOS calls it once the sheet is gone.
+    const dismissed = view.getByTestId('restore-sheet').props.onDismiss as () => void;
+    const choose = view.getAllByRole('button', { name: 'Choose another file' });
+    await act(async () => {
+      await fireEvent.press(choose[choose.length - 1]);
+    });
+    // The sheet is closing: no picker on top of a view controller being dismissed.
+    expect(pick).toHaveBeenCalledTimes(1);
+
+    // iOS reports the modal gone; the picker opens then, once.
+    await act(async () => {
+      dismissed();
+    });
+    await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
+    expect(pick).toHaveBeenCalledTimes(2);
+    // The fallback that covers a missing dismissal does not pick a second time.
+    await settleFor(1100);
+    expect(pick).toHaveBeenCalledTimes(2);
+  });
+
+  it('still opens the picker when the dismissal is never reported', async () => {
+    jest
+      .spyOn(vault, 'importBackup')
+      .mockRejectedValueOnce(Object.assign(new Error('damaged'), { code: 'BACKUP_INVALID' }));
+    const view = await renderUnlocked();
+    await startRestore(view);
+
+    const choose = view.getAllByRole('button', { name: 'Choose another file' });
+    await act(async () => {
+      await fireEvent.press(choose[choose.length - 1]);
+    });
+    expect(pick).toHaveBeenCalledTimes(1);
+    await settleFor(1100);
+    expect(pick).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
+  });
+
+  it('retries once when a pick is still in progress and never shows the module text', async () => {
+    jest
+      .spyOn(backupService, 'inspectBackup')
+      .mockResolvedValue({ version: 1, app: 'SecureVault', created: '2026-10-16', entries: 19 });
+    pickReturns('backup.svbackup');
+    pick.mockRejectedValueOnce(BUSY);
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByText('Restore from a backup…'), 800);
+
+    await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
+    expect(pick).toHaveBeenCalledTimes(2);
+    expect(view.queryByText(/getDocumentAsync|in progress/)).toBeNull();
+  });
+
+  it('says a plain sentence when the picker still cannot open, and the next tap works', async () => {
+    jest
+      .spyOn(backupService, 'inspectBackup')
+      .mockResolvedValue({ version: 1, app: 'SecureVault', created: '2026-10-16', entries: 19 });
+    pick.mockRejectedValue(BUSY);
+    const view = await renderUnlocked();
+
+    await pressAndSettle(view.getByText('Restore from a backup…'), 800);
+
+    await waitFor(() =>
+      expect(
+        view.getByText('The file picker couldn’t open. Try again in a moment.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(pick).toHaveBeenCalledTimes(2);
+    expect(view.queryByText(/getDocumentAsync|in progress/)).toBeNull();
+
+    pickReturns('backup.svbackup');
+    await act(async () => {
+      await fireEvent.press(view.getByText('Restore from a backup…'));
+    });
+    await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
+  });
+});
+
 describe('Backup hub restore phases and outcomes', () => {
   const emitProgress = (event: BackupProgress) =>
     (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);

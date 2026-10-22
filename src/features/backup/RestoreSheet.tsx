@@ -53,7 +53,7 @@ type Stage =
 export type RestoreSheetProps = {
   /**
    * The picked file after its header was read; null closes the sheet. The hub
-   * keys the sheet by the file, so each file starts at the inspect step.
+   * keys the sheet by each pick, so each file starts at the inspect step.
    */
   backup: PickedBackup | null;
   /** The sheet was closed: the hub drops the picker's copy. */
@@ -62,6 +62,8 @@ export type RestoreSheetProps = {
   onChooseAnother: () => void;
   /** The vault was replaced and the index reloaded. */
   onRestored: (entries: number) => void;
+  /** The sheet's modal has finished going away (iOS only). */
+  onDismissed?: () => void;
 };
 
 /**
@@ -74,7 +76,13 @@ export type RestoreSheetProps = {
  * gone so the vault is never left half replaced, and reports its outcome after
  * the next unlock. The service refuses any other backup work until it ends.
  */
-export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: RestoreSheetProps) {
+export function RestoreSheet({
+  backup,
+  onClose,
+  onChooseAnother,
+  onRestored,
+  onDismissed,
+}: RestoreSheetProps) {
   const toast = useToast();
   const { captureSession, postNotice } = useSession();
   const [passphrase, setPassphrase] = useState('');
@@ -94,6 +102,9 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
       mounted.current = false;
     };
   }, []);
+
+  // A closed sheet stays mounted until its modal is gone; it keeps no passphrase.
+  if (!backup && passphrase) setPassphrase('');
 
   const running = stage.name === 'running';
   const wiped = running && stage.progress.wiped;
@@ -193,6 +204,8 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
           : copy['restore.title']
       }
       dismissable={!running}
+      onDismissed={onDismissed}
+      testID="restore-sheet"
     >
       {backup ? (
         <View style={styles.body}>
