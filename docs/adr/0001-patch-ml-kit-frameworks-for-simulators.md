@@ -39,9 +39,11 @@ and barcode plugins, generalized to patch all ML Kit frameworks present.
 
 - Development builds run on the iPhone simulators the team actually has, with
   OCR working; the SDK 54 verification run recognized text on a library photo.
-- Device builds are unaffected: the patch only touches arm64 objects that were
-  already device objects, and the exclusion line only ever applied to the
-  simulator SDK.
+- Whether device builds are unaffected is not verified. The exclusion line
+  only ever applied to the simulator SDK, but the binary patch rewrites the
+  arm64 objects that device builds link, and no device build or App Store
+  archive has been made with it yet. A device build, an archive and its
+  validation must pass before release.
 - The patch runs on every `pod install`, so a clean prebuild needs Python 3 on
   the PATH. CI does not build native projects, so it is not affected.
 - The fix is a workaround for Google's packaging, not a fix for it. Newer ML
