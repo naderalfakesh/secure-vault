@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 import { DocumentImage } from '@/features/documents/DocumentImage';
+import { edgeSwipe, type SwipeDirection } from '@/utils/pager';
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 5;
@@ -30,7 +31,15 @@ export interface ZoomablePageProps {
   onTap: () => void;
   /** Progress of a dismiss drag, 0 to 1, for the pager's backdrop. */
   dismissProgress: SharedValue<number>;
+  /** Whether a page lies beyond each edge, for a drag past the edge while zoomed. */
+  canSwipe?: { left: boolean; right: boolean };
+  /** A zoomed drag pulled past an edge: the page has zoomed out, turn to the neighbour. */
+  onEdgeSwipe?: (direction: SwipeDirection) => void;
+  /** Prefix for the gestures' test ids. */
+  testID?: string;
 }
+
+const NO_SWIPE = { left: false, right: false };
 
 /**
  * One page of the viewer. Pinch to zoom around the fingers, pan while zoomed,
@@ -44,6 +53,9 @@ export function ZoomablePage({
   onDismiss,
   onTap,
   dismissProgress,
+  canSwipe = NO_SWIPE,
+  onEdgeSwipe,
+  testID = 'zoomable-page',
 }: ZoomablePageProps) {
   const { width, height } = useWindowDimensions();
   const scale = useSharedValue(MIN_SCALE);
@@ -53,6 +65,26 @@ export function ZoomablePage({
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
   const dismissY = useSharedValue(0);
+  // Mirrors the scale on the JS side so the zoomed pan only exists while
+  // zoomed. At rest it must not activate at all: an active pan claims the
+  // touch, and the pager underneath never sees the horizontal swipe.
+  const [zoomed, setZoomed] = useState(false);
+
+  const reportZoom = useCallback(
+    (value: boolean) => {
+      setZoomed(value);
+      onZoomChange(value);
+    },
+    [onZoomChange],
+  );
+
+  const reportEdgeSwipe = useCallback(
+    (direction: SwipeDirection) => {
+      reportZoom(false);
+      onEdgeSwipe?.(direction);
+    },
+    [reportZoom, onEdgeSwipe],
+  );
 
   useEffect(() => {
     // A new page starts at rest.
@@ -75,15 +107,16 @@ export function ZoomablePage({
       scale.set(withSpring(MIN_SCALE));
       translateX.set(withSpring(0));
       translateY.set(withSpring(0));
-      runOnJS(onZoomChange)(false);
+      runOnJS(reportZoom)(false);
       return;
     }
     translateX.set(withSpring(clampToBounds(translateX.get(), width, s)));
     translateY.set(withSpring(clampToBounds(translateY.get(), height, s)));
-    runOnJS(onZoomChange)(true);
+    runOnJS(reportZoom)(true);
   };
 
   const pinch = Gesture.Pinch()
+    .withTestId(`${testID}-pinch`)
     .onStart(() => {
       savedScale.set(scale.get());
       savedTranslateX.set(translateX.get());
@@ -108,6 +141,8 @@ export function ZoomablePage({
   // At rest a vertical drag dismisses; horizontal movement is left to the
   // pager underneath, which is why this gesture fails on a horizontal start.
   const dismissPan = Gesture.Pan()
+    .withTestId(`${testID}-dismiss`)
+    .enabled(!zoomed)
     .maxPointers(1)
     .activeOffsetY([-12, 12])
     .failOffsetX([-16, 16])
@@ -126,26 +161,46 @@ export function ZoomablePage({
       }
     });
 
-  // Zoomed in, a one-finger drag pans the page in any direction.
+  // Zoomed in, a one-finger drag pans the page in any direction. Started
+  // against a side edge and pulled past it, it zooms out and turns the page.
   const zoomedPan = Gesture.Pan()
+    .withTestId(`${testID}-pan`)
+    .enabled(zoomed)
     .maxPointers(1)
-    .onChange((event) => {
-      if (scale.get() <= MIN_SCALE) return;
-      translateX.set(translateX.get() + event.changeX);
-      translateY.set(translateY.get() + event.changeY);
+    .onStart(() => {
+      savedTranslateX.set(translateX.get());
+      savedTranslateY.set(translateY.get());
     })
-    .onEnd(() => {
-      if (scale.get() > MIN_SCALE) settle();
+    .onUpdate((event) => {
+      if (scale.get() <= MIN_SCALE) return;
+      translateX.set(savedTranslateX.get() + event.translationX);
+      translateY.set(savedTranslateY.get() + event.translationY);
+    })
+    .onEnd((event, success) => {
+      const s = scale.get();
+      if (s <= MIN_SCALE) return;
+      // A drag cut short, say by a second finger starting a pinch, never pages.
+      const direction =
+        success && edgeSwipe(savedTranslateX.get(), event.translationX, ((s - 1) * width) / 2);
+      if (direction && canSwipe[direction]) {
+        scale.set(withTiming(MIN_SCALE));
+        translateX.set(withTiming(0));
+        translateY.set(withTiming(0));
+        runOnJS(reportEdgeSwipe)(direction);
+        return;
+      }
+      settle();
     });
 
   const doubleTap = Gesture.Tap()
+    .withTestId(`${testID}-double-tap`)
     .numberOfTaps(2)
     .onEnd((event) => {
       if (scale.get() > MIN_SCALE) {
         scale.set(withTiming(MIN_SCALE));
         translateX.set(withTiming(0));
         translateY.set(withTiming(0));
-        runOnJS(onZoomChange)(false);
+        runOnJS(reportZoom)(false);
         return;
       }
       scale.set(withTiming(DOUBLE_TAP_SCALE));
@@ -157,10 +212,11 @@ export function ZoomablePage({
       translateY.set(
         withTiming(clampToBounds(focalY * (1 - DOUBLE_TAP_SCALE), height, DOUBLE_TAP_SCALE)),
       );
-      runOnJS(onZoomChange)(true);
+      runOnJS(reportZoom)(true);
     });
 
   const singleTap = Gesture.Tap()
+    .withTestId(`${testID}-tap`)
     .numberOfTaps(1)
     .onEnd(() => {
       runOnJS(onTap)();

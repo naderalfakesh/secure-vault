@@ -14,7 +14,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
-import { pageFromOffset } from '@/utils/pager';
+import { pageForSwipe, pageFromOffset, type SwipeDirection } from '@/utils/pager';
 
 import { ZoomablePage } from './ZoomablePage';
 
@@ -86,6 +86,18 @@ export function PageStage({
     [onZoomChange],
   );
 
+  // A zoomed page dragged past its edge has zoomed itself out; turn the page.
+  const onEdgeSwipe = useCallback(
+    (from: number, direction: SwipeDirection) => {
+      const next = pageForSwipe(from, direction, pages.length);
+      if (next === null) return;
+      shown.current = next;
+      onIndexChange(next);
+      list.current?.scrollToIndex({ index: next, animated: !reduceMotion });
+    },
+    [pages.length, onIndexChange, reduceMotion],
+  );
+
   const fadeStyle = useAnimatedStyle(() => ({ opacity: 1 - dismissProgress.get() * 0.7 }));
 
   return (
@@ -96,7 +108,8 @@ export function PageStage({
         testID="page-stage-pager"
         horizontal
         pagingEnabled
-        // A zoomed page pans instead of paging.
+        // A zoomed page pans instead of paging; it turns the page itself when
+        // dragged past its edge.
         scrollEnabled={!zoomed}
         showsHorizontalScrollIndicator={false}
         initialScrollIndex={index < pages.length ? index : 0}
@@ -119,6 +132,12 @@ export function PageStage({
             onDismiss={onDismiss}
             onTap={onTap}
             dismissProgress={dismissProgress}
+            canSwipe={{
+              left: pageForSwipe(itemIndex, 'left', pages.length) !== null,
+              right: pageForSwipe(itemIndex, 'right', pages.length) !== null,
+            }}
+            onEdgeSwipe={(direction) => onEdgeSwipe(itemIndex, direction)}
+            testID={`page-stage-page-${itemIndex}`}
           />
         )}
       />
