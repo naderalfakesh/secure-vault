@@ -106,6 +106,9 @@ describe('Document sharing and the lock gate', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
+    // Tests seed documents before setup: the device key that encrypts them comes first,
+    // or the launch finds entries without a key and offers only Delete everything.
+    await vault.createVault();
     await closeDocumentStore();
     appState.currentState = 'active';
     listeners.clear();

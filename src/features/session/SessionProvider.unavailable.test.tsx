@@ -404,6 +404,76 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
   });
 
+  describe('entries whose device key is gone (F3)', () => {
+    it('offers only Delete everything when the PIN is lost and the key was deleted with entries left', async () => {
+      await setUpVault();
+      await vault.put('file_kept', 'ciphertext');
+      await corrupt(PIN_ENTRY);
+      // Removing the Android screen lock deletes the Keystore key rather than invalidating it.
+      await vault.deleteDeviceKey();
+      const createVault = jest.spyOn(vault, 'createVault');
+
+      const view = await renderProbe();
+
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+      expect(view.getByTestId('key-invalidated')).toHaveTextContent('true');
+      expect(view.getByTestId('pin-lost')).toHaveTextContent('false');
+      expect(createVault).not.toHaveBeenCalled();
+      expect(await vault.getAllKeys()).toContain('file_kept');
+    });
+
+    it('treats entries without a key and without a PIN marker the same way', async () => {
+      // An earlier install that lost its key: entries, no key, no PIN, no marker.
+      await vault.put('_database_key', 'ciphertext');
+      await vault.put('file_kept', 'ciphertext');
+
+      const view = await renderProbe();
+
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+      expect(view.getByTestId('key-invalidated')).toHaveTextContent('true');
+      expect(new Directory(Paths.document, SESSION_MARKER_DIRECTORY).exists).toBe(false);
+    });
+
+    it('never runs setup over the entries when the key goes after launch', async () => {
+      await vault.createVault();
+      await vault.put('_key_probe', 'ok');
+      await vault.put('file_kept', 'ciphertext');
+      const view = await renderProbe();
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+      await vault.deleteDeviceKey();
+      const createVault = jest.spyOn(vault, 'createVault');
+
+      await fireEvent.press(view.getByText('run setup'));
+
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+      expect(view.getByTestId('key-invalidated')).toHaveTextContent('true');
+      expect(createVault).not.toHaveBeenCalled();
+      expect(await SecureStore.getItemAsync(PIN_ENTRY)).toBeNull();
+    });
+
+    it('still sends a lone key probe without a key to setup', async () => {
+      await vault.put('_key_probe', 'ok');
+
+      const view = await renderProbe();
+
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+      expect(view.getByTestId('key-invalidated')).toHaveTextContent('false');
+    });
+
+    it('goes to setup once Delete everything emptied the vault', async () => {
+      await vault.put('file_kept', 'ciphertext');
+      const view = await renderProbe();
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('unavailable'));
+      // The screen's erase removes the entries first, then forgets the session.
+      for (const key of await vault.getAllKeys()) await vault.delete(key);
+
+      await fireEvent.press(view.getByText('run erase'));
+
+      await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
+      expect(view.getByTestId('key-invalidated')).toHaveTextContent('false');
+    });
+  });
+
   it('marks a PIN record written before markers existed when it is read', async () => {
     await lockedVault();
     expect(marker('pin').exists).toBe(false);

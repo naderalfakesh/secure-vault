@@ -16,4 +16,6 @@ export const unavailable = {
   'unavailable.keyInvalidated.hint':
     'Delete everything to set up SecureVault again. A backup you saved elsewhere can be restored afterwards.',
   'unavailable.keyInvalidated.failed': 'The vault could not be cleared. Try again.',
+  'unavailable.keyMissing.body':
+    'The key that opens this vault is no longer on this phone, so the documents in it can’t be opened here.',
 } as const;

@@ -18,8 +18,9 @@ import { documentService } from '@/services/DocumentService';
  * the device key is there, the device key's own gate also opens setup, to add
  * a new PIN to the vault as it is. When that gate opens but the key itself
  * was invalidated (Android, screen lock or biometrics changed) with entries
- * left, nothing in the vault can be decrypted again: the plain sentence and
- * "Delete everything" are then the only way on, behind a native confirmation.
+ * left, or the key is gone while entries remain, nothing in the vault can be
+ * decrypted again: the plain sentence and "Delete everything" are then the
+ * only way on, behind a native confirmation.
  */
 export default function VaultUnavailableScreen() {
   const { retry, pinLost, resetLostPin, keyInvalidated, eraseVault, error } = useSession();
@@ -27,7 +28,7 @@ export default function VaultUnavailableScreen() {
   const [resetting, setResetting] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [eraseFailed, setEraseFailed] = useState(false);
-  const stuck = pinLost && keyInvalidated;
+  const stuck = keyInvalidated;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -94,11 +95,9 @@ export default function VaultUnavailableScreen() {
           <Text variant="title2" align="center" accessibilityRole="header">
             {t('unavailable.title')}
           </Text>
-          {error ? (
-            <Text variant="body" tone="secondary" align="center">
-              {error}
-            </Text>
-          ) : null}
+          <Text variant="body" tone="secondary" align="center">
+            {error ?? t('unavailable.keyMissing.body')}
+          </Text>
           <Text variant="subheadline" tone="tertiary" align="center">
             {t('unavailable.keyInvalidated.hint')}
           </Text>

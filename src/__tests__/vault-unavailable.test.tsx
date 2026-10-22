@@ -162,4 +162,33 @@ describe('Vault unavailable', () => {
     expect(await vault.getAllKeys()).toEqual([]);
     expect(new File(Paths.document, 'securevault-session', 'pin').exists).toBe(false);
   });
+
+  it('offers only Delete everything when the device key is gone but entries remain (F3)', async () => {
+    // The PIN record and the key went with the removed screen lock; 11 entries stayed.
+    new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
+    await SecureStore.deleteItemAsync('securevault.pin');
+    await vault.put('file_kept', 'ciphertext');
+    await vault.deleteDeviceKey();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
+      const destructive = buttons?.find((button) => button.style === 'destructive');
+      void destructive?.onPress?.();
+    });
+    await renderRouter(routes, { initialUrl: '/' });
+
+    expect(
+      await screen.findByText(
+        'The key that opens this vault is no longer on this phone, so the documents in it can’t be opened here.',
+      ),
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('Welcome')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set a new PIN' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Delete everything' })),
+    );
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Welcome')).toBeOnTheScreen();
+    expect(await vault.getAllKeys()).toEqual([]);
+  });
 });

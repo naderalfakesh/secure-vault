@@ -165,10 +165,12 @@ export type SessionContextValue = {
    */
   resetLostPin: () => Promise<boolean>;
   /**
-   * Android only: after a lost PIN record, the device key's gate opened but the
-   * key itself was invalidated (the screen lock or biometrics changed) while
-   * the vault still holds entries. Nothing in it can be decrypted on this
-   * device again, so the only way on is "Delete everything".
+   * The vault holds entries its device key can no longer open, so nothing in
+   * it can be decrypted on this device again and the only way on is "Delete
+   * everything". Android: after a lost PIN record the key's gate opened but
+   * the key was invalidated (the screen lock or biometrics changed). Either
+   * platform: the key is gone while entries remain (removing Android's screen
+   * lock deletes it; an earlier install lost it), so setup never runs over them.
    */
   keyInvalidated: boolean;
   changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
@@ -259,7 +261,7 @@ async function readLaunchState(allowLostPin = false) {
     // The listing reads the folder only and needs no device key; when it
     // fails, setup keeps saying the documents stay.
     vault.getAllKeys().then(
-      (keys) => keys.length,
+      (keys) => keys,
       () => null,
     ),
   ]);
@@ -271,7 +273,11 @@ async function readLaunchState(allowLostPin = false) {
     pin: pinState,
     pinLost: lost && key === 'present' && pinState === 'unreadable',
     storedLockout,
-    entries,
+    entries: entries?.length ?? null,
+    // Entries without the key that encrypted them: a new key cannot open them,
+    // and setup over them would leave an index nobody can read. The key probe
+    // alone is no document; setup overwrites it.
+    orphaned: key === 'absent' && (entries ?? []).some((name) => name !== KEY_PROBE_ENTRY),
   };
 }
 
@@ -280,8 +286,8 @@ async function readLaunchState(allowLostPin = false) {
  * a key with a PIN is `locked`; anything else is setup, which keeps a key it
  * finds (Add a PIN).
  */
-function launchStatus(key: KeyRead, pin: KeyRead): SessionStatus {
-  if (key === 'unreadable' || pin === 'unreadable') return 'unavailable';
+function launchStatus(key: KeyRead, pin: KeyRead, orphaned = false): SessionStatus {
+  if (orphaned || key === 'unreadable' || pin === 'unreadable') return 'unavailable';
   return key === 'present' && pin === 'present' ? 'locked' : 'setup';
 }
 
@@ -400,12 +406,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
           pinLost: lost,
           storedLockout,
           entries,
+          orphaned,
         } = await readLaunchState(lostPinResetRef.current);
         if (!activeRef.current) return statusRef.current;
         setBiometry(type);
         setPinLost(lost);
+        if (orphaned) setKeyInvalidated(true);
         applyLockout(storedLockout ?? unreadableLockout(Date.now()));
-        const next = launchStatus(key, pin);
+        const next = launchStatus(key, pin, orphaned);
         if (next !== 'unavailable') {
           const exists = key === 'present';
           setVaultExists(exists);
@@ -577,8 +585,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
         // Launch may have been a while ago, or wrong: read the key and PIN
         // again so setup never creates a key over a vault it cannot see.
         const fresh = await readLaunchState(lostPinResetRef.current);
-        if (launchStatus(fresh.key, fresh.pin) === 'unavailable') {
+        if (launchStatus(fresh.key, fresh.pin, fresh.orphaned) === 'unavailable') {
           setPinLost(fresh.pinLost);
+          if (fresh.orphaned) setKeyInvalidated(true);
           changeStatus('unavailable');
           return false;
         }

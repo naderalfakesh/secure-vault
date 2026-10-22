@@ -295,7 +295,13 @@ never be decrypted on this device again: with entries left, the screen says so
 in a plain sentence and offers only "Delete everything", behind the same
 native confirmation as in Settings, after which setup replaces the key. A
 vault with no entries goes straight on to setup, which replaces the key as it
-always has. Setup reads both again right before it creates a
+always has. A device key that is gone while entries remain gets the same
+screen, with or without a PIN marker: removing the Android screen lock deletes
+the Keystore key rather than invalidating it, and an earlier install can lose
+its key the same way. A new key could not open those entries, and setup over
+them would leave an index nobody can read, so neither launch nor setup runs it
+over them; the key probe alone is not a document and does not count. Setup
+reads both again right before it creates a
 key: an unreadable one ends in `unavailable`, and a key with a PIN and
 entries ends on the lock screen with the PIN untouched. An unreadable PIN
 record while unlocking is not a wrong PIN and does not count towards the

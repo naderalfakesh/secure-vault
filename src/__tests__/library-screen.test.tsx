@@ -69,6 +69,9 @@ describe('Library', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
+    // Tests seed documents before setup: the device key that encrypts them comes first,
+    // or the launch finds entries without a key and offers only Delete everything.
+    await vault.createVault();
     await closeDocumentStore();
     (router.push as jest.Mock).mockClear();
   });
