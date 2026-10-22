@@ -38,6 +38,9 @@ const withSecureVault = (config) => {
           );
           const proguardRules = `
 -keep class expo.modules.vault.** { *; }
+# ML Kit's registrars are created by reflection from manifest names.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { void <init>(); }
+-keep,allowshrinking interface com.google.firebase.components.ComponentRegistrar
 `;
           await fs.promises.appendFile(proguardRulesPath, proguardRules);
           return config;
