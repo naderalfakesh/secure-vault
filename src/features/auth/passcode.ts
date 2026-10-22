@@ -5,7 +5,8 @@ import * as Crypto from 'expo-crypto';
 
 // The PIN is never stored in the clear. It is stretched with PBKDF2-SHA256 and
 // a per-device random salt, and only the resulting record is written to the
-// vault (itself encrypted by the device key). A 6-digit PIN has a tiny
+// platform secure store (Keychain, Keystore-backed SharedPreferences), not the
+// vault, so it can be read before the device key. A 6-digit PIN has a tiny
 // keyspace, so this is defense in depth against a leaked record rather than a
 // substitute for the OS gate; the iteration count keeps verification quick on
 // the JS thread of a mid-range phone.

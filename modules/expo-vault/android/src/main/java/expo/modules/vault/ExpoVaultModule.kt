@@ -91,7 +91,7 @@ class ExpoVaultModule : Module() {
                 // A timeout-based key: any successful biometric or device-credential
                 // prompt unlocks it for the window below. Per-use keys (timeout 0)
                 // would need a CryptoObject on every cipher call, which this module
-                // does not do yet; that is the Phase 3 vault rework.
+                // does not do (ADR 0003).
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     parameterSpecBuilder.setUserAuthenticationParameters(
                         AUTH_VALIDITY_SECONDS,

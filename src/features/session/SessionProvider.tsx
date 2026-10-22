@@ -498,8 +498,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       applyLockout(current);
       if (isLocked(current, now)) return 'not-unlocked';
       try {
-        // Reading the PIN record needs the device key, which the OS may gate
-        // with its own prompt; that is the same gate biometrics use.
+        // The PIN record is in the secure store, readable without the device
+        // key; a store that refuses the read is not a wrong PIN.
         const record = await sessionStorage.loadPinRecord();
         const ok = record ? await verifyPasscodeAsync(pin, record) : false;
         if (ok) {
