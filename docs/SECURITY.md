@@ -330,7 +330,14 @@ and a picker's result, just before the app is active again, so a pause that
 ends while the app is still away and has outlived its bound excuses nothing.
 The whole trip since the app left under it is judged against auto-lock right
 then and again on the return. Only a pause that ends within its bound excuses
-the time it covered. The privacy
+the time it covered. Android's chooser is translucent and leaves the app's
+activity paused, so the module records when an activity of the app is stopped
+(Home, Recents, the screen turning off, or a target opened over the app). A
+stop while a share pause runs means the user left the app even though the
+chooser's result only arrives with the return: the pause excuses the time up
+to that stop, and the time since is judged against auto-lock on the return,
+without the one-second grace a picker result gets. With "Immediately" that
+return locks. The privacy
 screen puts a solid cover over the app in the switcher (not a blur) and blocks screenshots and recording
 while unlocked. Sharing can require a second biometric check.
 
