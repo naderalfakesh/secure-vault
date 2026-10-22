@@ -28,6 +28,8 @@ export const scan = {
   'scan.sources.filesFailed': 'That file couldn’t be opened. Try again, or choose another file.',
   /** `{name}` is the isolated file name. */
   'scan.import.unsupported': '{name} can’t be added. Choose a PDF or an image (JPEG, PNG, HEIC).',
+  /** A PDF that asks for a password to open; `{name}` is the isolated file name. */
+  'scan.import.protected': '{name} is password-protected. Remove the password and import it again.',
   /**
    * Reserved for the import size limit (D9, handover §12). The limit is not
    * decided, so nothing shows this and no file is refused for its size.

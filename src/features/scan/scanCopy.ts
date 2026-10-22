@@ -20,6 +20,11 @@ export function unsupportedFileMessage(name: string): string {
   return t('scan.import.unsupported', { name: isolate(name) });
 }
 
+/** "statement.pdf is password-protected. Remove the password…", with the name isolated. */
+export function protectedFileMessage(name: string): string {
+  return t('scan.import.protected', { name: isolate(name) });
+}
+
 /** Review header: "3 pages". */
 export function pageCount(count: number): string {
   return tp('format.pages', count);

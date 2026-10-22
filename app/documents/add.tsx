@@ -14,6 +14,7 @@ import { type ProcessingStep, ProcessingPanel } from '@/features/scan/Processing
 import { ReviewPages } from '@/features/scan/ReviewPages';
 import { pageCount, scanText } from '@/features/scan/scanCopy';
 import { sourceFailureMessage } from '@/features/scan/sourceErrors';
+import { isEncryptedPdf } from '@/services/pdfPassword';
 import { type Source, SourceList, type SourceProblem } from '@/features/scan/SourceList';
 import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
@@ -282,8 +283,12 @@ export default function AddDocumentScreen() {
             return;
           }
           if (!previewUri) {
+            // An encrypted PDF gets its own sentence; a damaged one the general one.
+            const locked = kind === 'pdf' && (await isEncryptedPdf(asset.uri));
             documentService.discardPickedCopy(asset.uri);
-            setProblem({ kind: 'unsupported', name: asset.name });
+            if (mounted.current) {
+              setProblem({ kind: locked ? 'protected' : 'unsupported', name: asset.name });
+            }
             return;
           }
           acceptSingle(

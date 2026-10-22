@@ -324,6 +324,32 @@ describe('Add a document: import errors', () => {
     expect(copy.exists).toBe(false);
   });
 
+  it('says a password-protected PDF needs its password removed, and offers another pick', async () => {
+    jest
+      .spyOn(vault, 'renderPdfPages')
+      .mockRejectedValueOnce(new Error('Failed to render the PDF: file requires password'));
+    const copy = plant(pickerFolder(), '5D2B7C90-1E4F-4A3B-8C6D-0F9E8A7B6C5D');
+    copy.writeSync('%PDF-1.7\ntrailer\n<</Root 1 0 R/Encrypt 4 0 R/Size 5>>\n%%EOF');
+    pickDocument.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: copy.uri, name: 'protected.pdf', mimeType: 'application/pdf', size: 60 }],
+    });
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+
+    await waitFor(() =>
+      expect(
+        view.getByText(
+          `${isolate('protected.pdf')} is password-protected. Remove the password and import it again.`,
+        ),
+      ).toBeOnTheScreen(),
+    );
+    expect(view.queryByText(/can’t be added/)).toBeNull();
+    expect(copy.exists).toBe(false);
+    expect(view.getByRole('button', { name: /Choose another file/ })).toBeOnTheScreen();
+  });
+
   it('accepts a file the picker did not type when its extension is supported', async () => {
     const copy = queueFile('photo.png', undefined);
     const view = await renderScreen();

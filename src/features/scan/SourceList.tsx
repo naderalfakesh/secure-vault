@@ -3,13 +3,20 @@ import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, type IconName, InlineAlert, ListRow, Text } from '@/components/ui';
 
-import { type ScanCopyKey, scanText, unsupportedFileMessage } from './scanCopy';
+import {
+  protectedFileMessage,
+  type ScanCopyKey,
+  scanText,
+  unsupportedFileMessage,
+} from './scanCopy';
 
 export type Source = 'scan' | 'camera' | 'library' | 'files';
 
 /** What went wrong with the last pick, shown inline above the rows. */
 export type SourceProblem =
-  { kind: 'unsupported'; name: string } | { kind: 'failed'; message: string };
+  | { kind: 'unsupported'; name: string }
+  | { kind: 'protected'; name: string }
+  | { kind: 'failed'; message: string };
 
 export type SourceListProps = {
   scannerSupported: boolean;
@@ -122,12 +129,17 @@ export function SourceList({
         <InlineAlert
           tone="danger"
           message={
-            problem.kind === 'unsupported' ? unsupportedFileMessage(problem.name) : problem.message
+            problem.kind === 'unsupported'
+              ? unsupportedFileMessage(problem.name)
+              : problem.kind === 'protected'
+                ? protectedFileMessage(problem.name)
+                : problem.message
           }
         />
       ) : null}
       {rows.map((row) => {
-        const retry = row.key === 'files' && problem?.kind === 'unsupported';
+        const retry =
+          row.key === 'files' && (problem?.kind === 'unsupported' || problem?.kind === 'protected');
         return (
           <View
             key={row.key}
