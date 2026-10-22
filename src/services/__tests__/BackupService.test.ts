@@ -22,6 +22,7 @@ import {
   RESTORE_STAGING_DIRECTORY,
 } from '../BackupService';
 import { documentService, PICKER_DIRECTORY } from '../DocumentService';
+import { createBackup } from '@/testing/backup';
 
 const vaultMock = vault as unknown as {
   reset(): void;
@@ -146,7 +147,7 @@ describe('BackupService', () => {
   });
 
   it('refuses to write a backup behind a weak passphrase', async () => {
-    await expect(backupService.createBackup('weak')).rejects.toThrow(/at least 8/);
+    await expect(createBackup('weak')).rejects.toThrow(/at least 8/);
   });
 
   it('round-trips the vault through a backup file and reports progress', async () => {
@@ -154,7 +155,7 @@ describe('BackupService', () => {
     await vault.put('_database_key', 'ab'.repeat(32));
     const progress = jest.fn();
 
-    const backup = await backupService.createBackup('correct horse battery', progress);
+    const backup = await createBackup('correct horse battery', progress);
     expect(backup.name).toMatch(/^SecureVault backup \d{4}-\d{2}-\d{2}\.svbackup$/);
     expect(backup.entries).toBeGreaterThan(0);
     expect(progress).toHaveBeenCalledWith(expect.objectContaining({ phase: 'export' }));
@@ -182,7 +183,7 @@ describe('BackupService', () => {
 
   it('names a restore whose index could not be opened after the vault was replaced', async () => {
     await vault.put('_database_key', 'ab'.repeat(32));
-    const backup = await backupService.createBackup('correct horse battery');
+    const backup = await createBackup('correct horse battery');
     const reload = jest
       .spyOn(documentService, 'reload')
       .mockRejectedValueOnce(new Error('file is not a database'));
@@ -211,7 +212,7 @@ describe('BackupService', () => {
 
     it('still reports a finished restore', async () => {
       await vault.put('_database_key', 'ab'.repeat(32));
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       const removal = failExtrasCleanup();
       try {
         await expect(
@@ -224,7 +225,7 @@ describe('BackupService', () => {
 
     it('still reports an index that could not be opened', async () => {
       await vault.put('_database_key', 'ab'.repeat(32));
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       const reload = jest
         .spyOn(documentService, 'reload')
         .mockRejectedValueOnce(new Error('file is not a database'));
@@ -263,7 +264,7 @@ describe('BackupService', () => {
       'passes %s on unchanged, keeps the vault and the index, and clears its staging',
       async (code, message) => {
         await vault.put('_database_key', 'cd'.repeat(32));
-        const backup = await backupService.createBackup('correct horse battery');
+        const backup = await createBackup('correct horse battery');
         await vault.put('_database_key', 'ef'.repeat(32));
         const keys = await vault.getAllKeys();
         jest
@@ -328,7 +329,7 @@ describe('BackupService', () => {
 
   it('rejects a wrong passphrase without touching the vault', async () => {
     await vault.put('_database_key', 'cd'.repeat(32));
-    const backup = await backupService.createBackup('correct horse battery');
+    const backup = await createBackup('correct horse battery');
     await vault.put('_database_key', 'ef'.repeat(32));
 
     await expect(
@@ -345,7 +346,7 @@ describe('BackupService', () => {
 
     async function vaultWithBackup() {
       await vault.put('_database_key', 'cd'.repeat(32));
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       await vault.put('_database_key', 'ef'.repeat(32));
       return { backup, keys: await vault.getAllKeys() };
     }
@@ -617,7 +618,7 @@ describe('BackupService', () => {
           return { entries: extraFiles.length, bytes: 1 };
         });
       try {
-        await backupService.createBackup('correct horse battery');
+        await createBackup('correct horse battery');
       } finally {
         spy.mockRestore();
       }
@@ -636,9 +637,7 @@ describe('BackupService', () => {
           Object.assign(new Error('disk full'), { code: 'BACKUP_EXPORT_FAILED' }),
         );
       try {
-        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow(
-          'disk full',
-        );
+        await expect(createBackup('correct horse battery')).rejects.toThrow('disk full');
       } finally {
         spy.mockRestore();
       }
@@ -656,9 +655,7 @@ describe('BackupService', () => {
         throw Object.assign(new Error('disk full'), { code: 'BACKUP_EXPORT_FAILED' });
       });
       try {
-        await expect(backupService.createBackup('correct horse battery')).rejects.toThrow(
-          'disk full',
-        );
+        await expect(createBackup('correct horse battery')).rejects.toThrow('disk full');
       } finally {
         spy.mockRestore();
       }
@@ -672,7 +669,7 @@ describe('BackupService', () => {
       });
       let backup;
       try {
-        backup = await backupService.createBackup('correct horse battery');
+        backup = await createBackup('correct horse battery');
       } finally {
         spy.mockRestore();
       }
@@ -688,7 +685,7 @@ describe('BackupService', () => {
       });
       let backup;
       try {
-        backup = await backupService.createBackup('correct horse battery');
+        backup = await createBackup('correct horse battery');
       } finally {
         spy.mockRestore();
       }
@@ -720,7 +717,7 @@ describe('BackupService', () => {
       });
       const removal = failStagingRemoval(() => called);
       try {
-        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+        await expect(createBackup('correct horse battery')).rejects.toMatchObject({
           code: 'KEY_LOCKED',
         });
       } finally {
@@ -760,7 +757,7 @@ describe('BackupService', () => {
       const removal = failStagingRemoval(() => called);
       let caught: unknown;
       try {
-        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
+        caught = await createBackup('correct horse battery').catch((e) => e);
       } finally {
         removal.mockRestore();
         spy.mockRestore();
@@ -779,7 +776,7 @@ describe('BackupService', () => {
       const removal = failIndexRemoval(() => called);
       let caught: unknown;
       try {
-        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
+        caught = await createBackup('correct horse battery').catch((e) => e);
       } finally {
         removal.mockRestore();
         spy.mockRestore();
@@ -804,7 +801,7 @@ describe('BackupService', () => {
       const stagingRemoval = failStagingRemoval(() => called);
       let caught: unknown;
       try {
-        caught = await backupService.createBackup('correct horse battery').catch((e) => e);
+        caught = await createBackup('correct horse battery').catch((e) => e);
       } finally {
         stagingRemoval.mockRestore();
         indexRemoval.mockRestore();
@@ -826,7 +823,7 @@ describe('BackupService', () => {
       });
       const removal = failIndexRemoval(() => called);
       try {
-        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+        await expect(createBackup('correct horse battery')).rejects.toMatchObject({
           code: 'KEY_LOCKED',
           message: 'Key user not authenticated',
         });
@@ -867,7 +864,7 @@ describe('BackupService', () => {
 
     const backupOf = async () => {
       await vault.put('_database_key', 'ab'.repeat(32));
-      return backupService.createBackup('correct horse battery');
+      return createBackup('correct horse battery');
     };
 
     afterEach(() => {
@@ -1257,9 +1254,7 @@ describe('BackupService', () => {
         await expect(
           backupService.restoreBackup('file:///other.svbackup', 'correct horse battery'),
         ).rejects.toMatchObject(busy);
-        await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject(
-          busy,
-        );
+        await expect(createBackup('correct horse battery')).rejects.toMatchObject(busy);
         await expect(
           backupService.exportBackup('correct horse battery', async () => {}),
         ).rejects.toMatchObject(busy);
@@ -1288,7 +1283,7 @@ describe('BackupService', () => {
           }),
       );
       try {
-        const exporting = backupService.createBackup('correct horse battery');
+        const exporting = createBackup('correct horse battery');
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(backupService.activity()).toBe('export');
 
@@ -1346,7 +1341,7 @@ describe('BackupService', () => {
       }
       expect(unlockWithBiometrics).not.toHaveBeenCalled();
       expect(backupService.activity()).toBeNull();
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       backupService.discardBackup(backup.uri);
     });
 
@@ -1418,7 +1413,7 @@ describe('BackupService', () => {
     it('unlinks a linked staging folder before an export or a restore stages into it', async () => {
       await vault.put('_database_key', 'ab'.repeat(32));
       const exportLink = plantLinkedFolder(BACKUP_STAGING_DIRECTORY);
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       expect(exportLink.kept.exists).toBe(true);
 
       const restoreLink = plantLinkedFolder(RESTORE_STAGING_DIRECTORY);
@@ -1441,7 +1436,7 @@ describe('BackupService', () => {
         return exportBackup(...args);
       });
 
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
 
       expect(linkedWhenWritten).toBeNull();
       expect(kept.exists).toBe(true);
@@ -1462,7 +1457,7 @@ describe('BackupService', () => {
       });
       const exportBackup = jest.spyOn(vault, 'exportBackup');
 
-      await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+      await expect(createBackup('correct horse battery')).rejects.toMatchObject({
         code: 'BACKUP_STAGING_INVALID',
       });
       expect(exportBackup).not.toHaveBeenCalled();
@@ -1470,7 +1465,7 @@ describe('BackupService', () => {
 
     it('fails a restore whose extras folder cannot be cleared with a typed error and a plain sentence', async () => {
       await vault.put('_database_key', 'ab'.repeat(32));
-      const backup = await backupService.createBackup('correct horse battery');
+      const backup = await createBackup('correct horse battery');
       const extras = toPath(new Directory(new Directory(Paths.cache, BACKUP_DIRECTORY), 'restore'));
       const remove = vault.removeTreeNoFollow.bind(vault);
       jest.spyOn(vault, 'removeTreeNoFollow').mockImplementation((path) => {

@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Text } from 'react-native';
 
 import { LOCKOUT_BASE_MS } from '../auth/lockout';
-import { hashPasscode } from '../auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 import vault from '../../../modules/expo-vault';
 import { SessionProvider, useSession } from './SessionProvider';
 import { SESSION_MARKER_DIRECTORY, sessionStorage } from './settings';

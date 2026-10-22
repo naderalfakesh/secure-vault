@@ -1,4 +1,4 @@
-import { pbkdf2, pbkdf2Async } from '@noble/hashes/pbkdf2.js';
+import { pbkdf2Async } from '@noble/hashes/pbkdf2.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 import * as Crypto from 'expo-crypto';
@@ -62,16 +62,7 @@ function newRecord(opts: HashPasscodeOptions): Omit<PasscodeRecord, 'hash'> {
   };
 }
 
-/** Derives a fresh record for `pin`. Synchronous; prefer the async variant on the UI thread. */
-export function hashPasscode(pin: string, opts: HashPasscodeOptions = {}): string {
-  const base = newRecord(opts);
-  const hash = pbkdf2(sha256, utf8ToBytes(pin), base.salt, {
-    c: base.iterations,
-    dkLen: KEY_BYTES,
-  });
-  return serialize({ ...base, hash });
-}
-
+/** Derives a fresh record for `pin`, off the UI thread's critical path. */
 export async function hashPasscodeAsync(
   pin: string,
   opts: HashPasscodeOptions = {},
@@ -92,16 +83,6 @@ function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 /** Checks `pin` against a serialized record. Malformed records never verify. */
-export function verifyPasscode(pin: string, stored: string): boolean {
-  const record = parsePasscodeRecord(stored);
-  if (!record) return false;
-  const hash = pbkdf2(sha256, utf8ToBytes(pin), record.salt, {
-    c: record.iterations,
-    dkLen: record.hash.length,
-  });
-  return constantTimeEqual(hash, record.hash);
-}
-
 export async function verifyPasscodeAsync(pin: string, stored: string): Promise<boolean> {
   const record = parsePasscodeRecord(stored);
   if (!record) return false;

@@ -8,7 +8,7 @@ import CreatePinScreen from '../../app/setup/pin';
 import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { pinPadMetrics } from '../components/ui/PinPad';
-import { hashPasscode } from '../features/auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 import { SessionProvider } from '../features/session/SessionProvider';
 
 jest.mock('expo-router', () => ({

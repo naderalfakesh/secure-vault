@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import vault from '../../modules/expo-vault';
-import { hashPasscode } from '../features/auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 import { useSession } from '../features/session/SessionProvider';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };

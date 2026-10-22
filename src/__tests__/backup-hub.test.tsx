@@ -14,6 +14,7 @@ import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
 import { backupService } from '../services/BackupService';
+import { createBackup } from '@/testing/backup';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -389,7 +390,7 @@ describe('Backup hub and the lock gate', () => {
       await expect(
         backupService.restoreBackup(PICKED, 'correct horse battery'),
       ).rejects.toMatchObject({ code: 'BACKUP_BUSY' });
-      await expect(backupService.createBackup('correct horse battery')).rejects.toMatchObject({
+      await expect(createBackup('correct horse battery')).rejects.toMatchObject({
         code: 'BACKUP_BUSY',
       });
       expect(vault.importBackup).toHaveBeenCalledTimes(1);

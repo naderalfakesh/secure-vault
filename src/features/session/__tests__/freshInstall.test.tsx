@@ -7,7 +7,7 @@ import vault from '../../../../modules/expo-vault';
 import { reconcileInstall } from '@/features/session/freshInstall';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { sessionStorage } from '@/features/session/settings';
-import { hashPasscode } from '@/features/auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as {

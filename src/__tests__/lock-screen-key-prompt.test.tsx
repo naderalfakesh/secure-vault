@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
 import LockScreen from '../../app/lock';
-import { hashPasscode } from '../features/auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';
 

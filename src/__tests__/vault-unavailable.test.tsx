@@ -4,7 +4,7 @@ import { File, Paths } from 'expo-file-system';
 import { Alert, Text } from 'react-native';
 
 import vault from '../../modules/expo-vault';
-import { hashPasscode } from '../features/auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as { reset(): void };

@@ -319,11 +319,6 @@ class BackupService {
     return () => subscription.remove();
   }
 
-  /** Writes a backup file into the cache and returns where it is; the caller discards it. */
-  createBackup(passphrase: string, onProgress?: ProgressListener): Promise<BackupResult> {
-    return this.exclusive('export', () => this.writeBackup(passphrase, onProgress));
-  }
-
   /**
    * Writes a backup, hands it to `handOff` (the share sheet), and removes it
    * afterwards. The operation lasts until the file is gone, so a later export

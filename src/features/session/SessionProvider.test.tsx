@@ -3,7 +3,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 
 import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
-import { hashPasscode } from '../auth/passcode';
+import { hashPasscode } from '@/testing/passcode';
 import * as SecureStore from 'expo-secure-store';
 import vault from '../../../modules/expo-vault';
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
