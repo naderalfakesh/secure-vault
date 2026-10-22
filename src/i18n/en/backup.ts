@@ -29,6 +29,9 @@ export const backup = {
   'backup.create.mismatch': 'The passphrases don’t match yet.',
   'backup.create.sameEverywhere': 'Type it exactly the same way when you restore, on any phone.',
   'backup.create.button': 'Create backup',
+  /** Android: the system save screen first, the share sheet second. */
+  'backup.create.save': 'Save to device',
+  'backup.create.share': 'Share',
   'backup.create.busy.title': 'Creating backup',
   'backup.create.busy.body':
     'Keep SecureVault open until this finishes. Your vault isn’t changed by creating a backup.',
@@ -74,6 +77,12 @@ export const backup = {
   'backup.create.shared': 'Backup of {count} entries ({size}) shared',
   'backup.create.shareInterrupted':
     'SecureVault locked while you were sharing. The temporary copy was removed.',
+  'backup.create.saved': 'Backup of {count} entries ({size}) saved',
+  'backup.create.saveCancelled': 'The backup wasn’t saved. Nothing left the vault.',
+  'backup.create.saveFailed':
+    'The backup couldn’t be saved there. Nothing was left behind. Try again, or choose another folder.',
+  'backup.create.saveInterrupted':
+    'SecureVault locked before the backup was saved. The temporary copy was removed.',
   'backup.create.exportStopped':
     'The backup was cancelled before it could be shared. Nothing left the vault.',
   /** The localisable middle of the file name; the brand and `.svbackup` stay fixed. */

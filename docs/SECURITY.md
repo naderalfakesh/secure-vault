@@ -407,7 +407,12 @@ disabled until it ends.
   JPEG passes through one `thumb_` file in the cache, which the lock and
   launch sweep removes if the app is killed before the module does.
 - Backup ciphertext is not left behind either. A finished container is
-  removed once the share sheet closes. The document picker copies a backup
+  removed once the share sheet closes. On Android, Save to device copies the
+  same container, still encrypted, into a folder the user picks in the system
+  folder picker (expo-file-system's Storage Access Framework picker, which
+  keeps a grant to that folder), and the staged container is removed after a
+  save, a cancelled picker, or a failure; a copy that fails or that a lock
+  cuts short is deleted from the chosen folder. The document picker copies a backup
   chosen for restore into the cache's `DocumentPicker` folder, which the
   system may purge under low storage (Android's storage service did, with
   the restore sheet open). Before the app reads the header, that copy is
