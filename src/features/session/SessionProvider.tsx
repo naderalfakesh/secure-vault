@@ -83,7 +83,8 @@ export function sharePause(): AutoLockPause {
 }
 
 /** How a PIN change ended. `failed` leaves the reason in `error`. */
-export type PinChangeResult = 'changed' | 'wrong-pin' | 'failed';
+/** `locked-out`: the lockout pause is running, and the current PIN was not checked. */
+export type PinChangeResult = 'changed' | 'wrong-pin' | 'locked-out' | 'failed';
 
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
@@ -612,17 +613,40 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const changePin = useCallback(
     async (currentPin: string, nextPin: string): Promise<PinChangeResult> => {
       setError(null);
+      // The current PIN is judged like one typed on the lock screen: against
+      // the same lockout, one attempt at a time, and a wrong one counts, so an
+      // unlocked session cannot guess without limit. The device unlock on the
+      // lock screen still ends the pause.
+      if (attemptingRef.current) return 'failed';
+      attemptingRef.current = true;
       try {
+        const stored = await loadCappedLockout();
+        const now = Date.now();
+        const current = strictestLockout(lockoutRef.current, stored ?? lockoutRef.current, now);
+        applyLockout(current);
+        if (isLocked(current, now)) return 'locked-out';
         const record = await sessionStorage.loadPinRecord();
-        if (!record || !(await verifyPasscodeAsync(currentPin, record))) return 'wrong-pin';
+        if (!record || !(await verifyPasscodeAsync(currentPin, record))) {
+          const next = recordFailure(current, now);
+          applyLockout(next);
+          // A stored copy that could not be read may be stricter; leave it be.
+          if (stored) await sessionStorage.saveLockout(next).catch(() => {});
+          return 'wrong-pin';
+        }
+        if (current.failures > 0) {
+          applyLockout(EMPTY_LOCKOUT);
+          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+        }
         await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
         return 'changed';
       } catch (e) {
         setError(describeError(e, t('session.changePinFailed'), 'changePin'));
         return 'failed';
+      } finally {
+        attemptingRef.current = false;
       }
     },
-    [],
+    [applyLockout],
   );
 
   const updateSettings = useCallback(

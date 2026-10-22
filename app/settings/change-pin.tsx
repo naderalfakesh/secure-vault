@@ -41,7 +41,8 @@ export default function ChangePinScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [lockLeft, setLockLeft] = useState(0);
 
-  // While the PIN is paused on the lock screen, it is paused here too.
+  // One lockout for both screens: a pause from the lock screen holds here, and
+  // wrong current PINs here count towards it.
   useEffect(() => {
     const update = () => setLockLeft(Math.ceil(lockRemainingMs(lockout, Date.now()) / 1000));
     update();
@@ -88,7 +89,8 @@ export default function ChangePinScreen() {
           router.back();
           return;
         }
-        // A failure that is not a wrong PIN has its own sentence in the session error.
+        // A failure that is not a wrong PIN has its own sentence in the session
+        // error; a running lockout shows its own title.
         if (result === 'wrong-pin') setMessage(t('changePin.wrongPin'));
         setStage('current');
         helpers.clear();

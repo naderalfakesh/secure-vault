@@ -139,7 +139,12 @@ a PIN, and again before every attempt, which is judged against the stricter of
 the stored copy and the one in memory. Attempts are judged one at a time. A
 relaunch therefore keeps a running pause and continues the count, and a failed
 write cannot hand attempts back. A cancelled device-key prompt after a correct
-PIN is not a wrong PIN and does not count.
+PIN is not a wrong PIN and does not count. Change PIN judges the current
+PIN the same way: against the same lockout, one attempt at a time, and a
+wrong one counts, so an unlocked session cannot guess the PIN without limit.
+While the pause runs, Change PIN does not check the PIN at all. The device
+unlock on the lock screen still opens the vault and ends the pause, so a
+lockout slows guessing down without keeping the owner out.
 
 A pause never runs longer than the one its count earned, measured from the
 current clock: a stored pause beyond that, from a clock moved back or a corrupt

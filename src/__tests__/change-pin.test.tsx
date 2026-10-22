@@ -136,6 +136,57 @@ describe('Change PIN', () => {
     expect(await storedPinIs('123456')).toBe(true);
   });
 
+  it('counts wrong current PINs towards the lock screen lockout, and the device unlock still works', async () => {
+    const view = await renderScreen();
+
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      await act(async () => {
+        await expect(session.changePin('000000', '654321')).resolves.toBe('wrong-pin');
+      });
+    }
+    expect(session.lockout.failures).toBe(4);
+    expect((await sessionStorage.loadLockout())?.failures).toBe(4);
+
+    // The fifth wrong PIN pauses the keypad, here and on the lock screen.
+    await act(async () => {
+      await expect(session.changePin('000000', '654321')).resolves.toBe('wrong-pin');
+    });
+    expect(session.lockout.lockedUntil).toBeGreaterThan(Date.now());
+    expect((await sessionStorage.loadLockout())?.lockedUntil).toBeGreaterThan(Date.now());
+    await shows(view, 'Try again in 0:30');
+
+    // While paused, not even the right PIN is checked.
+    await act(async () => {
+      await expect(session.changePin('123456', '654321')).resolves.toBe('locked-out');
+    });
+    expect(await storedPinIs('123456')).toBe(true);
+
+    // The device key's own gate still opens the vault and ends the pause.
+    await act(async () => {
+      await expect(session.unlock()).resolves.toBe(true);
+    });
+    expect(session.lockout).toEqual({ failures: 0, lockedUntil: 0 });
+    await act(async () => {
+      await expect(session.changePin('123456', '654321')).resolves.toBe('changed');
+    });
+    expect(await storedPinIs('654321')).toBe(true);
+  });
+
+  it('resets the count after the right current PIN', async () => {
+    await renderScreen();
+    await act(async () => {
+      await session.changePin('000000', '654321');
+      await session.changePin('000000', '654321');
+    });
+    expect(session.lockout.failures).toBe(2);
+
+    await act(async () => {
+      await expect(session.changePin('123456', '654321')).resolves.toBe('changed');
+    });
+    expect(session.lockout).toEqual({ failures: 0, lockedUntil: 0 });
+    expect((await sessionStorage.loadLockout())?.failures).toBe(0);
+  });
+
   it('leaves with Cancel at any step', async () => {
     const view = await renderScreen();
 
