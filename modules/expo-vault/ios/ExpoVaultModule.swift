@@ -24,6 +24,14 @@ public class ExpoVaultModule: Module {
   /// `RestoreCancelFlag`), so a cancel that lands after one restore ended can
   /// never stop the next one.
   private let restoreCancel = RestoreCancelFlag()
+  /// Every call that reads or writes vault entries runs here, one at a time,
+  /// in the order JavaScript made them. Expo runs every module's async
+  /// functions on one shared serial queue, so a restore or export of a large
+  /// vault would otherwise hold up every other module's async call (the
+  /// secure store's PIN read on the lock screen, the index queries) for as
+  /// long as it runs. `cancelRestore` is synchronous and runs on the
+  /// JavaScript thread, never behind the restore it stops.
+  private let vaultQueue = DispatchQueue(label: "com.naderalfakesh.securevault.vault-io", qos: .userInitiated)
 
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
@@ -163,6 +171,7 @@ public class ExpoVaultModule: Module {
             promise.reject("PUT_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("get") { (key: String, promise: Promise) in
         do {
@@ -178,6 +187,7 @@ public class ExpoVaultModule: Module {
             promise.reject("GET_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     // MARK: Passphrase-protected backups (see BackupContainer.swift)
 
@@ -213,6 +223,7 @@ public class ExpoVaultModule: Module {
             promise.reject("BACKUP_EXPORT_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("inspectBackup") { (sourcePath: String, promise: Promise) in
         do {
@@ -231,6 +242,7 @@ public class ExpoVaultModule: Module {
             promise.reject("BACKUP_INVALID", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     // Asks the running restore to stop before it removes anything. It is
     // cooperative: the restore checks the flag between entries while it is
@@ -324,6 +336,7 @@ public class ExpoVaultModule: Module {
             promise.reject("BACKUP_IMPORT_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("getAllKeys") { (promise: Promise) in
         do {
@@ -332,6 +345,7 @@ public class ExpoVaultModule: Module {
             promise.reject("GET_ALL_KEYS_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("delete") { (key: String, promise: Promise) in
         do {
@@ -342,6 +356,7 @@ public class ExpoVaultModule: Module {
             promise.reject("DELETE_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
 
     // File-based encryption methods for binary data (images, PDFs, etc.)
 
@@ -356,6 +371,7 @@ public class ExpoVaultModule: Module {
             promise.reject("PUT_FILE_FAILED", "Failed to encrypt file: \(error.localizedDescription)")
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("putThumbnail") { (key: String, sourcePath: String, maxPixelSize: Int, promise: Promise) in
         do {
@@ -367,6 +383,7 @@ public class ExpoVaultModule: Module {
             promise.reject("PUT_THUMBNAIL_FAILED", "Failed to create thumbnail: \(error.localizedDescription)")
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("renderPdfPages") { (sourcePath: String, maxPixelSize: Int, destDir: String, promise: Promise) in
         do {
@@ -380,6 +397,7 @@ public class ExpoVaultModule: Module {
             promise.reject("RENDER_PDF_FAILED", "Failed to render the PDF: \(error.localizedDescription)")
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("getFile") { (key: String, destPath: String, promise: Promise) in
         do {
@@ -392,6 +410,7 @@ public class ExpoVaultModule: Module {
             promise.reject("GET_FILE_FAILED", "Failed to decrypt file: \(error.localizedDescription)")
         }
     }
+    .runOnQueue(vaultQueue)
 
     AsyncFunction("deleteFile") { (key: String, promise: Promise) in
         do {
@@ -404,6 +423,7 @@ public class ExpoVaultModule: Module {
             promise.reject("DELETE_FILE_FAILED", "Failed to delete file: \(error.localizedDescription)")
         }
     }
+    .runOnQueue(vaultQueue)
 
     // Closes a share sheet left up when the vault locks, so it never sits over
     // the lock screen with its preview. Dismissing the sheet's presenter also
@@ -477,6 +497,7 @@ public class ExpoVaultModule: Module {
             promise.reject("GET_FILE_SIZE_FAILED", error.localizedDescription)
         }
     }
+    .runOnQueue(vaultQueue)
   }
 
   private static func isUserDismissal(_ code: LAError.Code) -> Bool {
