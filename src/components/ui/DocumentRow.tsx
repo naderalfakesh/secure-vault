@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { textScale } from '@/theme/tokens';
 import { isolate } from '@/utils/bidi';
 
 import { Icon } from './Icon';
@@ -66,7 +67,10 @@ export function DocumentRow({
       ) : null}
       <PaperThumbnail>{thumbnail}</PaperThumbnail>
       <View style={styles.body}>
-        <Text variant="headline">{isolate(title)}</Text>
+        {/* Capped: uncapped at AX5 a word such as "Vaccination" broke mid-word. */}
+        <Text variant="headline" maxFontSizeMultiplier={textScale.rowTitleMax}>
+          {isolate(title)}
+        </Text>
         <Text variant="footnote" tone="secondary">
           {meta}
         </Text>

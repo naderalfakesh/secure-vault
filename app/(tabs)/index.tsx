@@ -49,6 +49,7 @@ import { useDocuments } from '@/hooks/useDocuments';
 import { documentService } from '@/services/DocumentService';
 import type { DocumentOrder, SearchHit } from '@/data/DocumentRepository';
 import { t, tp } from '@/i18n';
+import { textScale } from '@/theme/tokens';
 import type { Document, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { formatExpiry } from '@/utils/format';
@@ -693,7 +694,13 @@ function SectionHeader({
 }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text variant="title3" accessibilityRole="header">
+      {/* Capped and shrinkable, so the action beside it stays whole at AX5. */}
+      <Text
+        variant="title3"
+        accessibilityRole="header"
+        maxFontSizeMultiplier={textScale.barTitleMax}
+        style={styles.sectionTitle}
+      >
         {title}
       </Text>
       {trailing ? (
@@ -904,8 +911,12 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: theme.spacing.xs,
     minHeight: theme.touchTarget,
     paddingHorizontal: theme.layout.titleMargin,
+  },
+  sectionTitle: {
+    flexShrink: 1,
   },
   rail: {
     gap: theme.spacing.sm,

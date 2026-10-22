@@ -82,6 +82,8 @@ export const textScale = {
   fitMinScale: 0.5,
   tabLabelMax: 1.35,
   rowMax: 2.4,
+  /** A document row's title: a long word in it still fits the row at AX5. */
+  rowTitleMax: 2,
   accessibilityText: 1.7,
 } as const;
 
