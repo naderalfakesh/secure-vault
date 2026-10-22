@@ -187,6 +187,22 @@ describe('Change PIN', () => {
     expect((await sessionStorage.loadLockout())?.failures).toBe(0);
   });
 
+  it('answers busy, not failed, to a second change while one is being judged', async () => {
+    await renderScreen();
+    let first!: Promise<string>;
+    let second!: Promise<string>;
+    await act(async () => {
+      first = session.changePin('123456', '654321');
+      second = session.changePin('123456', '111111');
+      await Promise.all([first, second]);
+    });
+
+    await expect(first).resolves.toBe('changed');
+    await expect(second).resolves.toBe('busy');
+    expect(session.error).toBeNull();
+    expect(await storedPinIs('654321')).toBe(true);
+  });
+
   it('leaves with Cancel at any step', async () => {
     const view = await renderScreen();
 

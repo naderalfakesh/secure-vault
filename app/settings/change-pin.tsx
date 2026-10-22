@@ -89,6 +89,13 @@ export default function ChangePinScreen() {
           router.back();
           return;
         }
+        // Another attempt was still running: back to the last step, with the
+        // current and new PIN kept, so only the confirmation is typed again.
+        if (result === 'busy') {
+          setStage('confirm');
+          helpers.clear();
+          return;
+        }
         // A failure that is not a wrong PIN has its own sentence in the session
         // error; a running lockout shows its own title.
         if (result === 'wrong-pin') setMessage(t('changePin.wrongPin'));

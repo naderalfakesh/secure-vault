@@ -84,8 +84,12 @@ export function sharePause(): AutoLockPause {
 }
 
 /** How a PIN change ended. `failed` leaves the reason in `error`. */
-/** `locked-out`: the lockout pause is running, and the current PIN was not checked. */
-export type PinChangeResult = 'changed' | 'wrong-pin' | 'locked-out' | 'failed';
+/**
+ * `locked-out`: the lockout pause is running, and the current PIN was not
+ * checked. `busy`: another PIN attempt was still being judged; nothing was
+ * checked or changed.
+ */
+export type PinChangeResult = 'changed' | 'wrong-pin' | 'locked-out' | 'busy' | 'failed';
 
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
@@ -620,7 +624,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
       // the same lockout, one attempt at a time, and a wrong one counts, so an
       // unlocked session cannot guess without limit. The device unlock on the
       // lock screen still ends the pause.
-      if (attemptingRef.current) return 'failed';
+      // A second call while one is judged changes nothing and resets nothing.
+      if (attemptingRef.current) return 'busy';
       attemptingRef.current = true;
       try {
         const stored = await loadCappedLockout();
