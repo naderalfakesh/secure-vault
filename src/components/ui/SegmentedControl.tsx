@@ -1,7 +1,11 @@
 import { Pressable, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
+import { textScale } from '@/theme/tokens';
+
+import { Icon } from './Icon';
 import { Text } from './Text';
+import { useLargeText } from './useLargeText';
 
 export type SegmentedOption<T extends string> = { value: T; label: string };
 
@@ -15,7 +19,12 @@ export type SegmentedControlProps<T extends string> = {
   testID?: string;
 };
 
-/** Pill segmented control, e.g. System / Light / Dark (handover §4). */
+/**
+ * Pill segmented control, e.g. System / Light / Dark (handover §4). Labels
+ * stop growing at 1.6× and shrink to stay on one line. At the accessibility
+ * text sizes the segments no longer fit side by side, so it becomes a
+ * vertical list of the same radio options, with a check on the chosen one.
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
@@ -24,11 +33,12 @@ export function SegmentedControl<T extends string>({
   disabled = false,
   testID,
 }: SegmentedControlProps<T>) {
+  const vertical = useLargeText();
   return (
     <View
       accessibilityRole="radiogroup"
       accessibilityLabel={accessibilityLabel}
-      style={[styles.track, disabled && styles.disabled]}
+      style={[styles.track(vertical), disabled && styles.disabled]}
       testID={testID}
     >
       {options.map((option) => {
@@ -45,15 +55,19 @@ export function SegmentedControl<T extends string>({
             onPress={() => {
               if (!selected) onChange(option.value);
             }}
-            style={styles.segment(selected)}
+            style={styles.segment(selected, vertical)}
           >
             <Text
               variant="subheadline"
               tone={selected ? 'primary' : 'secondary'}
-              style={styles.label(selected)}
+              maxFontSizeMultiplier={textScale.segmentMax}
+              fit
+              numberOfLines={1}
+              style={styles.label(selected, vertical)}
             >
               {option.label}
             </Text>
+            {vertical && selected ? <Icon name="check" size={18} tone="accent" /> : null}
           </Pressable>
         );
       })}
@@ -64,25 +78,30 @@ export function SegmentedControl<T extends string>({
 const SEGMENT_SLOP = { top: 3, bottom: 3 };
 
 const styles = StyleSheet.create((theme) => ({
-  track: {
-    flexDirection: 'row',
+  track: (vertical: boolean) => ({
+    flexDirection: vertical ? 'column' : 'row',
     padding: 3,
     gap: 2,
-    borderRadius: theme.radii.pill,
+    borderRadius: vertical ? theme.radii.lg : theme.radii.pill,
     backgroundColor: theme.colors.surfaceMuted,
-  },
+  }),
   // 38 pt segments; their hit slop reaches over the 3 pt track to 44 pt.
-  segment: (selected: boolean) => ({
-    flex: 1,
-    minHeight: theme.touchTarget - 6,
+  // Stacked rows are full 44 pt targets of their own.
+  segment: (selected: boolean, vertical: boolean) => ({
+    flex: vertical ? undefined : 1,
+    minHeight: vertical ? theme.touchTarget : theme.touchTarget - 6,
     paddingHorizontal: 14,
-    borderRadius: theme.radii.pill,
+    borderRadius: vertical ? theme.radii.md : theme.radii.pill,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: vertical ? 'space-between' : 'center',
+    gap: theme.spacing.xs,
     ...(selected && { backgroundColor: theme.colors.surface, ...theme.elevation.card }),
   }),
-  label: (selected: boolean) => ({
+  label: (selected: boolean, vertical: boolean) => ({
     fontWeight: selected ? '600' : '400',
+    flexShrink: 1,
+    ...(vertical && { paddingVertical: theme.spacing.xs }),
   }),
   disabled: { opacity: 0.5 },
 }));

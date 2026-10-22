@@ -75,8 +75,11 @@ export const motion = {
  * stacked, large-text form (iOS AX1 is 1.79×).
  */
 export const textScale = {
-  largeTitleMax: 1.6,
-  barTitleMax: 2,
+  largeTitleMax: 1.3,
+  barTitleMax: 1.6,
+  segmentMax: 1.6,
+  /** Smallest share of its size a fitted title shrinks to (iOS `minimumFontScale`). */
+  fitMinScale: 0.5,
   tabLabelMax: 1.35,
   rowMax: 2.4,
   accessibilityText: 1.7,

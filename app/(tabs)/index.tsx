@@ -366,7 +366,7 @@ export default function LibraryScreen() {
           setSelected(allSelected ? new Set() : new Set(shown.map((document) => document.id)))
         }
       />
-      <Text variant="headline" accessibilityRole="header" accessibilityLiveRegion="polite">
+      <Text variant="headline" accessibilityRole="header" accessibilityLiveRegion="polite" fit>
         {t('library.selected', { count: selected.size })}
       </Text>
       <Button label={t('common.done')} variant="plain" size="md" onPress={stopSelecting} />
@@ -487,7 +487,8 @@ export default function LibraryScreen() {
         <View style={styles.circle('surfaceMuted')}>
           <Icon name="search" size={28} tone="secondary" />
         </View>
-        <Text variant="title3" align="center" accessibilityRole="header">
+        {/* It can quote the search, which may be one long token: it wraps instead. */}
+        <Text variant="title3" align="center" accessibilityRole="header" fit={false}>
           {searching
             ? t(scope ? 'library.noMatchesIn' : 'library.noMatches', {
                 query: isolate(query.trim()),

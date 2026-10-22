@@ -612,7 +612,8 @@ export default function DocumentViewerScreen() {
               <>
                 <View style={styles.detailsHeader}>
                   <View style={styles.detailsTitle}>
-                    <Text variant="title2" accessibilityRole="header">
+                    {/* A document name can be one long token: it wraps instead. */}
+                    <Text variant="title2" accessibilityRole="header" fit={false}>
                       {isolate(document.title)}
                     </Text>
                     <View style={styles.chips}>

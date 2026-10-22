@@ -1,4 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { SegmentedControl } from '../SegmentedControl';
 
@@ -61,6 +62,9 @@ describe('SegmentedControl', () => {
   });
 
   it('gives each segment a 44 pt target', async () => {
+    jest
+      .spyOn(Dimensions, 'get')
+      .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 1 });
     const view = await render(
       <SegmentedControl
         accessibilityLabel="Appearance"
@@ -74,5 +78,22 @@ describe('SegmentedControl', () => {
 
     expect(segment).toHaveStyle({ minHeight: 38 });
     expect(38 + top + bottom).toBe(44);
+    jest.restoreAllMocks();
+  });
+
+  it('gives each stacked row a 44 pt target of its own at large text', async () => {
+    jest
+      .spyOn(Dimensions, 'get')
+      .mockReturnValue({ width: 390, height: 844, scale: 3, fontScale: 2 });
+    const view = await render(
+      <SegmentedControl
+        accessibilityLabel="Appearance"
+        options={options}
+        value="system"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(view.getByRole('radio', { name: 'Light' })).toHaveStyle({ minHeight: 44 });
+    jest.restoreAllMocks();
   });
 });
