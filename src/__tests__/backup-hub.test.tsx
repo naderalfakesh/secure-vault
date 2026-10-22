@@ -695,6 +695,48 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(backupService.activity()).toBeNull();
   });
 
+  it('starts the native restore only once Checking is on screen (F1)', async () => {
+    const importing = pending<never>();
+    let checkingShownAtStart: boolean | null = null;
+    const view = await renderUnlocked();
+    jest.spyOn(vault, 'importBackup').mockImplementation(() => {
+      checkingShownAtStart = view.queryByText('Checking…') !== null;
+      return importing.promise;
+    });
+    await openRestore(view);
+    await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
+
+    // The press's own act ends once its render is committed; the frame after it starts the module.
+    await fireEvent.press(view.getByRole('button', { name: 'Restore and replace vault' }));
+    await settleFor(50);
+
+    expect(checkingShownAtStart).toBe(true);
+    await act(async () => {
+      importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
+    });
+    await settleFor(20);
+  });
+
+  it('honours a Cancel pressed before the native restore started, with nothing changed', async () => {
+    const importBackup = jest.spyOn(vault, 'importBackup');
+    const view = await renderUnlocked();
+    await openRestore(view);
+    await fireEvent.changeText(view.getByLabelText('Backup passphrase'), 'correct horse battery');
+
+    await act(async () => {
+      void fireEvent.press(view.getByRole('button', { name: 'Restore and replace vault' }));
+      // Checking is drawn, and Cancel pressed, before the next frame lets the module start.
+      await Promise.resolve();
+    });
+    await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
+    await settleFor(50);
+
+    expect(importBackup).not.toHaveBeenCalled();
+    expect(view.getByText('Restore cancelled. Nothing was changed.')).toBeOnTheScreen();
+    expect(view.getByRole('button', { name: 'Restore and replace vault' })).toBeEnabled();
+    expect(backupService.activity()).toBeNull();
+  });
+
   it('shows Checking with Cancel, and a cancel leaves the vault as it was', async () => {
     const importing = pending<never>();
     let cancelled = false;

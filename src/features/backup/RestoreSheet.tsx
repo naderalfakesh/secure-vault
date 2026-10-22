@@ -41,6 +41,10 @@ export interface PickedBackup {
   problem?: string;
 }
 
+/** Resolves after the next frame, once what was rendered before it is on screen. */
+const nextFrame = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+
 type Stage =
   | { name: 'inspect'; outcome: Extract<RestoreOutcome, { kind: 'inspect' }> | null }
   | { name: 'running'; progress: RestoreProgress }
@@ -81,6 +85,8 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
   );
   const [cancelling, setCancelling] = useState(false);
   const mounted = useRef(true);
+  // Set between the Restore press and the native call, so a Cancel in that frame counts.
+  const startingRef = useRef<{ cancelled: boolean } | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -107,6 +113,26 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
         cancelling: false,
       },
     });
+    // The module starts only once Checking is on screen. Drawing it right
+    // after the tap is the JavaScript thread's busiest moment, and the iOS
+    // check of a small backup is over in about 100 ms: started first, it ended
+    // under that render, its Checking events arrived together afterwards, and
+    // Cancel could only reach it past its last cancel point (F1).
+    const starting = { cancelled: false };
+    startingRef.current = starting;
+    await nextFrame();
+    startingRef.current = null;
+    if (!stillHere() || starting.cancelled) {
+      if (mounted.current) {
+        setCancelling(false);
+        const cancelled = Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' });
+        const outcome = restoreOutcome(cancelled);
+        setStage(
+          outcome.kind === 'inspect' ? { name: 'inspect', outcome } : { name: 'outcome', outcome },
+        );
+      }
+      return;
+    }
     try {
       const entries = await backupService.restoreBackup(backup.uri, passphrase, (event) => {
         if (!mounted.current) return;
@@ -142,6 +168,11 @@ export function RestoreSheet({ backup, onClose, onChooseAnother, onRestored }: R
   }, [backup, passphrase, captureSession, postNotice, toast, onRestored]);
 
   const cancel = useCallback(() => {
+    if (startingRef.current) {
+      startingRef.current.cancelled = true;
+      setCancelling(true);
+      return;
+    }
     if (backupService.cancelRestore()) setCancelling(true);
   }, []);
 
