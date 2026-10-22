@@ -69,10 +69,22 @@ export function ZoomablePage({
   // zoomed. At rest it must not activate at all: an active pan claims the
   // touch, and the pager underneath never sees the horizontal swipe.
   const [zoomed, setZoomed] = useState(false);
+  // A new page starts at rest: a page zoomed when it was swapped drops the
+  // zoom here, and the effect below tells the pager.
+  const [shownUri, setShownUri] = useState(uri);
+  const [restAfterSwap, setRestAfterSwap] = useState(false);
+  if (shownUri !== uri) {
+    setShownUri(uri);
+    if (zoomed) {
+      setZoomed(false);
+      setRestAfterSwap(true);
+    }
+  }
 
   const reportZoom = useCallback(
     (value: boolean) => {
       setZoomed(value);
+      setRestAfterSwap(false);
       onZoomChange(value);
     },
     [onZoomChange],
@@ -93,6 +105,10 @@ export function ZoomablePage({
     translateY.set(0);
     dismissY.set(0);
   }, [uri, scale, translateX, translateY, dismissY]);
+
+  useEffect(() => {
+    if (restAfterSwap) onZoomChange(false);
+  }, [restAfterSwap, onZoomChange]);
 
   const clampToBounds = (value: number, size: number, currentScale: number) => {
     'worklet';
