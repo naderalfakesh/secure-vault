@@ -250,6 +250,21 @@ name, and the entry count in the header is what the reader trusts.
 The root layout mounts document routes only while the session is unlocked,
 so no deep link or navigation call can reach them while locked.
 
+iOS keeps Keychain items when an app is deleted, so a reinstall would find
+the old device key and PIN record and open the old lock screen in front of an
+empty vault. Launch therefore first checks a flag in UserDefaults, which is
+deleted with the app. Without the flag, Keychain items (the device key or the
+PIN record) with none of the vault's files on disk (no vault entries, no
+index file, no PIN markers) are a reinstall: the device key's Keychain items
+(service `com.naderalfakesh.securevault.vault`) and every secure-store entry
+the app writes are deleted, and launch goes to onboarding. The vault's files
+on disk mean an update from a build before the flag (an update keeps
+UserDefaults and the files alike), and everything is kept. The flag is set
+in both cases and on a first install. A read or delete that fails decides
+nothing and leaves the flag unset, so the next launch checks again. Android
+removes the Keystore key and the secure store with the app and has no such
+check.
+
 Launch reads the device key's presence and the PIN record as three states:
 present, absent, or unreadable. A key and a PIN open the lock screen; no
 PIN sends the app to setup, which keeps any key it finds. If either read

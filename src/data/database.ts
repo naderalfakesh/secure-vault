@@ -79,6 +79,14 @@ function mainIndexFiles(): string[] {
 }
 
 /**
+ * Whether the SQLite folder holds an index file under any name; throws a
+ * typed DATABASE_FILES_UNREADABLE when the folder cannot be listed.
+ */
+export function hasIndexFiles(): boolean {
+  return mainIndexFiles().length > 0;
+}
+
+/**
  * Key hierarchy: the device key (a Keychain item on iOS, a non-exportable
  * Keystore key on Android) is used only inside the vault module; it encrypts
  * this random database key, which SQLCipher uses for every page of the index.

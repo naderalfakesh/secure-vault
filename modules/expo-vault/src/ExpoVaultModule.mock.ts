@@ -44,10 +44,14 @@ export function createVaultMock(): SecureVault & {
   excludedFromBackup(): string[];
   /** Sends a progress event to the listeners, as the native module does mid-call. */
   emitProgress(progress: BackupProgress): void;
+  /** Removes the iOS install flag, as deleting the app does; `reset` sets it again. */
+  clearInstallMarker(): void;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
   let created = false;
+  // Tests start as an install that has run before, so reinstall handling stays out of their way.
+  let installMarker = true;
   // Backups are kept in memory keyed by their path, protected by the passphrase.
   const backups = new Map<
     string,
@@ -86,6 +90,18 @@ export function createVaultMock(): SecureVault & {
     },
     async unlockWithBiometrics() {
       return true;
+    },
+    hasInstallMarker() {
+      return installMarker;
+    },
+    setInstallMarker() {
+      installMarker = true;
+    },
+    clearInstallMarker() {
+      installMarker = false;
+    },
+    async deleteDeviceKey() {
+      created = false;
     },
     async put(key, value) {
       strings.set(key, value);
@@ -270,6 +286,7 @@ export function createVaultMock(): SecureVault & {
       strings = new Map();
       files = new Map();
       created = false;
+      installMarker = true;
       links.clear();
     },
   };

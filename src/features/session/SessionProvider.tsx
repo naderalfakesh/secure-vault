@@ -27,6 +27,7 @@ import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
+import { reconcileInstall } from './freshInstall';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
 
 /**
@@ -363,6 +364,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const launch = useCallback((): Promise<SessionStatus> => {
     launchingRef.current ??= (async () => {
       try {
+        // iOS: a reinstall's leftover Keychain items go before anything reads them.
+        await reconcileInstall();
         const {
           key,
           type,

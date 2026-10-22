@@ -16,6 +16,10 @@ public class ExpoVaultModule: Module {
   private static let restoreSourceName = "restore-source"
   /// Folder in Documents that holds the PIN and lockout markers.
   private static let sessionMarkerName = "securevault-session"
+  /// UserDefaults flag for "this install has run". Deleting the app removes
+  /// it, unlike the Keychain items, so its absence next to a device key
+  /// tells a reinstall from an update.
+  private static let installMarkerKey = "com.naderalfakesh.securevault.installed"
   /// The cancel request of the running restore, tied to its run id (see
   /// `RestoreCancelFlag`), so a cancel that lands after one restore ended can
   /// never stop the next one.
@@ -76,6 +80,29 @@ public class ExpoVaultModule: Module {
       // The item is access-controlled, so an interaction-required status still
       // means the key exists; only "not found" means there is no vault yet.
       promise.resolve(status != errSecItemNotFound)
+    }
+
+    Function("hasInstallMarker") { () -> Bool in
+      return UserDefaults.standard.bool(forKey: Self.installMarkerKey)
+    }
+
+    Function("setInstallMarker") { () in
+      UserDefaults.standard.set(true, forKey: Self.installMarkerKey)
+    }
+
+    // Every item of the vault's service, whatever its account; no prompt,
+    // since deleting an access-controlled item needs no authentication.
+    AsyncFunction("deleteDeviceKey") { (promise: Promise) in
+      let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: self.keychainService,
+      ]
+      let status = SecItemDelete(query as CFDictionary)
+      if status == errSecSuccess || status == errSecItemNotFound {
+        promise.resolve(nil)
+      } else {
+        promise.reject("KEYCHAIN_DELETE_FAILED", "The vault key could not be deleted: \(VaultKeychain.describe(status))")
+      }
     }
 
     AsyncFunction("biometryType") { (promise: Promise) in

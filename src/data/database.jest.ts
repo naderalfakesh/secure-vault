@@ -1,3 +1,5 @@
+import { Directory, Paths } from 'expo-file-system';
+
 import { DocumentRepository } from './DocumentRepository';
 import { applyMigrations } from './schema';
 import type { SqlDatabase } from './sql';
@@ -49,4 +51,12 @@ export async function exportDatabaseFile(_destPath: string): Promise<void> {}
 /** Like the real index, the replaced connection is dropped, not closed. */
 export async function replaceDatabaseFile(_sourcePath: string): Promise<void> {
   opening = null;
+}
+
+/** Like the real check, over the mock file system's `SQLite` folder in documents. */
+export function hasIndexFiles(): boolean {
+  const folder = new Directory(Paths.document, 'SQLite');
+  return (
+    folder.exists && folder.list().some((entry) => /^securevault(-\d+)?\.db$/.test(entry.name))
+  );
 }

@@ -49,6 +49,20 @@ export interface SecureVault {
   biometryType(): Promise<BiometryType>;
   createVault(): Promise<void>;
   unlockWithBiometrics(): Promise<boolean>;
+  /**
+   * iOS only (Android has none of the three; callers check the platform).
+   * Whether this install has run before: a flag in UserDefaults, which is
+   * deleted with the app, unlike Keychain items. Synchronous.
+   */
+  hasInstallMarker(): boolean;
+  /** iOS only: records that this install has run. Synchronous. */
+  setInstallMarker(): void;
+  /**
+   * iOS only: deletes the device key's Keychain items (every item of the
+   * vault's Keychain service), for a reinstall that found the previous
+   * install's key without its files. Resolves when none is left.
+   */
+  deleteDeviceKey(): Promise<void>;
 
   // String-based storage (for metadata, JSON, etc.)
   put(key: string, value: string): Promise<void>;
