@@ -569,7 +569,8 @@ export default function DocumentViewerScreen() {
           fileMeta={joinParts([
             tp('format.pages', Math.max(pages.length, 1)),
             t(document.fileType === 'pdf' ? 'viewer.fileType.pdf' : 'viewer.fileType.image'),
-            formatFileSize(document.fileSize),
+            // A size of 0 is unknown (scans saved before sizes were measured): left out.
+            document.fileSize > 0 && formatFileSize(document.fileSize),
           ])}
           fileIcon={document.fileType === 'pdf' ? 'pdf' : 'image'}
           confirmFirst={settings.biometricsForShare}
@@ -726,7 +727,8 @@ export default function DocumentViewerScreen() {
                     // Isolated: a month in another script would pull the page count into the date.
                     t('viewer.added', { date: isolate(formatDate(document.createdAt)) }),
                     pages.length > 0 ? tp('format.pages', pages.length) : null,
-                    formatFileSize(document.fileSize),
+                    // A size of 0 is unknown (scans saved before sizes were measured): left out.
+                    document.fileSize > 0 && formatFileSize(document.fileSize),
                     t('viewer.encrypted'),
                   ])}
                 </Text>

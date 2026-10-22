@@ -43,6 +43,32 @@ describe('DocumentService', () => {
     unsubscribe();
   });
 
+  it('measures a scan whose pages came without a size, every page counted', async () => {
+    const folder = new Directory(Paths.cache, 'size-test');
+    folder.create({ intermediates: true, idempotent: true });
+    const first = new File(folder, 'page1.jpg');
+    first.writeSync('x'.repeat(1500));
+    const second = new File(folder, 'page2.jpg');
+    second.writeSync('y'.repeat(700));
+
+    const doc = await documentService.addDocument(
+      [
+        { uri: first.uri, name: 'scan-1.jpg', type: 'image/jpeg' },
+        { uri: second.uri, name: 'scan-2.jpg', type: 'image/jpeg' },
+      ],
+      { title: 'Lease' },
+    );
+
+    expect(doc.fileSize).toBe(2200);
+    expect((await documentService.getDocument(doc.id))?.fileSize).toBe(2200);
+    folder.delete();
+  });
+
+  it('keeps the size the picker reported', async () => {
+    const doc = await documentService.addDocument(picked, { title: 'Passport' });
+    expect(doc.fileSize).toBe(2048);
+  });
+
   it('stores documents in the encrypted index and notifies subscribers on every write', async () => {
     const listener = jest.fn();
     const unsubscribe = documentService.subscribe(listener);

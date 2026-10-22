@@ -177,8 +177,12 @@ class DocumentService {
     const now = new Date().toISOString();
     const fileType: Document['fileType'] = file.type?.includes('pdf') ? 'pdf' : 'image';
 
+    // What the document takes, all pages counted. A scan or a photo often
+    // comes without a size, so it is measured from the copy being encrypted.
+    let fileSize = 0;
     const sourcePath = await this.getLocalFilePath(file.uri);
     try {
+      fileSize += file.size || this.measure(sourcePath);
       await ExpoVaultModule.putFile(fileKey, sourcePath);
       try {
         const thumbnailSource =
@@ -205,6 +209,7 @@ class DocumentService {
         const pagePath = await this.getLocalFilePath(page.uri);
         try {
           pageKeys.push(pageKey);
+          fileSize += page.size || this.measure(pagePath);
           await ExpoVaultModule.putFile(pageKey, pagePath);
         } finally {
           this.discardImportCopy(pagePath);
@@ -220,7 +225,7 @@ class DocumentService {
         thumbnailKey,
         fileKey,
         fileType,
-        fileSize: file.size || 0,
+        fileSize,
         createdAt: metadata.createdAt ?? now,
       });
       inserted = true;
@@ -757,6 +762,15 @@ class DocumentService {
    * which reads the provider with the content resolver: SDK 58's global fetch
    * refuses the scheme.
    */
+  /** The size of a local file in bytes, or 0 when it cannot be read. */
+  private measure(path: string): number {
+    try {
+      return new File(this.toUri(path)).size || 0;
+    } catch {
+      return 0;
+    }
+  }
+
   private async getLocalFilePath(uri: string): Promise<string> {
     if (uri.startsWith('/') || uri.startsWith('file://')) {
       return this.toPath(uri);

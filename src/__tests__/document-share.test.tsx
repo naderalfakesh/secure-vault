@@ -57,9 +57,9 @@ function Gate() {
   return value.status === 'unlocked' ? <DocumentDetailScreen /> : <Text>{value.status}</Text>;
 }
 
-async function renderUnlocked() {
+async function renderUnlocked(size = 2048) {
   const document = await documentService.addDocument(
-    { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 },
+    { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size },
     { title: 'Passport', category: DocumentCategory.ID },
   );
   routeParams.id = document.id;
@@ -169,6 +169,15 @@ describe('Document sharing and the lock gate', () => {
 
     expect(share).toHaveBeenCalledWith('file:///mock/cache/share/Passport.jpg', expect.anything());
     expect(discard).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the size out of the file card when it is not known, never "0 B"', async () => {
+    const view = await renderUnlocked(0);
+
+    await pressAndSettle(view.getByRole('button', { name: 'Share a copy' }));
+
+    expect(view.getByLabelText('⁨Passport⁩, 1 page · Image')).toBeOnTheScreen();
+    expect(view.queryByText(/0 B/)).toBeNull();
   });
 
   it('warns before sharing and creates nothing when the warning is cancelled', async () => {
