@@ -5,6 +5,7 @@ import {
   type SQLiteDatabase,
 } from 'expo-sqlite';
 
+import { t } from '../i18n';
 import type { SqlDatabase, SqlValue } from './sql';
 
 function closedError(): Error {
@@ -91,7 +92,8 @@ class ExpoSqlDatabase implements SqlDatabase {
 /**
  * Opens the SQLCipher database. The key is 32 random bytes as hex, generated
  * once and kept encrypted by the vault module; `PRAGMA key` must be the first
- * statement on the connection.
+ * statement on the connection. Rejects with SQLCIPHER_UNAVAILABLE, and closes
+ * the connection, when the build's SQLite is not SQLCipher.
  */
 export async function openEncryptedDatabase(name: string, hexKey: string): Promise<SqlDatabase> {
   if (!/^[0-9a-f]{64}$/i.test(hexKey)) {
@@ -102,6 +104,14 @@ export async function openEncryptedDatabase(name: string, hexKey: string): Promi
   const db = await openDatabaseAsync(name);
   try {
     await db.execAsync(`PRAGMA key = "x'${hexKey}'";`);
+    // Plain SQLite ignores PRAGMA key and would write the index unencrypted;
+    // only SQLCipher answers cipher_version. Checked before anything is written.
+    const cipher = await db.getFirstAsync<{ cipher_version?: unknown }>('PRAGMA cipher_version');
+    if (typeof cipher?.cipher_version !== 'string' || cipher.cipher_version === '') {
+      throw Object.assign(new Error(t('errors.index.noCipher')), {
+        code: 'SQLCIPHER_UNAVAILABLE',
+      });
+    }
     await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
     // Any query fails with "file is not a database" when the key is wrong.
     await db.getFirstAsync('SELECT count(*) FROM sqlite_master');

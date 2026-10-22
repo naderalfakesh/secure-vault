@@ -75,7 +75,12 @@ file or records the expected chunk count.
 The searchable index is a SQLCipher database. Its key is 32 random bytes
 generated once, stored as an ordinary vault entry (`_database_key`) under the
 device key, and passed to `PRAGMA key` on every open. On disk the database
-and its WAL have no readable header, strings, or schema.
+and its WAL have no readable header, strings, or schema. Plain SQLite would
+ignore `PRAGMA key` and write the index unencrypted, so every open asks for
+`PRAGMA cipher_version` right after the key and, without an answer, closes
+the connection and stops with `SQLCIPHER_UNAVAILABLE` before anything is
+written. SQLCipher and FTS5 come from the expo-sqlite plugin's `useSQLCipher`
+and `enableFTS` options in `app.json`.
 
 A new key is written only when the vault's entry listing (which reads the
 directory and needs no device key) succeeds without a `_database_key` entry,
