@@ -42,6 +42,12 @@ yarn-error.*
 # local scan reports
 reports/
 
+# test coverage
+coverage/
+
+# backups made while testing; they hold a vault's documents
+*.svbackup
+
 # Local Expo modules
 modules/*/android/build/
 modules/*/android/.cxx/
