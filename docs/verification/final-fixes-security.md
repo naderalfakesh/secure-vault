@@ -172,3 +172,20 @@ Checks: `npm run validate` exit 0 (762 tests, doctor 20/20);
 on-device checks: the exclusion flag (`xattr`/backup listing), a cancel pressed
 at once on a tiny backup, and the invalidated-key path after a screen lock
 change.
+
+**L1 follow-up.** Each restore now has a run id (`randomUUID`), which is
+passed to `importBackup` and to every `cancelRestore`. Native
+(`RestoreCancel.kt`, `RestoreCancelFlag` in Swift) keeps a request only with
+its id:
+
+- It acts on the running restore with that id.
+- While none runs, it is kept for the next start with that id, so a
+  pre-start cancel for the same run still wins.
+- It answers false for a run that already ended or for another id.
+- It discards a kept request for another id when a restore starts.
+
+A cancel that lands after run A therefore never stops run B. Tested on the
+mock, which mirrors the native rules: a late cancel after A leaves B
+running, a pre-start cancel for B cancels B, a stale id is dropped, and a
+foreign id is refused mid-run. Checks: validate exit 0;
+`:expo-vault:compileDebugKotlin` exit 0; Swift typecheck and parse clean.
