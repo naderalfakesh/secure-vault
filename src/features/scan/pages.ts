@@ -1,3 +1,6 @@
+import { t } from '@/i18n';
+import { formatDate } from '@/utils/format';
+
 /** What an imported file is, or null when SecureVault can't add it. */
 export type ImportKind = 'pdf' | 'image';
 
@@ -74,4 +77,31 @@ export function movePage<T>(pages: readonly T[], index: number, delta: -1 | 1): 
 
 export function stripExtension(name: string): string {
   return name.replace(/\.[^/.]+$/, '');
+}
+
+/**
+ * Names that are a media store id, not a name: "7233", "1000012345",
+ * "image:7233", "msf:1000012345", "content://media/external/images/media/7233",
+ * a bare UUID, or the app's own "scan-<time>" placeholder.
+ */
+const ID_ONLY = [
+  /^\d+$/,
+  /^[a-z_]+:\d+$/i,
+  /^content:\/\//i,
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  /^scan-\d+(-\d+)?$/,
+];
+
+/**
+ * The title a picked photo or file starts with: its name without the
+ * extension, or "Photo 23 Oct 2026" when the only name there is an id. Text
+ * reading replaces it when it suggests a title.
+ */
+export function suggestedTitleFor(name: string | null | undefined, now: Date = new Date()): string {
+  const trimmed = (name ?? '').trim();
+  const stem = /^content:\/\//i.test(trimmed) ? trimmed : stripExtension(trimmed).trim();
+  if (!stem || ID_ONLY.some((pattern) => pattern.test(stem))) {
+    return t('scan.defaultPhotoTitle', { date: formatDate(now.toISOString()) });
+  }
+  return stem;
 }

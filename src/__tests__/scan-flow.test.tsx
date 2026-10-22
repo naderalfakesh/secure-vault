@@ -266,6 +266,25 @@ describe('Add a document: source failures', () => {
   });
 });
 
+describe('Add a document: photo titles', () => {
+  it('titles a photo that has only a media id as a dated photo, not the id', async () => {
+    const photo = plant(new Directory(Paths.cache, 'ImagePicker'), '7233.jpg');
+    picker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: photo.uri, fileName: '7233', mimeType: 'image/jpeg' }],
+    } as never);
+    jest.spyOn(ocrService, 'extractText').mockResolvedValue({ text: '', blocks: [] } as never);
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: /Choose from Photos/ }));
+
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+    expect(view.getByLabelText('Title').props.value).toMatch(/^Photo \S/);
+    expect(view.getByLabelText('Title').props.value).not.toMatch(/7233/);
+    new Directory(Paths.cache, 'ImagePicker').delete();
+  });
+});
+
 describe('Add a document: import errors', () => {
   function queueFile(name: string, mimeType: string | undefined) {
     const copy = plant(pickerFolder(), '8F0C2A41-6B3D-4E8A-9F11-2C7D5E0B9A13');

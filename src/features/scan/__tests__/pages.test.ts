@@ -1,6 +1,13 @@
 import { isolate } from '@/utils/bidi';
 
-import { importKind, importMimeType, mimeTypeFor, movePage, stripExtension } from '../pages';
+import {
+  importKind,
+  importMimeType,
+  mimeTypeFor,
+  movePage,
+  stripExtension,
+  suggestedTitleFor,
+} from '../pages';
 import {
   foundFieldLabel,
   pageCount,
@@ -93,6 +100,32 @@ describe('scan copy', () => {
     expect(foundFieldLabel({ key: 'expires', value: '2027-01-03', kind: 'date' }, date)).toBe(
       'Expires D(2027-01-03)',
     );
+  });
+
+  it('starts a photo whose only name is a media id with a neutral dated title', () => {
+    const day = new Date('2026-10-23T09:00:00Z');
+    const neutral = suggestedTitleFor('7233', day);
+    expect(neutral).toMatch(/^Photo \S.*2026$/);
+    for (const name of [
+      '7233.jpg',
+      '1000012345',
+      'image:7233',
+      'msf:1000012345',
+      'content://media/external/images/media/7233',
+      '8F0C2A41-6B3D-4E8A-9F11-2C7D5E0B9A13.jpg',
+      'scan-1729680000000.jpg',
+      '',
+      null,
+      undefined,
+    ]) {
+      expect(suggestedTitleFor(name, day)).toBe(neutral);
+    }
+  });
+
+  it('keeps a real name as the title, without its extension', () => {
+    expect(suggestedTitleFor('IMG_2041.HEIC')).toBe('IMG_2041');
+    expect(suggestedTitleFor('Passport scan 2026.jpg')).toBe('Passport scan 2026');
+    expect(suggestedTitleFor('2026 tax return.pdf')).toBe('2026 tax return');
   });
 
   it('strips one extension from a file name', () => {

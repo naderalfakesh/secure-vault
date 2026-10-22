@@ -9,7 +9,7 @@ import { Button, IconButton, Screen, Text, useLargeText, useToast } from '@/comp
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { suggestForText } from '@/features/intelligence';
 import { DetailsForm } from '@/features/scan/DetailsForm';
-import { importKind, importMimeType, movePage, stripExtension } from '@/features/scan/pages';
+import { importKind, importMimeType, movePage, suggestedTitleFor } from '@/features/scan/pages';
 import { type ProcessingStep, ProcessingPanel } from '@/features/scan/ProcessingPanel';
 import { ReviewPages } from '@/features/scan/ReviewPages';
 import { pageCount, scanText } from '@/features/scan/scanCopy';
@@ -294,7 +294,7 @@ export default function AddDocumentScreen() {
           acceptSingle(
             { uri: asset.uri, name: asset.name, type, size: asset.size },
             previewUri,
-            stripExtension(asset.name),
+            suggestedTitleFor(asset.name),
           );
           return;
         }
@@ -318,7 +318,7 @@ export default function AddDocumentScreen() {
         acceptSingle(
           { uri: asset.uri, name, type: asset.mimeType ?? 'image/jpeg', size: asset.fileSize },
           asset.uri,
-          source === 'camera' ? SCANNED_TITLE : stripExtension(name),
+          source === 'camera' ? SCANNED_TITLE : suggestedTitleFor(asset.fileName),
         );
       } catch (e) {
         if (mounted.current) {

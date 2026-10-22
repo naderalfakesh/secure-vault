@@ -82,6 +82,8 @@ export const scan = {
   'scan.close': 'Cancel',
   /** Title for a scan or camera photo until the text suggests a better one. */
   'scan.scan.defaultTitle': 'Scanned document',
+  /** A picked photo whose only name is a media id; `{date}` is today. */
+  'scan.defaultPhotoTitle': 'Photo {date}',
   'scan.page': 'Page {number}',
   'scan.pagePosition': 'Page {number} of {count}',
   'scan.pagePositionMoving': 'Page {number} of {count}, moving',
