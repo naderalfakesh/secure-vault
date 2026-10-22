@@ -31,15 +31,16 @@ phases: Expo SDK 57 and React Native 0.86 on the New Architecture, a real
 session model, an encrypted SQLite index with full-text search, the platform
 document scanners, on-device text reading with suggestions, a page viewer,
 and a portable backup format. Each phase ended with a green `npm run validate`,
-a native run on both platforms, and a note under
-[`docs/verification/`](docs/verification/). The
+a native run, and a note under [`docs/verification/`](docs/verification/).
+The runs covered both platforms except Phase 2 (the design system), which ran
+on iOS only; Android was rebuilt in Phase 3. The
 [modernization plan](docs/MODERNIZATION_PLAN.md) records the sequence and
 [`docs/adr/`](docs/adr/) the decisions.
 
 ## Features
 
 - Onboarding, a 6-digit PIN with escalating lockout, Face ID, Touch ID, or
-  the device credential, auto-lock with a privacy blur, and an optional second
+  the device credential, auto-lock with a solid privacy cover, and an optional second
   biometric check before anything is shared
 - Every file encrypted with AES-256-GCM under a device key: on iOS a random
   key stored in the Keychain, device-only and behind a user-presence check,
@@ -66,8 +67,11 @@ a native run on both platforms, and a note under
 - Light and dark themes, Dynamic Type up to 2x, reduced-motion handling, and
   44 pt touch targets throughout the design system
 
-Spoken VoiceOver and TalkBack passes, the scanner on a physical iPhone, and
-the Maestro flow remain for interactive release sign-off.
+Everything so far ran in development builds on the iOS simulator and the
+Android emulator. No physical device and no release build (an App Store
+archive or a signed release APK) has been run yet. Those, spoken VoiceOver
+and TalkBack passes, the scanner on a physical iPhone, and the Maestro flow
+remain for release sign-off.
 
 ## Architecture
 
@@ -110,8 +114,10 @@ CI runs `npm run validate`: formatting, lint, strict types, the Jest suites,
 and Expo Doctor. The repository tests run against a real
 SQLite with FTS5; the vault module ships a Jest double so services and
 screens run unchanged. Native evidence covers iOS and Android development
-builds for every phase, including a backup made on the iPhone simulator and
-restored on the Android emulator. The per-phase records live under
+builds on the simulator and the emulator for every phase except Phase 2
+(iOS only), including a backup made on the iPhone simulator and restored on
+the Android emulator. There is no physical-device or release-build evidence
+yet. The per-phase records live under
 [`docs/verification/`](docs/verification/).
 
 ## Project structure
@@ -125,7 +131,7 @@ src/data/                Repository, schema and migrations, SQLCipher adapter
 src/theme/               Colors, tokens, typography, Unistyles setup
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
-plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL, Xcode 27.1 JSI fix
+plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL
 docs/                    Plan, security model, ADRs, verification records, screenshots
 ```
 
