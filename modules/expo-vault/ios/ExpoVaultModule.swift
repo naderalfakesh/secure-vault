@@ -16,13 +16,9 @@ public class ExpoVaultModule: Module {
   private static let restoreSourceName = "restore-source"
   /// Folder in Documents that holds the PIN and lockout markers.
   private static let sessionMarkerName = "securevault-session"
-  /// Set by `cancelRestore`, read by the running restore between entries of
-  /// its checking pass. `importBackup` clears it when it ends. A cancel that
-  /// arrives before the call starts is kept and honoured at its first check,
-  /// so the user's Cancel wins before anything is removed; the worst a late
-  /// one can do is stop the next restore with nothing changed. The JavaScript
-  /// caller repeats a cancel on the first progress event and drops it when the
-  /// answer is false.
+  /// The cancel request of the running restore, tied to its run id (see
+  /// `RestoreCancelFlag`), so a cancel that lands after one restore ended can
+  /// never stop the next one.
   private let restoreCancel = RestoreCancelFlag()
 
   public func definition() -> ModuleDefinition {
@@ -209,15 +205,17 @@ public class ExpoVaultModule: Module {
     // still checking, so a cancel during the key derivation takes effect once
     // that ends. Returns at once: true when the request will be honoured (the
     // restore then rejects with BACKUP_CANCELLED), false once the restore has
-    // passed its last cancel point and goes on to replace the vault.
-    Function("cancelRestore") { () -> Bool in
-        self.restoreCancel.request()
+    // passed its last cancel point and goes on to replace the vault, or when
+    // `runId` is not the restore running or about to start.
+    Function("cancelRestore") { (runId: String) -> Bool in
+        self.restoreCancel.request(runId)
     }
 
-    AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, promise: Promise) in
+    AsyncFunction("importBackup") { (sourcePath: String, passphrase: String, extraDir: String, stagingDir: String, runId: String, promise: Promise) in
         var cleared = false
-        // A pending cancel is kept for this call; the flag opens again when it ends.
-        defer { self.restoreCancel.reset() }
+        // A cancel kept for this run is honoured; one for another run is dropped.
+        self.restoreCancel.start(runId)
+        defer { self.restoreCancel.finish(runId) }
         do {
             // Decrypted entries may only land in the app's restore-staging cache folder.
             let caches = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)

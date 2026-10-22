@@ -132,12 +132,15 @@ export interface SecureVault {
    * which must be the app cache's own `restore-staging` folder
    * (BACKUP_RESTORE_STAGING_INVALID otherwise, before anything is touched) and
    * is emptied before and after; the caller sweeps it on launch as well.
+   * `runId` names this restore for `cancelRestore`; a retry of the same
+   * restore passes the same one.
    */
   importBackup(
     sourcePath: string,
     passphrase: string,
     extraDir: string,
     stagingDir: string,
+    runId: string,
   ): Promise<BackupImportResult>;
   /**
    * Asks the running restore to stop before it removes anything; returns at
@@ -147,10 +150,14 @@ export interface SecureVault {
    * index untouched. A request during the key derivation takes effect when
    * that ends. True when the request will be honoured; false once the
    * restore has passed that last check, which it does in the same atomic
-   * step that refuses later requests. A request from before `importBackup`
-   * started is kept for it; the request is cleared when the call ends.
+   * step that refuses later requests. The request names its restore by
+   * `runId`: it acts only on the restore running with that id, or is kept
+   * for the next one to start when no restore is running, and only that
+   * restore honours it. A request for any other id (one that already ended,
+   * or while a different one runs) is ignored and answers false, and a kept
+   * request for another id is discarded when a restore starts.
    */
-  cancelRestore(): boolean;
+  cancelRestore(runId: string): boolean;
 
   // Sharing
   /**

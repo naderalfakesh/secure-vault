@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { t } from '@/i18n';
@@ -63,6 +64,8 @@ export type RestoreProgressListener = (progress: RestoreProgress) => void;
 
 /** The restore that holds the slot: its phase signal and whether a cancel was asked for. */
 interface RestoreRun {
+  /** Names this restore to the module, so a cancel can only ever reach it. */
+  id: string;
   wiped: boolean;
   cancelRequested: boolean;
   /**
@@ -505,20 +508,25 @@ class BackupService {
     onProgress?: RestoreProgressListener,
   ): Promise<number> {
     return this.exclusive('restore', async () => {
-      const run: RestoreRun = { wiped: false, cancelRequested: false, lastRestored: null };
+      const run: RestoreRun = {
+        id: randomUUID(),
+        wiped: false,
+        cancelRequested: false,
+        lastRestored: null,
+      };
       this.restoreRun = run;
       try {
-        return await this.replaceVault(uri, passphrase, (event) => {
+        return await this.replaceVault(uri, passphrase, run.id, (event) => {
           if (event.phase === 'import') {
             run.wiped = true;
             run.cancelRequested = false;
             run.lastRestored = { entry: Math.min(event.done + 1, event.total), total: event.total };
           } else if (run.cancelRequested && !run.wiped) {
             // A request that reached the module before its call began is kept
-            // for it, but asking again costs nothing and its answer is the
-            // truth: false means the restore is past its last cancel point and
-            // goes ahead, so nothing may go on saying it is being cancelled.
-            if (vault.cancelRestore() === false) run.cancelRequested = false;
+            // for this run, but asking again costs nothing and its answer is
+            // the truth: false means the restore is past its last cancel point
+            // and goes ahead, so nothing may go on saying it is being cancelled.
+            if (vault.cancelRestore(run.id) === false) run.cancelRequested = false;
           }
           onProgress?.({ ...event, wiped: run.wiped, cancelling: run.cancelRequested });
         });
@@ -542,7 +550,7 @@ class BackupService {
     const run = this.restoreRun;
     if (!run || run.wiped) return false;
     // A build whose module answers nothing is taken at its word, as before.
-    if (vault.cancelRestore() === false) return false;
+    if (vault.cancelRestore(run.id) === false) return false;
     run.cancelRequested = true;
     return true;
   }
@@ -550,6 +558,7 @@ class BackupService {
   private async replaceVault(
     uri: string,
     passphrase: string,
+    runId: string,
     onProgress?: ProgressListener,
   ): Promise<number> {
     const extras = new Directory(Paths.cache, BACKUP_DIRECTORY, 'restore');
@@ -572,6 +581,7 @@ class BackupService {
         passphrase,
         toPath(extras.uri),
         toPath(staging.uri),
+        runId,
       );
       const database = result.extras.find((extra) => extra.key === DATABASE_ENTRY);
       if (!database) throw indexError(new Error('The backup has no document index.'));

@@ -436,16 +436,15 @@ describe('BackupService', () => {
 
     it('lets the mock module refuse a cancel after its last cancel point, like the native one', async () => {
       const { backup } = await vaultWithBackup();
+      const importBackup = jest.spyOn(vault, 'importBackup');
       const answers: boolean[] = [];
 
       await backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
-        if (event.phase === 'import') answers.push(vault.cancelRestore());
+        const runId = importBackup.mock.calls[0][4];
+        if (event.phase === 'import') answers.push(vault.cancelRestore(runId));
       });
 
       expect(answers).toEqual([false]);
-      // Opened again when the restore ended.
-      expect(vault.cancelRestore()).toBe(true);
-      vaultMock.reset();
     });
 
     it('drops the cancel when the re-ask on the first progress event is refused', async () => {
@@ -484,20 +483,71 @@ describe('BackupService', () => {
       expect(events).toEqual([false]);
     });
 
-    it('lets the module honour a cancel that arrived before the restore started', async () => {
+    const sourceOf = (uri: string) => decodeURIComponent(uri.replace(/^file:\/\//, ''));
+
+    it('lets the module honour a cancel for the same run that arrived before it started', async () => {
       const { backup, keys } = await vaultWithBackup();
 
-      expect(vault.cancelRestore()).toBe(true);
+      expect(vault.cancelRestore('run-b')).toBe(true);
 
       await expect(
-        vault.importBackup(
-          decodeURIComponent(backup.uri.replace(/^file:\/\//, '')),
-          'correct horse battery',
-          '/x',
-          '/y',
-        ),
+        vault.importBackup(sourceOf(backup.uri), 'correct horse battery', '/x', '/y', 'run-b'),
       ).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
       expect(await vault.getAllKeys()).toEqual(keys);
+    });
+
+    it('ignores a cancel that lands after run A ended, so run B goes ahead', async () => {
+      const { backup } = await vaultWithBackup();
+      await vault.importBackup(sourceOf(backup.uri), 'correct horse battery', '/x', '/y', 'run-a');
+
+      expect(vault.cancelRestore('run-a')).toBe(false);
+
+      await expect(
+        vault.importBackup(sourceOf(backup.uri), 'correct horse battery', '/x', '/y', 'run-b'),
+      ).resolves.toMatchObject({ entries: expect.any(Number) });
+    });
+
+    it('discards a pending cancel for another run when a new run starts', async () => {
+      const { backup } = await vaultWithBackup();
+
+      expect(vault.cancelRestore('run-x')).toBe(true);
+
+      await expect(
+        vault.importBackup(sourceOf(backup.uri), 'correct horse battery', '/x', '/y', 'run-b'),
+      ).resolves.toMatchObject({ entries: expect.any(Number) });
+      // Discarded, not kept for later.
+      await expect(
+        vault.importBackup(sourceOf(backup.uri), 'correct horse battery', '/x', '/y', 'run-x'),
+      ).resolves.toMatchObject({ entries: expect.any(Number) });
+    });
+
+    it('refuses a cancel for a different run while one is running', async () => {
+      const { backup } = await vaultWithBackup();
+      const answers: boolean[] = [];
+
+      await backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+        if (event.phase === 'verify') answers.push(vault.cancelRestore('someone-else'));
+      });
+
+      expect(answers).toEqual([false]);
+    });
+
+    it('gives each restore its own run id, for the native call and every cancel', async () => {
+      const { backup } = await vaultWithBackup();
+      const importBackup = jest.spyOn(vault, 'importBackup');
+      const cancel = jest.spyOn(vault, 'cancelRestore');
+
+      await expect(
+        backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
+          if (event.phase === 'verify') backupService.cancelRestore();
+        }),
+      ).rejects.toMatchObject({ code: 'BACKUP_CANCELLED' });
+      await backupService.restoreBackup(backup.uri, 'correct horse battery');
+
+      const [first, second] = importBackup.mock.calls.map((call) => call[4]);
+      expect(typeof first).toBe('string');
+      expect(second).not.toBe(first);
+      expect(cancel.mock.calls.every(([runId]) => runId === first)).toBe(true);
     });
 
     it('names any failure after the first Restoring event a partial restore, with where it stopped', async () => {
@@ -812,10 +862,10 @@ describe('BackupService', () => {
       const original = vault.importBackup.bind(vault);
       const spy = jest
         .spyOn(vault, 'importBackup')
-        .mockImplementationOnce(async (source, passphrase, extraDir, stagingDir) => {
+        .mockImplementationOnce(async (source, passphrase, extraDir, stagingDir, runId) => {
           const directory = staging();
           seen = { exists: directory.exists, entries: directory.list().length };
-          return original(source, passphrase, extraDir, stagingDir);
+          return original(source, passphrase, extraDir, stagingDir, runId);
         });
       try {
         await backupService.restoreBackup(backup.uri, 'correct horse battery');
@@ -883,13 +933,13 @@ describe('BackupService', () => {
       let entry: File | null = null;
       const original = vault.importBackup.bind(vault);
       const spy = jest.spyOn(vault, 'importBackup').mockImplementationOnce(
-        (source, passphrase, extraDir, stagingDir) =>
+        (source, passphrase, extraDir, stagingDir, runId) =>
           new Promise((resolve, reject) => {
             entry = new File(`file://${stagingDir}/backup-entry`);
             entry.writeSync('plaintext');
             finishImport = () => {
               entry!.delete();
-              original(source, passphrase, extraDir, stagingDir).then(resolve, reject);
+              original(source, passphrase, extraDir, stagingDir, runId).then(resolve, reject);
             };
           }),
       );

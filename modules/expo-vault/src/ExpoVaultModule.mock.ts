@@ -62,9 +62,12 @@ export function createVaultMock(): SecureVault & {
   const links = new Map<string, string>();
   // Folders flagged for exclusion from device backups, as iOS records them.
   const excluded = new Set<string>();
-  // The native cancel state: opened when an import ends (a cancel from before its start is
-  // kept), read after its checking pass, which also passes the last cancel point.
+  // The native cancel state of the running import, read after its checking pass, which also
+  // passes the last cancel point; a cancel is tied to its run id like the native one.
   let restoreState: 'open' | 'cancel' | 'committed' = 'open';
+  let currentRun: string | null = null;
+  let lastEndedRun: string | null = null;
+  let pendingCancel: string | null = null;
   // Read through a call: a cancel lands while the import awaits.
   const isCancelRequested = () => restoreState === 'cancel';
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
@@ -141,7 +144,10 @@ export function createVaultMock(): SecureVault & {
         entries: backup.strings.size + backup.files.size + backup.extras.length,
       };
     },
-    async importBackup(sourcePath, passphrase, extraDir, stagingDir) {
+    async importBackup(sourcePath, passphrase, extraDir, stagingDir, runId) {
+      currentRun = runId;
+      restoreState = pendingCancel === runId ? 'cancel' : 'open';
+      pendingCancel = null;
       try {
         this.lastImport = { sourcePath, extraDir, stagingDir };
         const backup = backups.get(sourcePath);
@@ -175,14 +181,21 @@ export function createVaultMock(): SecureVault & {
         return { entries: total - 1, extras };
       } finally {
         restoreState = 'open';
+        lastEndedRun = runId;
+        currentRun = null;
       }
     },
     emitProgress(progress) {
       emit(progress);
     },
-    cancelRestore() {
-      if (restoreState === 'committed') return false;
-      restoreState = 'cancel';
+    cancelRestore(runId) {
+      if (currentRun !== null) {
+        if (runId !== currentRun || restoreState === 'committed') return false;
+        restoreState = 'cancel';
+        return true;
+      }
+      if (runId === lastEndedRun) return false;
+      pendingCancel = runId;
       return true;
     },
     async dismissShareSheet() {
@@ -250,6 +263,9 @@ export function createVaultMock(): SecureVault & {
     },
     reset() {
       restoreState = 'open';
+      currentRun = null;
+      lastEndedRun = null;
+      pendingCancel = null;
       excluded.clear();
       strings = new Map();
       files = new Map();
