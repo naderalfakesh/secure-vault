@@ -334,8 +334,9 @@ disabled until it ends.
 
 - Decrypted previews, rendered PDF pages, share copies, and undo copies live
   in the app's cache directory while a screen needs them. The cache is swept
-  when the vault locks, when the app is deleted, and on the share sheet's and
-  the undo window's own timers.
+  when the vault locks, at a launch that lands on setup or on the
+  "unavailable" screen instead of the lock screen, when the app is deleted,
+  and on the share sheet's and the undo window's own timers.
 - Decrypted images are shown through one image component that keeps them in
   the image library's memory cache only, never its disk cache; a lint rule
   refuses the library's own image component anywhere else in the app. The

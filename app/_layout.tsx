@@ -12,13 +12,10 @@ import { IconButton, ToastProvider, useToast } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { SplashHandoff } from '@/features/session/SplashHandoff';
-import { clearCopiedText } from '@/features/viewer/clipboard';
+import { useVaultSweep } from '@/features/session/useVaultSweep';
 import { t } from '@/i18n';
-import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
 import { loadAppearance } from '@/theme/appearance';
-
-import vault from '../modules/expo-vault';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Already hidden during a fast refresh; nothing to do.
@@ -51,20 +48,12 @@ function RootNavigator() {
       .finally(() => setThemed(true));
   }, []);
 
+  // Every decrypted preview, rendered page, and share copy goes when the
+  // vault locks, whichever path locked it, and at a launch that does not
+  // land on the lock screen.
+  useVaultSweep(status);
   useEffect(() => {
-    // Every decrypted preview, rendered page, and share copy goes when the
-    // vault locks, whichever path locked it.
-    if (status === 'locked') {
-      toast.hide();
-      // F7: a share sheet left up (iOS) closes with the vault, before its copy
-      // goes, so it never sits over the lock screen offering a deleted file.
-      vault.dismissShareSheet().catch(() => false);
-      documentService.clearCache().catch(() => {});
-      // Backup ciphertext too: finished containers and the picker's copies.
-      backupService.sweepCache();
-      // Document text the viewer copied, unless something else was copied since.
-      void clearCopiedText();
-    }
+    if (status === 'locked') toast.hide();
   }, [status, toast]);
 
   // A lock that cut a share short brings the user back to that document's
