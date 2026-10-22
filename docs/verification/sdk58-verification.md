@@ -167,9 +167,8 @@ gate unmounting the screen: a save that settled then showed a toast, and the
 lock cleared it. The add screen now checks whether its session ended.
 
 Item 9: the new marker was checked against the AGP 8 `build.gradle` of an
-older worktree (`sv-qa-batch5`): one block after the rewrite, no
-`packagingOptions`, the rest of the file unchanged, and a second run changes
-nothing. Not run through `expo prebuild`.
+older checkout: one block after the rewrite, no `packagingOptions`, the
+rest of the file unchanged, and a second run changes nothing. Not run through `expo prebuild`.
 
 Not changed:
 

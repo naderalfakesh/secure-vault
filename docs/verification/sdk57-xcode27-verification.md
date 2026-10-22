@@ -40,7 +40,7 @@ upgrade target is the 57.0.27 patch, not SDK 58.
   the SQLCipher settings, and the backup format are as they were.
 - `plugins/withSqlCipherOpenSsl.js` added and registered after `expo-sqlite`.
   The first Android build of this change, made from the repository's new home
-  under `/Volumes/Samsung SSD 990 2TB`, produced an APK without
+  on a path with spaces, produced an APK without
   `lib/<abi>/libcrypto.so`, and `libexpo-sqlite.so` then failed to load
   (`NoClassDefFoundError: expo.modules.sqlite.NativeDatabaseBinding`).
   `expo-sqlite` declares the OpenSSL prefab package `compileOnly` and relies

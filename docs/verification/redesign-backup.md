@@ -140,8 +140,7 @@ tests for these pass unchanged or with their labels renamed.
 
 ## Tests
 
-- Native host harnesses (outside the repo, in
-  `/Volumes/Samsung SSD 990 2TB/projects/_build/cryptoNoteVault/redesign-backup/harness/`):
+- Native host harnesses (outside the repository, with the local build files):
   each compiles the worktree's own `BackupContainer` and `VaultCrypto`
   unmodified (Kotlin on the JVM with openjdk 17, Swift as a Mac Catalyst
   binary), writes a real 5-entry container and restores it. Both failed to

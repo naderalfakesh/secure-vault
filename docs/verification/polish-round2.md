@@ -129,7 +129,7 @@ listed for native QA.
 | L4 stalled content provider                                       | 8 s timeout (`IMPORT_COPY_TIMEOUT`); a copy that settles later is removed then                                 | `2f43c2b` |
 | L5 ML Kit wording                                                 | One disclosure everywhere, never "anonymous" (owner keeps ML Kit)                                              | `5148344` |
 
-The harness rerun (`t_131b87be/logs-polish2-r1/`) gives 0 FAIL on the JVM
+The harness rerun gives 0 FAIL on the JVM
 and Catalyst, with 0 parity differences. In the disk rows the pre-wipe bound
 for G-and is now 208 bytes, against 924 190 before. A new
 `writable-excludes-own-cache` unit row passes. The Android
@@ -141,12 +141,12 @@ for G-and is now 208 bytes, against 924 190 before. A new
   suites, expo-doctor 20/20. New or changed tests cover every fixed item
   except M1 (harness) and L2 (measurement). Each one was seen failing before
   its fix, except the path-message test, which was written with its fix.
-- T7b host harness (`securevault-evidence/t_131b87be/harness`), updated for
+- T7b host harness (kept with the local QA evidence, outside the repository), updated for
   the new `scratch` field and `checkSpace` signature. `run_all.sh` takes
   `T7B_SRC` and `T7B_LOGS`, and the originals are kept as `*.t7b-orig`. It
   was built from this worktree's unmodified `BackupContainer` and
   `VaultCrypto` sources on the JVM (openjdk 17) and as a Mac Catalyst binary.
-  Logs are in `t_131b87be/logs-polish2/`. Results: 0 FAIL on both, 57 rows
+  Results: 0 FAIL on both, 57 rows
   and 28 digests with 0 parity differences, and 27 of 28 recorded exports
   pass the pre-pass on both. The disk rows are now: no space, one byte short,
   exact, old vault frees the rest, old vault alone (`BACKUP_NO_SPACE`, L1),

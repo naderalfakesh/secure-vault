@@ -113,9 +113,9 @@ and are provisional until the S-s fixtures measure them.
     32 MiB of whitespace are `BACKUP_RESOURCE` before the KDF at a 40 MiB heap
     or a 16 MiB figure, and restore otherwise, because no cap applies.
   - The pre-pass rules ran over all 25 `.svbackup` files recorded in earlier
-    QA export folders. 24 pass on both platforms. The one refusal is
-    `t_2b51b750/qa/exports/i-export-1`, a QA-seeded vault with no index
-    entries, which `292506f` already refused.
+    QA export folders. 24 pass on both platforms. The one refusal is an
+    earlier QA export of a QA-seeded vault with no index entries, which
+    `292506f` already refused.
   - The 32 T1/T2 and 24 T7a fixtures give the same codes on both readers.
     The T1/T2 control still restores. T7a's 400 MiB `hdr-len-large` depends
     on memory alone: `BACKUP_RESOURCE` at a 1 GiB heap or a 100 MB figure,
@@ -128,9 +128,9 @@ and are provisional until the S-s fixtures measure them.
   iOS Debug simulator build ended in `** BUILD SUCCEEDED **`, and the vault's
   only warning is the existing `kSecUseAuthenticationUIFail` deprecation.
 
-Harness sources, fixture generator, `INDEX.tsv`, `SHA256SUMS` and logs are in
-`securevault-evidence/t_131b87be/`. `harness/run_all.sh` rebuilds and reruns
-everything.
+Harness sources, fixture generator, `INDEX.tsv`, `SHA256SUMS` and logs are
+kept with the local QA evidence, outside the repository. `harness/run_all.sh`
+there rebuilds and reruns everything.
 
 ## Not verified
 
