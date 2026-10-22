@@ -115,3 +115,40 @@ failing test first:
 - Info (`1ebe28c`): a Change PIN call while another attempt runs answers
   `busy`, and the screen goes back to the confirmation step instead of
   resetting.
+
+## R8 and ML Kit registrars (device finding)
+
+On the Pixel 9 the release APK (R8 on) rejected "Scan with the camera" with
+a `NullPointerException` and text reading on imports returned nothing. A
+dexdump of that APK showed `CommonComponentRegistrar`,
+`VisionCommonRegistrar` and `TextRegistrar` kept without their no-argument
+constructor and `ComponentRegistrar` renamed. Firebase's component discovery
+creates the registrars by reflection from the manifest names, so
+`MlKitContext` got no components.
+
+`plugins/withSecureVault.js` now appends:
+
+```
+-keep class * implements com.google.firebase.components.ComponentRegistrar { void <init>(); }
+-keep,allowshrinking interface com.google.firebase.components.ComponentRegistrar
+```
+
+Evidence from `assembleRelease -Pandroid.enableMinifyInReleaseBuilds=true`
+(JDK 17), `mapping/release/` and dexdump:
+
+- `seeds.txt` lists the three registrars with their constructors and the
+  interface; `mapping.txt` maps each to itself.
+- dexdump: every class implementing
+  `com.google.firebase.components.ComponentRegistrar` (the three above, the
+  same three the manifest names) has `<init>()`. The document scanner AAR
+  has no registrar of its own; it goes through the ML Kit common and vision
+  common ones.
+- Already safe without new rules: `ScanOptions` keeps `quality`, `maxPages`
+  and their `@Field` annotations (expo-modules-core's Record rules); the
+  scanner module is renamed, which is fine because the generated package
+  list references it by class; `TextRecognitionModule`, the expo-sqlite JNI
+  bindings, the scanner's delegate activity and the vault module keep their
+  names; the ML Kit AARs ship their own consumer rules.
+
+`npm run validate` exits 0 (838 tests, expo-doctor 20/20). Not verified:
+the scan and text reading on the phone itself.
