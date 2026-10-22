@@ -27,6 +27,7 @@ import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
 import { t } from '@/i18n';
+import { textScale } from '@/theme/tokens';
 
 export default function LockScreen() {
   const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
@@ -105,52 +106,72 @@ export default function LockScreen() {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       {/* The header takes what the keypad leaves; on a short window or at large
-        text it scrolls instead of sliding under the keys. */}
-      <ScrollView
-        style={styles.heroScroll}
-        contentContainerStyle={styles.hero(compact)}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-        testID="lock-header"
-      >
-        <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
-        <Text variant="title2" align="center" accessibilityRole="header" style={styles.title}>
-          {title}
-        </Text>
-        <View
-          style={styles.subtitle}
-          accessible
-          accessibilityRole={alerting ? 'alert' : undefined}
-          accessibilityLiveRegion={alerting ? 'assertive' : 'polite'}
-          accessibilityLabel={subtitle}
+        text it scrolls instead of sliding under the keys. The dots sit below
+        it, outside the scroll, so they are always on screen (AX5). */}
+      <View style={styles.top}>
+        <ScrollView
+          style={styles.heroScroll}
+          contentContainerStyle={styles.hero(compact)}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          testID="lock-header"
         >
-          {alerting ? <Icon name="warning" size={16} tone="danger" /> : null}
+          <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
+          {/* Capped, and fitted so no word breaks: at AX5 it was clipped mid-word. */}
           <Text
-            variant="subheadline"
-            tone={alerting ? 'danger' : 'secondary'}
+            variant="title2"
             align="center"
-            style={styles.subtitleText}
+            accessibilityRole="header"
+            maxFontSizeMultiplier={textScale.barTitleMax}
+            style={styles.title}
           >
-            {subtitle}
+            {title}
           </Text>
-        </View>
+          <View
+            style={styles.subtitle}
+            accessible
+            accessibilityRole={alerting ? 'alert' : undefined}
+            accessibilityLiveRegion={alerting ? 'assertive' : 'polite'}
+            accessibilityLabel={subtitle}
+          >
+            {alerting ? <Icon name="warning" size={16} tone="danger" /> : null}
+            <Text
+              variant="subheadline"
+              tone={alerting ? 'danger' : 'secondary'}
+              align="center"
+              maxFontSizeMultiplier={textScale.barTitleMax}
+              fit
+              style={styles.subtitleText}
+            >
+              {subtitle}
+            </Text>
+          </View>
+        </ScrollView>
         <View
           style={[styles.dots(compact), lockedOut && styles.dimmed]}
           accessibilityElementsHidden={lockedOut}
           importantForAccessibility={lockedOut ? 'no-hide-descendants' : 'auto'}
+          testID="lock-dots"
         >
           {/* A lockout shows empty dimmed dots (the Lock board), not the last wrong PIN's red. */}
           <PinDots filled={lockedOut ? 0 : pin.length} error={flash && !lockedOut} shake={shake} />
         </View>
         {security.isSecure ? null : (
-          <View style={styles.banner} accessibilityRole="alert">
-            <Icon name="warning" size={16} tone="warning" />
-            <Text variant="caption" tone="secondary" style={styles.bannerText}>
-              {t('lock.insecureDevice')}
-            </Text>
-          </View>
+          <ScrollView
+            style={styles.heroScroll}
+            contentContainerStyle={styles.bannerArea}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.banner} accessibilityRole="alert">
+              <Icon name="warning" size={16} tone="warning" />
+              <Text variant="caption" tone="secondary" style={styles.bannerText}>
+                {t('lock.insecureDevice')}
+              </Text>
+            </View>
+          </ScrollView>
         )}
-      </ScrollView>
+      </View>
       <PinPad
         onKey={(key) => {
           setWrong(false);
@@ -186,13 +207,17 @@ export default function LockScreen() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  heroScroll: {
+  top: {
     flex: 1,
+  },
+  // Only as tall as its content, and shrinks (then scrolls) when space is short.
+  heroScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   hero: (compact: boolean) => ({
     alignItems: 'center',
     paddingTop: compact ? theme.spacing.lg : theme.spacing.xxxl,
-    paddingBottom: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
   }),
   title: {
@@ -211,15 +236,21 @@ const styles = StyleSheet.create((theme) => ({
   },
   dots: (compact: boolean) => ({
     marginTop: compact ? theme.spacing.lg : 36,
+    marginBottom: theme.spacing.md,
+    flexShrink: 0,
   }),
   dimmed: {
     opacity: 0.35,
+  },
+  bannerArea: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.xs,
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.xs,
     padding: theme.spacing.sm,
     borderRadius: theme.radii.md,
     backgroundColor: theme.colors.warningMuted,

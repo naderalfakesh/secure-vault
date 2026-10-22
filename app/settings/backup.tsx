@@ -13,6 +13,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import { textScale } from '@/theme/tokens';
 
 /**
  * "Choose another file" opens the picker only once the restore sheet's modal
@@ -199,7 +200,12 @@ export default function BackupScreen() {
           <View style={styles.cardIcon}>
             <Icon name="archive" size={22} tone="accent" />
           </View>
-          <Text variant="title3" accessibilityRole="header">
+          {/* Capped: at AX5 its longest word did not fit and broke mid-word. */}
+          <Text
+            variant="title3"
+            accessibilityRole="header"
+            maxFontSizeMultiplier={textScale.barTitleMax}
+          >
             {copy['hub.card.title']}
           </Text>
           <Text variant="subheadline" tone="secondary">

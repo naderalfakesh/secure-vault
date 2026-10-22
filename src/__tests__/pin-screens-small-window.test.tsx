@@ -71,9 +71,13 @@ describe('PIN screens on short windows (M3)', () => {
     expect(view.getByRole('button', { name: '5' })).toHaveStyle({ width: 60, height: 60 });
     const header = view.getByTestId('lock-header');
     expect(header.type).toBe('RCTScrollView');
-    // The title, subtitle, and dots sit in the scrollable header, not under the pad.
+    // The title and subtitle sit in the scrollable header, not under the pad;
+    // the dots sit below it, outside the scroll, so they never scroll away (AX5).
     expect(header).toContainElement(view.getByText('SecureVault is locked'));
-    expect(header).toContainElement(view.getByLabelText('0 of 6 digits entered'));
+    expect(header).not.toContainElement(view.getByLabelText('0 of 6 digits entered'));
+    expect(view.getByTestId('lock-dots')).toContainElement(
+      view.getByLabelText('0 of 6 digits entered'),
+    );
   });
 
   it('shrinks the setup keypad at 411 × 648 dp', async () => {
