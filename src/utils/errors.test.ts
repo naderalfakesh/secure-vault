@@ -17,6 +17,17 @@ describe('plainErrorMessage', () => {
     expect(plainErrorMessage(invalidated, 'x')).toBe(KEY_INVALIDATED_MESSAGE);
   });
 
+  it("names an index SQLite cannot read plainly instead of SQLite's text", () => {
+    for (const message of [
+      'file is not a database',
+      'Error code 26: file is encrypted or is not a database',
+    ]) {
+      expect(plainErrorMessage(new Error(message), 'x')).toBe(
+        'The document index could not be opened, so it stays closed. Nothing was changed.',
+      );
+    }
+  });
+
   it("keeps the app's own sentences and falls back when there is none", () => {
     expect(plainErrorMessage(new Error('Give the document a title.'), 'x')).toBe(
       'Give the document a title.',

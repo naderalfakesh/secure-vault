@@ -13,6 +13,8 @@ export const errors = {
     'The key for the document index is missing, so the index cannot be opened. Nothing was changed.',
   'errors.index.nameUnreadable':
     'The document index could not be found, so it stays closed. Nothing was changed. Try again.',
+  'errors.index.notOpened':
+    'The document index could not be opened, so it stays closed. Nothing was changed.',
   'errors.index.noCipher':
     'This build cannot encrypt the document index, so it stays closed. Nothing was written.',
   'errors.index.erasing':

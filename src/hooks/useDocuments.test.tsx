@@ -65,7 +65,9 @@ describe('useDocuments', () => {
     });
 
     await waitFor(() => expect(view.getByTestId('count')).toHaveTextContent('0'));
-    expect(view.getByTestId('error')).not.toHaveTextContent(/^$/);
+    expect(view.getByTestId('error')).toHaveTextContent(
+      'The document index could not be opened, so it stays closed. Nothing was changed.',
+    );
     opens.mockImplementation(jest.requireActual('@/data/testing/betterSqlite').openTestDatabase);
     await closeDocumentStore().catch(() => {});
   });
