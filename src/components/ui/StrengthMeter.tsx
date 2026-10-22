@@ -12,8 +12,14 @@ export type StrengthMeterProps = {
   testID?: string;
 };
 
+/**
+ * The empty track. `borderStrong`, not `surfaceMuted`: on a solid dark sheet
+ * (Reduce Transparency) the muted surface is all but the sheet's own colour.
+ */
+const TRACK: keyof Palette = 'borderStrong';
+
 const levelColor: Record<PassphraseStrength, keyof Palette> = {
-  0: 'surfaceMuted',
+  0: TRACK,
   1: 'danger',
   2: 'warning',
   3: 'success',
@@ -42,7 +48,7 @@ export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
             testID={`strength-segment-${segment}`}
             style={[
               styles.segment,
-              { backgroundColor: segment <= strength ? color : theme.colors.surfaceMuted },
+              { backgroundColor: segment <= strength ? color : theme.colors[TRACK] },
             ]}
           />
         ))}

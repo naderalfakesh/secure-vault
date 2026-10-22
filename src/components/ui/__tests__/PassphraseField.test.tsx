@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 
-import { lightColors } from '@/theme/colors';
+import { darkColors, lightColors } from '@/theme/colors';
 
 import { OnGlassContext } from '../Glass';
 import { PassphraseField } from '../PassphraseField';
@@ -115,7 +115,28 @@ describe('StrengthMeter', () => {
       backgroundColor: lightColors.danger,
     });
     expect(view.getByTestId('strength-segment-2', hidden)).toHaveStyle({
-      backgroundColor: lightColors.surfaceMuted,
+      backgroundColor: lightColors.borderStrong,
     });
+  });
+
+  it('keeps the empty track visible on a solid sheet in both themes', () => {
+    // WCAG relative luminance contrast between the track and the sheet.
+    const luminance = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => {
+        const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const contrast = (a: string, b: string) => {
+      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    for (const palette of [lightColors, darkColors]) {
+      expect(contrast(palette.borderStrong, palette.surfaceElevated)).toBeGreaterThan(
+        contrast(palette.surfaceMuted, palette.surfaceElevated),
+      );
+      expect(contrast(palette.borderStrong, palette.surfaceElevated)).toBeGreaterThanOrEqual(1.4);
+    }
   });
 });
