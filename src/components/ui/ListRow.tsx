@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { Pressable, type PressableProps, View } from 'react-native';
 import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
@@ -81,9 +81,11 @@ export function ListRow({
   // is squeezed into a sliver of the row.
   const stacked = useLargeText();
   const isDestructive = destructive ?? tone === 'danger';
-  // A switch row toggles from its switch, or from a screen reader's activation
-  // of the row; a tap elsewhere on the row does nothing, as in system settings.
+  // A switch row toggles from a tap anywhere on it, its label included, or
+  // from a screen reader's activation of the row.
   const handlePress = toggle ? undefined : onPress;
+  // A screen reader's activation may arrive both as the action and as a press.
+  const lastActivation = useRef(0);
   const isPressable = Boolean(handlePress) && !disabled;
   const isRadio = checked !== undefined;
   const tileTint =
@@ -100,9 +102,14 @@ export function ListRow({
   if (trailing !== undefined) {
     accessory = trailing;
   } else if (toggle) {
-    // The row is the one accessible switch; the native one would be a second stop.
+    // The row is the one accessible switch; the native one would be a second
+    // stop, and a second touch target that could toggle twice with the row.
     accessory = (
-      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
+      >
         <Switch
           value={toggle.value}
           onValueChange={toggle.onValueChange}
@@ -154,23 +161,34 @@ export function ListRow({
   );
 
   if (toggle) {
+    const flip = () => {
+      if (!disabled) toggle.onValueChange(!toggle.value);
+    };
     return (
-      <View
+      <Pressable
         accessible
         accessibilityRole="switch"
         accessibilityLabel={label}
         accessibilityState={{ disabled: Boolean(disabled), checked: toggle.value }}
         accessibilityActions={[{ name: 'activate' }]}
         onAccessibilityAction={(event) => {
-          if (event.nativeEvent.actionName === 'activate' && !disabled) {
-            toggle.onValueChange(!toggle.value);
-          }
+          if (event.nativeEvent.actionName !== 'activate') return;
+          lastActivation.current = Date.now();
+          flip();
         }}
+        onPress={() => {
+          if (Date.now() - lastActivation.current < 500) return;
+          flip();
+        }}
+        disabled={Boolean(disabled)}
         testID={props.testID}
-        style={styles.row(Boolean(subtitle), showDivider)}
+        style={({ pressed }) => [
+          styles.row(Boolean(subtitle), showDivider),
+          pressed && !disabled && styles.pressed,
+        ]}
       >
         {body}
-      </View>
+      </Pressable>
     );
   }
 

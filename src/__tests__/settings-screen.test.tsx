@@ -87,6 +87,27 @@ describe('Settings', () => {
     expect(stored.biometricUnlock).toBe(false);
   });
 
+  it.each([
+    ['Face ID', 'Face ID', 'biometricUnlock'],
+    ['Privacy cover', 'Privacy cover', 'privacyScreen'],
+    ['Confirm before sharing', 'Confirm before sharing', 'biometricsForShare'],
+  ] as const)('toggles %s from a tap on its label, as a switch', async (name, label, key) => {
+    const view = await renderUnlocked('settings');
+    const row = await view.findByRole('switch', { name: new RegExp(`^${name}`) });
+    const before = session.settings[key];
+
+    await act(async () => {
+      await fireEvent.press(view.getByText(label));
+    });
+
+    await waitFor(() => expect(session.settings[key]).toBe(!before));
+    expect(view.getByRole('switch', { name: new RegExp(`^${name}`) })).toHaveProp(
+      'accessibilityState',
+      expect.objectContaining({ checked: !before }),
+    );
+    expect(row).toBeOnTheScreen();
+  });
+
   it('disables the Face ID row with the reason when Face ID is not set up', async () => {
     jest.spyOn(LocalAuthentication, 'isEnrolledAsync').mockResolvedValue(false);
     const view = await renderUnlocked('settings');

@@ -37,20 +37,43 @@ describe('ListRow', () => {
     expect(onValueChange).toHaveBeenCalledWith(true);
   });
 
-  it('toggles from the switch itself, not from a tap elsewhere on the row', async () => {
+  it('toggles from a tap anywhere on the row, its label included', async () => {
     const onValueChange = jest.fn();
     const view = await render(
-      <ListRow title="Privacy cover" toggle={{ value: true, onValueChange }} />,
+      <ListRow
+        title="Privacy cover"
+        subtitle="Hides the app in the switcher"
+        toggle={{ value: true, onValueChange }}
+      />,
     );
 
     await fireEvent.press(view.getByText('Privacy cover'));
-    expect(onValueChange).not.toHaveBeenCalled();
-    await fireEvent(
-      view.getByTestId('list-row-switch', { includeHiddenElements: true }),
-      'valueChange',
-      false,
+    expect(onValueChange).toHaveBeenLastCalledWith(false);
+    await fireEvent.press(view.getByText('Hides the app in the switcher'));
+    expect(onValueChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('toggles once when a screen reader activation also arrives as a press', async () => {
+    const onValueChange = jest.fn();
+    const view = await render(
+      <ListRow title="Privacy cover" toggle={{ value: false, onValueChange }} />,
     );
-    expect(onValueChange).toHaveBeenCalledWith(false);
+    const row = view.getByRole('switch', { name: 'Privacy cover' });
+
+    await fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    await fireEvent.press(row);
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a tap while disabled', async () => {
+    const onValueChange = jest.fn();
+    const view = await render(
+      <ListRow title="Face ID" disabled toggle={{ value: false, onValueChange }} />,
+    );
+
+    await fireEvent.press(view.getByText('Face ID'));
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(view.getByRole('switch', { name: 'Face ID' })).toBeDisabled();
   });
 
   it('ignores a screen reader toggle while disabled', async () => {
