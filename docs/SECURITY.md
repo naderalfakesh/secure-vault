@@ -187,7 +187,11 @@ that did not is a first run, exactly as before markers existed.
 
 ### Backup key
 
-A backup is the only way the whole vault leaves the device. Its key is
+A passphrase backup is the only way the whole vault leaves the device in a
+form that can be opened elsewhere. (On iOS the vault's ciphertext in
+`Documents` is also included in iCloud and iTunes device backups, but the
+device key is not, so those copies cannot be decrypted; restoring one to a
+new phone is untested. See "Honest limits".) Its key is
 derived from a passphrase the user types twice, with PBKDF2-HMAC-SHA256 at
 600 000 iterations and a fresh 16-byte salt written into the file header. The
 key exists only while the module encrypts or decrypts the entries and is never
@@ -319,7 +323,7 @@ ends while the app is still away and has outlived its bound excuses nothing.
 The whole trip since the app left under it is judged against auto-lock right
 then and again on the return. Only a pause that ends within its bound excuses
 the time it covered. The privacy
-screen blurs the app in the switcher and blocks screenshots and recording
+screen puts a solid cover over the app in the switcher (not a blur) and blocks screenshots and recording
 while unlocked. Sharing can require a second biometric check.
 
 A share sheet is system UI and would open over the lock screen, so the app
@@ -353,7 +357,9 @@ disabled until it ends.
 ## What touches the disk unencrypted
 
 - Decrypted previews, rendered PDF pages, share copies, and undo copies live
-  in the app's cache directory while a screen needs them. The cache is swept
+  in the app's cache directory. The viewer's decrypted pages are not removed
+  when the viewer closes: they stay until the vault locks, so reopening a
+  document is quick. The cache is swept
   when the vault locks, at a launch that lands on setup or on the
   "unavailable" screen instead of the lock screen, when the app is deleted,
   and on the share sheet's and the undo window's own timers.
@@ -467,8 +473,9 @@ disabled until it ends.
   the vault module has opened it, so that save fails (and says so after the
   next unlock) rather than leaving the copy. Google Play services keeps its
   own copy of scanned pages until the ML Kit client asks it to clean up; that
-  copy is outside the app's storage. These removals are checked by tests;
-  the native QA pass on a simulator and an emulator is still owed.
+  copy is outside the app's storage. These removals are checked by tests,
+  and the import cleanup passed native QA on an iOS simulator and an Android
+  emulator (`docs/verification/hardening-and-residue-verification.md`).
 - OCR text is stored only inside the encrypted index.
 - "Copy text" in the viewer puts a document's extracted text on the system
   clipboard, which other apps can read. On iOS it is copied local-only (not
@@ -531,6 +538,9 @@ SecureVault does not use, and the bundled and unbundled models log alike.
   Keychain itself; no dedicated key hardware generates or holds this key.
 - A device backup (iCloud, Google) does not include the device key, so the
   vault does not restore from it. That is intended: the passphrase backup is
-  the supported path.
+  the supported path. On iOS the vault's entries are ciphertext in
+  `Documents`, which iCloud and iTunes device backups include; without the
+  device key they cannot be decrypted. Restoring such a device backup to a
+  new phone has not been tested.
 - The heuristic that suggests titles and dates runs on extracted text on the
   device; nothing is uploaded to a model.
