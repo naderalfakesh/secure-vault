@@ -6,15 +6,16 @@ F10). F2, an iOS Keychain re-prompt that only a device can show, is left for
 the device run.
 
 Nothing changes in the backup format, the crypto or the keys' parameters.
-One native change is new: three iOS functions in the vault module for the
-reinstall check (F9). No simulator, emulator or device was used and nothing
+The native changes are new vault module functions: three iOS ones for the
+reinstall check (F9) and `clipboardStamp` on both platforms (F1, review
+round). No simulator, emulator or device was used and nothing
 native was built (see "Not verified").
 
 ## Fixes
 
 | Item | Change                                                                                                                                                                                                                                                                                                                       | Commit                                                |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| F1   | "Copy text" uses expo-clipboard 58's options: iOS `localOnly` with a 2-minute `expiresAt`, Android `isSensitive`. A lock empties the clipboard when it still holds that text (compared by SHA-256 digest); anything copied since is left alone.                                                                              | `7a0ab87`                                             |
+| F1   | "Copy text" uses expo-clipboard 58's options: iOS `localOnly` with a 2-minute `expiresAt`, Android `isSensitive`. A lock empties the clipboard when it still holds that text; anything copied since is left alone. After review, judged by the clipboard's change stamp (`e266b45`) instead of reading the text.             | `7a0ab87`                                             |
 | F7   | Change PIN judges the current PIN against the lock screen's lockout, one attempt at a time; a wrong one counts, and a running pause returns `locked-out` without checking. The device unlock still opens the vault and resets the count.                                                                                     | `9fc537c`                                             |
 | F8   | The lock sweep moved into `useVaultSweep`, which also sweeps the caches once at a launch that lands on `setup` or `unavailable`.                                                                                                                                                                                             | `ed64f52`                                             |
 | F9   | iOS: a UserDefaults flag (`com.naderalfakesh.securevault.installed`). Without it, Keychain items with no vault entries, index file or PIN markers on disk are a reinstall: the device key and the five secure-store entries are deleted and launch goes to onboarding. Files on disk mean an update, and everything is kept. | `02a5b7f`                                             |
@@ -50,7 +51,7 @@ Each fix has a test that failed before it:
 - `DocumentService.test.ts` and `BackupService.test.ts`: share copies and
   finished backups go through `removeTreeNoFollow`.
 
-`npm run validate` exits 0: prettier, eslint, tsc, 795 Jest tests in 85
+`npm run validate` exits 0: prettier, eslint, tsc, 799 Jest tests in 85
 suites, expo-doctor 20/20.
 
 ## Screenshots (F3)
@@ -71,8 +72,9 @@ keeps its earlier screenshots until a clean set is captured.
 
 ## Native checks for the device handoff
 
-1. iOS build compiles the new `hasInstallMarker`, `setInstallMarker` and
-   `deleteDeviceKey` functions.
+1. iOS build compiles the new `hasInstallMarker`, `setInstallMarker`,
+   `deleteDeviceKey` and `clipboardStamp` functions; Android compiles
+   `clipboardStamp`.
 2. iOS reinstall: set up a vault, delete the app, reinstall: onboarding, no
    old lock screen, and a new setup works.
 3. iOS update: install the previous build with documents, install this
@@ -80,10 +82,11 @@ keeps its earlier screenshots until a clean set is captured.
 4. iOS, launch before the first unlock after a reboot: no data is cleared and
    the next launch decides.
 5. Copy text on iOS: not offered on a Mac through Universal Clipboard, gone
-   after 2 minutes, gone after a lock. Note whether the lock's clipboard read
-   shows the paste prompt when another app copied something meanwhile.
-6. Copy text on Android 13+: no clipboard preview, gone after a lock, kept
-   when something else was copied after it.
+   after 2 minutes, gone after a lock, and no "Allow Paste" prompt at the
+   lock when another app copied something meanwhile (that copy is kept).
+6. Copy text on Android 13+: no clipboard preview, gone after a lock, no
+   "pasted from your clipboard" toast, and kept when something else was
+   copied after it.
 7. Change PIN: five wrong current PINs pause it and the lock screen; the
    device unlock still opens the vault.
 8. A launch that lands on setup or "unavailable" leaves no decrypted files
@@ -94,3 +97,21 @@ keeps its earlier screenshots until a clean set is captured.
 11. A device build and an App Store archive with the ML Kit patch, plus a
     signed Android release APK.
 12. A clean screenshot set (no Tools bubble, no QA titles) for the README.
+
+## Review round
+
+The review approved with one Medium and three smaller items, fixed with a
+failing test first:
+
+- Medium F1 (`e266b45`): the lock no longer reads the clipboard, which
+  showed iOS's "Allow Paste" prompt or Android 12's toast when another app
+  had copied since. `clipboardStamp` (iOS `changeCount`, Android 8+ primary
+  clip timestamp) is noted after the copy, and the lock clears only while it
+  is unchanged; an unknown stamp leaves the clipboard alone.
+- Low (`df97168`): the reinstall check deletes the secure-store entries
+  first and the device key last, so a run cut short never leaves a PIN
+  without its key and the next launch finishes. Comments note that `.exists`
+  reads false on a stat error and the entry listing is the deciding check.
+- Info (`1ebe28c`): a Change PIN call while another attempt runs answers
+  `busy`, and the screen goes back to the confirmation step instead of
+  resetting.
