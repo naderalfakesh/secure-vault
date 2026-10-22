@@ -18,8 +18,9 @@ also asks to reuse Nadir Wallet's PIN hashing rather than write new crypto.
 
 ### One session owner
 
-`SessionProvider` holds a single status: `loading`, `setup`, `locked`, or
-`unlocked`. The root layout wraps route groups in `Stack.Protected` guards
+`SessionProvider` holds a single status: `loading`, `setup`, `locked`,
+`unlocked`, or `unavailable` (the device key or the PIN record could not be
+read, so nothing is decided; see `docs/SECURITY.md`). The root layout wraps route groups in `Stack.Protected` guards
 keyed on that status, so document routes do not exist in the navigator while
 locked and no navigation call can reach them. Locking is a state change, not a
 redirect.
@@ -52,21 +53,29 @@ the vault's device key has been authenticated. The salt comes from
 record, not a substitute for the OS gate. The plan suggested hashing in
 native code; the JavaScript implementation was chosen because it is already
 tested in a sibling project, runs under Jest, and the stretched record never
-leaves the encrypted vault anyway. Moving it to the module remains an option
+leaves the device's secure store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`) anyway.
+Moving it to the module remains an option
 if profiling shows the JS thread stalls on low-end devices.
 
 ### Lockout
 
 Every fifth consecutive failure locks the keypad for 30 s, doubling each time
-up to an hour. The state is persisted in the vault so a relaunch does not
-reset it, and it is a pure module with tests (`src/features/auth/lockout.ts`).
+up to an hour. The state is persisted in the secure store next to the PIN
+record, read at launch before the lock screen takes a PIN and again before
+every attempt, and each attempt is judged against the stricter of the stored
+copy and the one in memory, so neither a relaunch nor a failed write resets
+it. A pause longer than its count earned is capped, and an unreadable state
+is a 30-second pause that ends on its own. Wrong current PINs in Change PIN
+count towards the same lockout. The device unlock still opens the vault and
+resets the count. The policy is a pure module with tests
+(`src/features/auth/lockout.ts`).
 
 ### Auto-lock and privacy
 
 - `AppState` transitions record when the app left the foreground; on return
   the session locks if the idle time exceeds the setting (immediately, 1, 5,
   15 minutes, or never). The default is one minute.
-- The privacy screen blurs the app while inactive and enables screen-capture
+- The privacy screen covers the app with a solid cover while inactive and enables screen-capture
   prevention while unlocked. Both follow one setting so a user who turns it
   off gets neither surprise.
 - An optional step-up asks for biometrics again before a decrypted file is
@@ -95,9 +104,14 @@ where the Keychain prompts on its own, is unaffected.
   "create vault" button.
 - The PIN record, lockout state, and settings live in the OS secure store,
   outside the vault, so the lock screen can read them before any prompt. A
-  vault whose device key exists but has no PIN record is treated as an
-  interrupted setup and starts over, which cannot lose data because nothing
-  was stored yet.
+  device key without a PIN record (the prototype's vault or an interrupted
+  setup) goes through setup, which keeps the key and every entry under it and
+  only adds a PIN. Because Android's secure store drops an entry it can no
+  longer decrypt, each record has a plain marker file (M1): a PIN record that
+  is gone while its marker says it was written is `unavailable`, never setup,
+  and its "Set a new PIN" asks for the device key's own gate first. On iOS a
+  reinstall's leftover Keychain items, found without the vault's files, are
+  cleared at launch so the app goes to onboarding.
 - Auto-lock pauses while a system picker, the camera, the scanner, or a
   step-up prompt is on screen; those send the app to the background without
   the user leaving it.
