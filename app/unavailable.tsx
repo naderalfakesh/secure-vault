@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, Platform, ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, Screen, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { clearLastBackup } from '@/features/backup/lastBackup';
-import { useSession } from '@/features/session/SessionProvider';
+import { type SessionContextValue, useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
@@ -22,8 +22,21 @@ import { documentService } from '@/services/DocumentService';
  * decrypted again: the plain sentence and "Delete everything" are then the
  * only way on, behind a native confirmation.
  */
+/** The device key's gate as this platform and phone name it. */
+function pinLostHint(biometry: SessionContextValue['biometry']): string {
+  if (Platform.OS === 'ios') {
+    if (biometry === 'faceId') return t('unavailable.pinLost.hint.faceId');
+    if (biometry === 'touchId') return t('unavailable.pinLost.hint.touchId');
+    return t('unavailable.pinLost.hint.passcode');
+  }
+  return biometry === 'none'
+    ? t('unavailable.pinLost.hint.screenLock')
+    : t('unavailable.pinLost.hint.biometrics');
+}
+
 export default function VaultUnavailableScreen() {
-  const { retry, pinLost, resetLostPin, keyInvalidated, eraseVault, error } = useSession();
+  const { retry, pinLost, resetLostPin, keyInvalidated, eraseVault, error, biometry } =
+    useSession();
   const [trying, setTrying] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [erasing, setErasing] = useState(false);
@@ -133,7 +146,7 @@ export default function VaultUnavailableScreen() {
           {pinLost ? t('unavailable.pinLost.body') : t('unavailable.body')}
         </Text>
         <Text variant="subheadline" tone="tertiary" align="center">
-          {pinLost ? t('unavailable.pinLost.hint') : t('unavailable.hint')}
+          {pinLost ? pinLostHint(biometry) : t('unavailable.hint')}
         </Text>
         {pinLost && error ? (
           <Text variant="subheadline" tone="danger" align="center">

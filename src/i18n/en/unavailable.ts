@@ -9,8 +9,12 @@ export const unavailable = {
   'unavailable.trying': 'Trying again…',
   'unavailable.pinLost.body':
     'SecureVault can’t read your PIN. Your documents are still there, encrypted with your phone’s key.',
-  'unavailable.pinLost.hint':
-    'Unlock with Face ID, your fingerprint or your phone’s passcode to set a new PIN.',
+  'unavailable.pinLost.hint.faceId': 'Unlock with Face ID or your passcode to set a new PIN.',
+  'unavailable.pinLost.hint.touchId': 'Unlock with Touch ID or your passcode to set a new PIN.',
+  'unavailable.pinLost.hint.passcode': 'Unlock with your passcode to set a new PIN.',
+  'unavailable.pinLost.hint.biometrics':
+    'Unlock with your fingerprint, face or screen lock to set a new PIN.',
+  'unavailable.pinLost.hint.screenLock': 'Unlock with your screen lock to set a new PIN.',
   'unavailable.pinLost.reset': 'Set a new PIN',
   'unavailable.pinLost.resetting': 'Unlocking…',
   'unavailable.keyInvalidated.hint':

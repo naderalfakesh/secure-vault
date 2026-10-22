@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
 import { File, Paths } from 'expo-file-system';
-import { Alert, Text } from 'react-native';
+import { Alert, Platform, Text } from 'react-native';
 
 import vault from '../../modules/expo-vault';
 import { hashPasscode } from '@/testing/passcode';
@@ -134,6 +134,34 @@ describe('Vault unavailable', () => {
 
     expect(await screen.findByText('Welcome')).toBeOnTheScreen();
   });
+
+  it.each([
+    ['ios', 'faceId', 'Unlock with Face ID or your passcode to set a new PIN.'],
+    ['ios', 'touchId', 'Unlock with Touch ID or your passcode to set a new PIN.'],
+    ['ios', 'none', 'Unlock with your passcode to set a new PIN.'],
+    [
+      'android',
+      'biometrics',
+      'Unlock with your fingerprint, face or screen lock to set a new PIN.',
+    ],
+    ['android', 'none', 'Unlock with your screen lock to set a new PIN.'],
+  ] as const)(
+    'names only %s’s own way to unlock (%s) for a lost PIN',
+    async (os, biometry, hint) => {
+      const platform = Platform.OS;
+      Platform.OS = os;
+      try {
+        jest.spyOn(vault, 'biometryType').mockResolvedValue(biometry);
+        new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
+        await SecureStore.deleteItemAsync('securevault.pin');
+        await renderRouter(routes, { initialUrl: '/' });
+
+        expect(await screen.findByText(hint)).toBeOnTheScreen();
+      } finally {
+        Platform.OS = platform;
+      }
+    },
+  );
 
   it('offers Delete everything as the way out when the lost PIN guards a key that can no longer decrypt', async () => {
     new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
