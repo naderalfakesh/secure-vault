@@ -9,6 +9,7 @@ import { AccessibilityInfo, Linking, Text } from 'react-native';
 
 import AddDocumentScreen from '../../app/documents/add';
 import vault from '../../modules/expo-vault';
+import * as scannerMock from '../../modules/expo-document-scanner/src/index.mock';
 import {
   queueScan,
   setCameraAvailable,
@@ -202,6 +203,66 @@ describe('Add a document: sources', () => {
 
     await waitFor(() => expect(picker.launchImageLibraryAsync).toHaveBeenCalledTimes(1));
     expect(picker.requestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('Add a document: source failures', () => {
+  const RAW =
+    "Call to function 'ExpoDocumentScanner.scanDocuments' has been rejected. → Caused by: java.lang.NullPointerException";
+
+  it.each([
+    [
+      'SCANNER_UNAVAILABLE',
+      'The document scanner isn’t available on this phone right now. Take a photo or import a file instead.',
+    ],
+    ['SCAN_FAILED', 'The scan didn’t finish. Try again, or take a photo instead.'],
+    ['NO_ACTIVITY', 'The document scanner couldn’t open. Try again, or take a photo instead.'],
+    [undefined, 'The document scanner couldn’t open. Try again, or take a photo instead.'],
+  ])('shows a plain sentence, never the native text, for a scanner %s', async (code, sentence) => {
+    jest
+      .spyOn(scannerMock, 'scanDocuments')
+      .mockRejectedValueOnce(Object.assign(new Error(RAW), code ? { code } : {}));
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: /Scan with the camera/ }));
+
+    await waitFor(() => expect(view.getByText(sentence)).toBeOnTheScreen());
+    expect(view.queryByText(/ExpoDocumentScanner|NullPointerException|rejected/)).toBeNull();
+  });
+
+  it.each([
+    ['Take a photo', 'launchCameraAsync', 'The camera couldn’t open. Try again in a moment.'],
+    [
+      'Choose from Photos',
+      'launchImageLibraryAsync',
+      'Photos couldn’t open. Try again in a moment.',
+    ],
+  ] as const)('keeps the native text out when %s fails', async (row, call, sentence) => {
+    picker[call].mockRejectedValueOnce(
+      new Error("Call to function 'ExponentImagePicker.launch' has been rejected. → Caused by: E"),
+    );
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: new RegExp(row) }));
+
+    await waitFor(() => expect(view.getByText(sentence)).toBeOnTheScreen());
+    expect(view.queryByText(/ExponentImagePicker|rejected/)).toBeNull();
+  });
+
+  it('keeps the native text out when the file picker fails', async () => {
+    pickDocument.mockRejectedValueOnce(
+      new Error('Different document picking in progress. Await other document picking first'),
+    );
+    const view = await renderScreen();
+
+    await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
+
+    await waitFor(() =>
+      expect(
+        view.getByText('That file couldn’t be opened. Try again, or choose another file.'),
+      ).toBeOnTheScreen(),
+    );
+    expect(view.queryByText(/document picking/)).toBeNull();
   });
 });
 

@@ -16,7 +16,16 @@ export const scan = {
   'scan.sources.cameraDenied':
     'Camera access is off for SecureVault. Turn it on in Settings to scan, or add a photo or file instead.',
   'scan.sources.openSettings': 'Open Settings',
-  'scan.sources.failed': 'Could not open that source.',
+  /** Plain sentences for a source that failed; the platform's own text is never shown. */
+  'scan.sources.scanUnavailable':
+    'The document scanner isn’t available on this phone right now. Take a photo or import a file instead.',
+  'scan.sources.scanFailed': 'The scan didn’t finish. Try again, or take a photo instead.',
+  'scan.sources.scanBusy': 'A scan is already open. Finish it, then try again.',
+  'scan.sources.scanNotOpened':
+    'The document scanner couldn’t open. Try again, or take a photo instead.',
+  'scan.sources.cameraFailed': 'The camera couldn’t open. Try again in a moment.',
+  'scan.sources.libraryFailed': 'Photos couldn’t open. Try again in a moment.',
+  'scan.sources.filesFailed': 'That file couldn’t be opened. Try again, or choose another file.',
   /** `{name}` is the isolated file name. */
   'scan.import.unsupported': '{name} can’t be added. Choose a PDF or an image (JPEG, PNG, HEIC).',
   /**

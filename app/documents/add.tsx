@@ -13,6 +13,7 @@ import { importKind, importMimeType, movePage, stripExtension } from '@/features
 import { type ProcessingStep, ProcessingPanel } from '@/features/scan/ProcessingPanel';
 import { ReviewPages } from '@/features/scan/ReviewPages';
 import { pageCount, scanText } from '@/features/scan/scanCopy';
+import { sourceFailureMessage } from '@/features/scan/sourceErrors';
 import { type Source, SourceList, type SourceProblem } from '@/features/scan/SourceList';
 import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
@@ -316,7 +317,7 @@ export default function AddDocumentScreen() {
         );
       } catch (e) {
         if (mounted.current) {
-          setProblem({ kind: 'failed', message: plainErrorMessage(e, scanText('sources.failed')) });
+          setProblem({ kind: 'failed', message: sourceFailureMessage(source, e) });
         }
       }
     },
