@@ -34,19 +34,15 @@ describe('Switch', () => {
       return render(<Switch value accessibilityLabel="Face ID" testID="switch" />);
     }
 
-    it('mirrors the Android switch once, so "on" sits at the end', async () => {
-      const view = await renderSwitch('android');
-      expect(view.getByTestId('switch')).toHaveStyle({
-        transform: [{ scaleX: -1 }],
-      });
-    });
-
-    it('leaves the iOS switch to mirror itself natively', async () => {
-      const view = await renderSwitch('ios');
-      expect(view.getByTestId('switch')).not.toHaveStyle({
-        transform: [{ scaleX: -1 }],
-      });
-    });
+    it.each(['android', 'ios'] as const)(
+      'mirrors the %s switch once, so "on" sits at the left',
+      async (os) => {
+        const view = await renderSwitch(os);
+        expect(view.getByTestId('switch')).toHaveStyle({
+          transform: [{ scaleX: -1 }],
+        });
+      },
+    );
   });
 
   it('keeps the thumb as drawn left to right', async () => {
