@@ -23,8 +23,28 @@ export function plainErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && NOT_A_DATABASE.test(error.message)) {
     return t('errors.index.notOpened');
   }
-  if (!(error instanceof Error) || !error.message || namesPath(error.message)) return fallback;
+  if (!(error instanceof Error) || !error.message) return fallback;
+  if (namesPath(error.message) || isNativeDiagnostic(error.message)) return fallback;
   return error.message;
+}
+
+/**
+ * The bridge's own wording for a rejected native call ("Call to function
+ * 'ExpoVault.putFile' has been rejected. → Caused by: java.lang…") and the
+ * platform exception names inside it are diagnostics, never sentences.
+ */
+const NATIVE_DIAGNOSTIC = [
+  /\bCall to function\b/,
+  /\bhas been rejected\b/,
+  /Caused by:/,
+  /\b(java|javax|kotlin|android|androidx)\.[a-z]+\./,
+  /\b[A-Z]\w*(Exception|Error)\b/,
+  /\bNS\w+ErrorDomain\b/,
+  /\bError Domain=/,
+];
+
+function isNativeDiagnostic(message: string): boolean {
+  return NATIVE_DIAGNOSTIC.some((pattern) => pattern.test(message));
 }
 
 /**

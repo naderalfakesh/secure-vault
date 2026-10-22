@@ -37,6 +37,21 @@ describe('plainErrorMessage', () => {
     );
   });
 
+  it('never shows a rejected native call or a platform exception name', () => {
+    for (const message of [
+      "Call to function 'ExpoVault.putFile' has been rejected. → Caused by: java.lang.IllegalStateException",
+      'java.lang.NullPointerException',
+      'Caused by: kotlin.UninitializedPropertyAccessException',
+      'The operation couldn’t be completed. (NSCocoaErrorDomain error 4.)',
+      'Error Domain=NSOSStatusErrorDomain Code=-34018',
+      'SQLiteFullException: database or disk is full',
+    ]) {
+      expect(plainErrorMessage(new Error(message), 'Couldn’t save the document.')).toBe(
+        'Couldn’t save the document.',
+      );
+    }
+  });
+
   it('never shows a platform message that names a file path', () => {
     const fallback = 'Couldn’t save the document.';
     for (const message of [

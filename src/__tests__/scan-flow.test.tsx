@@ -24,6 +24,7 @@ import {
   SCANNER_DIRECTORY,
 } from '../services/DocumentService';
 import { ocrService } from '../services/OcrService';
+import { scanText } from '../features/scan/scanCopy';
 import { isolate } from '../utils/bidi';
 
 jest.mock('expo-image-picker', () => ({
@@ -40,6 +41,9 @@ const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 const pickDocument = DocumentPicker.getDocumentAsync as jest.Mock;
 const scanner = () => new Directory(Paths.cache, SCANNER_DIRECTORY);
 const pickerFolder = () => new Directory(Paths.cache, PICKER_DIRECTORY);
+
+// The save step's own sentence (scan.processing.failed).
+const SAVE_FAILED = scanText('processing.failed');
 
 const PASSPORT_TEXT = `REPUBLIC OF EXAMPLE
 PASSPORT
@@ -646,6 +650,27 @@ describe('Add a document: processing', () => {
     expect(pages[0]?.exists).toBe(false);
     expect(await documentService.getAllDocuments()).toHaveLength(before + 1);
     putFile.mockRestore();
+  });
+
+  it('shows its own sentence, never the native rejection, when the vault refuses a page', async () => {
+    jest
+      .spyOn(vault, 'putFile')
+      .mockRejectedValueOnce(
+        new Error(
+          "Call to function 'ExpoVault.putFile' has been rejected. → Caused by: java.lang.IllegalStateException: closed",
+        ),
+      );
+    const { view } = await scanInto(1);
+    await fireEvent.press(view.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());
+
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Save to vault' }));
+    });
+
+    await waitFor(() => expect(view.getByRole('alert')).toBeOnTheScreen());
+    expect(within(view.getByRole('alert')).getByText(SAVE_FAILED)).toBeOnTheScreen();
+    expect(view.queryByText(/ExpoVault|java\.lang|rejected|Caused by/)).toBeNull();
   });
 
   it('does not save the document twice when only its found values failed', async () => {
