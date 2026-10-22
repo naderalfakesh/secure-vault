@@ -754,14 +754,6 @@ class DocumentService {
     await images;
   }
 
-  /**
-   * Copies a `content://` source into the cache so the native module can read a
-   * path. No picker hands one over today (each copies into its own cache folder
-   * first), but the scanner's page URIs come from Google Play services, whose
-   * scheme the app does not control. The copy goes through expo-file-system,
-   * which reads the provider with the content resolver: SDK 58's global fetch
-   * refuses the scheme.
-   */
   /** The size of a local file in bytes, or 0 when it cannot be read. */
   private measure(path: string): number {
     try {
@@ -771,6 +763,14 @@ class DocumentService {
     }
   }
 
+  /**
+   * Copies a `content://` source into the cache so the native module can read a
+   * path. No picker hands one over today (each copies into its own cache folder
+   * first), but the scanner's page URIs come from Google Play services, whose
+   * scheme the app does not control. The copy goes through expo-file-system,
+   * which reads the provider with the content resolver: SDK 58's global fetch
+   * refuses the scheme.
+   */
   private async getLocalFilePath(uri: string): Promise<string> {
     if (uri.startsWith('/') || uri.startsWith('file://')) {
       return this.toPath(uri);
