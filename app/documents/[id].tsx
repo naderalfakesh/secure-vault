@@ -1,4 +1,3 @@
-import * as Clipboard from 'expo-clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { StatusBar } from 'expo-status-bar';
@@ -35,6 +34,7 @@ import { allCategories, categoryIcons, categoryLabel } from '@/features/document
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
+import { copySensitiveText } from '@/features/viewer/clipboard';
 import { PageStage } from '@/features/viewer/PageStage';
 import { shareText } from '@/features/viewer/shareCopy';
 import { ShareSheet, type ShareSheetStep } from '@/features/viewer/ShareSheet';
@@ -319,7 +319,7 @@ export default function DocumentViewerScreen() {
 
   const copyText = useCallback(async () => {
     if (!document?.ocrText) return;
-    await Clipboard.setStringAsync(document.ocrText);
+    await copySensitiveText(document.ocrText);
     toast.show({ message: t('viewer.textCopied'), tone: 'success' });
   }, [document, toast]);
 

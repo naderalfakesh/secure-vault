@@ -442,6 +442,14 @@ disabled until it ends.
   copy is outside the app's storage. These removals are checked by tests;
   the native QA pass on a simulator and an emulator is still owed.
 - OCR text is stored only inside the encrypted index.
+- "Copy text" in the viewer puts a document's extracted text on the system
+  clipboard, which other apps can read. On iOS it is copied local-only (not
+  offered to other devices through Universal Clipboard) and expires after 2
+  minutes; on Android it is marked sensitive, so the clipboard preview and
+  keyboards do not show it, and it has no expiry. When the vault locks, the
+  clipboard is emptied if it still holds that text; anything copied since is
+  left alone. A copy that is still there after the app was killed stays
+  until iOS expires it or something else is copied.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
 

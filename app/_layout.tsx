@@ -12,6 +12,7 @@ import { IconButton, ToastProvider, useToast } from '@/components/ui';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { SplashHandoff } from '@/features/session/SplashHandoff';
+import { clearCopiedText } from '@/features/viewer/clipboard';
 import { t } from '@/i18n';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
@@ -61,6 +62,8 @@ function RootNavigator() {
       documentService.clearCache().catch(() => {});
       // Backup ciphertext too: finished containers and the picker's copies.
       backupService.sweepCache();
+      // Document text the viewer copied, unless something else was copied since.
+      void clearCopiedText();
     }
   }, [status, toast]);
 
