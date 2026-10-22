@@ -16,8 +16,6 @@ export type MarkProps = {
   glyph?: IconPath;
   /** Style for the squircle, e.g. an animated transform. */
   style?: StyleProp<AnimatedStyle<ViewStyle>>;
-  /** Style for the glyph alone, so a moving mark can size it apart from the squircle. */
-  glyphStyle?: StyleProp<AnimatedStyle<ViewStyle>>;
   /**
    * Draw in this scheme's colours instead of the app theme's. The splash
    * handoff repaints the native splash, which follows the system scheme.
@@ -46,7 +44,6 @@ export function Mark({
   muted = false,
   glyph = 'mark',
   style,
-  glyphStyle,
   scheme,
   testID = 'mark',
 }: MarkProps) {
@@ -78,14 +75,12 @@ export function Mark({
       importantForAccessibility="no-hide-descendants"
       testID={testID}
     >
-      <Animated.View style={glyphStyle} testID="mark-glyph">
-        <IconGlyph
-          path={glyph}
-          size={glyphSize}
-          strokeWidth={1.5}
-          color={muted ? colors.textTertiary : dark ? colors.primary : colors.onPrimary}
-        />
-      </Animated.View>
+      <IconGlyph
+        path={glyph}
+        size={glyphSize}
+        strokeWidth={1.5}
+        color={muted ? colors.textTertiary : dark ? colors.primary : colors.onPrimary}
+      />
     </Animated.View>
   );
 }

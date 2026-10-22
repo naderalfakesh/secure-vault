@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, View, type ViewInstance } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
 import {
@@ -25,7 +25,6 @@ import {
 import { attemptsLeft, lockRemainingMs } from '@/features/auth/lockout';
 import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
-import { reportSplashTarget } from '@/features/session/SplashHandoff';
 import { useSecurityStatus } from '@/hooks/useSecurityStatus';
 import { t } from '@/i18n';
 
@@ -35,32 +34,12 @@ export default function LockScreen() {
   const { compact } = usePinPadMetrics();
   const promptedRef = useRef(false);
   const [checking, setChecking] = useState(false);
-  // Read the lockout on the first render, so the mark's first report to the
-  // splash handoff already knows whether the clock squircle is showing.
+  // Read the lockout on the first render, so the first frame under the
+  // fading splash already shows the right squircle.
   const [lockLeft, setLockLeft] = useState(() =>
     Math.ceil(lockRemainingMs(lockout, Date.now()) / 1000),
   );
   const [wrong, setWrong] = useState(false);
-  const markRef = useRef<ViewInstance>(null);
-  const reportMark = (lockedOutNow: boolean) => {
-    // The splash handoff carries the splash mark here (§3.5); the lockout's
-    // clock is a different glyph, so it only cross-fades.
-    if (lockedOutNow) {
-      reportSplashTarget(null);
-      return;
-    }
-    // The handoff measures again just before it moves, after the safe-area
-    // insets have settled.
-    const measure = () =>
-      new Promise<{ x: number; y: number; size: number } | null>((resolve) => {
-        const node = markRef.current;
-        if (!node) resolve(null);
-        else node.measureInWindow((x, y, width) => resolve({ x, y, size: width }));
-      });
-    markRef.current?.measureInWindow((x, y, width) =>
-      reportSplashTarget({ x, y, size: width }, measure),
-    );
-  };
   // Biometric unlock off: the PIN comes first, and the device-unlock button
   // below still opens the system prompt for whoever wants it.
   const hasBiometrics = biometry !== 'none' && settings.biometricUnlock;
@@ -102,11 +81,6 @@ export default function LockScreen() {
 
   const lockedOut = lockLeft > 0;
 
-  // Re-report when the glyph changes: a lockout that lands after the first
-  // layout withdraws the target, so the handoff fades instead of gliding.
-  useEffect(() => {
-    reportMark(lockedOut);
-  }, [lockedOut]);
   const showWrong = wrong && !lockedOut;
   const showError = Boolean(error) && !lockedOut && !showWrong;
   const alerting = showWrong || showError;
@@ -139,9 +113,7 @@ export default function LockScreen() {
         showsVerticalScrollIndicator={false}
         testID="lock-header"
       >
-        <View ref={markRef} collapsable={false} onLayout={() => reportMark(lockedOut)}>
-          <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
-        </View>
+        <Mark size={64} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
         <Text variant="title2" align="center" accessibilityRole="header" style={styles.title}>
           {title}
         </Text>

@@ -84,10 +84,10 @@ function RootNavigator() {
     }
   }, [status, notice, toast, dismissNotice]);
 
-  // The handoff repaints the native splash, then carries its mark to the lock
-  // screen's once the splash hides (§3.5).
+  // The handoff repaints the native splash, then cross-fades out over the
+  // lock screen, whose own mark is already in place (§3.5).
   // While it runs, screens appear without a transition: the lock screen must
-  // not slide in under the gliding mark (§3.5).
+  // not slide in under the fading splash (§3.5).
   const [handingOff, setHandingOff] = useState(true);
   const endHandoff = useCallback(() => setHandingOff(false), []);
   const handoff = <SplashHandoff released={ready && themed} onDone={endHandoff} />;
@@ -173,7 +173,7 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={rootStyle}>
         {/* Real insets from the first frame, so the lock mark does not move by a
-          status bar after the splash handoff has measured it. */}
+          status bar while the splash fades out over it. */}
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <SessionProvider>
             <ToastProvider>
