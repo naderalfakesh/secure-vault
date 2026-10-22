@@ -22,7 +22,7 @@ describe('How your data is protected', () => {
     // iOS scans with VisionKit, so the Play services scanner is not named here.
     expect(
       view.getByText(
-        'SecureVault uses Google ML Kit to read document text on this phone. ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
+        'SecureVault uses Google ML Kit to read document text on this phone. ML Kit sends Google usage and performance metrics, which include an ID for this install. Google says ML Kit doesn’t send your images or the text it reads. This can’t be turned off.',
       ),
     ).toBeOnTheScreen();
     expect(view.queryByText(/Play services/)).toBeNull();
@@ -43,7 +43,7 @@ describe('How your data is protected', () => {
     try {
       expect(protectionFacts()[1]).toMatch(/kept by the Android Keystore\./);
       expect(mlKitDisclosure()).toBe(
-        'SecureVault uses Google ML Kit to read document text on this phone. It also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. It doesn’t send your images or the text it reads. This can’t be turned off.',
+        'SecureVault uses Google ML Kit to read document text on this phone. It also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. Google says ML Kit doesn’t send your images or the text it reads. This can’t be turned off.',
       );
     } finally {
       Object.defineProperty(Platform, 'OS', { value: os, configurable: true });

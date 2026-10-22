@@ -35,7 +35,7 @@ export const scan = {
   'scan.processing.reading': 'Reading the document',
   'scan.processing.saving': 'Saving the document',
   'scan.processing.footer':
-    'Text is read on this device. Google ML Kit sends Google usage and performance metrics, but not your images or their text.',
+    'Text is read on this device. Google ML Kit sends Google usage and performance metrics. Google says it doesn’t send your images or their text.',
   'scan.processing.cancel': 'Cancel',
   'scan.processing.done': 'Done',
   'scan.processing.working': 'Working…',

@@ -503,7 +503,7 @@ What is sent:
   not linked to the user and not used for tracking: device ID, performance
   data, product interaction, other diagnostic data, other user content, and
   other data types.
-- ML Kit does not send your images or the text it reads: Google's ML Kit
+- Google says ML Kit does not send your images or the text it reads: Google's ML Kit
   terms say processing happens on the device and that input data and
   results are not sent to Google servers. The manifest's "other user
   content" entry is Google's own declaration and is not explained further.
