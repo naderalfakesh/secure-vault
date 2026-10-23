@@ -67,11 +67,10 @@ on iOS only; Android was rebuilt in Phase 3. The
 - Light and dark themes, Dynamic Type up to 2x, reduced-motion handling, and
   44 pt touch targets throughout the design system
 
-Everything so far ran in development builds on the iOS simulator and the
-Android emulator. No physical device and no release build (an App Store
-archive or a signed release APK) has been run yet. Those, spoken VoiceOver
-and TalkBack passes, the scanner on a physical iPhone, and the Maestro flow
-remain for release sign-off.
+The Android release build has been tested on a Pixel 9 (Android 17), see
+[the device note](docs/verification/device-pixel9-android.md). A physical
+iPhone, spoken VoiceOver and TalkBack passes, and the Maestro flow remain for
+release sign-off.
 
 ## Architecture
 

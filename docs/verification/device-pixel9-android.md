@@ -31,10 +31,10 @@ Every fix below was checked on the phone with the final APK.
 | F4  | Low      | Tapping a settings switch row's label did not toggle it                                                                                                                                    | `32aec09` |
 | F8  | Low      | The share warning showed a scanned document as `0 B`                                                                                                                                       | `3dd112c` |
 
-Review of the fix batch (M1 and follow-ups): `f75c5b5` never shows native
-rejection text from a failed vault call, `438edc0` drops the zoom state when
-the viewer swaps a zoomed page, and `98529be` notes in `docs/SECURITY.md`
-the partial file a killed Save to device can leave.
+Review of the fix batch: M1 `f75c5b5` never shows native rejection text from
+a failed vault call; the Lows `438edc0` drop the zoom state when the viewer
+swaps a zoomed page and `98529be` note in `docs/SECURITY.md` the partial file
+a killed Save to device can leave.
 
 Open notes, no fix:
 
@@ -52,7 +52,7 @@ the session notes record no outcome for the item.
 | ---- | -------------- | -------------------------------------------------------------------------------- |
 | 1.1  | PASS           | Onboarding through to the Library                                                |
 | 1.2  | PASS           | Wrong-PIN copy changed in `bc04c80`                                              |
-| 1.3  | No result      |                                                                                  |
+| 1.3  | PASS           | Fingerprint and class 3 face unlock open the vault                               |
 | 1.4  | NOT TESTED     | Resetting the PIN or restoring to check it wipes the vault                       |
 | 1.5  | PASS           | Pause, longer second pause, relaunch keeps the pause                             |
 | 1.6  | Note           | Recents and back with Immediately does not lock (above)                          |
@@ -87,7 +87,7 @@ the session notes record no outcome for the item.
 | 5.2  | NOT TESTED     | Would change the owner's screen lock                                             |
 | 5.3  | NOT TESTED     | Would change the owner's screen lock                                             |
 | 5.4  | iOS            |                                                                                  |
-| 5.5  | No result      |                                                                                  |
+| 5.5  | PASS           | Two release builds installed over the vault; PIN and every document kept         |
 | 5.6  | NOT TESTED     | Wipes the vault                                                                  |
 | 6.1  | PASS           | Library loads and search works in the release APK                                |
 | 6.2  | PASS           | Encrypt, decrypt, backup and restore in the release APK                          |
