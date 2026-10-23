@@ -1,5 +1,8 @@
 # Device handoff checklist
 
+> Android is done on a Pixel 9 (2026-10-23); results in
+> [device-pixel9-android.md](device-pixel9-android.md). iOS is still to do.
+
 Build: `main` at `e13d762` (Expo SDK 58, version 1.0.0 (1)). **No physical
 device has ever run SecureVault.** Every result so far comes from the iOS 27
 simulator and the Android emulator. This list is what only a real phone can

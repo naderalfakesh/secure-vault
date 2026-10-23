@@ -116,8 +116,9 @@ SQLite with FTS5; the vault module ships a Jest double so services and
 screens run unchanged. Native evidence covers iOS and Android development
 builds on the simulator and the emulator for every phase except Phase 2
 (iOS only), including a backup made on the iPhone simulator and restored on
-the Android emulator. There is no physical-device or release-build evidence
-yet. The per-phase records live under
+the Android emulator. The release APK passed the Android checks on a Pixel 9
+([device notes](docs/verification/device-pixel9-android.md)); the iPhone
+pass is still to do. The per-phase records live under
 [`docs/verification/`](docs/verification/).
 
 ## Project structure
