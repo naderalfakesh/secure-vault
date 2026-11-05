@@ -6,7 +6,7 @@ Pod::Spec.new do |s|
   s.author         = 'Nadir Alfakesh'
   s.homepage       = 'https://github.com/naderalfakesh/secure-vault'
   s.platforms      = { :ios => '16.4' }
-  s.source         = { git: '' }
+  s.source         = { git: 'https://github.com/naderalfakesh/secure-vault.git' }
   s.static_framework = true
   s.dependency 'ExpoModulesCore'
   s.frameworks = 'VisionKit'
