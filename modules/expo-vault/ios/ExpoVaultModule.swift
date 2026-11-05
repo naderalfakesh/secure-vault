@@ -180,7 +180,8 @@ public class ExpoVaultModule: Module {
             let sealedBox = try AES.GCM.seal(value.data(using: .utf8)!, using: encryptionKey)
 
             let fileURL = try self.getFileURL(for: key)
-            try sealedBox.combined?.write(to: fileURL)
+            // Atomic: a write cut short leaves the previous entry, never half a box.
+            try sealedBox.combined?.write(to: fileURL, options: .atomic)
             promise.resolve(nil)
         } catch {
             promise.reject("PUT_FAILED", error.localizedDescription)

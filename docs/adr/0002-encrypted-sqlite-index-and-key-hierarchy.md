@@ -60,9 +60,17 @@ is the intended property of an on-device vault.
   be altered or reordered without failing authentication. The index alone
   does not detect a stream cut short at a chunk boundary or a same-index
   chunk from another file; `docs/SECURITY.md` records those limits.
+- String entries (the index key, the key probe) are one sealed box each. On
+  iOS that is CryptoKit's combined form, written atomically. On Android it is
+  magic `SVS1`, the nonce, then ciphertext and tag, synced to a temporary file
+  and renamed over the entry, so a write the process never finishes leaves the
+  previous entry or none. Before `SVS1`, Android kept the nonce in
+  SharedPreferences, written separately from the ciphertext; a kill between
+  the two left an index key that no longer opened.
 - Files written by the prototype (no header, whole-file sealed box; on Android
-  with the IV in SharedPreferences) remain readable, so an existing vault keeps
-  working after the upgrade.
+  with the IV in SharedPreferences), and Android string entries from before
+  `SVS1`, remain readable, so an existing vault keeps working after the
+  upgrade. The next write of a string entry moves it to `SVS1`.
 - Thumbnails are generated natively on write (`putThumbnail`): ImageIO
   downsampling on iOS, `BitmapFactory` sampling plus EXIF rotation on Android,
   JPEG at 80 percent, 512 px on the longest side, then encrypted like any file.

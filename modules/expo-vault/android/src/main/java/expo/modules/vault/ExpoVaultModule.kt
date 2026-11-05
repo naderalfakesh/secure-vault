@@ -25,7 +25,6 @@ import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 class ExpoVaultModule : Module() {
     class InvalidKeyException(key: String) : IllegalArgumentException("Invalid vault key: $key")
@@ -236,15 +235,9 @@ class ExpoVaultModule : Module() {
         AsyncFunction("put") { key: String, value: String, promise: Promise ->
             try {
                 val file = vaultFile(key)
-                val secretKey = getSecretKey()
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-
-                val iv = cipher.iv
-                ivPreferences.edit().putString(key, android.util.Base64.encodeToString(iv, android.util.Base64.DEFAULT)).apply()
-
-                val encryptedData = cipher.doFinal(value.toByteArray())
-                file.writeBytes(encryptedData)
+                StringEntry.write(file, value.toByteArray(), getSecretKey())
+                // The nonce is in the file now; a legacy one left behind is never read.
+                ivPreferences.edit().remove(key).commit()
                 promise.resolve(null)
             } catch (e: Exception) {
                 promise.reject(failureCode(e, "PUT_FAILED"), e.message, e)
@@ -254,25 +247,12 @@ class ExpoVaultModule : Module() {
         AsyncFunction("get") { key: String, promise: Promise ->
             try {
                 val secretKey = getSecretKey()
-                val ivString = ivPreferences.getString(key, null)
-                if (ivString == null) {
-                    promise.reject("GET_FAILED", "IV not found for key: $key", null)
-                    return@AsyncFunction
-                }
-                val iv = android.util.Base64.decode(ivString, android.util.Base64.DEFAULT)
-
                 val file = vaultFile(key)
                 if (!file.exists()) {
                     promise.reject("GET_FAILED", "File not found for key: $key", null)
                     return@AsyncFunction
                 }
-                val encryptedData = file.readBytes()
-
-                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                val spec = GCMParameterSpec(128, iv)
-                cipher.init(Cipher.DECRYPT_MODE, secretKey, spec)
-
-                val decryptedData = cipher.doFinal(encryptedData)
+                val decryptedData = StringEntry.read(file, secretKey, legacyIv(key))
                 promise.resolve(String(decryptedData))
             } catch (e: Exception) {
                 promise.reject(failureCode(e, "GET_FAILED"), e.message, e)
@@ -385,12 +365,7 @@ class ExpoVaultModule : Module() {
                             ivPreferences.edit().clear().apply()
                         }
                         when (meta.kind) {
-                            "s" -> {
-                                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-                                cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-                                ivPreferences.edit().putString(meta.key, android.util.Base64.encodeToString(cipher.iv, android.util.Base64.DEFAULT)).apply()
-                                vaultFile(meta.key).writeBytes(cipher.doFinal(plain.readBytes()))
-                            }
+                            "s" -> StringEntry.write(vaultFile(meta.key), plain.readBytes(), secretKey)
                             "f" -> VaultCrypto.encryptFile(plain, vaultFile(meta.key), secretKey)
                             "x" -> {
                                 val target = contained(File(extras, meta.key), extras)
@@ -728,17 +703,30 @@ class ExpoVaultModule : Module() {
         return files.filter { it.isFile && isVaultEntryName(it.name) }.sortedBy { it.name }
     }
 
-    /** Decrypts one entry with the device key into [plain]; a legacy single GCM box keeps its IV in preferences. */
+    /**
+     * Decrypts one entry with the device key into [plain]: a chunked file, a
+     * string entry, or a legacy single GCM box whose IV is in preferences.
+     */
     private fun decryptEntry(source: File, plain: File, key: SecretKey) {
         if (VaultCrypto.isChunked(source)) {
             VaultCrypto.decryptFile(source, plain, key, null)
             return
         }
-        val iv = ivPreferences.getString(source.name, null)?.let {
+        val bytes = StringEntry.read(source, key, legacyIv(source.name))
+        try {
+            plain.parentFile?.mkdirs()
+            plain.writeBytes(bytes)
+        } catch (e: Throwable) {
+            plain.delete()
+            throw e
+        }
+    }
+
+    /** The IV a prototype-era entry keeps in preferences, or null. */
+    private fun legacyIv(key: String): ByteArray? =
+        ivPreferences.getString(key, null)?.let {
             android.util.Base64.decode(it, android.util.Base64.DEFAULT)
         }
-        VaultCrypto.decryptFile(source, plain, key, iv)
-    }
 
     /**
      * What the unlock prompt accepts. Android 11 and later take a strong
