@@ -106,9 +106,7 @@ class ExpoVaultModule : Module() {
                 }
 
                 val biometricManager = BiometricManager.from(context)
-                val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                when (biometricManager.canAuthenticate(authenticators)) {
+                when (biometricManager.canAuthenticate(promptAuthenticators())) {
                     BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
                     BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE,
                     BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
@@ -225,10 +223,7 @@ class ExpoVaultModule : Module() {
                     val promptInfo = BiometricPrompt.PromptInfo.Builder()
                         .setTitle("Unlock your vault")
                         .setSubtitle("Authenticate to access your documents")
-                        .setAllowedAuthenticators(
-                            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
-                        )
+                        .setAllowedAuthenticators(promptAuthenticators())
                         .build()
 
                     biometricPrompt.authenticate(promptInfo)
@@ -744,6 +739,22 @@ class ExpoVaultModule : Module() {
         }
         VaultCrypto.decryptFile(source, plain, key, iv)
     }
+
+    /**
+     * What the unlock prompt accepts. Android 11 and later take a strong
+     * biometric or the screen lock. Android 9 and 10 reject that combination
+     * (androidx throws when the prompt is built), and with the screen lock the
+     * only one they accept is any biometric or the screen lock. A weak face
+     * unlock there cannot open the Keystore key: the key read that follows
+     * fails as locked and the vault asks once more, with the screen lock
+     * still on offer.
+     */
+    private fun promptAuthenticators(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        }
 
     private fun getSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(keystoreProvider)
