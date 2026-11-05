@@ -49,7 +49,7 @@ async function openPicker(): Promise<DocumentPicker.DocumentPickerResult> {
 }
 
 /**
- * Settings › Backup (handover §6 J6): create a backup, and the app's only
+ * Settings › Backup: create a backup, and the app's only
  * restore entry (G11). Nothing outside this screen starts a restore, and no
  * route, link or file type opens it with a file; it reads no parameters.
  */

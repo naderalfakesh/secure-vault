@@ -24,7 +24,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 function RootNavigator() {
   const { status, notice, dismissNotice, shareInterrupted } = useSession();
   const { theme } = useUnistyles();
-  // Reduced motion: screens cross-fade instead of sliding (§10.3).
+  // Reduced motion: screens cross-fade instead of sliding.
   const reduceMotion = useReducedMotion();
   const toast = useToast();
   const ready = status !== 'loading';
@@ -57,7 +57,7 @@ function RootNavigator() {
   }, [status, toast]);
 
   // A lock that cut a share short brings the user back to that document's
-  // viewer after the unlock, where its banner explains (handover §6 J5, F7).
+  // viewer after the unlock, where its banner explains.
   // Only on the unlock that follows a lock, once per lock.
   const backToShare = useRef(false);
   useEffect(() => {
@@ -85,9 +85,9 @@ function RootNavigator() {
   }, [status, notice, toast, dismissNotice]);
 
   // The handoff repaints the native splash, then cross-fades out over the
-  // lock screen, whose own mark is already in place (§3.5).
+  // lock screen, whose own mark is already in place.
   // While it runs, screens appear without a transition: the lock screen must
-  // not slide in under the fading splash (§3.5).
+  // not slide in under the fading splash.
   const [handingOff, setHandingOff] = useState(true);
   const endHandoff = useCallback(() => setHandingOff(false), []);
   // Keyed, and a child of the same fragment in both returns, so the overlay

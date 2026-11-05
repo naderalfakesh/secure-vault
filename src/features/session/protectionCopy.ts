@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import { t } from '@/i18n';
 
 /**
- * "How your data is protected" (handover §7.6). Every sentence is checked
- * against docs/SECURITY.md; where §7.6 said more than the code does, the
+ * "How your data is protected". Every sentence is checked against
+ * docs/SECURITY.md; where the design copy said more than the code does, the
  * sentence was narrowed (see docs/verification/redesign-onboarding.md).
  */
 export function protectionFacts(): string[] {

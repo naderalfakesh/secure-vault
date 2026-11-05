@@ -64,7 +64,7 @@ const STAGE_INK_DIM = '#B3BAD1';
 const PLACEHOLDER_DELAY_MS = 300;
 /** Lets a sheet finish closing before the next sheet or the system share sheet opens. */
 const SHEET_CLOSE_MS = 450;
-/** The preparing step shows only for a copy that takes longer than this (handover §6 J5). */
+/** The preparing step shows only for a copy that takes longer than this. */
 const PREPARING_DELAY_MS = 400;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -180,7 +180,7 @@ export default function DocumentViewerScreen() {
     else router.replace('/');
   }, []);
 
-  // Every share starts at the warning sheet (handover §6 J5); nothing is
+  // Every share starts at the warning sheet; nothing is
   // decrypted until it is confirmed.
   const openShare = useCallback(() => {
     if (!document || pages.length === 0 || busy === 'share') return;

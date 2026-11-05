@@ -21,7 +21,7 @@ export type SearchFieldProps = Omit<TextInputProps, 'style' | 'value' | 'onChang
 };
 
 /**
- * 44 pt pill search field (handover §4): leading search glyph, a clear button
+ * 44 pt pill search field: leading search glyph, a clear button
  * once there is text, and "Cancel" while focused.
  */
 export function SearchField({

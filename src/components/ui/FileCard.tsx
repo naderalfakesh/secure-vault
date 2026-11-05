@@ -16,7 +16,7 @@ export type FileCardProps = {
   testID?: string;
 };
 
-/** A file about to be shared or restored (handover §4). */
+/** A file about to be shared or restored. */
 export function FileCard({ name, meta, icon = 'archive', testID }: FileCardProps) {
   return (
     <View

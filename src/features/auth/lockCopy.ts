@@ -6,7 +6,7 @@ import { t, tp } from '@/i18n';
 import type { BiometryType } from '../../../modules/expo-vault';
 
 /**
- * What the biometric way in is called on this phone (handover §7.3). Android
+ * What the biometric way in is called on this phone. Android
  * says "biometric unlock" so a sentence never needs two "or"s.
  */
 export function biometryName(biometry: BiometryType): string {

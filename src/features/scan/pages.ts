@@ -30,7 +30,7 @@ function specificType(mimeType: string | null | undefined): string | null {
 }
 
 /**
- * A PDF or a JPEG, PNG or HEIC image (handover §6 J1 import error). A
+ * A PDF or a JPEG, PNG or HEIC image. A
  * specific reported type wins; the extension decides when no type, or only a
  * generic binary type, is reported.
  */

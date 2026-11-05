@@ -26,7 +26,7 @@ export type PassphraseFieldProps = Omit<
 };
 
 /**
- * Secure passphrase entry (handover §4). Any script is accepted; the text
+ * Secure passphrase entry. Any script is accepted; the text
  * aligns to the start and takes its direction from what is typed. Nothing is
  * corrected, capitalised, or spell-checked.
  */

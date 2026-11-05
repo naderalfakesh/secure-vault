@@ -64,7 +64,7 @@ const routeFiles = () =>
     .filter((path) => /\.tsx?$/.test(path))
     .map((path) => relative(ROOT, path));
 
-/** G11 (handover §0.3): exactly one user-reachable restore entry, and no way in from outside. */
+/** Exactly one user-reachable restore entry, and no way in from outside. */
 describe('the one restore entry', () => {
   beforeEach(() => {
     vaultMock.reset();

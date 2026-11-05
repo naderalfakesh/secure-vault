@@ -56,7 +56,7 @@ import { formatExpiry } from '@/utils/format';
 
 /** Every recorded expiry date, so sorting and filtering can use them. */
 const ALL_EXPIRY_DAYS = 365 * 200;
-/** Skeleton rows only once loading takes longer than this (handover §6 J2). */
+/** Skeleton rows only once loading takes longer than this. */
 const SKELETON_DELAY_MS = 300;
 const SEARCH_DEBOUNCE_MS = 150;
 const SORTS: SortOrder[] = ['newest', 'oldest', 'title', 'expiry'];
@@ -715,7 +715,7 @@ function SectionHeader({
   );
 }
 
-/** Takes the tab bar's place while selecting: Move to… and Delete only (§11.12). */
+/** Takes the tab bar's place while selecting: Move to… and Delete only. */
 function SelectionBar({ bottom, children }: { bottom: number; children: ReactNode }) {
   return (
     <View

@@ -86,7 +86,7 @@ function Rule({ met, label }: { met: boolean; label: string }) {
 }
 
 /**
- * The create backup sheet (handover §6 J6, §7.7): passphrase with an
+ * The create backup sheet: passphrase with an
  * on-device strength estimate that never blocks, the two rules that are
  * enforced, a busy step that cannot be dismissed, then the system share
  * sheet, or on Android the system save screen. The container is removed once

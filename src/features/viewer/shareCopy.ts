@@ -7,7 +7,7 @@ import type { share } from '@/i18n/en/share';
 import type { BiometryType } from '../../../modules/expo-vault';
 
 /**
- * The J5 Share strings (handover §6 J5, §7.4). They live in the string table
+ * The Share strings. They live in the string table
  * under `share.`; this module keeps the short keys the share flow uses.
  */
 export type ShareCopyKey = {
@@ -19,7 +19,7 @@ export function shareText(key: ShareCopyKey): string {
 }
 
 /**
- * "Confirm with Face ID" when Confirm before sharing is on (§7.4). Without
+ * "Confirm with Face ID" when Confirm before sharing is on. Without
  * biometrics the prompt is the device passcode or screen lock.
  */
 export function confirmShareLabel(biometry: BiometryType): string {

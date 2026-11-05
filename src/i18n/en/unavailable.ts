@@ -1,4 +1,4 @@
-/** Vault unavailable (handover §7.2). */
+/** Vault unavailable. */
 export const unavailable = {
   'unavailable.title': 'SecureVault can’t open right now',
   'unavailable.body':

@@ -282,7 +282,7 @@ async function readLaunchState(allowLostPin = false) {
 }
 
 /**
- * The launch table (handover §6 J0): any read that failed is `unavailable`;
+ * The launch table: any read that failed is `unavailable`;
  * a key with a PIN is `locked`; anything else is setup, which keeps a key it
  * finds (Add a PIN).
  */

@@ -78,7 +78,7 @@ export function biometricUnavailableReason(availability: BiometricAvailability):
   return null;
 }
 
-/** Copy for the onboarding biometrics step (handover §7.5). */
+/** Copy for the onboarding biometrics step. */
 export function biometricStepCopy(kind: BiometryType): {
   title: string;
   body: string;

@@ -15,7 +15,7 @@ function glassSupported(): boolean {
 }
 
 /**
- * Liquid Glass for chrome only (handover §2, F16): the tab bar and sheets on
+ * Liquid Glass for chrome only: the tab bar and sheets on
  * iOS 26+. False on Android, on older iOS, and while Reduce Transparency is
  * on, where those surfaces stay solid.
  */

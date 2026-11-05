@@ -1,5 +1,5 @@
 /**
- * SecureVault palette (redesign handover §3.1). Indigo carries trust and the
+ * SecureVault palette. Indigo carries trust and the
  * locked state, brass marks only what needs attention (expiry, warnings, the
  * point of no return), and the neutrals stay slightly cool so scanned paper
  * reads as the warmest thing on screen. Every text/background pair is AA in

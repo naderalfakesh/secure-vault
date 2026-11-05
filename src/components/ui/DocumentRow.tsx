@@ -28,7 +28,7 @@ export type DocumentRowProps = {
   testID?: string;
 };
 
-/** Library row (handover §4): paper thumbnail, title, meta, optional snippet. */
+/** Library row: paper thumbnail, title, meta, optional snippet. */
 export function DocumentRow({
   title,
   meta,

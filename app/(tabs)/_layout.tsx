@@ -10,7 +10,7 @@ const tabs: Record<string, { label: StringKey; icon: IconName }> = {
   settings: { label: 'nav.settings', icon: 'settings' },
 };
 
-/** Library · central Scan button · Settings (handover §4, §11.1). */
+/** Library · central Scan button · Settings. */
 function LibraryTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const hidden = useTabBarHidden();
   if (hidden) return null;

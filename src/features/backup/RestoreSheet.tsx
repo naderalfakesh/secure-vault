@@ -67,7 +67,7 @@ export type RestoreSheetProps = {
 };
 
 /**
- * The restore sheet (handover §6 J6, §7.1): Inspect → Checking → Restoring →
+ * The restore sheet: Inspect → Checking → Restoring →
  * outcome. Checking leaves the vault untouched and may be cancelled (F2); the
  * first Restoring event is the wipe boundary (F6), after which there is no
  * control and nothing says the vault is unchanged.

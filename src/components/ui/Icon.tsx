@@ -7,7 +7,7 @@ import { type IconPath, iconPaths } from './iconPaths';
 import type { TextTone } from './Text';
 
 type Glyph = {
-  /** The outline glyph (§3.4): drawn on Android, and on iOS when `sf` is absent. */
+  /** The outline glyph: drawn on Android, and on iOS when `sf` is absent. */
   d: IconPath;
   /**
    * SF Symbol used on iOS where the system has the same glyph. Glyphs the
@@ -20,7 +20,7 @@ type Glyph = {
 };
 
 /**
- * One outline icon vocabulary for the app (handover §3.4): the design's SVG
+ * One outline icon vocabulary for the app: the design's SVG
  * set on a 24 pt grid, with SF Symbols on iOS where they match, so screens
  * never branch on platform.
  */
@@ -79,7 +79,7 @@ export const icons = {
   insurance: { d: 'umbrella', sf: 'umbrella' },
   receipt: { d: 'receipt', sf: 'receipt' },
   other: { d: 'tray', sf: 'tray' },
-  /** The SecureVault mark: a folded-corner document with a padlock (§3.5). */
+  /** The SecureVault mark: a folded-corner document with a padlock. */
   mark: { d: 'mark' },
 } satisfies Record<string, Glyph>;
 

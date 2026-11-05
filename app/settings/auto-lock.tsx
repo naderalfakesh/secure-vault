@@ -7,7 +7,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockChoice } from '@/features/session/settings';
 import { t } from '@/i18n';
 
-/** Auto-lock (handover §6 Settings): a radio list, counted from leaving the app. */
+/** Auto-lock: a radio list, counted from leaving the app. */
 export default function AutoLockScreen() {
   const { settings, updateSettings } = useSession();
 

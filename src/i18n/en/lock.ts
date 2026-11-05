@@ -1,4 +1,4 @@
-/** Lock screen and lockout (handover §7.3). */
+/** Lock screen and lockout. */
 export const lock = {
   'lock.title': 'SecureVault is locked',
   'lock.enterPin': 'Enter your PIN',

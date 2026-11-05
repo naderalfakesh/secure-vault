@@ -23,7 +23,7 @@ export type PinDotsProps = {
   shake?: number;
 };
 
-/** PIN progress (handover §4): 6 × 14 pt dots that announce "N of 6 digits entered". */
+/** PIN progress: 6 × 14 pt dots that announce "N of 6 digits entered". */
 export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDotsProps) {
   const reduceMotion = useReducedMotion();
   const offset = useSharedValue(0);

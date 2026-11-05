@@ -44,7 +44,7 @@ const SCANNED_TITLE = scanText('scan.defaultTitle');
 class SaveStopped extends Error {}
 
 /**
- * J1 Scan and import (handover §6 J1, F12).
+ * Scan and import.
  *
  * Picker, photo and scanner copies are plaintext. This screen owns them from
  * the moment a source hands them over: a removed page loses its copy at once,

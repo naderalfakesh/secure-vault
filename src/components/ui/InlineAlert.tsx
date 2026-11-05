@@ -32,7 +32,7 @@ const looks: Record<InlineAlertTone, { fill: keyof Palette; ink: keyof Palette; 
     warning: { fill: 'accentMuted', ink: 'accent', icon: 'warning' },
   };
 
-/** Inline callout (handover §4): colour, icon, and text together, never colour alone. */
+/** Inline callout: colour, icon, and text together, never colour alone. */
 export function InlineAlert({
   tone = 'info',
   title,

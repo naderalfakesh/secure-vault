@@ -20,7 +20,7 @@ export type SegmentedControlProps<T extends string> = {
 };
 
 /**
- * Pill segmented control, e.g. System / Light / Dark (handover §4). Labels
+ * Pill segmented control, e.g. System / Light / Dark. Labels
  * stop growing at 1.6× and shrink to stay on one line. At the accessibility
  * text sizes the segments no longer fit side by side, so it becomes a
  * vertical list of the same radio options, with a check on the chosen one.

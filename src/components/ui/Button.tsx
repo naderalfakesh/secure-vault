@@ -43,7 +43,7 @@ const fills: Record<ButtonVariant | 'disabled', Fill> = {
   disabled: { background: 'surfaceMuted', foreground: 'textTertiary' },
 };
 
-/** Capsule button (handover §4). Disabled buttons change colour, not just opacity. */
+/** Capsule button. Disabled buttons change colour, not just opacity. */
 export function Button({
   label,
   variant = 'primary',

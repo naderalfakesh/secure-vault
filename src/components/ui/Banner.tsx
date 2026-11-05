@@ -22,7 +22,7 @@ export type BannerProps = {
   testID?: string;
 };
 
-/** Persistent elevated notice (handover §4), e.g. the share-interrupted banner. */
+/** Persistent elevated notice, e.g. the share-interrupted banner. */
 export function Banner({
   icon = 'info',
   lead,

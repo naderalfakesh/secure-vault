@@ -1,4 +1,4 @@
-/** J6 Backup hub, create and restore (handover §6 J6, §7.1, §7.7). */
+/** Backup hub, create and restore. */
 export const backup = {
   'backup.hub.title': 'Backup',
   'backup.hub.back': 'Settings',

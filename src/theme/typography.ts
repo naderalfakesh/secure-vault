@@ -1,6 +1,6 @@
 /**
  * System fonts on purpose: SF Pro and Roboto scale with Dynamic Type and font
- * scaling without shipping font files (handover §3.2). Sizes follow the iOS
+ * scaling without shipping font files. Sizes follow the iOS
  * text styles; the platform applies its own optical tracking, so only the
  * uppercase section label sets letter spacing.
  */

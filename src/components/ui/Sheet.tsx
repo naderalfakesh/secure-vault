@@ -42,7 +42,7 @@ export type SheetProps = PropsWithChildren<{
   detent?: SheetDetent;
   /**
    * The body scrolls when it is taller than the sheet, as it is at the
-   * largest text sizes (§10.2). Turn it off only when the body is itself a
+   * largest text sizes. Turn it off only when the body is itself a
    * scroll view or list.
    */
   scroll?: boolean;
@@ -59,7 +59,7 @@ const CLOSE_MS = 200;
 const SLIDE = 40;
 
 /**
- * Bottom sheet for choices, confirmations, and progress (handover §4). On iOS
+ * Bottom sheet for choices, confirmations, and progress. On iOS
  * it floats 8 pt in from the edges; on Android it is attached to the bottom.
  * On iOS 26+ the panel is Liquid Glass (F16); on Android, older iOS, and with
  * Reduce Transparency on it is the solid elevated surface. The privacy cover

@@ -30,7 +30,7 @@ export const TAB_BAR_HEIGHT = 68;
 export const TAB_BAR_BOTTOM = 26;
 
 /**
- * Floating tab bar (handover §4): Library · central Scan button · Settings.
+ * Floating tab bar: Library · central Scan button · Settings.
  * On iOS 26+ the capsule is Liquid Glass (F16); on Android, older iOS, and
  * with Reduce Transparency on it is the solid surface with a hairline.
  */

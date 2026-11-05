@@ -31,7 +31,7 @@ export type DetailsFormProps = {
   onSave: () => void;
 };
 
-/** Confirm details (handover §6 J1): the suggestions are guesses the user can drop. */
+/** Confirm details: the suggestions are guesses the user can drop. */
 export function DetailsForm({
   thumbnails,
   fallbackName,

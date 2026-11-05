@@ -25,7 +25,7 @@ export type DocumentCardProps = {
   testID?: string;
 };
 
-/** Document card (handover §4): paper thumbnail, title, brass expiry line. */
+/** Document card: paper thumbnail, title, brass expiry line. */
 export function DocumentCard({
   title,
   expiry,

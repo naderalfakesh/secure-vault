@@ -34,7 +34,7 @@ export interface PageStageProps {
 
 /**
  * The viewer's page area: a horizontal pager of zoomable pages on the dark
- * stage, which stays dark in both themes so paper reads true (§11.14).
+ * stage, which stays dark in both themes so paper reads true.
  */
 export function PageStage({
   pages,

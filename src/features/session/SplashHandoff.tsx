@@ -14,7 +14,7 @@ import { Mark } from '@/components/ui';
 import { getAppearance } from '@/theme/appearance';
 import { darkColors, lightColors } from '@/theme/colors';
 
-/** The native splash draws the 72 pt mark in the middle of the window (§3.5). */
+/** The native splash draws the 72 pt mark in the middle of the window. */
 export const SPLASH_MARK = 72;
 /** The cross-fade from the splash repaint to the screen underneath. */
 export const HANDOFF_FADE_MS = 200;
@@ -37,7 +37,7 @@ function pinnedDiffers(scheme: 'light' | 'dark'): boolean {
 }
 
 /**
- * Picks up where the native splash leaves off (§3.5): the same background and
+ * Picks up where the native splash leaves off: the same background and
  * the same 72 pt mark in the same place. Once the native splash hides, the
  * screen underneath is already drawn with its own mark in place, and the
  * overlay simply cross-fades out over 200 ms. Nothing travels, so there is
@@ -122,7 +122,7 @@ export function SplashHandoff({
   );
 }
 
-/** The native splash backgrounds (app.json, §3.5). */
+/** The native splash backgrounds (app.json). */
 const splashBackground = { light: lightColors.background, dark: darkColors.background } as const;
 
 const styles = StyleSheet.create({

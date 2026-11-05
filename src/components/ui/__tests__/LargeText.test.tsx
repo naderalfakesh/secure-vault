@@ -21,7 +21,7 @@ describe('largest text sizes (M4)', () => {
       </>,
     );
     expect(view.getByText('Library').props.maxFontSizeMultiplier).toBe(1.3);
-    // Body text keeps scaling uncapped (§10.2).
+    // Body text keeps scaling uncapped.
     expect(view.getByText('Body text').props.maxFontSizeMultiplier).toBeUndefined();
   });
 

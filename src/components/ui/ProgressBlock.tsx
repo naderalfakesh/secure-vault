@@ -16,7 +16,7 @@ export type ProgressBlockProps = {
   testID?: string;
 };
 
-/** Determinate progress (handover §4): label, optional detail, 6 pt bar. */
+/** Determinate progress: label, optional detail, 6 pt bar. */
 export function ProgressBlock({ label, detail, progress, testID }: ProgressBlockProps) {
   // A polite live region on Android; iOS ignores live regions, so it hears
   // the line when it appears and then at most every few seconds.

@@ -10,9 +10,8 @@ import { isolate } from '@/utils/bidi';
 const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });
 
 /**
- * Delete without a confirmation, then offer Undo with a countdown (handover
- * §6 J7). This uses the service's existing undo window; the deferred,
- * plaintext-free delete (§8 F8) replaces it later.
+ * Delete without a confirmation, then offer Undo with a countdown, using the
+ * service's undo window.
  */
 export function useDeleteWithUndo() {
   const toast = useToast();

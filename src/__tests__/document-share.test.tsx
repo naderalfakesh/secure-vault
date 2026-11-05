@@ -91,7 +91,7 @@ const settle = (ms: number) =>
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
 
-/** The warning sheet's own close, then the system share sheet (handover §6 J5). */
+/** The warning sheet's own close, then the system share sheet. */
 const SHEET_CLOSE_MS = 450;
 
 const LEAD = 'SecureVault locked while you were sharing.';

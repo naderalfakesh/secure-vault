@@ -11,7 +11,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 
 /**
- * J0 Enable biometrics, after the PIN is saved (handover §6, §7.5). "Use Face
+ * Enable biometrics, after the PIN is saved. "Use Face
  * ID" asks the OS for a biometric check, which on iOS is also where the Face
  * ID permission is asked; only a passed check turns biometric unlock on.
  * Whatever the answer, and after "Not now", the vault opens. Settings shows the reason later if biometrics stay unavailable.

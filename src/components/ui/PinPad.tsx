@@ -58,7 +58,7 @@ export function usePinPadMetrics(): PinPadMetrics {
 }
 
 /**
- * 3 × 4 PIN keypad (handover §4): 76 pt round keys (smaller on short windows), the biometric key bottom
+ * 3 × 4 PIN keypad: 76 pt round keys (smaller on short windows), the biometric key bottom
  * start, backspace bottom end. Digits never mirror in right-to-left layouts.
  */
 export function PinPad({

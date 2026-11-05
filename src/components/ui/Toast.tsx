@@ -168,7 +168,7 @@ const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 /**
  * Time left for an undo: a drawn arc that drains as the toast runs out, with
  * the seconds inside. With reduced motion the ring stays full and the label
- * does not tick (§10.3).
+ * does not tick.
  */
 function Countdown({ durationMs, still }: { durationMs: number; still: boolean }) {
   const { theme } = useUnistyles();

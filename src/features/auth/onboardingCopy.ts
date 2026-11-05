@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 
 import type { BiometryType } from '../../../modules/expo-vault';
 
-/** Intro step 3 (handover §7.5), worded for the biometric this phone has. */
+/** Intro step 3, worded for the biometric this phone has. */
 export function unlockSlideBody(biometry: BiometryType): string {
   const rest = t('onboarding.intro.3.rest');
   if (Platform.OS !== 'ios') {
@@ -35,7 +35,7 @@ export const EASY_PIN_WARNING = t('onboarding.pin.easy');
 
 /**
  * One digit repeated, or a straight run up or down (123456, 654321). Only a
- * soft warning: the owner may use it anyway (handover §11.15).
+ * soft warning: the owner may use it anyway.
  */
 export function isEasyPin(pin: string): boolean {
   if (!/^\d{2,}$/.test(pin)) return false;

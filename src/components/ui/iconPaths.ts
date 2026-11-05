@@ -1,6 +1,6 @@
 /**
  * Outline glyphs on a 24 pt grid, drawn with a 1.75 stroke, round caps and
- * round joins (handover §3.4). The handover set is copied exactly from the
+ * round joins. The design's set is copied exactly from the
  * design source (`Main.dc.html`, `renderVals().i`); the few extra glyphs the
  * app needs (marked below) are drawn on the same grid in the same style.
  */
@@ -55,7 +55,7 @@ export const iconPaths = {
   restore: 'M12 21V9M8 13l4-4 4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2',
   image: 'M4 4h16v16H4zM4 16l5-5 4 4 2-2 5 5M15 8.5a1.5 1.5 0 1 1 0 .01',
 
-  // Not in the handover set; drawn on the same grid for the app's extra uses.
+  // Not in the design's set; drawn on the same grid for the app's extra uses.
   /** The lock with its shackle swung open. */
   unlock:
     'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 7.75-1.4',

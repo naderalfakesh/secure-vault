@@ -7,7 +7,7 @@ import { Mark } from './Mark';
 import { Text } from './Text';
 
 /**
- * Solid privacy cover (handover §4, replaces the blur): the background colour,
+ * Solid privacy cover: the background colour,
  * the 80 pt mark, and the app name, so the app switcher shows nothing of the
  * vault. It is purely visual and hidden from assistive tech.
  */

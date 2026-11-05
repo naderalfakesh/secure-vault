@@ -16,7 +16,7 @@ function contrast(a: string, b: string): number {
 
 describe('theme', () => {
   it('keeps brass and success text AA on their muted chips (owner decision)', () => {
-    // Light mode deviates from handover §3.1 to clear 4.5:1 on the chips.
+    // Light mode deviates from the design palette to clear 4.5:1 on the chips.
     expect(lightColors.accent).toBe('#8F5E07');
     expect(lightColors.success).toBe('#14774A');
     for (const colors of [lightColors, darkColors]) {
@@ -31,7 +31,7 @@ describe('theme', () => {
     expect(Object.keys(darkColors).sort()).toEqual(Object.keys(lightColors).sort());
   });
 
-  it('uses the handover palette in both modes', () => {
+  it('uses the design palette in both modes', () => {
     expect(lightColors.primary).toBe('#3451D1');
     expect(darkColors.primary).toBe('#8EA2FF');
     expect(lightColors.accent).toBe(lightColors.warning);
@@ -55,7 +55,7 @@ describe('theme', () => {
     }
   });
 
-  it('follows the handover type, spacing, radii, and target sizes', () => {
+  it('follows the design type, spacing, radii, and target sizes', () => {
     expect(typography.label).toMatchObject({ fontSize: 13, lineHeight: 18, letterSpacing: 0.4 });
     expect(typography.pinDigit.fontVariant).toEqual(['tabular-nums']);
     expect(spacing.xxxl).toBe(56);

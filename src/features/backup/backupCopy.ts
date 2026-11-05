@@ -10,7 +10,7 @@ export type BackupCopyKey = keyof typeof backup extends infer K
   : never;
 
 /**
- * The J6 Backup hub, create and restore strings (handover §6 J6, §7.1, §7.7),
+ * The Backup hub, create and restore strings,
  * read from the string table's `backup` namespace by their short names.
  * The outcome sentences themselves come from `describeBackupError`, which the
  * notices after a lock use too.
@@ -55,7 +55,7 @@ export function lastCreatedLine(date: Date): string {
   return t('backup.hub.lastCreated', { date: formatDate(date.toISOString()) });
 }
 
-/** What the restore sheet shows after a restore that did not succeed (handover §7.1). */
+/** What the restore sheet shows after a restore that did not succeed. */
 export type RestoreOutcome =
   /** Back to the inspect step: the field keeps the passphrase and Restore stays enabled. */
   | { kind: 'inspect'; message: string; tone: 'danger' | 'info'; field: boolean }

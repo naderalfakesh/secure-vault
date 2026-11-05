@@ -55,7 +55,7 @@ const tileColors: Record<ListRowTint, { fill: keyof Palette; glyph: keyof Palett
 };
 
 /**
- * Settings-style row (handover §4): leading icon tile, title, optional
+ * Settings-style row: leading icon tile, title, optional
  * subtitle, and a trailing chevron, value, switch, checkmark, or nothing.
  */
 export function ListRow({

@@ -1,4 +1,4 @@
-/** J5 Share (handover §6 J5, §7.4). */
+/** Share. */
 export const share = {
   'share.warning.title': 'Share a decrypted copy?',
   'share.warning.body':

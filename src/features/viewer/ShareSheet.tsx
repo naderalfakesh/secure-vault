@@ -13,7 +13,7 @@ export type ShareSheetStep = 'warning' | 'preparing';
 export type ShareSheetProps = {
   /** null hides the sheet. */
   step: ShareSheetStep | null;
-  /** The one document being shared (handover §11.12). */
+  /** The one document being shared. */
   fileName: string;
   fileMeta: string;
   fileIcon: 'document' | 'pdf' | 'image';
@@ -28,7 +28,7 @@ export type ShareSheetProps = {
 };
 
 /**
- * J5 share warning and preparing step (handover §6 J5, §7.4). Every share
+ * J5 share warning and preparing step. Every share
  * starts here; the system share sheet opens only after this sheet closes.
  */
 export function ShareSheet({

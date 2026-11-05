@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-/** 4-pt spacing scale (handover §3.3, unchanged). */
+/** 4-pt spacing scale. */
 export const spacing = {
   xxs: 4,
   xs: 8,
@@ -68,7 +68,7 @@ export const motion = {
 } as const;
 
 /**
- * Text-size caps (§10.2). Body text scales uncapped; these few places cap it,
+ * Text-size caps. Body text scales uncapped; these few places cap it,
  * as iOS caps its own large titles and bar labels, so a single word never
  * breaks across lines at the largest sizes (AX5 is 3.57×, Android's largest
  * 2×). `accessibilityText` is the font scale where layouts switch to their

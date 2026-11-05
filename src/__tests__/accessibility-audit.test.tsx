@@ -50,7 +50,7 @@ const routeParams = (jest.requireMock('expo-router') as { __params: { id?: strin
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as { reset(): void };
 
-/** The Arabic title from §10.1, so every list and sentence is walked with it. */
+/** An Arabic title, so every list and sentence is walked with it. */
 const ARABIC_TITLE = 'عقد الإيجار 2026.pdf';
 
 let session: ReturnType<typeof useSession>;

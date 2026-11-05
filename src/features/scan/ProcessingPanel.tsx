@@ -18,7 +18,7 @@ const STEP_COPY: Record<ProcessingStep, ScanCopyKey> = {
   index: 'step.index',
 };
 
-/** Steps before this one can still be cancelled (handover §6 J1, F12). */
+/** Steps before this one can still be cancelled. */
 export function isCancellable(step: ProcessingStep): boolean {
   return STEPS.indexOf(step) < STEPS.indexOf('encrypt');
 }

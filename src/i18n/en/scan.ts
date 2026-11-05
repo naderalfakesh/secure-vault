@@ -1,4 +1,4 @@
-/** J1 Scan and import (handover §6 J1, §7.8). */
+/** Scan and import. */
 export const scan = {
   'scan.sources.title': 'Add a document',
   'scan.sources.footer':
@@ -31,7 +31,7 @@ export const scan = {
   /** A PDF that asks for a password to open; `{name}` is the isolated file name. */
   'scan.import.protected': '{name} is password-protected. Remove the password and import it again.',
   /**
-   * Reserved for the import size limit (D9, handover §12). The limit is not
+   * Reserved for the import size limit. The limit is not
    * decided, so nothing shows this and no file is refused for its size.
    */
   'scan.import.tooLarge': 'This file is larger than [LIMIT]. Split it or choose a smaller file.',

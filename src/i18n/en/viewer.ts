@@ -1,4 +1,4 @@
-/** J3 Viewer and document details (handover §6 J3). */
+/** Viewer and document details. */
 export const viewer = {
   /** A page for a screen reader; `{title}` is the isolated document title. */
   'viewer.pageLabel': 'Page {number} of {count}, {title}',

@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-// "Last created on this phone" (handover F10): the moment the last backup was
+// "Last created on this phone": the moment the last backup was
 // handed to the share sheet. A date and nothing else, so it is not sensitive;
 // it lives in the OS secure store beside the appearance setting, not in the
 // vault, and is cleared with the vault by Delete everything.

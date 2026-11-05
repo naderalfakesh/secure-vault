@@ -10,7 +10,7 @@ import {
 } from '@/features/session/protectionCopy';
 import { t } from '@/i18n';
 
-/** How your data is protected (handover §7.6): plain facts, then the limits. */
+/** How your data is protected: plain facts, then the limits. */
 export default function ProtectionScreen() {
   return (
     <Screen>

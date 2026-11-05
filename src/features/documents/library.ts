@@ -5,7 +5,7 @@ import { formatRelativeDate, joinParts } from '@/utils/format';
 
 import { allCategories, categoryLabel } from './categories';
 
-/** Recent: the five most recently updated documents (handover §11.13). */
+/** Recent: the five most recently updated documents. */
 export const RECENT_LIMIT = 5;
 /** The Expiring soon rail looks this far ahead. */
 export const EXPIRING_WINDOW_DAYS = 90;

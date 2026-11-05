@@ -1,6 +1,6 @@
 import { type Insets, StyleSheet, type ViewStyle } from 'react-native';
 
-/** The minimum touch target, in points (handover §3.3, §10.2). */
+/** The minimum touch target, in points. */
 export const MIN_TARGET = 44;
 
 const CONTROL_ROLES = new Set([

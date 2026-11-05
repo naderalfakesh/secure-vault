@@ -79,7 +79,7 @@ export function wholeWordFit(
 /**
  * The only text primitive screens should use. Variants map to the platform
  * text styles so font scaling stays on, uncapped up to the largest
- * accessibility size (AX5, §10.2), except the large title, which stops at
+ * accessibility size (AX5), except the large title, which stops at
  * 1.3×. Titles also shrink to keep their words whole (`fit`); tones map to
  * semantic theme colors.
  */

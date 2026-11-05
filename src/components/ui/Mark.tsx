@@ -24,7 +24,7 @@ export type MarkProps = {
   testID?: string;
 };
 
-/** Glyph sizes from the design (Lock board, §3.5 splash, privacy cover). */
+/** Glyph sizes from the design (lock screen, splash, privacy cover). */
 const glyphSizes: Record<number, number> = { 64: 38, 72: 44, 80: 46 };
 
 /** The glyph size the mark draws inside a squircle of this size. */
@@ -33,7 +33,7 @@ export function markGlyphSize(size: number): number {
 }
 
 /**
- * The SecureVault mark (handover §3.5): the outline document-with-padlock
+ * The SecureVault mark: the outline document-with-padlock
  * glyph, drawn from the design's SVG path at a 1.5 stroke, on an indigo
  * squircle. Dark mode uses the muted indigo with an indigo glyph, as the dark
  * splash does. The splash image, the lock screen, and the privacy cover share

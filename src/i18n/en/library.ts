@@ -1,4 +1,4 @@
-/** J2 Library and J7 Delete and undo (handover §6, §7.8). */
+/** Library and Delete and undo. */
 export const library = {
   'library.title': 'Library',
   'library.category.id': 'ID & Personal',

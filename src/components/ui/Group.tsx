@@ -26,7 +26,7 @@ export type GroupProps = {
   testID?: string;
 };
 
-/** Grouped surface with hairline separators between its rows (handover §4). */
+/** Grouped surface with hairline separators between its rows. */
 export function Group({
   header,
   footer,

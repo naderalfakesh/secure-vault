@@ -1,4 +1,4 @@
-/** Settings, Auto-lock and How your data is protected (handover §6 Settings, §7.6). */
+/** Settings, Auto-lock and How your data is protected. */
 export const settings = {
   'settings.title': 'Settings',
   'settings.group.security': 'Security',

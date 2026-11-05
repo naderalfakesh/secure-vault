@@ -26,7 +26,7 @@ const levelColor: Record<PassphraseStrength, keyof Palette> = {
   4: 'success',
 };
 
-/** Four-segment passphrase strength (handover §4). An on-device estimate, never a rule. */
+/** Four-segment passphrase strength. An on-device estimate, never a rule. */
 export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
   const { theme } = useUnistyles();
   const strength = estimatePassphraseStrength(passphrase);

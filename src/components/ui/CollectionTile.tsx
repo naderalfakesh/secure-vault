@@ -16,7 +16,7 @@ export type CollectionTileProps = {
   testID?: string;
 };
 
-/** Collection tile (handover §4): tinted icon tile, name, and document count. */
+/** Collection tile: tinted icon tile, name, and document count. */
 export function CollectionTile({ name, count, icon, onPress, testID }: CollectionTileProps) {
   return (
     <Pressable

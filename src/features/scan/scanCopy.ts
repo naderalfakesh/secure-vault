@@ -3,7 +3,7 @@ import type { scan } from '@/i18n/en/scan';
 import { isolate } from '@/utils/bidi';
 
 /**
- * The J1 Scan and import strings (handover §6 J1, §7.8). They live in the
+ * The Scan and import strings. They live in the
  * string table under `scan.`; this module keeps the short keys the scan
  * screens use.
  */

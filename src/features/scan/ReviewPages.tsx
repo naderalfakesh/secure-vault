@@ -33,7 +33,7 @@ function pageActions(index: number, count: number) {
 }
 
 /**
- * Scanned pages before anything is read or saved (handover §6 J1, F12): remove
+ * Scanned pages before anything is read or saved: remove
  * a page, move one by holding it and using Move earlier / Move later, or add
  * more. Screen readers get the same three as actions on each page.
  */

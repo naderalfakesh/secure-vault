@@ -11,7 +11,7 @@ import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
 
 /**
- * The device key or the PIN record could not be read (handover §7.2). The
+ * The device key or the PIN record could not be read. The
  * way on is to read them again: no erase, restore or settings, and nothing is
  * written. The session also tries again on its own each time the app returns
  * to the foreground. When the PIN record is gone although it was written and

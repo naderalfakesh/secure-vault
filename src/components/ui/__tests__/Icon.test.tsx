@@ -5,7 +5,7 @@ import { Icon, icons } from '../Icon';
 import { iconPaths } from '../iconPaths';
 
 describe('Icon', () => {
-  it('covers the handover icon set', () => {
+  it('covers the design icon set', () => {
     const set = [
       'lock',
       'faceId',

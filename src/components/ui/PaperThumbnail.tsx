@@ -15,7 +15,7 @@ export type PaperThumbnailProps = {
 const PAPER_LINE = '#D5D8E0';
 const LINES = ['100%', '70%', '100%', '50%'] as const;
 
-/** Scanned-paper placeholder: the warmest colour on screen (handover §2). */
+/** Scanned-paper placeholder: the warmest colour on screen. */
 export function PaperThumbnail({
   width = 44,
   height = 56,
