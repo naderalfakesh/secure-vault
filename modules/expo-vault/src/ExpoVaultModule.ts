@@ -208,6 +208,13 @@ export interface SecureVault {
    * it is up means the user left the app. iOS always returns 0. Synchronous.
    */
   lastStoppedAt(): number;
+  /**
+   * Ends the key session once the vault locks. iOS drops the authenticated
+   * `LAContext` that every key read of the unlocked session reuses, so the
+   * next read prompts again. Android does nothing: the Keystore's own
+   * authentication window bounds its key. Synchronous.
+   */
+  endKeySession(): void;
   addListener(
     event: 'backupProgress',
     listener: (progress: BackupProgress) => void,

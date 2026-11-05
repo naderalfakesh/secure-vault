@@ -380,6 +380,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
         backgroundedAt.current = null;
         pauseEndedAwayRef.current = false;
       }
+      // Outside an unlocked session no key read may reuse its authentication:
+      // the next one prompts again (iOS; Android's key window bounds its own).
+      if (next !== 'unlocked') {
+        try {
+          vault.endKeySession();
+        } catch {
+          // A build without the call keeps the previous behaviour.
+        }
+      }
       statusRef.current = next;
       setStatus(next);
       settleWaiters();

@@ -92,4 +92,6 @@ is the intended property of an on-device vault.
   wrapped random key is the only option that works on both platforms.
 - **Per-use Keystore authentication with CryptoObject.** Stronger, but it
   requires a biometric prompt for every file operation. The timeout-based key
-  keeps one prompt per unlock; Phase 4's auto-lock bounds the window.
+  keeps one prompt per unlock; Phase 4's auto-lock bounds the window. iOS gets
+  the same one prompt per unlock by reusing the session's authenticated
+  `LAContext` for every Keychain read (see `docs/SECURITY.md`).

@@ -38,6 +38,11 @@ backup passphrase ─── PBKDF2-HMAC-SHA256, 600 000 iterations, per-file sal
   stored as a Keychain item with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
   and a `userPresence` access control. Reading it prompts Face ID, Touch ID,
   or the device passcode; the key never syncs and is not in device backups.
+  The unlocked session keeps the `LAContext` it authenticated with and passes
+  it to every key read (`kSecUseAuthenticationContext`), so an unlock shows
+  one prompt rather than one per read. Any status other than unlocked
+  invalidates that context, and the next read prompts again. While the
+  session stays unlocked the context stays valid; auto-lock is what bounds it.
   It is a Keychain-protected key, not a Secure Enclave key: every vault
   operation reads the raw bytes into process memory as a CryptoKit
   `SymmetricKey` for as long as that operation runs.

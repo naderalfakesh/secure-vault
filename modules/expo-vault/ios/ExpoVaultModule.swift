@@ -32,6 +32,8 @@ public class ExpoVaultModule: Module {
   /// long as it runs. `cancelRestore` is synchronous and runs on the
   /// JavaScript thread, never behind the restore it stops.
   private let vaultQueue = DispatchQueue(label: "com.naderalfakesh.securevault.vault-io", qos: .userInitiated)
+  /// The authenticated context every key read of the unlocked session uses.
+  private let keySession = VaultKeySession()
 
   public func definition() -> ModuleDefinition {
     Name("ExpoVault")
@@ -66,6 +68,8 @@ public class ExpoVaultModule: Module {
 
       // First, delete any existing key with the same identifier
       SecItemDelete(query as CFDictionary)
+      // A context authenticated for the old key must not stand for the new one.
+      self.keySession.end()
 
       let status = SecItemAdd(query as CFDictionary, nil)
       if status != errSecSuccess {
@@ -90,6 +94,12 @@ public class ExpoVaultModule: Module {
       promise.resolve(status != errSecItemNotFound)
     }
 
+    // The vault locked: the next key read prompts again. Synchronous, so it
+    // lands before anything queued after the lock.
+    Function("endKeySession") { () in
+      self.keySession.end()
+    }
+
     // Reading the count never reads the content, so it never prompts.
     Function("clipboardStamp") { () -> String? in
       return String(UIPasteboard.general.changeCount)
@@ -111,6 +121,7 @@ public class ExpoVaultModule: Module {
         kSecAttrService as String: self.keychainService,
       ]
       let status = SecItemDelete(query as CFDictionary)
+      self.keySession.end()
       if status == errSecSuccess || status == errSecItemNotFound {
         promise.resolve(nil)
       } else {
@@ -140,10 +151,14 @@ public class ExpoVaultModule: Module {
         let reason = "Unlock SecureVault to access your documents."
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
           if success {
+            // The evaluated context opens the key now and for every read of
+            // the session, so this read shows no second prompt.
+            self.keySession.adopt(context)
             do {
               _ = try self.getEncryptionKey()
               promise.resolve(true)
             } catch {
+              self.keySession.discard(context)
               promise.reject("KEY_RETRIEVAL_FAILED", error.localizedDescription)
             }
           } else if let laError = authenticationError as? LAError, Self.isUserDismissal(laError.code) {
@@ -513,7 +528,15 @@ public class ExpoVaultModule: Module {
   }
 
   private func getEncryptionKey() throws -> SymmetricKey {
-    try VaultKeychain.loadKey(service: keychainService)
+    let context = keySession.current()
+    do {
+      return try VaultKeychain.loadKey(service: keychainService, context: context)
+    } catch {
+      // A cancelled or failed prompt leaves the context unauthenticated;
+      // keeping it would make every later read fail without asking.
+      keySession.discard(context)
+      throw error
+    }
   }
 
   /// Only names the vault itself writes count as entries: document files,

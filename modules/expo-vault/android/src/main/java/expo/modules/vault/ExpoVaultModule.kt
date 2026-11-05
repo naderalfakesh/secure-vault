@@ -94,6 +94,10 @@ class ExpoVaultModule : Module() {
         // When an activity of the app was last stopped, in epoch milliseconds; 0 before any.
         Function("lastStoppedAt") { lastStoppedAt.toDouble() }
 
+        // iOS drops its session's authenticated context here. The Keystore key
+        // is bounded by its own authentication window, so there is nothing to end.
+        Function("endKeySession") { }
+
         AsyncFunction("createVault") { promise: Promise ->
             try {
                 val context = appContext.reactContext ?: run {

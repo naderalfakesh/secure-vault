@@ -48,6 +48,8 @@ export function createVaultMock(): SecureVault & {
   clearInstallMarker(): void;
   /** Records an Android activity stop at `at` (epoch ms), as Home or another app over it does. */
   stopActivity(at?: number): void;
+  /** How many times the key session was ended, as a lock does. */
+  keySessionsEnded(): number;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
@@ -55,6 +57,7 @@ export function createVaultMock(): SecureVault & {
   // Tests start as an install that has run before, so reinstall handling stays out of their way.
   let installMarker = true;
   let stoppedAt = 0;
+  let keySessionsEnded = 0;
   // Backups are kept in memory keyed by their path, protected by the passphrase.
   const backups = new Map<
     string,
@@ -228,6 +231,12 @@ export function createVaultMock(): SecureVault & {
     lastStoppedAt() {
       return stoppedAt;
     },
+    endKeySession() {
+      keySessionsEnded += 1;
+    },
+    keySessionsEnded() {
+      return keySessionsEnded;
+    },
     stopActivity(at = Date.now()) {
       stoppedAt = at;
     },
@@ -300,6 +309,7 @@ export function createVaultMock(): SecureVault & {
       created = false;
       installMarker = true;
       stoppedAt = 0;
+      keySessionsEnded = 0;
       links.clear();
     },
   };

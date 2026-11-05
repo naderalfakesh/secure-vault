@@ -24,6 +24,7 @@ const vaultMock = vault as unknown as {
   reset(): void;
   unlockWithBiometrics: () => Promise<boolean>;
   stopActivity(at?: number): void;
+  keySessionsEnded(): number;
 };
 
 function Probe() {
@@ -361,6 +362,26 @@ describe('SessionProvider session capture', () => {
     expect(session.status).toBe('unlocked');
     expect(capture.current()).toBe(false);
     await expect(capture.confirm()).resolves.toBe(false);
+  });
+
+  it('ends the key session when the vault locks, by hand or by auto-lock', async () => {
+    await unlocked(0);
+    const before = vaultMock.keySessionsEnded();
+    await act(async () => {
+      session.lock();
+    });
+    expect(vaultMock.keySessionsEnded()).toBe(before + 1);
+
+    await act(async () => {
+      await session.unlock();
+    });
+    // Unlocking keeps the session that the unlock just authenticated.
+    expect(vaultMock.keySessionsEnded()).toBe(before + 1);
+
+    await moveTo('background');
+    await moveTo('active');
+    await waitFor(() => expect(session.status).toBe('locked'));
+    expect(vaultMock.keySessionsEnded()).toBe(before + 2);
   });
 
   it('waits out a trip to the background and fails when auto-lock locks on return', async () => {
