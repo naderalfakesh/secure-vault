@@ -37,5 +37,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate
-        run: npm run validate
+      # Expo Doctor runs in its own workflow: an Expo patch release should not
+      # turn this badge red.
+      - name: Format, lint, types and tests
+        run: npm run check

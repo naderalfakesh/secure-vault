@@ -109,8 +109,9 @@ stored in plain. The
 
 ## Quality
 
-CI runs `npm run validate`: formatting, lint, strict types, the Jest suites,
-and Expo Doctor. The repository tests run against a real
+CI runs `npm run check` on every push: formatting, lint, strict types, and
+the Jest suites. Expo Doctor runs in a workflow of its own, also weekly, so an
+Expo patch release flags drift without failing the build. The repository tests run against a real
 SQLite with FTS5; the vault module ships a Jest double so services and
 screens run unchanged. Native evidence covers iOS and Android development
 builds on the simulator and the emulator for every phase except Phase 2

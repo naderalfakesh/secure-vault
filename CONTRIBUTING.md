@@ -10,7 +10,8 @@ SecureVault is a portfolio project, but it is run like a product codebase.
 - One concern per commit, written as a single-line conventional commit
   without a scope or body, for example `feat: add the zoomable page viewer`.
 - Run `npm run validate` before asking for review. It runs Prettier, ESLint,
-  strict TypeScript, Jest, and Expo Doctor, the same gate CI runs.
+  strict TypeScript, Jest, and Expo Doctor, the same checks the two CI
+  workflows run.
 - A change that touches native code, encryption, the session model, or the
   backup format needs a native run on both platforms and a note under
   `docs/verification/`; a change of direction needs an ADR under `docs/adr/`.
