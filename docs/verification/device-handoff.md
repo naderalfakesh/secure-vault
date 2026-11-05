@@ -13,12 +13,18 @@ Pixel 9). Set auto-lock to **Immediately** unless an item says otherwise.
 
 ## Install
 
-**Android.** Sideload the release APK:
-`_build/cryptoNoteVault/device-handoff/SecureVault-1.0.0-1-release.apk` on the
-SSD (signed with the template's debug key, R8 on, JS bundle embedded, no Metro
-needed). Check its sha256 against the value in the handoff message before
-installing. A store build needs a real upload key; this one is for testing
-only.
+**Android.** Build a release APK yourself; the prebuilt handoff APKs were
+removed after the Pixel 9 run, and
+[device-pixel9-android.md](device-pixel9-android.md) records the checksums of
+the builds that were tested.
+
+1. `nvm use 24 && npm ci`
+2. `npx expo prebuild --clean --platform android`
+3. `cd android && ./gradlew :app:assembleRelease --max-workers=4` with JDK 17
+   (R8 on, JS bundle embedded, no Metro needed).
+4. Sideload `android/app/build/outputs/apk/release/app-release.apk`. It is
+   signed with the template's debug key, so it is for testing only; a store
+   build needs a real upload key.
 
 **iOS.** Needs your Apple team, so build it yourself. The project lives on the
 SSD at `/Volumes/Samsung SSD 990 2TB/projects/cryptoNoteVault`; the space in
