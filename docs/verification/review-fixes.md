@@ -1,8 +1,8 @@
 # Review fixes: CI, native key handling, repository hygiene
 
 > Verified: 2026-11-05 (host: `npm run validate`, the vault module compiled
-> natively on both platforms; no app run on a simulator, emulator or device,
-> see "Owed")
+> natively on both platforms; release builds run on the Pixel 9, the iOS 27
+> simulator and an Android 10 emulator, see "App runs")
 >
 > Base: `main` at `4d656ee`.
 
@@ -91,13 +91,27 @@ iOS `put` now writes with `.atomic`, like its restore path already did.
 | `./gradlew :expo-vault:compileDebugKotlin` | `BUILD SUCCESSFUL` (JDK 17, after `expo prebuild`)  |
 | `xcodebuild -scheme ExpoVault` (simulator) | `BUILD SUCCEEDED` (Xcode 27, after `expo prebuild`) |
 
+## App runs
+
+Release builds of `9e1e294`: an arm64 APK (`assembleRelease`, JDK 17) and a
+simulator `.app` (`xcodebuild -configuration Release`). The iOS app now builds
+straight from the SSD path; the expo-constants and Bundle React Native phases
+quote it in SDK 58.
+
+| Check                                                                                                                                                                      | Result                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pixel 9 (Android 17), APK installed over the 2026-10-23 build (same certificate, first install date kept), vault with `_database_key` and `_key_probe` in the older format | Fingerprint unlock opened the library with all 5 documents                                                                                                       |
+| Pixel 9, backup created after the update                                                                                                                                   | `SecureVault backup 2026-11-05.svbackup`, 1.37 MB, `SVB1`                                                                                                        |
+| iOS 27.2 simulator, restore of that backup                                                                                                                                 | 15 entries checked, 5 documents with thumbnails, same titles and collections as on the Pixel                                                                     |
+| iOS, Face ID unlock (LocalAuthentication log)                                                                                                                              | 1 prompt, 1 `evaluatePolicy`, the 5 key reads that follow reuse that `LAContext`                                                                                 |
+| iOS, restore and thumbnails while unlocked                                                                                                                                 | 0 prompts, 16 key reads, all on the session context                                                                                                              |
+| iOS, Lock now, then Face ID                                                                                                                                                | Context invalidated; 1 prompt, a new context for the reads after it                                                                                              |
+| Android 10 (API 29) emulator, new AVD `SecureVault_API29`, screen-lock PIN, no biometric enrolled                                                                          | Vault setup showed the system prompt ("Unlock your vault") and finished. After the 300 s key window, PIN unlock hit `KEY_LOCKED`, prompted once more, and opened |
+
 ## Owed
 
-- iOS: an app run that counts the prompts. Expect one at unlock, none per
-  thumbnail, and one again after a lock. Best on a physical iPhone (handoff
-  item 1.8).
-- Android: unlock on an API 28 or 29 device or emulator.
-- Android: on the Pixel 9's existing vault, the first launch after the update
-  reads the older-format `_database_key` and `_key_probe` through their
-  preference nonces. Check that this still unlocks, and that a backup made
-  afterwards restores on iOS. A restore writes `SVS1`.
+- iOS: the same prompt count on a physical iPhone (handoff item 1.8). The
+  simulator shows the behaviour, but Face ID there is simulated.
+- Android 9 and 10 with a fingerprint enrolled: a weak-biometric unlock should
+  fall back to the screen lock prompt for the key read. Only the screen lock
+  path was run.
