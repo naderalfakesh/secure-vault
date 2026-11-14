@@ -7,15 +7,17 @@ the nine phases with their scope. Verification notes for finished phases live in
 
 ## Commands
 
-| Task                       | Command                                                                 |
-| -------------------------- | ----------------------------------------------------------------------- |
-| Install                    | `npm install` (Node 24, see `.nvmrc`; npm, not yarn or pnpm)            |
-| Start Metro                | `npm start`                                                             |
-| iOS build and run          | `npm run ios -- --device "iPhone 18 Pro"` (Xcode 27, iOS 27 simulator)  |
-| Android build and run      | `npm run android`                                                       |
-| Regenerate native projects | `npx expo prebuild --clean` (`ios/` and `android/` are gitignored)      |
-| Quality gate               | `npm run validate` (prettier, eslint, tsc, jest, expo-doctor)           |
-| Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` |
+| Task                       | Command                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Install                    | `npm install` (Node 24, see `.nvmrc`; npm, not yarn or pnpm)                                          |
+| Start Metro                | `npm start`                                                                                           |
+| iOS build and run          | `npm run ios -- --device "iPhone 18 Pro"` (Xcode 27, iOS 27 simulator)                                |
+| Android build and run      | `npm run android`                                                                                     |
+| Regenerate native projects | `npx expo prebuild --clean` (`ios/` and `android/` are gitignored)                                    |
+| Quality gate               | `npm run validate` (prettier, eslint, tsc, jest, expo-doctor)                                         |
+| Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`                               |
+| Native tests (vault)       | `npm run test:native:ios` (`swift test`), `npm run test:native:android` (Robolectric, after prebuild) |
+| Test vectors               | `npm run fixtures:vault` regenerates `modules/expo-vault/tests/fixtures`                              |
 
 Local toolchain quirks: CocoaPods needs a UTF-8 locale (`LANG=en_US.UTF-8`),
 and Gradle needs `JAVA_HOME` pointing at a JDK 17 or 21 (the JDK 25 Android
@@ -50,6 +52,9 @@ Required native config. Do not remove any of it:
 - `src/features` session provider, document feature pieces; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   Keychain or Keystore key, string and file storage, export and import.
+  Native tests: `Package.swift` and `tests/swift` (the format files as a Swift
+  package), `android/src/test` (JUnit and Robolectric), both reading the
+  vectors `tests/make-fixtures.mjs` writes to `tests/fixtures`.
 - `plugins/` config plugins (listed above).
 - `docs/` plan, security model (`docs/SECURITY.md`), ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 

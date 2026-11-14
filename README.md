@@ -7,6 +7,7 @@
 > product.
 
 [![CI](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml)
+[![Native tests](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml)
 
 | Library                                                                                                                  | Viewer, always on a dark stage                                                                                      | Add a document                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -96,16 +97,16 @@ stored in plain. The
 
 ## Technology
 
-| Area       | Choice                                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------ |
-| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                 |
-| Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                   |
-| Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                  |
-| Native     | Two local Expo Modules in Swift and Kotlin: the vault and the document scanner                               |
-| Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                       |
-| Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                  |
-| Text       | ML Kit text recognition, a heuristic intelligence engine behind an adapter                                   |
-| Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, ESLint, Prettier, Expo Doctor |
+| Area       | Choice                                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                                                       |
+| Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                                                         |
+| Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                                                        |
+| Native     | Two local Expo Modules in Swift and Kotlin: the vault and the document scanner                                                                     |
+| Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                                                             |
+| Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                                                        |
+| Text       | ML Kit text recognition, a heuristic intelligence engine behind an adapter                                                                         |
+| Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, XCTest and JUnit with shared vectors, ESLint, Prettier, Expo Doctor |
 
 ## Quality
 
@@ -113,7 +114,20 @@ CI runs `npm run check` on every push: formatting, lint, strict types, and
 the Jest suites. Expo Doctor runs in a workflow of its own, also weekly, so an
 Expo patch release flags drift without failing the build. The repository tests run against a real
 SQLite with FTS5; the vault module ships a Jest double so services and
-screens run unchanged. Native evidence covers iOS and Android development
+screens run unchanged.
+
+The vault module's own Swift and Kotlin code has native tests in a third
+workflow. Both suites read the same vectors in
+[`modules/expo-vault/tests/fixtures`](modules/expo-vault/tests/fixtures),
+written by an independent Node implementation of the three file formats
+(SVC1 streams, SVS1 string entries, SVB1 backups) from their spec. So each
+platform is checked against bytes neither app wrote: altered, reordered and
+cut chunks, wrong passphrases, unsupported headers, and backups damaged only
+in their last entry, which must be refused before the restore touches the
+vault. The Swift formats build as a plain Swift package and run with
+`swift test` on the Mac; the Kotlin tests run on the JVM with Robolectric.
+
+Native evidence covers iOS and Android development
 builds on the simulator and the emulator for every phase except Phase 2
 (iOS only), including a backup made on the iPhone simulator and restored on
 the Android emulator. The release APK passed the Android checks on a Pixel 9
@@ -166,6 +180,8 @@ Files. On the Android emulator, set a screen lock first
 | `npm start`                       | Start Metro for the development client                     |
 | `npm run ios` / `npm run android` | Generate and run a native build                            |
 | `npm test`                        | Run the Jest suites                                        |
+| `npm run test:native:ios`         | Run the vault's Swift tests on the Mac (`swift test`)      |
+| `npm run test:native:android`     | Run the vault's Kotlin tests (after `expo prebuild`)       |
 | `npm run validate`                | Run formatting, lint, strict types, tests, and Expo Doctor |
 
 ## Historical context
