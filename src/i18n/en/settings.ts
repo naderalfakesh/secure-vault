@@ -24,9 +24,19 @@ export const settings = {
   'settings.appearance.light': 'Light',
   'settings.appearance.dark': 'Dark',
   'settings.suggestions': 'Detail suggestions',
-  'settings.suggestions.heuristic':
-    'Text patterns read on this device. No on-device model is used yet.',
-  'settings.suggestions.model': 'On-device model: {engine}',
+  'settings.suggestions.heuristic': 'Text patterns read on this device.',
+  'settings.suggestions.model':
+    '{engine}, on this device. Every guess is checked against the text.',
+  'settings.suggestions.appleModel': 'Apple Intelligence',
+  'settings.suggestions.modelMissing':
+    'Text patterns read on this device. {engine} is not on this phone yet.',
+  'settings.suggestions.download': 'Download',
+  'settings.suggestions.downloadHint': 'Download {engine} to this phone',
+  'settings.suggestions.downloaded': '{engine} is ready on this phone',
+  'settings.suggestions.downloadFailed': '{engine} could not be downloaded. Try again later.',
+  'settings.suggestions.modelDownloading':
+    'Text patterns read on this device until {engine} finishes downloading.',
+  'settings.suggestions.geminiNano': 'Gemini Nano',
   'settings.suggestions.checking': 'Checking',
   'settings.protection': 'How your data is protected',
   'settings.sourceCode': 'Source code',

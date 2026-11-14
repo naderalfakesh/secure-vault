@@ -44,6 +44,7 @@ jest.mock('expo-secure-store', () => {
 jest.mock('./modules/expo-document-scanner', () =>
   require('./modules/expo-document-scanner/src/index.mock'),
 );
+jest.mock('./modules/expo-document-ai', () => require('./modules/expo-document-ai/src/index.mock'));
 
 // jest-expo's expo-crypto mock returns one constant UUID; documents need unique ids.
 jest.mock('expo-crypto', () => {

@@ -1,0 +1,8 @@
+<manifest xmlns:tools="http://schemas.android.com/tools">
+  <!--
+    ML Kit GenAI needs API 26; the app still supports API 24. The module only
+    touches it from API 26 on (see ExpoDocumentAiModule), so older devices keep
+    the heuristic suggestions.
+  -->
+  <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.prompt,com.google.mlkit.genai.common" />
+</manifest>

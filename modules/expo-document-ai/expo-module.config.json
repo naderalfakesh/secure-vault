@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["ExpoDocumentAiModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.documentai.ExpoDocumentAiModule"]
+  }
+}

@@ -1,0 +1,28 @@
+apply plugin: 'com.android.library'
+
+group = 'expo.modules.documentai'
+version = '1.0.0'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useExpoPublishing()
+useDefaultAndroidSdkVersions()
+
+android {
+  namespace "expo.modules.documentai"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  // Gemini Nano through Android AICore. Beta: the API may change between releases.
+  // Not beta5: it is built with Kotlin 2.4, newer than Expo SDK 58's Kotlin 2.2 compiler reads.
+  implementation 'com.google.mlkit:genai-prompt:1.0.0-beta4'
+}

@@ -26,7 +26,12 @@ import {
   useBiometricAvailability,
 } from '@/features/auth/biometricAvailability';
 import { biometryIcon, biometryName } from '@/features/auth/lockCopy';
-import { selectIntelligence } from '@/features/intelligence';
+import {
+  downloadOnDeviceModel,
+  type ModelInfo,
+  onDeviceModelInfo,
+  selectIntelligence,
+} from '@/features/intelligence';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
@@ -57,6 +62,13 @@ const APPEARANCE_CHOICES: { value: AppearancePreference; label: string }[] = [
   { value: 'dark', label: t('settings.appearance.dark') },
 ];
 
+/** The on-device model by the name its maker uses. */
+function modelName(engine: string): string {
+  return engine === 'gemini-nano'
+    ? t('settings.suggestions.geminiNano')
+    : t('settings.suggestions.appleModel');
+}
+
 export default function SettingsScreen() {
   const toast = useToast();
   const { lock, settings, updateSettings, biometry, eraseVault } = useSession();
@@ -65,6 +77,31 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const bottomSpace = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insets.bottom + 24;
   const [engine, setEngine] = useState<string>('');
+  const [model, setModel] = useState<ModelInfo | null>(null);
+  const [modelRefresh, setModelRefresh] = useState(0);
+  const [downloading, setDownloading] = useState(false);
+  // Only Gemini Nano is downloaded by the app; Apple's model comes with Apple Intelligence.
+  const canDownload = model?.status === 'downloadable' && model.engine === 'gemini-nano';
+  const downloadModel = useCallback(async () => {
+    if (!model || downloading) return;
+    const name = modelName(model.engine);
+    setDownloading(true);
+    try {
+      await downloadOnDeviceModel();
+      toast.show({
+        message: t('settings.suggestions.downloaded', { engine: name }),
+        tone: 'success',
+      });
+    } catch {
+      toast.show({
+        message: t('settings.suggestions.downloadFailed', { engine: name }),
+        tone: 'danger',
+      });
+    } finally {
+      setDownloading(false);
+      setModelRefresh((count) => count + 1);
+    }
+  }, [downloading, model, toast]);
   const biometrics = useBiometricAvailability();
   const biometricReason = biometrics ? biometricUnavailableReason(biometrics) : null;
   useEffect(() => {
@@ -72,10 +109,13 @@ export default function SettingsScreen() {
     selectIntelligence().then((selected) => {
       if (active) setEngine(selected.engine);
     });
+    onDeviceModelInfo().then((info) => {
+      if (active) setModel(info);
+    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [modelRefresh]);
   const appearance = useAppearance();
   const [busy, setBusy] = useState<'clear' | null>(null);
   // An export or restore, possibly started before the last lock, is still
@@ -226,11 +266,24 @@ export default function SettingsScreen() {
             title={t('settings.suggestions')}
             subtitle={
               engine === 'heuristic'
-                ? t('settings.suggestions.heuristic')
+                ? model && (downloading || model.status === 'downloading')
+                  ? t('settings.suggestions.modelDownloading', { engine: modelName(model.engine) })
+                  : model?.status === 'downloadable'
+                    ? t('settings.suggestions.modelMissing', { engine: modelName(model.engine) })
+                    : t('settings.suggestions.heuristic')
                 : engine
-                  ? t('settings.suggestions.model', { engine })
+                  ? t('settings.suggestions.model', { engine: modelName(engine) })
                   : t('settings.suggestions.checking')
             }
+            {...(canDownload && !downloading
+              ? {
+                  value: t('settings.suggestions.download'),
+                  accessibilityHint: t('settings.suggestions.downloadHint', {
+                    engine: modelName(model.engine),
+                  }),
+                  onPress: downloadModel,
+                }
+              : {})}
           />
         </Group>
 
