@@ -5,8 +5,10 @@ SecureVault is a portfolio project, but it is run like a product codebase.
 ## Ground rules
 
 - Fictional documents only. Never commit, screenshot, or attach a real
-  passport, ID, lease, or receipt; the "Republic of Example" passport and the
-  sample lease under `docs/images` are the pattern.
+  passport, ID, lease, or receipt. `scripts/demo/make-sample-documents.swift`
+  draws the fictional ones (a "Republic of Example" passport, an insurance
+  card, a receipt and a lease, each stamped SAMPLE or SPECIMEN) used in the
+  screenshots and the README demo.
 - One concern per commit, written as a single-line conventional commit
   without a scope or body, for example `feat: add the zoomable page viewer`.
 - Run `npm run validate` before asking for review. It runs Prettier, ESLint,
