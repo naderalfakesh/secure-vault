@@ -9,6 +9,12 @@
 [![CI](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml)
 [![Native tests](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml)
 
+<p align="center">
+  <img src="docs/images/demo-ios.gif" alt="SecureVault on iOS: Face ID unlock, importing a sample passport with its suggested collection, dates and number, full-text search for a word inside a document, and the viewer" width="300" />
+</p>
+
+<p align="center"><sub>Face ID unlock, an import with on-device suggestions, full-text search, and the viewer. iOS simulator, fictional sample documents.</sub></p>
+
 | Library                                                                                                                  | Viewer, always on a dark stage                                                                                      | Add a document                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | <img src="docs/images/redesign-ios-library-light.png" alt="Library with recent documents and collections" width="260" /> | <img src="docs/images/redesign-ios-viewer-dark.png" alt="Viewer showing a sample car insurance page" width="260" /> | <img src="docs/images/redesign-ios-add-light.png" alt="Add a document: scan, photo, Photos or a file" width="260" /> |
