@@ -441,7 +441,10 @@ export default function DocumentViewerScreen() {
 
   return (
     <View style={styles.root}>
-      <Stack.Screen options={{ headerShown: false }} />
+      {/* iOS takes the status bar style from the screen's view controller
+        (UIViewControllerBasedStatusBarAppearance), so the native stack sets it;
+        StatusBar covers Android. */}
+      <Stack.Screen options={{ headerShown: false, statusBarStyle: 'light' }} />
       <StatusBar style="light" />
 
       {document && pages.length > 0 ? (
