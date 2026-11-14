@@ -38,7 +38,7 @@ const maxScale: Partial<Record<TypographyVariant, number>> = {
   largeTitle: textScale.largeTitleMax,
 };
 
-/** Titles and headings fit their words by default (F4). */
+/** Titles and headings fit their words by default. */
 const fitsByDefault: ReadonlySet<TypographyVariant> = new Set([
   'largeTitle',
   'title1',
@@ -57,7 +57,7 @@ function plainText(children: ReactNode): string | null {
 }
 
 /**
- * Props that keep every word of `text` whole (F4). Wrapping alone breaks a
+ * Props that keep every word of `text` whole. Wrapping alone breaks a
  * word that is wider than the line ("Libra/ry" at AX5), so the text gets one
  * line per word at most and `adjustsFontSizeToFit` shrinks it until it fits
  * them: a word broken across lines would need more lines than that. Null for

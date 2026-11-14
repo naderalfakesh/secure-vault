@@ -25,7 +25,7 @@ describe('Switch', () => {
     expect(view.getByRole('switch', { name: 'Face ID' })).toBeDisabled();
   });
 
-  describe('right to left (F6)', () => {
+  describe('right to left', () => {
     afterEach(() => jest.restoreAllMocks());
 
     function renderSwitch(os: 'ios' | 'android') {

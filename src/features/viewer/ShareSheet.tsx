@@ -28,7 +28,7 @@ export type ShareSheetProps = {
 };
 
 /**
- * J5 share warning and preparing step. Every share
+ * The share warning and preparing step. Every share
  * starts here; the system share sheet opens only after this sheet closes.
  */
 export function ShareSheet({

@@ -798,7 +798,7 @@ describe('Backup hub restore phases and outcomes', () => {
     expect(backupService.activity()).toBeNull();
   });
 
-  it('starts the native restore only once Checking is on screen (F1)', async () => {
+  it('starts the native restore only once Checking is on screen', async () => {
     const importing = pending<never>();
     let checkingShownAtStart: boolean | null = null;
     const view = await renderUnlocked();

@@ -61,7 +61,7 @@ const SLIDE = 40;
 /**
  * Bottom sheet for choices, confirmations, and progress. On iOS
  * it floats 8 pt in from the edges; on Android it is attached to the bottom.
- * On iOS 26+ the panel is Liquid Glass (F16); on Android, older iOS, and with
+ * On iOS 26+ the panel is Liquid Glass; on Android, older iOS, and with
  * Reduce Transparency on it is the solid elevated surface. The privacy cover
  * still covers it: it is drawn in a full-window overlay above every modal.
  */

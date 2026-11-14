@@ -4,7 +4,7 @@ import { appLocale } from './index';
 
 /**
  * Whether the layout should run right to left: the direction of the language
- * the app actually speaks (F17). A phone set to Arabic stays left to right
+ * the app actually speaks. A phone set to Arabic stays left to right
  * until an Arabic table ships, so English never renders mirrored. Development
  * builds can preview the mirrored layout with `EXPO_PUBLIC_RTL_PREVIEW=1`.
  */

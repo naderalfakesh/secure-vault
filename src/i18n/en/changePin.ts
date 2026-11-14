@@ -1,4 +1,4 @@
-/** J8 Change PIN. */
+/** Change PIN. */
 export const changePin = {
   'changePin.title.current': 'Enter your current PIN',
   'changePin.title.next': 'Choose a new PIN',

@@ -4,7 +4,7 @@ import { clearLastBackup, loadLastBackup, recordLastBackup } from './lastBackup'
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 
-describe('the last backup made on this phone (F10)', () => {
+describe('the last backup made on this phone', () => {
   beforeEach(() => secureStoreMock.__reset());
   afterEach(() => jest.restoreAllMocks());
 

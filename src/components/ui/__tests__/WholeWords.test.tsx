@@ -24,7 +24,7 @@ function expectWholeWords(node: { props: Record<string, unknown> }, words: numbe
   expect(node.props.numberOfLines).toBe(words);
 }
 
-describe('whole words at AX5 (F4)', () => {
+describe('whole words at AX5', () => {
   beforeEach(() => setWindow(AX5));
   afterEach(() => jest.restoreAllMocks());
 

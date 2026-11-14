@@ -116,7 +116,7 @@ export default function LibraryScreen() {
   }, [documents]);
 
   // Full-text search over titles, tags and the text read on this device. The
-  // index sorts the results and marks the matched words (F11).
+  // index sorts the results and marks the matched words.
   const text = query.trim();
   const order = indexOrder(sort);
   useEffect(() => {

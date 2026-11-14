@@ -40,7 +40,7 @@ function introSlides(unlockBody: string, unlockIcon: IconName): Slide[] {
   ];
 }
 
-/** J0 intro, steps 1–3. */
+/** The intro, steps 1–3. */
 export default function OnboardingScreen() {
   const { biometry, vaultExists, vaultEmpty, setupHeld } = useSession();
   const { width } = useWindowDimensions();

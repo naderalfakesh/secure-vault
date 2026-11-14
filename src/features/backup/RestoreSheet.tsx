@@ -68,8 +68,8 @@ export type RestoreSheetProps = {
 
 /**
  * The restore sheet: Inspect → Checking → Restoring →
- * outcome. Checking leaves the vault untouched and may be cancelled (F2); the
- * first Restoring event is the wipe boundary (F6), after which there is no
+ * outcome. Checking leaves the vault untouched and may be cancelled; the
+ * first Restoring event is the wipe boundary, after which there is no
  * control and nothing says the vault is unchanged.
  *
  * A restore is never stopped by the lock: it keeps running with the screen
@@ -128,7 +128,7 @@ export function RestoreSheet({
     // after the tap is the JavaScript thread's busiest moment, and the iOS
     // check of a small backup is over in about 100 ms: started first, it ended
     // under that render, its Checking events arrived together afterwards, and
-    // Cancel could only reach it past its last cancel point (F1).
+    // Cancel could only reach it past its last cancel point.
     const starting = { cancelled: false };
     startingRef.current = starting;
     await nextFrame();

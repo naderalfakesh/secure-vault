@@ -404,7 +404,7 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     await waitFor(() => expect(view.getByTestId('status')).toHaveTextContent('setup'));
   });
 
-  describe('entries whose device key is gone (F3)', () => {
+  describe('entries whose device key is gone', () => {
     it('offers only Delete everything when the PIN is lost and the key was deleted with entries left', async () => {
       await setUpVault();
       await vault.put('file_kept', 'ciphertext');

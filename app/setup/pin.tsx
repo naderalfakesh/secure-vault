@@ -22,7 +22,7 @@ import { t } from '@/i18n';
 
 type Stage = 'create' | 'easy' | 'confirm' | 'saving';
 
-/** J0 Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
+/** Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
 export default function CreatePinScreen() {
   const { setUp, error, vaultExists, vaultEmpty, biometry } = useSession();
   const biometrics = useBiometricAvailability();

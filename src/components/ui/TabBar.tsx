@@ -31,7 +31,7 @@ export const TAB_BAR_BOTTOM = 26;
 
 /**
  * Floating tab bar: Library · central Scan button · Settings.
- * On iOS 26+ the capsule is Liquid Glass (F16); on Android, older iOS, and
+ * On iOS 26+ the capsule is Liquid Glass; on Android, older iOS, and
  * with Reduce Transparency on it is the solid surface with a hairline.
  */
 export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBarProps) {

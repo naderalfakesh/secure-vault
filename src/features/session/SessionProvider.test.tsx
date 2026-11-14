@@ -724,7 +724,7 @@ describe('SessionProvider session capture', () => {
       expect(session.status).toBe('locked');
     });
 
-    describe('Home from the chooser within its bound (F2)', () => {
+    describe('Home from the chooser within its bound', () => {
       /**
        * Opens the chooser's pause and leaves the foreground. Home stops the
        * activity `homeAfterMs` later; Android delivers the chooser's result only

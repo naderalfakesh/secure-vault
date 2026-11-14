@@ -7,7 +7,7 @@ import { biometryName } from './lockCopy';
 import { t } from '@/i18n';
 
 /**
- * Why biometrics can or cannot be used (F13). `denied` is iOS only: the user
+ * Why biometrics can or cannot be used. `denied` is iOS only: the user
  * said no to SecureVault using Face ID. Android has no per-app biometric
  * permission, so there it is never reported. `noPasscode`: the phone has no
  * passcode or screen lock, so no biometric can be set up yet.

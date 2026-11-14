@@ -37,7 +37,7 @@ type Row = {
 };
 
 /**
- * The camera rows depend on the hardware (F9): the platform scanner and a
+ * The camera rows depend on the hardware: the platform scanner and a
  * plain photo when there is a camera; both disabled with the reason when there
  * is none, because the native camera picker aborts on a camera-less device.
  * Without the scanner but with a camera, only the photo row is offered.

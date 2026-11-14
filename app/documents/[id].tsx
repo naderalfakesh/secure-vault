@@ -247,7 +247,7 @@ export default function DocumentViewerScreen() {
       const pause = sharePause();
       // Android's chooser pauses the app and its JavaScript timers; a native
       // timer deletes the copy once the time away could have locked the vault,
-      // so a target picked later from a chooser left open reads nothing (F7).
+      // so a target picked later from a chooser left open reads nothing.
       const limit = settings.autoLockSeconds;
       if (Platform.OS === 'android' && limit >= 0) {
         copy.expireAfter(Math.max(pause.maxAwayMs ?? 0, limit * 1000));

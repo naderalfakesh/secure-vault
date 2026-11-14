@@ -50,7 +50,7 @@ async function openPicker(): Promise<DocumentPicker.DocumentPickerResult> {
 
 /**
  * Settings › Backup: create a backup, and the app's only
- * restore entry (G11). Nothing outside this screen starts a restore, and no
+ * restore entry. Nothing outside this screen starts a restore, and no
  * route, link or file type opens it with a file; it reads no parameters.
  */
 export default function BackupScreen() {

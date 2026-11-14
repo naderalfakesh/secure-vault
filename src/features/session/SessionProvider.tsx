@@ -116,7 +116,7 @@ export type PinChangeResult = 'changed' | 'wrong-pin' | 'locked-out' | 'busy' | 
 
 export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
 
-/** A share the lock cut short; the viewer of that document says so after unlock (F7). */
+/** A share the lock cut short; the viewer of that document says so after unlock. */
 export type ShareInterruption = { documentId: string };
 
 // A tiny vault entry whose read proves the device key is currently usable.

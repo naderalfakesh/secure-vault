@@ -191,7 +191,7 @@ describe('Vault unavailable', () => {
     expect(new File(Paths.document, 'securevault-session', 'pin').exists).toBe(false);
   });
 
-  it('offers only Delete everything when the device key is gone but entries remain (F3)', async () => {
+  it('offers only Delete everything when the device key is gone but entries remain', async () => {
     // The PIN record and the key went with the removed screen lock; 11 entries stayed.
     new File(Paths.document, 'securevault-session', 'pin').create({ intermediates: true });
     await SecureStore.deleteItemAsync('securevault.pin');
