@@ -144,8 +144,13 @@ enum BackupContainer {
   /// a successful `malloc` does not mean the pages can be touched before the
   /// process is killed.
   static func availableMemory() -> Int? {
-    let available = os_proc_available_memory()
-    return available > 0 ? available : nil
+    #if os(iOS)
+      let available = os_proc_available_memory()
+      return available > 0 ? available : nil
+    #else
+      // macOS, where the format tests run, has no per-process memory limit to ask.
+      return nil
+    #endif
   }
 
   typealias MemoryProbe = () -> Int?

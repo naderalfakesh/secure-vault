@@ -1,7 +1,5 @@
 import CryptoKit
 import Foundation
-import ImageIO
-import UIKit
 
 /// Streaming AES-256-GCM container shared with the Android implementation.
 ///
@@ -137,24 +135,6 @@ enum VaultCrypto {
     try encryptFile(from: temp, to: destination, key: key)
   }
 
-  /// Downsampled JPEG for list thumbnails; orientation is applied so the
-  /// thumbnail matches the photo the user took.
-  static func thumbnailJPEG(from source: URL, maxPixelSize: Int) throws -> Data {
-    let options: [CFString: Any] = [
-      kCGImageSourceCreateThumbnailFromImageAlways: true,
-      kCGImageSourceCreateThumbnailWithTransform: true,
-      kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-      kCGImageSourceShouldCache: false,
-    ]
-    guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
-      let cgImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, options as CFDictionary),
-      let jpeg = UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.8)
-    else {
-      throw CryptoError.corrupt("thumbnail")
-    }
-    return jpeg
-  }
-
   private static func be32(_ value: UInt32) -> Data {
     var big = value.bigEndian
     return Data(bytes: &big, count: 4)
@@ -167,6 +147,6 @@ enum VaultCrypto {
   }
 
   private static func readBe32(_ data: Data) -> UInt32 {
-    data.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+    data.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
   }
 }
