@@ -174,6 +174,28 @@ describe('onboarding', () => {
     expect(await SecureStore.getItemAsync('securevault.pin')).toBeNull();
   });
 
+  it('explains a refused key prompt during setup and drops it once a new PIN starts', async () => {
+    jest
+      .spyOn(vault, 'unlockWithBiometrics')
+      .mockRejectedValueOnce(
+        Object.assign(new Error('Face Not Recognized'), { code: 'BIOMETRIC_AUTH_FAILED' }),
+      );
+    await throughIntro();
+    await enterPin('120399');
+    await screen.findByRole('header', { name: 'Enter it again' });
+    await enterPin('120399');
+
+    // Setup has no PIN to fall back to yet, so it does not offer one.
+    await screen.findByText('The device key was not unlocked. Try again.');
+    expect(screen.getByRole('header', { name: 'Choose a 6-digit PIN' })).toBeOnTheScreen();
+    expect(screen.queryByText('That did not match. Try again or enter your PIN.')).toBeNull();
+
+    await press('1');
+
+    expect(screen.queryByText('The device key was not unlocked. Try again.')).toBeNull();
+    expect(screen.getByText('Your backup way in when Face ID isn’t available.')).toBeOnTheScreen();
+  });
+
   it('opens Add a PIN directly for a key without a PIN and skips the biometrics step', async () => {
     await vault.createVault();
     await vault.put('file_legacy', 'ciphertext');

@@ -307,6 +307,9 @@ function describeError(
   // A cancelled or lapsed Android key prompt carries the Keystore's own text.
   if (isKeyLocked(e)) return keyNotUnlocked[context];
   const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
+  // A refused Face ID or passcode is the same outcome as a lapsed key prompt.
+  // Only the lock screen has a PIN to fall back to, so only it says "enter your PIN".
+  if (code === 'BIOMETRIC_AUTH_FAILED' && context !== 'unlock') return keyNotUnlocked[context];
   if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
   if (e instanceof Error && e.message) return e.message;
   return fallback;

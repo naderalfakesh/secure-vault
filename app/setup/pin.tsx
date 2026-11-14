@@ -32,6 +32,10 @@ export default function CreatePinScreen() {
   const [stage, setStage] = useState<Stage>('create');
   const [first, setFirst] = useState('');
   const [mismatch, setMismatch] = useState(false);
+  // A setup failure stays in the session until the next attempt; once the
+  // owner starts a new PIN it is old news and gives way to the step's hint.
+  const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const shownError = error !== dismissedError ? error : null;
 
   const startOver = () => {
     setStage('create');
@@ -60,6 +64,7 @@ export default function CreatePinScreen() {
         return;
       }
       setStage('saving');
+      setDismissedError(null);
       // The biometrics step follows a new or emptied vault when there is
       // something to turn on; Add a PIN goes straight back to the documents.
       const offerBiometrics = !keepsDocuments && biometrics?.state === 'available';
@@ -94,9 +99,9 @@ export default function CreatePinScreen() {
             : vaultEmpty
               ? t('onboarding.pin.emptyVaultHint')
               : choosePinHint(biometry);
-  const alerting = Boolean(error) || mismatch || stage === 'easy';
-  const message = error ?? hint;
-  const failing = Boolean(error) || mismatch;
+  const alerting = Boolean(shownError) || mismatch || stage === 'easy';
+  const message = shownError ?? hint;
+  const failing = Boolean(shownError) || mismatch;
   // iOS ignores live regions: speak the saving state and every error.
   useAnnouncement(stage === 'saving' ? saving : alerting ? message : null);
 
@@ -144,11 +149,11 @@ export default function CreatePinScreen() {
           accessibilityLabel={message}
         >
           {alerting ? (
-            <Icon name="warning" size={16} tone={error || mismatch ? 'danger' : 'warning'} />
+            <Icon name="warning" size={16} tone={failing ? 'danger' : 'warning'} />
           ) : null}
           <Text
             variant="subheadline"
-            tone={error || mismatch ? 'danger' : stage === 'easy' ? 'warning' : 'secondary'}
+            tone={failing ? 'danger' : stage === 'easy' ? 'warning' : 'secondary'}
             align="center"
             style={styles.messageText}
           >
@@ -182,7 +187,14 @@ export default function CreatePinScreen() {
         ) : null}
       </ScrollView>
       <View style={styles.pad(compact)}>
-        <PinPad onKey={press} disabled={stage === 'easy'} busy={stage === 'saving'} />
+        <PinPad
+          onKey={(key) => {
+            if (error) setDismissedError(error);
+            press(key);
+          }}
+          disabled={stage === 'easy'}
+          busy={stage === 'saving'}
+        />
       </View>
     </Screen>
   );
