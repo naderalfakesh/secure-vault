@@ -1,0 +1,87 @@
+name: Native tests
+
+# The vault module's Swift and Kotlin code, tested against the same vectors in
+# modules/expo-vault/tests/fixtures.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift:
+    name: Swift (formats)
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Swift tests
+        run: swift test --package-path modules/expo-vault
+
+  kotlin:
+    name: Kotlin (formats and string entries)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Use project Node version
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # The vectors are generated; a change to the generator must come with
+      # the files it writes.
+      - name: Fixtures match their generator
+        run: |
+          npm run fixtures:vault
+          git diff --exit-code -- modules/expo-vault/tests/fixtures
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Use JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Cache Robolectric runtime
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/robolectric-home
+          key: robolectric-${{ hashFiles('modules/expo-vault/android/build.gradle') }}
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Kotlin tests
+        run: npm run test:native:android -- --max-workers=4
+
+      - name: Keep the test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kotlin-test-report
+          path: modules/expo-vault/android/build/reports/tests/
