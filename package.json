@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
+    "fixtures:vault": "node modules/expo-vault/tests/make-fixtures.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "validate": "npm run check && expo-doctor",
     "start:go": "expo start --go"

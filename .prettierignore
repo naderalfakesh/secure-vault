@@ -6,3 +6,6 @@ android/
 reports/
 package-lock.json
 expo-env.d.ts
+
+# generated test vectors, see modules/expo-vault/tests/make-fixtures.mjs
+modules/expo-vault/tests/fixtures/
