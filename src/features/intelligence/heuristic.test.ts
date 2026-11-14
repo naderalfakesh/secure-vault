@@ -40,6 +40,16 @@ describe('heuristic intelligence', () => {
     ]);
   });
 
+  it('does not take the next label for a number when a card is read column by column', () => {
+    const card =
+      'Example Mutual\nMotor insurance certificate\nPolicy number\nPolicyholder\nVehicle\n' +
+      'EXM-2026-004217\nAlex Sample\nValid 1 Jan 2026 to 31 Dec 2026';
+    expect(extractFields(card).find((f) => f.key === 'number')).toBeUndefined();
+    expect(extractFields('Policy number: EXM-2026-004217').find((f) => f.key === 'number')).toEqual(
+      { key: 'number', value: 'EXM-2026-004217', kind: 'text' },
+    );
+  });
+
   it('falls back to the latest future date when no expiry keyword exists', () => {
     const fields = extractFields('Printed 2020-01-01. Renewal due 2031-06-30. Ref 2029-12-31.');
     expect(fields.find((f) => f.key === 'expires')?.value).toBe('2031-06-30');

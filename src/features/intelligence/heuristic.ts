@@ -39,8 +39,11 @@ const categoryKeywords: [DocumentCategory, RegExp][] = [
 const expiryKeywords =
   /\b(expir\w*|valid (?:until|through|thru|to)|date of expiry|exp\.?|best before|renew(?:al)? by)\b/i;
 const issueKeywords = /\b(issued?|date of issue|issue date)\b/i;
+// The value must hold a digit. Text read from a two-column card lists the
+// labels before the values ("Policy number Policyholder Vehicle ..."), and a
+// word after the label is the next label, not the number.
 const numberKeywords =
-  /\b(?:passport|document|policy|licen[cs]e|id|account|invoice|member(?:ship)?)\s*(?:no\.?|number|#|№)\s*[:.]?\s*([A-Z0-9][A-Z0-9-]{4,})/i;
+  /\b(?:passport|document|policy|licen[cs]e|id|account|invoice|member(?:ship)?)\s*(?:no\.?|number|#|№)\s*[:.]?\s*(?=[A-Z0-9-]*\d)([A-Z0-9][A-Z0-9-]{4,})/i;
 
 const monthNames: Record<string, number> = {
   jan: 1,
