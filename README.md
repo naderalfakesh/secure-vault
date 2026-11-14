@@ -60,7 +60,12 @@ on iOS only; Android was rebuilt in Phase 3. The
   Photos and Files as secondary sources; PDFs rendered natively so one viewer
   handles everything
 - On-device text reading with suggested titles, categories, tags, and typed
-  fields; expiry dates surface on Home as "Expiring soon". Text is read on
+  fields; expiry dates surface on Home as "Expiring soon". Where the phone
+  has an on-device language model (Apple Foundation Models on iOS 26 with
+  Apple Intelligence, Gemini Nano through Android AICore) it makes the
+  suggestions, and every date and number it proposes must appear in the
+  scanned text before the form shows it; elsewhere text patterns do the same
+  job ([ADR 0008](docs/adr/0008-on-device-language-models.md)). Text is read on
   the device by Google ML Kit (and, on Android, scanned by the Google Play
   services document scanner). ML Kit sends Google usage and performance
   metrics, which include a per-installation identifier. Google says ML Kit
@@ -88,7 +93,8 @@ flowchart LR
     Features --> Services["Document, backup, and OCR services"]
     Services --> Repo["Document repository over SQLCipher + FTS5"]
     Services --> Vault["expo-vault: Keychain / Keystore, AES-256-GCM streams, PDF pages, backups"]
-    Services --> Intelligence["Document intelligence adapter (heuristic engine)"]
+    Services --> Intelligence["Document intelligence: on-device model or text patterns"]
+    Intelligence --> DocumentAi["expo-document-ai: Foundation Models / Gemini Nano"]
     Features --> Scanner["expo-document-scanner: VisionKit / ML Kit"]
     Repo --> Vault
 ```
@@ -108,10 +114,10 @@ stored in plain. The
 | Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                                                       |
 | Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                                                         |
 | Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                                                        |
-| Native     | Two local Expo Modules in Swift and Kotlin: the vault and the document scanner                                                                     |
+| Native     | Three local Expo Modules in Swift and Kotlin: the vault, the document scanner, and on-device document AI                                           |
 | Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                                                             |
 | Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                                                        |
-| Text       | ML Kit text recognition, a heuristic intelligence engine behind an adapter                                                                         |
+| Text       | ML Kit text recognition; Apple Foundation Models or Gemini Nano on the device, checked against the text, with a heuristic fallback                 |
 | Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, XCTest and JUnit with shared vectors, ESLint, Prettier, Expo Doctor |
 
 ## Quality
@@ -152,6 +158,7 @@ src/data/                Repository, schema and migrations, SQLCipher adapter
 src/theme/               Colors, tokens, typography, Unistyles setup
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
+modules/expo-document-ai/       Apple Foundation Models and Gemini Nano suggestions
 plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL
 docs/                    Plan, security model, ADRs, verification records, screenshots
 ```

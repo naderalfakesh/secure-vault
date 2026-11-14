@@ -55,6 +55,7 @@ Required native config. Do not remove any of it:
   Native tests: `Package.swift` and `tests/swift` (the format files as a Swift
   package), `android/src/test` (JUnit and Robolectric), both reading the
   vectors `tests/make-fixtures.mjs` writes to `tests/fixtures`.
+- `modules/expo-document-ai/` local Expo Module: Apple Foundation Models (iOS 26+) and Gemini Nano (ML Kit GenAI Prompt API, pinned to `1.0.0-beta4` for Kotlin 2.2) for document suggestions; `src/features/intelligence/onDeviceModel.ts` checks every answer against the text (ADR 0008).
 - `plugins/` config plugins (listed above).
 - `docs/` plan, security model (`docs/SECURITY.md`), ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 

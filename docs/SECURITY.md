@@ -557,7 +557,11 @@ How it is sent: on iOS, `MLKitCommon` carries its own Clearcut uploader,
 which queues events in `Library/Caches/CCTClearcutLogger` and reads Phenotype
 configuration (the milestone 1 QA found both in the app container). On
 Android the bundled text recognition logs through Google's data transport,
-and the scanner logs from Google Play services.
+and the scanner logs from Google Play services. The GenAI Prompt API that
+reaches Gemini Nano (ADR 0008) logs the same way (`FIREBASE_ML_SDK` events in
+the data transport queue). Gemini Nano itself runs in Android AICore on the
+device, and Apple's Foundation Model runs on the device under Apple
+Intelligence; the document text is not sent to either company's servers.
 
 This cannot be turned off. Neither ML Kit nor the scanner offers a setting,
 Info.plist key or manifest flag for it. The `firebase_*` and
