@@ -40,9 +40,29 @@ android {
   lintOptions {
     abortOnError false
   }
+  testOptions {
+    unitTests.all { test ->
+      // The suites read the vectors shared with the Swift tests.
+      test.systemProperty 'vault.fixtures', file('../tests/fixtures').absolutePath
+      // Robolectric downloads its Android runtime into <user.home>/.m2; keep
+      // it in the Gradle user home with the rest of the build's downloads.
+      // Robolectric 4.17 cannot load its native runtime from a path with a
+      // space in it; ROBOLECTRIC_HOME points elsewhere (a symlink will do).
+      def robolectricHome = System.getenv('ROBOLECTRIC_HOME')
+        ? new File(System.getenv('ROBOLECTRIC_HOME'))
+        : new File(gradle.gradleUserHomeDir, 'robolectric-home')
+      test.systemProperty 'user.home', robolectricHome.absolutePath
+      test.doFirst { robolectricHome.mkdirs() }
+    }
+  }
 }
 
 dependencies {
   implementation 'androidx.exifinterface:exifinterface:1.3.7'
   implementation "androidx.biometric:biometric:1.1.0"
+
+  testImplementation 'junit:junit:4.13.2'
+  // Real android.util.Base64, org.json and android.system.Os on the JVM, which
+  // the backup container uses.
+  testImplementation 'org.robolectric:robolectric:4.17'
 }
