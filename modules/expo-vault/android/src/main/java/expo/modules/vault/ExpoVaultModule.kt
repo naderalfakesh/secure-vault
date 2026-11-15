@@ -157,6 +157,17 @@ class ExpoVaultModule : Module() {
             }
         }
 
+        // "trusted-environment", "strongbox", "software", or "none" before a vault exists.
+        AsyncFunction("keyProtection") { promise: Promise ->
+            try {
+                val keyStore = KeyStore.getInstance(keystoreProvider)
+                keyStore.load(null)
+                promise.resolve(KeyProtection.of(keyStore, keyAlias))
+            } catch (e: Exception) {
+                promise.reject("KEY_PROTECTION_FAILED", e.message, e)
+            }
+        }
+
         AsyncFunction("biometryType") { promise: Promise ->
             val context = appContext.reactContext
             if (context == null) {

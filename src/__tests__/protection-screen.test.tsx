@@ -2,6 +2,7 @@ import { render } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
 import ProtectionScreen from '../../app/settings/protection';
+import vault from '../../modules/expo-vault';
 import { mlKitDisclosure, protectionFacts } from '../features/session/protectionCopy';
 
 jest.mock('expo-router', () => ({ router: { back: jest.fn() }, Stack: { Screen: () => null } }));
@@ -35,6 +36,30 @@ describe('How your data is protected', () => {
     // The index is SQLCipher, not AES-256-GCM, so the sentence does not say so.
     expect(view.queryByText(/index (is|are) encrypted .*AES-256-GCM/)).toBeNull();
     expect(view.queryByText(/Secure Enclave|secure hardware|StrongBox|never leaves/i)).toBeNull();
+  });
+
+  it('names the Secure Enclave once the vault reports its key there', async () => {
+    await vault.createVault();
+    const view = await render(<ProtectionScreen />);
+    expect(
+      await view.findByText(
+        'The encryption key is created on this phone and sealed by its Secure Enclave, so no other device can open it. It is never put in a backup.',
+      ),
+    ).toBeOnTheScreen();
+    expect(view.queryByText(/kept by the iOS Keychain/)).toBeNull();
+  });
+
+  it('claims secure hardware only for what the device reports', () => {
+    expect(protectionFacts('trusted-environment')[1]).toBe(
+      'The encryption key is created inside this phone’s secure hardware and never leaves it. It is never put in a backup.',
+    );
+    expect(protectionFacts('strongbox')[1]).toMatch(/inside this phone’s StrongBox security chip/);
+    for (const plain of ['keychain', 'software', 'none', null] as const) {
+      expect(protectionFacts(plain)[1]).toMatch(/kept by the iOS Keychain\./);
+      expect(protectionFacts(plain)[1]).not.toMatch(
+        /Secure Enclave|secure hardware|StrongBox|never leaves/,
+      );
+    }
   });
 
   it('names the Android Keystore on Android', async () => {

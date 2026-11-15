@@ -91,6 +91,9 @@ export function createVaultMock(): SecureVault & {
     async biometryType() {
       return 'faceId' as const;
     },
+    async keyProtection() {
+      return created ? ('secure-enclave' as const) : ('none' as const);
+    },
     async createVault() {
       created = true;
     },

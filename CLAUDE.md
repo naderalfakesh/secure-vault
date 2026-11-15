@@ -51,7 +51,8 @@ Required native config. Do not remove any of it:
 - `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService`.
 - `src/features` session provider, document feature pieces; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
-  Keychain or Keystore key, string and file storage, export and import.
+  key sealed to the Secure Enclave (iOS, ADR 0009) or held by the Keystore,
+  string and file storage, export and import.
   Native tests: `Package.swift` and `tests/swift` (the format files as a Swift
   package), `android/src/test` (JUnit and Robolectric), both reading the
   vectors `tests/make-fixtures.mjs` writes to `tests/fixtures`.

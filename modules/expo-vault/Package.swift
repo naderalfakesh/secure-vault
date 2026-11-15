@@ -1,9 +1,9 @@
 // swift-tools-version:5.9
-// The vault's file formats (SVC1 streams, SVB1 backups) as a plain Swift
+// The vault's file formats (SVC1 streams, SVB1 backups, the SVK1 sealed key) as a plain Swift
 // package, so their tests run on the Mac with `swift test`: no simulator, no
 // app build. The app itself links these files through ios/ExpoVault.podspec;
-// this package only borrows the two that need nothing beyond CryptoKit,
-// CommonCrypto and Foundation.
+// this package only borrows the three that need nothing beyond CryptoKit,
+// CommonCrypto, LocalAuthentication and Foundation.
 import PackageDescription
 
 let package = Package(
@@ -20,7 +20,7 @@ let package = Package(
         "VaultCrypto+Thumbnail.swift",
         "VaultKeychain.swift",
       ],
-      sources: ["BackupContainer.swift", "VaultCrypto.swift"]
+      sources: ["BackupContainer.swift", "SealedKey.swift", "VaultCrypto.swift"]
     ),
     .testTarget(
       name: "VaultFormatsTests",

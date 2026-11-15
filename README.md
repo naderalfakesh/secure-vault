@@ -1,6 +1,6 @@
 # SecureVault
 
-**A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a Keychain- or Keystore-protected key, an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
+**A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a hardware-bound key (Secure Enclave on iOS, Android Keystore), an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
 
 > SecureVault is a technical portfolio project. The screenshots show
 > synthetic sample documents made for this purpose; it is not a published
@@ -50,10 +50,12 @@ on iOS only; Android was rebuilt in Phase 3. The
   the device credential, auto-lock with a solid privacy cover, and an optional second
   biometric check before anything is shared
 - Every file encrypted with AES-256-GCM under a device key: on iOS a random
-  key stored in the Keychain, device-only and behind a user-presence check,
-  read into app memory for each operation; on Android a non-exportable
-  Android Keystore key. Thumbnails and pages encrypted separately so lists
-  stay fast
+  key sealed to a Secure Enclave key, so only this iPhone can open it and
+  only after Face ID, Touch ID or the passcode
+  ([ADR 0009](docs/adr/0009-hardware-bound-device-key.md)); on Android a
+  non-exportable Android Keystore key, held in secure hardware on phones
+  that have it.
+  Thumbnails and pages encrypted separately so lists stay fast
 - A SQLCipher index with FTS5 search over titles, tags, and extracted text;
   the prototype's JSON index migrates on first open
 - VisionKit and ML Kit document scanning with multi-page capture, plus
@@ -92,7 +94,7 @@ flowchart LR
     Routes --> Features["Feature hooks and components"]
     Features --> Services["Document, backup, and OCR services"]
     Services --> Repo["Document repository over SQLCipher + FTS5"]
-    Services --> Vault["expo-vault: Keychain / Keystore, AES-256-GCM streams, PDF pages, backups"]
+    Services --> Vault["expo-vault: Secure Enclave / Keystore, AES-256-GCM streams, PDF pages, backups"]
     Services --> Intelligence["Document intelligence: on-device model or text patterns"]
     Intelligence --> DocumentAi["expo-document-ai: Foundation Models / Gemini Nano"]
     Features --> Scanner["expo-document-scanner: VisionKit / ML Kit"]

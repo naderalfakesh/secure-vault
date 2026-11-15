@@ -1,4 +1,5 @@
 import { router, Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { StyleSheet } from 'react-native-unistyles';
 
@@ -10,8 +11,25 @@ import {
 } from '@/features/session/protectionCopy';
 import { t } from '@/i18n';
 
+import vault, { type KeyProtection } from '../../modules/expo-vault';
+
 /** How your data is protected: plain facts, then the limits. */
 export default function ProtectionScreen() {
+  // Where this device keeps the key; the plain sentence shows until it answers.
+  const [protection, setProtection] = useState<KeyProtection | null>(null);
+  useEffect(() => {
+    let active = true;
+    vault
+      .keyProtection()
+      .then((value) => {
+        if (active) setProtection(value);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
@@ -29,7 +47,7 @@ export default function ProtectionScreen() {
           {t('settings.protection')}
         </Text>
         <Group header={t('settings.protection.does')} separatorInset="content">
-          {protectionFacts().map((fact) => (
+          {protectionFacts(protection).map((fact) => (
             <ListRow key={fact} icon="check" tint="success" title={fact} />
           ))}
           {/* What ML Kit sends is a notice, not a protection: no success check. */}

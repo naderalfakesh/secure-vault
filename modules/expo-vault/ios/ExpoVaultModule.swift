@@ -51,47 +51,27 @@ public class ExpoVaultModule: Module {
         return
       }
 
-      let accessControl = SecAccessControlCreateWithFlags(
-        kCFAllocatorDefault,
-        kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-        .userPresence,
-        nil
-      )!
-
-      let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: VaultKeychain.account,
-        kSecAttrService as String: keychainService,
-        kSecValueData as String: key,
-        kSecAttrAccessControl as String: accessControl
-      ]
-
-      // First, delete any existing key with the same identifier
-      SecItemDelete(query as CFDictionary)
       // A context authenticated for the old key must not stand for the new one.
       self.keySession.end()
-
-      let status = SecItemAdd(query as CFDictionary, nil)
-      if status != errSecSuccess {
-        promise.reject("KEYCHAIN_STORE_FAILED", "Failed to store key in keychain: \(VaultKeychain.describe(status))")
+      do {
+        // Sealed to the Secure Enclave where there is one (ADR 0009).
+        try VaultKeychain.storeNewKey(SymmetricKey(data: key), service: keychainService)
+      } catch {
+        promise.reject("KEYCHAIN_STORE_FAILED", "Failed to store key in keychain: \(error.localizedDescription)")
         return
       }
 
       promise.resolve(nil)
     }
 
-    AsyncFunction("hasVault") { (promise: Promise) in
-      let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrAccount as String: VaultKeychain.account,
-        kSecAttrService as String: self.keychainService,
-        kSecReturnData as String: false,
-        kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail
-      ]
-      let status = SecItemCopyMatching(query as CFDictionary, nil)
-      // The item is access-controlled, so an interaction-required status still
-      // means the key exists; only "not found" means there is no vault yet.
-      promise.resolve(status != errSecItemNotFound)
+    // Neither item is read, so this never prompts.
+    AsyncFunction("hasVault") { () -> Bool in
+      VaultKeychain.protection(service: self.keychainService) != .none
+    }
+
+    // "secure-enclave", "keychain", or "none" before a vault exists.
+    AsyncFunction("keyProtection") { () -> String in
+      VaultKeychain.protection(service: self.keychainService).rawValue
     }
 
     // The vault locked: the next key read prompts again. Synchronous, so it
@@ -530,8 +510,11 @@ public class ExpoVaultModule: Module {
 
   private func getEncryptionKey() throws -> SymmetricKey {
     let context = keySession.current()
+    if let key = keySession.key(for: context) { return key }
     do {
-      return try VaultKeychain.loadKey(service: keychainService, context: context)
+      let key = try VaultKeychain.loadKey(service: keychainService, context: context)
+      keySession.remember(key, for: context)
+      return key
     } catch {
       // A cancelled or failed prompt leaves the context unauthenticated;
       // keeping it would make every later read fail without asking.

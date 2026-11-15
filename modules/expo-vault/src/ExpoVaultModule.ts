@@ -6,6 +6,17 @@ const ExpoVaultModule = requireNativeModule('ExpoVault');
 
 export type BiometryType = 'faceId' | 'touchId' | 'biometrics' | 'none';
 
+/**
+ * Where the device key lives (ADR 0009).
+ * - `secure-enclave` (iOS): sealed to a key in the Secure Enclave.
+ * - `keychain` (iOS): a Keychain item, on devices without an enclave (the simulator).
+ * - `strongbox`, `trusted-environment` (Android): the Keystore's secure hardware.
+ * - `software` (Android): a Keystore without secure hardware.
+ * - `none`: no vault yet.
+ */
+export type KeyProtection =
+  'secure-enclave' | 'keychain' | 'strongbox' | 'trusted-environment' | 'software' | 'none';
+
 export interface RenderedPage {
   uri: string;
   width: number;
@@ -47,6 +58,8 @@ export interface SecureVault {
   hasVault(): Promise<boolean>;
   /** Which biometric the device offers, so copy can say Face ID rather than "biometrics". */
   biometryType(): Promise<BiometryType>;
+  /** Where the device key is kept. Reads no key material, so it never prompts. */
+  keyProtection(): Promise<KeyProtection>;
   createVault(): Promise<void>;
   unlockWithBiometrics(): Promise<boolean>;
   /**

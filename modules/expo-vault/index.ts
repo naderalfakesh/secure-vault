@@ -13,6 +13,7 @@ export type {
   BackupProgress,
   BackupSummary,
   BiometryType,
+  KeyProtection,
   RenderedPage,
   SecureVault,
 } from './src/ExpoVaultModule';

@@ -81,6 +81,12 @@ export const settings = {
     'The encryption key is created on this phone and kept by {keeper}. It is never put in a backup.',
   'settings.protection.fact.keeperIos': 'the iOS Keychain',
   'settings.protection.fact.keeperAndroid': 'the Android Keystore',
+  'settings.protection.fact.keyEnclave':
+    'The encryption key is created on this phone and sealed by its Secure Enclave, so no other device can open it. It is never put in a backup.',
+  'settings.protection.fact.keyHardware':
+    'The encryption key is created inside {hardware} and never leaves it. It is never put in a backup.',
+  'settings.protection.fact.trustedEnvironment': 'this phone’s secure hardware',
+  'settings.protection.fact.strongbox': 'this phone’s StrongBox security chip',
   'settings.protection.fact.pin':
     'Your PIN is stored only as a salted hash, never as the PIN itself.',
   'settings.protection.fact.backup':
