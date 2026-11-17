@@ -84,9 +84,7 @@ describe('SplashHandoff', () => {
     expect(view.getByTestId('splash-handoff', hidden)).toHaveStyle({
       backgroundColor: darkColors.background,
     });
-    expect(view.getByTestId('splash-handoff-mark', hidden)).toHaveStyle({
-      backgroundColor: darkColors.primaryMuted,
-    });
+    expect(view.getByTestId('splash-handoff-mark-dark', hidden)).toBeOnTheScreen();
   });
 
   it('repaints the light splash when the system is light', async () => {
@@ -95,9 +93,7 @@ describe('SplashHandoff', () => {
     expect(view.getByTestId('splash-handoff', hidden)).toHaveStyle({
       backgroundColor: lightColors.background,
     });
-    expect(view.getByTestId('splash-handoff-mark', hidden)).toHaveStyle({
-      backgroundColor: lightColors.primary,
-    });
+    expect(view.getByTestId('splash-handoff-mark-light', hidden)).toBeOnTheScreen();
   });
 
   it('keeps the system colours when a pinned Appearance lands mid-splash', async () => {

@@ -14,8 +14,11 @@ import { Mark } from '@/components/ui';
 import { getAppearance } from '@/theme/appearance';
 import { darkColors, lightColors } from '@/theme/colors';
 
-/** The native splash draws the 72 pt mark in the middle of the window. */
-export const SPLASH_MARK = 72;
+/**
+ * The native splash draws its image 150 pt wide in the middle of the window,
+ * and the mark fills 92 % of it (`scripts/brand/make-icons.mjs`).
+ */
+export const SPLASH_MARK = 138;
 /** The cross-fade from the splash repaint to the screen underneath. */
 export const HANDOFF_FADE_MS = 200;
 /** Whatever happens to layout or timers, the overlay is gone this long after release. */
@@ -38,7 +41,7 @@ function pinnedDiffers(scheme: 'light' | 'dark'): boolean {
 
 /**
  * Picks up where the native splash leaves off: the same background and
- * the same 72 pt mark in the same place. Once the native splash hides, the
+ * the same 138 pt mark in the same place. Once the native splash hides, the
  * screen underneath is already drawn with its own mark in place, and the
  * overlay simply cross-fades out over 200 ms. Nothing travels, so there is
  * never a second moving mark. With reduced motion it goes at once. It never

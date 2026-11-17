@@ -20,7 +20,8 @@
     "fixtures:vault": "node modules/expo-vault/tests/make-fixtures.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
     "validate": "npm run check && expo-doctor",
-    "start:go": "expo start --go"
+    "start:go": "expo start --go",
+    "assets:icons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/brand/make-icons.mjs"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
@@ -67,6 +68,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.13",
+    "@resvg/resvg-js": "^2.6.2",
     "@testing-library/react-native": "^14.0.1",
     "@types/better-sqlite3": "^9.6.0",
     "@types/jest": "30.0.0",

@@ -1,20 +1,22 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
+import { SvgXml } from 'react-native-svg';
 import { useUnistyles } from 'react-native-unistyles';
 
+import { markSvg } from '@/brand/folio';
 import { darkColors, lightColors } from '@/theme/colors';
 
 import { IconGlyph } from './Icon';
 import type { IconPath } from './iconPaths';
 
 export type MarkProps = {
-  /** Squircle size: 64 on the lock screen, 72 on the splash, 80 on the privacy cover. */
+  /** Tile size: 64 on the lock screen, 80 on the privacy cover, 138 on the splash. */
   size?: number;
   /** Quiet variant for a paused state, such as the PIN lockout. */
   muted?: boolean;
-  /** The glyph inside the squircle; the lockout shows the clock instead of the mark. */
+  /** `mark` draws the sealed folio; another glyph, such as the lockout clock, draws the quiet outline style. */
   glyph?: IconPath;
-  /** Style for the squircle, e.g. an animated transform. */
+  /** Style for the tile, e.g. an animated transform. */
   style?: StyleProp<AnimatedStyle<ViewStyle>>;
   /**
    * Draw in this scheme's colours instead of the app theme's. The splash
@@ -27,17 +29,20 @@ export type MarkProps = {
 /** Glyph sizes from the design (lock screen, splash, privacy cover). */
 const glyphSizes: Record<number, number> = { 64: 38, 72: 44, 80: 46 };
 
-/** The glyph size the mark draws inside a squircle of this size. */
+/** The outline glyph size inside a tile of this size. */
 export function markGlyphSize(size: number): number {
   return glyphSizes[size] ?? Math.round(size * 0.6);
 }
 
+/** The tile's corner radius on the 1024 canvas of `src/brand/folio.ts`. */
+const TILE_CORNER = 230 / 1024;
+
 /**
- * The SecureVault mark: the outline document-with-padlock
- * glyph, drawn from the design's SVG path at a 1.5 stroke, on an indigo
- * squircle. Dark mode uses the muted indigo with an indigo glyph, as the dark
- * splash does. The splash image, the lock screen, and the privacy cover share
- * these proportions.
+ * The SecureVault mark: the sealed folio, the app icon's drawing on its
+ * rounded indigo tile (night blue in dark mode). It comes from the same SVG
+ * as the splash image, so the splash handoff repaints the native splash
+ * exactly. The muted variant, and any other glyph such as the lockout clock,
+ * keeps the quiet outline style on a plain tile.
  */
 export function Mark({
   size = 72,
@@ -50,7 +55,7 @@ export function Mark({
   const { theme, rt } = useUnistyles();
   const dark = scheme ? scheme === 'dark' : rt.themeName === 'dark';
   const colors = scheme ? (dark ? darkColors : lightColors) : theme.colors;
-  const glyphSize = markGlyphSize(size);
+  const art = !muted && glyph === 'mark';
 
   return (
     <Animated.View
@@ -58,16 +63,11 @@ export function Mark({
         {
           width: size,
           height: size,
-          // 18 on 64, 20 on 72, 22 on 80: the design's corners, drawn as plain
-          // round corners so the mark matches the native splash image exactly.
-          borderRadius: Math.round(size * 0.28),
+          borderRadius: Math.round(size * TILE_CORNER),
+          overflow: 'hidden',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: muted
-            ? colors.surfaceMuted
-            : dark
-              ? colors.primaryMuted
-              : colors.primary,
+          backgroundColor: art ? 'transparent' : colors.surfaceMuted,
         },
         style,
       ]}
@@ -75,12 +75,21 @@ export function Mark({
       importantForAccessibility="no-hide-descendants"
       testID={testID}
     >
-      <IconGlyph
-        path={glyph}
-        size={glyphSize}
-        strokeWidth={1.5}
-        color={muted ? colors.textTertiary : dark ? colors.primary : colors.onPrimary}
-      />
+      {art ? (
+        <SvgXml
+          xml={markSvg(dark ? 'dark' : 'light')}
+          width={size}
+          height={size}
+          testID={`${testID}-${dark ? 'dark' : 'light'}`}
+        />
+      ) : (
+        <IconGlyph
+          path={glyph}
+          size={markGlyphSize(size)}
+          strokeWidth={1.5}
+          color={colors.textTertiary}
+        />
+      )}
     </Animated.View>
   );
 }

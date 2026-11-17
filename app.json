@@ -21,7 +21,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-monochrome.png",
-        "backgroundColor": "#3451D1"
+        "backgroundImage": "./assets/adaptive-icon-background.png",
+        "backgroundColor": "#18206A"
       },
       "package": "com.naderalfakesh.securevault",
       "versionCode": 1
@@ -38,7 +39,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 72,
+          "imageWidth": 150,
           "resizeMode": "contain",
           "backgroundColor": "#F5F6FA",
           "dark": {

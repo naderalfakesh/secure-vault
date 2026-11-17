@@ -36,7 +36,7 @@ export default function LockScreen() {
   const promptedRef = useRef(false);
   const [checking, setChecking] = useState(false);
   // Read the lockout on the first render, so the first frame under the
-  // fading splash already shows the right squircle.
+  // fading splash already shows the right mark.
   const [lockLeft, setLockLeft] = useState(() =>
     Math.ceil(lockRemainingMs(lockout, Date.now()) / 1000),
   );
