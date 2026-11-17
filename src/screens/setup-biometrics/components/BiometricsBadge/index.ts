@@ -1,0 +1,1 @@
+export { BiometricsBadge } from './BiometricsBadge';
