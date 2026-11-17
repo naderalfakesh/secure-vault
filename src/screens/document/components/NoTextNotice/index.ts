@@ -1,0 +1,1 @@
+export { NoTextNotice } from './NoTextNotice';

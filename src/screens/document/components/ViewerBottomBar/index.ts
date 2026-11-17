@@ -1,0 +1,1 @@
+export { ViewerBottomBar } from './ViewerBottomBar';

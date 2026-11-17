@@ -1,0 +1,1 @@
+export { StagePlaceholder } from './StagePlaceholder';

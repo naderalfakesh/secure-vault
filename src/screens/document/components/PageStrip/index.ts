@@ -1,0 +1,1 @@
+export { PageStrip } from './PageStrip';
