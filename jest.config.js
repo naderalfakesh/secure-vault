@@ -13,5 +13,7 @@ module.exports = {
     '/node_modules/react-native-reanimated/plugin/',
     '/node_modules/@react-native/babel-preset/',
   ],
-  testPathIgnorePatterns: ['/node_modules/', '/ios/', '/android/', '/dist/'],
+  // Agent worktrees live under .claude/; their copies of the app are not this one.
+  testPathIgnorePatterns: ['/node_modules/', '/ios/', '/android/', '/dist/', '/.claude/'],
+  modulePathIgnorePatterns: ['<rootDir>/.claude/'],
 };
