@@ -43,5 +43,28 @@ module.exports = defineConfig([
       ],
     },
   },
+  {
+    // ADR 0010: files stay small, and styles live in a sibling *.styles.ts.
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: ['**/__tests__/**', '**/*.test.{ts,tsx}'],
+    rules: {
+      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: ['app/**/*.tsx', 'src/**/*.tsx'],
+    ignores: ['**/__tests__/**', '**/*.test.tsx'],
+    rules: {
+      'max-lines': ['error', { max: 200, skipBlankLines: true, skipComments: true }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.object.name='StyleSheet'][callee.property.name='create']",
+          message: 'Put styles in a sibling Name.styles.ts file (ADR 0010).',
+        },
+      ],
+    },
+  },
   prettierConfig,
 ]);
