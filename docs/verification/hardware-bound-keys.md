@@ -2,7 +2,7 @@
 
 > Verified: 2026-11-15 (host: `npm run validate`, `swift test`, the Kotlin
 > suite; iOS Release build on the iOS 27.2 simulator; Android Release build
-> compiled and installed on the Pixel 9, not exercised there)
+> on the Pixel 9, unlocked and checked there on 2026-11-17)
 >
 > Base: `main` at `b5580e8`. Decision: [ADR 0009](../adr/0009-hardware-bound-device-key.md).
 
@@ -43,11 +43,11 @@ Secure Enclave, so CI skips only the enclave round trip.
 
 ## Device runs
 
-| Run                                   | Result                                                                                                                                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| iOS 27.2 simulator, existing vault    | Release build installed over the vault from 2026-11-14. Face ID unlock opened it with one prompt; the four sample documents and their thumbnails showed. Unistyles 3.8.1 renders as before |
-| iOS 27.2 simulator, protection screen | "kept by the iOS Keychain": the simulator has no enclave, so the plain item stays and the screen claims nothing more                                                                       |
-| Pixel 9 (Android 17)                  | The Release build installed over the existing app (`adb install -r`). The owner skipped the unlock, so the vault, Unistyles 3.8.1 and the key level were not checked on the phone          |
+| Run                                   | Result                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| iOS 27.2 simulator, existing vault    | Release build installed over the vault from 2026-11-14. Face ID unlock opened it with one prompt; the four sample documents and their thumbnails showed. Unistyles 3.8.1 renders as before                                                                                                                                                                                                                                           |
+| iOS 27.2 simulator, protection screen | "kept by the iOS Keychain": the simulator has no enclave, so the plain item stays and the screen claims nothing more                                                                                                                                                                                                                                                                                                                 |
+| Pixel 9 (Android 17), 2026-11-17      | The Release build installed over the existing vault. One biometric prompt opened it, and the library listed the five existing documents and three collections. "How your data is protected" read "The encryption key is created inside this phone’s secure hardware" (`trusted-environment`). Read through the accessibility tree with agent-device: the app blocks screen capture while the vault is open, so screenshots are black |
 
 ## Owed
 
@@ -55,5 +55,3 @@ Secure Enclave, so CI skips only the enclave round trip.
   an existing vault (the move from the plain item). Both should show one
   Face ID prompt per unlock and "sealed by its Secure Enclave" on the
   protection screen.
-- The Pixel 9: unlock the updated build, and check that the protection
-  screen names this phone's secure hardware (`trusted-environment`).
