@@ -18,6 +18,7 @@ the nine phases with their scope. Verification notes for finished phases live in
 | Single checks              | `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`                               |
 | Native tests (vault)       | `npm run test:native:ios` (`swift test`), `npm run test:native:android` (Robolectric, after prebuild) |
 | Test vectors               | `npm run fixtures:vault` regenerates `modules/expo-vault/tests/fixtures`                              |
+| App icons and splash       | `npm run assets:icons` renders `assets/*.png` from `src/brand/folio.ts`                               |
 
 Local toolchain quirks: CocoaPods needs a UTF-8 locale (`LANG=en_US.UTF-8`),
 and Gradle needs `JAVA_HOME` pointing at a JDK 17 or 21 (the JDK 25 Android
@@ -45,6 +46,7 @@ Required native config. Do not remove any of it:
 ## Structure
 
 - `app/` Expo Router routes. The root layout owns the lock gate.
+- `src/brand/folio.ts` the sealed folio mark as SVG: the icon and splash PNGs (`scripts/brand/make-icons.mjs`) and the in-app `Mark` all draw from it.
 - `src/theme` Unistyles tokens (configured from `index.js` before the router loads).
 - `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons.
 - `src/data` SQLCipher index: `schema.ts` migrations, `DocumentRepository`, adapters (`expoSqlite.ts`, `testing/betterSqlite.ts`), `database.ts` (key from the vault, legacy import) with a `database.jest.ts` double.

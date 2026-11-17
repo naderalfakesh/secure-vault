@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icon.png" alt="SecureVault app icon: a sheet of paper closed with a brass seal" width="96" /></p>
+
 # SecureVault
 
 **A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a hardware-bound key (Secure Enclave on iOS, Android Keystore), an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
@@ -46,7 +48,7 @@ on iOS only; Android was rebuilt in Phase 3. The
 
 ## Features
 
-- Onboarding, a 6-digit PIN with escalating lockout, Face ID, Touch ID, or
+- Onboarding with illustrated slides in the app icon's style, a 6-digit PIN with escalating lockout, Face ID, Touch ID, or
   the device credential, auto-lock with a solid privacy cover, and an optional second
   biometric check before anything is shared
 - Every file encrypted with AES-256-GCM under a device key: on iOS a random
@@ -158,9 +160,11 @@ src/features/            Session, auth, documents, intelligence, viewer
 src/services/            Document, backup, and OCR services
 src/data/                Repository, schema and migrations, SQLCipher adapter
 src/theme/               Colors, tokens, typography, Unistyles setup
+src/brand/               The sealed folio mark: one SVG for icons, splash and in-app mark
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
 modules/expo-document-ai/       Apple Foundation Models and Gemini Nano suggestions
+scripts/brand/           Renders every icon and splash PNG (npm run assets:icons)
 plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL
 docs/                    Plan, security model, ADRs, verification records, screenshots
 ```
