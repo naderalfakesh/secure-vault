@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import { Gesture } from 'react-native-gesture-handler';
+import {
   clamp,
   runOnJS,
   type SharedValue,
@@ -10,53 +10,50 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { StyleSheet } from 'react-native-unistyles';
-import { DocumentImage } from '@/features/documents/DocumentImage';
+
 import { edgeSwipe, type SwipeDirection } from '@/utils/pager';
 
-export const MIN_SCALE = 1;
-export const MAX_SCALE = 5;
-const PINCH_MIN_SCALE = 0.6;
-const DOUBLE_TAP_SCALE = 2.5;
-const DISMISS_THRESHOLD = 110;
+import {
+  DISMISS_ACTIVE_OFFSET_Y,
+  DISMISS_FAIL_OFFSET_X,
+  DISMISS_MAX_SHRINK,
+  DISMISS_THRESHOLD,
+  DOUBLE_TAP_SCALE,
+  MAX_SCALE,
+  MIN_SCALE,
+  PINCH_MIN_SCALE,
+  PINCH_RESET_MS,
+} from './constants';
 
-export interface ZoomablePageProps {
+type Options = {
   uri: string;
-  /** Screen-reader label for the page. */
-  label: string;
-  /** Fires when the page moves between rest scale and zoomed, so the pager can lock. */
-  onZoomChange: (zoomed: boolean) => void;
-  /** A vertical drag past the threshold at rest scale. */
+  /** Prefix for the gestures' test ids. */
+  testID: string;
+  zoomed: boolean;
+  reportZoom: (zoomed: boolean) => void;
+  reportEdgeSwipe: (direction: SwipeDirection) => void;
   onDismiss: () => void;
   onTap: () => void;
-  /** Progress of a dismiss drag, 0 to 1, for the pager's backdrop. */
   dismissProgress: SharedValue<number>;
-  /** Whether a page lies beyond each edge, for a drag past the edge while zoomed. */
-  canSwipe?: { left: boolean; right: boolean };
-  /** A zoomed drag pulled past an edge: the page has zoomed out, turn to the neighbour. */
-  onEdgeSwipe?: (direction: SwipeDirection) => void;
-  /** Prefix for the gestures' test ids. */
-  testID?: string;
-}
-
-const NO_SWIPE = { left: false, right: false };
+  canSwipe: { left: boolean; right: boolean };
+};
 
 /**
- * One page of the viewer. Pinch to zoom around the fingers, pan while zoomed,
- * double-tap to toggle, drag down at rest to dismiss. Adapted from the
- * image-toolset-modern viewer without its thumbnail morph.
+ * Pinch to zoom around the fingers, pan while zoomed, double-tap to toggle,
+ * drag down at rest to dismiss. Returns the composed gesture and the page's
+ * animated transform.
  */
-export function ZoomablePage({
+export function useZoomGestures({
   uri,
-  label,
-  onZoomChange,
+  testID,
+  zoomed,
+  reportZoom,
+  reportEdgeSwipe,
   onDismiss,
   onTap,
   dismissProgress,
-  canSwipe = NO_SWIPE,
-  onEdgeSwipe,
-  testID = 'zoomable-page',
-}: ZoomablePageProps) {
+  canSwipe,
+}: Options) {
   const { width, height } = useWindowDimensions();
   const scale = useSharedValue(MIN_SCALE);
   const savedScale = useSharedValue(MIN_SCALE);
@@ -65,38 +62,6 @@ export function ZoomablePage({
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
   const dismissY = useSharedValue(0);
-  // Mirrors the scale on the JS side so the zoomed pan only exists while
-  // zoomed. At rest it must not activate at all: an active pan claims the
-  // touch, and the pager underneath never sees the horizontal swipe.
-  const [zoomed, setZoomed] = useState(false);
-  // A new page starts at rest: a page zoomed when it was swapped drops the
-  // zoom here, and the effect below tells the pager.
-  const [shownUri, setShownUri] = useState(uri);
-  const [restAfterSwap, setRestAfterSwap] = useState(false);
-  if (shownUri !== uri) {
-    setShownUri(uri);
-    if (zoomed) {
-      setZoomed(false);
-      setRestAfterSwap(true);
-    }
-  }
-
-  const reportZoom = useCallback(
-    (value: boolean) => {
-      setZoomed(value);
-      setRestAfterSwap(false);
-      onZoomChange(value);
-    },
-    [onZoomChange],
-  );
-
-  const reportEdgeSwipe = useCallback(
-    (direction: SwipeDirection) => {
-      reportZoom(false);
-      onEdgeSwipe?.(direction);
-    },
-    [reportZoom, onEdgeSwipe],
-  );
 
   useEffect(() => {
     // A new page starts at rest.
@@ -105,10 +70,6 @@ export function ZoomablePage({
     translateY.set(0);
     dismissY.set(0);
   }, [uri, scale, translateX, translateY, dismissY]);
-
-  useEffect(() => {
-    if (restAfterSwap) onZoomChange(false);
-  }, [restAfterSwap, onZoomChange]);
 
   const clampToBounds = (value: number, size: number, currentScale: number) => {
     'worklet';
@@ -137,7 +98,7 @@ export function ZoomablePage({
       savedScale.set(scale.get());
       savedTranslateX.set(translateX.get());
       savedTranslateY.set(translateY.get());
-      dismissY.set(withTiming(0, { duration: 100 }));
+      dismissY.set(withTiming(0, { duration: PINCH_RESET_MS }));
       dismissProgress.set(0);
     })
     .onUpdate((event) => {
@@ -160,8 +121,8 @@ export function ZoomablePage({
     .withTestId(`${testID}-dismiss`)
     .enabled(!zoomed)
     .maxPointers(1)
-    .activeOffsetY([-12, 12])
-    .failOffsetX([-16, 16])
+    .activeOffsetY([-DISMISS_ACTIVE_OFFSET_Y, DISMISS_ACTIVE_OFFSET_Y])
+    .failOffsetX([-DISMISS_FAIL_OFFSET_X, DISMISS_FAIL_OFFSET_X])
     .onChange((event) => {
       if (scale.get() > MIN_SCALE) return;
       dismissY.set(event.translationY);
@@ -247,33 +208,11 @@ export function ZoomablePage({
     transform: [
       { translateX: translateX.get() },
       { translateY: translateY.get() + dismissY.get() },
-      { scale: scale.get() * (1 - Math.min(Math.abs(dismissY.get()) / height, 0.4)) },
+      {
+        scale: scale.get() * (1 - Math.min(Math.abs(dismissY.get()) / height, DISMISS_MAX_SHRINK)),
+      },
     ],
   }));
 
-  return (
-    <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.page, { width, height }, pageStyle]}>
-        <DocumentImage
-          source={{ uri }}
-          style={styles.image}
-          contentFit="contain"
-          transition={120}
-          accessibilityLabel={label}
-          accessible
-        />
-      </Animated.View>
-    </GestureDetector>
-  );
+  return { gesture, pageStyle, width, height };
 }
-
-const styles = StyleSheet.create({
-  page: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-});

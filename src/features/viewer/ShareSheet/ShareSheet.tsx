@@ -1,31 +1,13 @@
 import { ActivityIndicator, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Button, FileCard, Icon, Sheet, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { biometryIcon } from '@/features/auth/lockCopy';
 
-import type { BiometryType } from '../../../modules/expo-vault';
-import { confirmShareLabel, shareText } from './shareCopy';
-
-export type ShareSheetStep = 'warning' | 'preparing';
-
-export type ShareSheetProps = {
-  /** null hides the sheet. */
-  step: ShareSheetStep | null;
-  /** The one document being shared. */
-  fileName: string;
-  fileMeta: string;
-  fileIcon: 'document' | 'pdf' | 'image';
-  /** Confirm before sharing: the primary button asks for biometrics first. */
-  confirmFirst: boolean;
-  biometry: BiometryType;
-  /** True while the biometric step-up or the copy is under way. */
-  busy: boolean;
-  onShare: () => void;
-  /** Warning: nothing was made. Preparing: the partial copy is removed. */
-  onCancel: () => void;
-};
+import { confirmShareLabel, shareText } from '../shareCopy';
+import { styles } from './ShareSheet.styles';
+import type { ShareSheetProps } from './types';
 
 /**
  * The share warning and preparing step. Every share
@@ -90,26 +72,3 @@ export function ShareSheet({
     </Sheet>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  body: {
-    gap: theme.spacing.md,
-    paddingTop: theme.spacing.xs,
-  },
-  iconTile: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.accentMuted,
-  },
-  progress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  progressLabel: {
-    flex: 1,
-  },
-}));

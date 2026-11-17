@@ -10,13 +10,14 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
 } from 'react-native-reanimated';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 import { pageForSwipe, pageFromOffset, type SwipeDirection } from '@/utils/pager';
 
-import { ZoomablePage } from './ZoomablePage';
+import { ZoomablePage } from '../ZoomablePage';
+import { DISMISS_FADE } from './constants';
+import { styles } from './PageStage.styles';
 
 export interface PageStageProps {
   /** Decrypted page images, main file first. */
@@ -98,7 +99,7 @@ export function PageStage({
     [pages.length, onIndexChange, reduceMotion],
   );
 
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: 1 - dismissProgress.get() * 0.7 }));
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: 1 - dismissProgress.get() * DISMISS_FADE }));
 
   return (
     <Animated.View style={[styles.stage, fadeStyle]}>
@@ -144,10 +145,3 @@ export function PageStage({
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  stage: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: theme.colors.viewerStage,
-  },
-}));
