@@ -3,53 +3,24 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
-import { AppState, type AppStateStatus, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
-import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
-import { t } from '@/i18n';
-import {
-  EMPTY_LOCKOUT,
-  isLocked,
-  type LockoutState,
-  recordFailure,
-  unreadableLockout,
-} from '@/features/auth/lockout';
-
-import { documentService } from '@/services/DocumentService';
-import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
-
-import vault, { type BiometryType } from '../../../modules/expo-vault';
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
-import { AUTO_LOCK_RETURN_GRACE_MS, KEY_PROBE_ENTRY, SHARE_PAUSE_MAX_AWAY_MS } from './constants';
-import { describeError, errorCode, KEY_NOT_UNLOCKED, keyNotUnlocked } from './errors';
-import { reconcileInstall } from './freshInstall';
-import {
-  awayExpiryDelay,
-  currentLockout,
-  exceedsAutoLock,
-  launchStatus,
-  newPauseEntry,
-  pauseReturnOutcome,
-  stoppedDuring,
-} from './helpers';
-import { loadCappedLockout, readLaunchState } from './launchState';
-import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
-import type {
-  AutoLockPause,
-  PauseEntry,
-  PinChangeResult,
-  PinUnlockResult,
-  SessionCapture,
-  SessionContextValue,
-  SessionNotice,
-  SessionStatus,
-  ShareInterruption,
-} from './types';
+import { SHARE_PAUSE_MAX_AWAY_MS } from './constants';
+import { useAutoLock } from './hooks/useAutoLock';
+import { useBiometricUnlock } from './hooks/useBiometricUnlock';
+import { useEraseVault } from './hooks/useEraseVault';
+import { useLockoutState } from './hooks/useLockoutState';
+import { usePinUnlock } from './hooks/usePinUnlock';
+import { useSecuritySettings } from './hooks/useSecuritySettings';
+import { useSessionCapture } from './hooks/useSessionCapture';
+import { useSessionNotices } from './hooks/useSessionNotices';
+import { useSessionStatus } from './hooks/useSessionStatus';
+import { useVaultAvailability } from './hooks/useVaultAvailability';
+import { useVaultSetup } from './hooks/useVaultSetup';
+import type { AutoLockPause, SessionContextValue } from './types';
 
 export { AUTO_LOCK_RETURN_GRACE_MS, DEFAULT_PAUSE_MAX_AWAY_MS } from './constants';
 export type {
@@ -64,27 +35,12 @@ export type {
 } from './types';
 
 /**
- * When the user left the app while `entry` ran, or null. Android's share
- * chooser is translucent and only pauses the activity; a stop means Home,
- * Recents, the screen turning off, or a target opened over the app. Its
- * result reaches the app only on the return, so this is the one sign of when
- * the user went away. iOS reports no stops: its sheet runs in-process.
- */
-function leftDuring(entry: PauseEntry): number | null {
-  if (!entry.endsOnReturn) return null;
-  let stoppedAt = 0;
-  try {
-    stoppedAt = vault.lastStoppedAt();
-  } catch {
-    // A build without the call: the return is judged as before.
-  }
-  return stoppedDuring(entry, stoppedAt);
-}
-
-/**
  * The pause for a share sheet. On iOS the sheet is in-process and may stay up
  * while the user is away briefly; on Android the chooser is its own activity,
  * so a share still pending after the return was blocked or is gone.
+ *
+ * Declared here, not re-exported: tests replace it on this module with
+ * `jest.spyOn`, which needs a plain export the app's calls go through.
  */
 export function sharePause(): AutoLockPause {
   return { maxAwayMs: SHARE_PAUSE_MAX_AWAY_MS, endsOnReturn: Platform.OS === 'android' };
@@ -97,634 +53,84 @@ const SessionContext = createContext<SessionContextValue | null>(null);
  * decide which routes exist, so no screen can be reached while locked. The
  * device key gate (biometrics or passcode) and the app PIN are two doors to
  * the same room: both end in `unlocked`, and either can be used to get there.
+ *
+ * Each concern lives in its own hook; the order of the calls below keeps the
+ * order of their effects: the auto-lock limit, the launch read, then the
+ * app-state listener.
  */
 export function SessionProvider({ children }: PropsWithChildren) {
-  const [status, setStatus] = useState<SessionStatus>('loading');
-  const [biometry, setBiometry] = useState<BiometryType>('none');
-  const [vaultExists, setVaultExists] = useState(false);
-  const [vaultEmpty, setVaultEmpty] = useState(false);
-  const [settings, setSettings] = useState<SecuritySettings>(DEFAULT_SETTINGS);
-  const [lockout, setLockout] = useState<LockoutState>(EMPTY_LOCKOUT);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<SessionNotice | null>(null);
-  const [shareInterrupted, setShareInterrupted] = useState<ShareInterruption | null>(null);
-  const [setupHeld, setSetupHeld] = useState(false);
-  const setupHeldRef = useRef(false);
-  const [pinLost, setPinLost] = useState(false);
-  const [keyInvalidated, setKeyInvalidated] = useState(false);
-  // Set once the device key's gate opened for a lost PIN record; in memory only.
-  const lostPinResetRef = useRef(false);
-  // True while that gate's prompt is up, so a foreground return does not relaunch under it.
-  const resettingPinRef = useRef(false);
-  // One launch read at a time, so a retry and a foreground return never race.
-  const launchingRef = useRef<Promise<SessionStatus> | null>(null);
-  const backgroundedAt = useRef<number | null>(null);
-  // Running pauses of auto-lock, each with the time it was left the foreground.
-  const pausesRef = useRef(new Set<PauseEntry>());
-  // True when the time away being judged began as a pause ended in the background.
-  const pauseEndedAwayRef = useRef(false);
-  const autoLockRef = useRef(settings.autoLockSeconds);
-  useEffect(() => {
-    autoLockRef.current = settings.autoLockSeconds;
-  }, [settings.autoLockSeconds]);
-  const statusRef = useRef(status);
-  // Bumped every time the vault leaves `unlocked`, so work that started in an
-  // earlier session never mistakes a later unlock for its own.
-  const generationRef = useRef(0);
-  const waitersRef = useRef(new Set<() => void>());
-  // The lockout a PIN attempt is judged against, current within the same tick.
-  const lockoutRef = useRef<LockoutState>(EMPTY_LOCKOUT);
-  // One PIN attempt at a time, so two in flight cannot both count from the same state.
-  const attemptingRef = useRef(false);
-
-  const applyLockout = useCallback((next: LockoutState) => {
-    lockoutRef.current = next;
-    setLockout(next);
-  }, []);
-
-  const settleWaiters = useCallback(() => {
-    for (const settle of [...waitersRef.current]) settle();
-  }, []);
-
-  // The ref changes in the same tick as the transition, before React renders,
-  // so a check between two awaits never sees a stale `unlocked`.
-  const changeStatus = useCallback(
-    (next: SessionStatus) => {
-      if (statusRef.current === 'unlocked' && next !== 'unlocked') {
-        generationRef.current += 1;
-        // Pauses belong to the session that took them. System UI that never
-        // settles (a share sheet the lock dismissed) must not excuse the next
-        // session's time away.
-        pausesRef.current.clear();
-        // A trip being timed belongs to that session too; the next one starts fresh.
-        backgroundedAt.current = null;
-        pauseEndedAwayRef.current = false;
-      }
-      // Outside an unlocked session no key read may reuse its authentication:
-      // the next one prompts again (iOS; Android's key window bounds its own).
-      if (next !== 'unlocked') {
-        try {
-          vault.endKeySession();
-        } catch {
-          // A build without the call keeps the previous behaviour.
-        }
-      }
-      statusRef.current = next;
-      setStatus(next);
-      settleWaiters();
-    },
-    [settleWaiters],
-  );
-
-  const activeRef = useRef(true);
-  useEffect(() => {
-    activeRef.current = true;
-    return () => {
-      activeRef.current = false;
-    };
-  }, []);
-
-  const launch = useCallback((): Promise<SessionStatus> => {
-    launchingRef.current ??= (async () => {
-      try {
-        // iOS: a reinstall's leftover Keychain items go before anything reads them.
-        await reconcileInstall();
-        const {
-          key,
-          type,
-          pin,
-          pinLost: lost,
-          storedLockout,
-          entries,
-          orphaned,
-        } = await readLaunchState(lostPinResetRef.current);
-        if (!activeRef.current) return statusRef.current;
-        setBiometry(type);
-        setPinLost(lost);
-        if (orphaned) setKeyInvalidated(true);
-        applyLockout(storedLockout ?? unreadableLockout(Date.now()));
-        const next = launchStatus(key, pin, orphaned);
-        if (next !== 'unavailable') {
-          const exists = key === 'present';
-          setVaultExists(exists);
-          setVaultEmpty(exists && entries === 0);
-          // The lock screen needs to know whether biometric unlock is on. The
-          // settings sit in the same store as the PIN record, readable before
-          // the device key; a failed read keeps the defaults.
-          if (next === 'locked') setSettings(await sessionStorage.loadSettings());
-        }
-        // A key without a PIN record is either the 2025 prototype's vault or an
-        // interrupted setup. Both go through setup again, and setUp keeps the
-        // existing key so nothing already encrypted is lost.
-        if (activeRef.current) changeStatus(next);
-        return next;
-      } finally {
-        launchingRef.current = null;
-      }
-    })();
-    return launchingRef.current;
-  }, [changeStatus, applyLockout]);
-
-  useEffect(() => {
-    void launch();
-  }, [launch]);
-
-  const retry = useCallback(async () => {
-    if (statusRef.current !== 'unavailable') return statusRef.current;
-    return launch();
-  }, [launch]);
-
-  const resetLostPin = useCallback(async () => {
-    if (!pinLost || statusRef.current !== 'unavailable' || resettingPinRef.current) return false;
-    setError(null);
-    resettingPinRef.current = true;
-    try {
-      if (!(await vault.unlockWithBiometrics())) {
-        // The PIN is what was lost, so there is none to enter instead.
-        setError(keyNotUnlocked.resetPin);
-        return false;
-      }
-      // An invalidated key is reported at once, with no second prompt. With
-      // entries left nothing can be decrypted again, so setup would stop on
-      // them; an empty vault goes on, and setup replaces the key.
-      try {
-        await vault.get(KEY_PROBE_ENTRY);
-      } catch (probeError) {
-        if (errorCode(probeError) === 'KEY_INVALIDATED' && (await vault.getAllKeys()).length > 0) {
-          setKeyInvalidated(true);
-          setError(KEY_INVALIDATED_MESSAGE);
-          return false;
-        }
-      }
-      lostPinResetRef.current = true;
-      // Read everything again: only a lost PIN with its key present goes on to setup.
-      const next = await launch();
-      if (next !== 'setup') lostPinResetRef.current = false;
-      return next === 'setup';
-    } catch (e) {
-      setError(describeError(e, t('session.unlockKeyFailed'), 'resetPin'));
-      return false;
-    } finally {
-      resettingPinRef.current = false;
-    }
-  }, [launch, pinLost]);
-
-  const loadProtectedState = useCallback(async () => {
-    setSettings(await sessionStorage.loadSettings());
-  }, []);
-
-  const ensureKeyAccess = useCallback(async () => {
-    try {
-      await vault.get(KEY_PROBE_ENTRY);
-      return true;
-    } catch (probeError) {
-      // The vault's key recovery has already shown the Android prompt for a
-      // locked key (or declined to from the background). Prompting again here
-      // would open a second prompt right after the user cancelled the first.
-      if (isKeyLocked(probeError)) {
-        setError(KEY_NOT_UNLOCKED);
-        return false;
-      }
-      try {
-        if (await vault.unlockWithBiometrics()) return true;
-        setError(KEY_NOT_UNLOCKED);
-        return false;
-      } catch (e) {
-        setError(describeError(e, t('session.unlockKeyFailed')));
-        return false;
-      }
-    }
-  }, []);
-
-  const unlock = useCallback(async () => {
-    setError(null);
-    try {
-      const ok = await vault.unlockWithBiometrics();
-      if (ok) {
-        await loadProtectedState();
-        applyLockout(EMPTY_LOCKOUT);
-        await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-        changeStatus('unlocked');
-      }
-      return ok;
-    } catch (e) {
-      setError(describeError(e, t('session.unlockFailed')));
-      return false;
-    }
-  }, [loadProtectedState, applyLockout, changeStatus]);
-
-  const checkPin = useCallback(
-    async (pin: string): Promise<PinUnlockResult> => {
-      // The stored copy outlives a relaunch and the one in memory outlives a
-      // failed write; the attempt is judged against the stricter of the two.
-      const stored = await loadCappedLockout();
-      const now = Date.now();
-      const current = currentLockout(lockoutRef.current, stored, now);
-      applyLockout(current);
-      if (isLocked(current, now)) return 'not-unlocked';
-      try {
-        // The PIN record is in the secure store, readable without the device
-        // key; a store that refuses the read is not a wrong PIN.
-        const record = await sessionStorage.loadPinRecord();
-        const ok = record ? await verifyPasscodeAsync(pin, record) : false;
-        if (ok) {
-          // The PIN opens the app; the device key still needs the OS gate if its
-          // authentication window has lapsed. iOS prompts on first Keychain read,
-          // Android needs an explicit prompt, so probe and re-arm when required.
-          // A key prompt the user cancelled is not a wrong PIN.
-          if (!(await ensureKeyAccess())) return 'not-unlocked';
-          await loadProtectedState();
-          applyLockout(EMPTY_LOCKOUT);
-          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-          changeStatus('unlocked');
-          return 'unlocked';
-        }
-        const next = recordFailure(current, now);
-        applyLockout(next);
-        // A stored copy that could not be read may be stricter; leave it be.
-        if (stored) await sessionStorage.saveLockout(next).catch(() => {});
-        return 'wrong-pin';
-      } catch (e) {
-        setError(describeError(e, t('session.checkPinFailed')));
-        return 'not-unlocked';
-      }
-    },
-    [loadProtectedState, ensureKeyAccess, applyLockout, changeStatus],
-  );
-
-  const unlockWithPin = useCallback(
-    async (pin: string): Promise<PinUnlockResult> => {
-      setError(null);
-      // Nothing is judged before the startup read of the stored lockout landed,
-      // or while another attempt is still being judged.
-      if (statusRef.current === 'loading' || attemptingRef.current) return 'not-unlocked';
-      attemptingRef.current = true;
-      try {
-        return await checkPin(pin);
-      } finally {
-        attemptingRef.current = false;
-      }
-    },
-    [checkPin],
-  );
-
-  const setUp = useCallback(
-    async (pin: string, options: { holdForOnboarding?: boolean } = {}) => {
-      setError(null);
-      try {
-        // Launch may have been a while ago, or wrong: read the key and PIN
-        // again so setup never creates a key over a vault it cannot see.
-        const fresh = await readLaunchState(lostPinResetRef.current);
-        if (launchStatus(fresh.key, fresh.pin, fresh.orphaned) === 'unavailable') {
-          setPinLost(fresh.pinLost);
-          if (fresh.orphaned) setKeyInvalidated(true);
-          changeStatus('unavailable');
-          return false;
-        }
-        // A vault with a PIN and entries is opened, never set up again. An
-        // emptied one may still hold a PIN an erase could not remove.
-        if (fresh.key === 'present' && fresh.pin === 'present' && fresh.entries !== 0) {
-          setVaultExists(true);
-          changeStatus('locked');
-          return false;
-        }
-        const exists = fresh.key === 'present';
-        setVaultExists(exists);
-        // Only a brand-new vault gets a key; an existing one keeps what it has.
-        if (!exists) await vault.createVault();
-        const ok = await vault.unlockWithBiometrics();
-        if (!ok) return false;
-        try {
-          await vault.put(KEY_PROBE_ENTRY, 'ok');
-        } catch (probeError) {
-          // "Delete everything" keeps the device key; one the system invalidated
-          // can never encrypt again, and an empty vault loses nothing by a new one.
-          if (
-            errorCode(probeError) !== 'KEY_INVALIDATED' ||
-            (await vault.getAllKeys()).length > 0
-          ) {
-            throw probeError;
-          }
-          await vault.createVault();
-          if (!(await vault.unlockWithBiometrics())) return false;
-          await vault.put(KEY_PROBE_ENTRY, 'ok');
-        }
-        // Settings stored by an earlier setup are kept: a new PIN after a lost
-        // one (Add a PIN, which offers no biometrics step) must not turn Face ID
-        // back on when the owner declined it. "Delete everything" removed them,
-        // so a new vault starts from the defaults.
-        const kept = await sessionStorage.loadSettings();
-        await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
-        lostPinResetRef.current = false;
-        await sessionStorage.saveSettings(kept);
-        await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-        // Only setup creates the index and its key, once the screens behind the gate mount.
-        documentService.allowIndex();
-        setSettings(kept);
-        applyLockout(EMPTY_LOCKOUT);
-        setVaultExists(true);
-        setVaultEmpty(false);
-        if (options.holdForOnboarding) {
-          setupHeldRef.current = true;
-          setSetupHeld(true);
-        } else {
-          changeStatus('unlocked');
-        }
-        return true;
-      } catch (e) {
-        setError(describeError(e, t('session.setUpFailed'), 'setup'));
-        return false;
-      }
-    },
-    [applyLockout, changeStatus],
-  );
-
-  const finishSetup = useCallback(() => {
-    if (!setupHeldRef.current || statusRef.current !== 'setup') return;
-    setupHeldRef.current = false;
-    setSetupHeld(false);
-    changeStatus('unlocked');
-  }, [changeStatus]);
-
-  const changePin = useCallback(
-    async (currentPin: string, nextPin: string): Promise<PinChangeResult> => {
-      setError(null);
-      // The current PIN is judged like one typed on the lock screen: against
-      // the same lockout, one attempt at a time, and a wrong one counts, so an
-      // unlocked session cannot guess without limit. The device unlock on the
-      // lock screen still ends the pause.
-      // A second call while one is judged changes nothing and resets nothing.
-      if (attemptingRef.current) return 'busy';
-      attemptingRef.current = true;
-      try {
-        const stored = await loadCappedLockout();
-        const now = Date.now();
-        const current = currentLockout(lockoutRef.current, stored, now);
-        applyLockout(current);
-        if (isLocked(current, now)) return 'locked-out';
-        const record = await sessionStorage.loadPinRecord();
-        if (!record || !(await verifyPasscodeAsync(currentPin, record))) {
-          const next = recordFailure(current, now);
-          applyLockout(next);
-          // A stored copy that could not be read may be stricter; leave it be.
-          if (stored) await sessionStorage.saveLockout(next).catch(() => {});
-          return 'wrong-pin';
-        }
-        if (current.failures > 0) {
-          applyLockout(EMPTY_LOCKOUT);
-          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-        }
-        await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
-        return 'changed';
-      } catch (e) {
-        setError(describeError(e, t('session.changePinFailed'), 'changePin'));
-        return 'failed';
-      } finally {
-        attemptingRef.current = false;
-      }
-    },
-    [applyLockout],
-  );
-
-  const updateSettings = useCallback(
-    async (changes: Partial<SecuritySettings>) => {
-      const next = { ...settings, ...changes };
-      setSettings(next);
-      await sessionStorage.saveSettings(next).catch(() => {});
-    },
-    [settings],
-  );
+  const { settings, setSettings, autoLockRef, loadProtectedState, updateSettings } =
+    useSecuritySettings();
+  const { status, statusRef, generationRef, waitersRef, away, settleWaiters, changeStatus } =
+    useSessionStatus();
+  const { lockout, lockoutRef, applyLockout } = useLockoutState();
+  const availability = useVaultAvailability({
+    statusRef,
+    changeStatus,
+    applyLockout,
+    setSettings,
+    setError,
+  });
+  const { biometry, vaultExists, vaultEmpty, pinLost, keyInvalidated } = availability;
+  const { launch, retry, resetLostPin, resettingPinRef, markErased } = availability;
+  const { withoutAutoLock } = useAutoLock({
+    statusRef,
+    changeStatus,
+    settleWaiters,
+    away,
+    autoLockRef,
+    launch,
+    resettingPinRef,
+  });
+  const { unlock, ensureKeyAccess, stepUp } = useBiometricUnlock({
+    setError,
+    loadProtectedState,
+    applyLockout,
+    changeStatus,
+    withoutAutoLock,
+  });
+  const { unlockWithPin, changePin } = usePinUnlock({
+    statusRef,
+    lockoutRef,
+    applyLockout,
+    changeStatus,
+    setError,
+    ensureKeyAccess,
+    loadProtectedState,
+  });
+  const { setUp, setupHeld, finishSetup, resetSetup } = useVaultSetup({
+    statusRef,
+    changeStatus,
+    applyLockout,
+    setSettings,
+    setError,
+    availability,
+  });
+  const {
+    notice,
+    postNotice,
+    dismissNotice,
+    shareInterrupted,
+    markShareInterrupted,
+    clearShareInterrupted,
+    resetNotices,
+  } = useSessionNotices();
+  const eraseVault = useEraseVault({
+    setSettings,
+    applyLockout,
+    setError,
+    resetNotices,
+    markErased,
+    resetSetup,
+    changeStatus,
+  });
+  const captureSession = useSessionCapture({ statusRef, generationRef, waitersRef, away });
 
   const lock = useCallback(() => {
     setError(null);
     changeStatus('locked');
   }, [changeStatus]);
-
-  const eraseVault = useCallback(async () => {
-    // expo-secure-store 58 rejects a delete the Keychain refuses; one retry
-    // covers a transient refusal, and the caller tells the user otherwise.
-    const cleared = await sessionStorage
-      .clear()
-      .catch(() => sessionStorage.clear())
-      .then(
-        () => true,
-        () => false,
-      );
-    setSettings(DEFAULT_SETTINGS);
-    applyLockout(EMPTY_LOCKOUT);
-    setError(null);
-    setNotice(null);
-    setShareInterrupted(null);
-    setVaultEmpty(true);
-    setupHeldRef.current = false;
-    setSetupHeld(false);
-    setPinLost(false);
-    setKeyInvalidated(false);
-    lostPinResetRef.current = false;
-    changeStatus('setup');
-    return cleared;
-  }, [applyLockout, changeStatus]);
-
-  /** Locks when time away has passed the auto-lock limit. */
-  const judgeAway = useCallback(
-    (awayMs: number) => {
-      if (statusRef.current === 'unlocked' && exceedsAutoLock(autoLockRef.current, awayMs)) {
-        changeStatus('locked');
-      }
-    },
-    [changeStatus],
-  );
-
-  const withoutAutoLock = useCallback(
-    async <T,>(work: () => Promise<T>, pause: AutoLockPause = {}) => {
-      const entry = newPauseEntry(pause, Date.now());
-      pausesRef.current.add(entry);
-      try {
-        return await work();
-      } finally {
-        if (pausesRef.current.delete(entry)) {
-          const awayAt = entry.awayAt;
-          if (AppState.currentState === 'active' || awayAt === null) {
-            backgroundedAt.current = null;
-          } else if (Date.now() - awayAt > entry.maxAwayMs) {
-            // Ended while still away after outliving its bound (Android delivers
-            // a chooser's Back or pick before the app is active again, and its
-            // paused timers never fired): the pause excuses nothing, so the whole
-            // trip since the app left under it is judged now, and again on
-            // return if auto-lock allows it so far.
-            backgroundedAt.current = awayAt;
-            pauseEndedAwayRef.current = false;
-            judgeAway(Date.now() - awayAt);
-          } else {
-            const left = leftDuring(entry);
-            if (left !== null) {
-              // Android: the user left the app under the chooser (Home, or a
-              // target opened over it), and its result only arrives with the
-              // return. The pause excused the time until then; from then on the
-              // user was simply away, judged without the return grace.
-              backgroundedAt.current = left;
-              pauseEndedAwayRef.current = false;
-              judgeAway(Date.now() - left);
-            } else {
-              // Ended while still away within its bound (iOS handed the share to
-              // another app, or a picker result landed on the way back): the pause
-              // excused the time until now, and the rest of the time away is
-              // judged on return like any other.
-              backgroundedAt.current = Date.now();
-              pauseEndedAwayRef.current = true;
-            }
-          }
-        }
-        settleWaiters();
-      }
-    },
-    [settleWaiters, judgeAway],
-  );
-
-  const captureSession = useCallback((): SessionCapture => {
-    const generation = statusRef.current === 'unlocked' ? generationRef.current : -1;
-    const current = () => generation === generationRef.current && statusRef.current === 'unlocked';
-    const confirm = () =>
-      new Promise<boolean>((resolve) => {
-        const settle = () => {
-          if (!current()) {
-            waitersRef.current.delete(settle);
-            resolve(false);
-          } else if (AppState.currentState === 'active' && backgroundedAt.current === null) {
-            waitersRef.current.delete(settle);
-            resolve(true);
-          }
-        };
-        waitersRef.current.add(settle);
-        settle();
-      });
-    const ended = () =>
-      new Promise<void>((resolve) => {
-        const settle = () => {
-          if (current()) return;
-          waitersRef.current.delete(settle);
-          resolve();
-        };
-        waitersRef.current.add(settle);
-        settle();
-      });
-    return { current, confirm, ended };
-  }, []);
-
-  const postNotice = useCallback((next: SessionNotice) => setNotice(next), []);
-  const dismissNotice = useCallback(() => setNotice(null), []);
-  const markShareInterrupted = useCallback(
-    (documentId: string) => setShareInterrupted({ documentId }),
-    [],
-  );
-  const clearShareInterrupted = useCallback(
-    (only?: ShareInterruption) =>
-      setShareInterrupted((current) => (!only || current === only ? null : current)),
-    [],
-  );
-
-  const stepUp = useCallback(
-    () =>
-      withoutAutoLock(async () => {
-        try {
-          return await vault.unlockWithBiometrics();
-        } catch {
-          return false;
-        }
-      }),
-    [withoutAutoLock],
-  );
-
-  // Auto-lock: remember when the app left the foreground and compare on return.
-  // While system UI pauses it, the time away is excused only within that
-  // pause's limits, so a pause that never ends cannot keep the vault open.
-  useEffect(() => {
-    const timers = new Set<ReturnType<typeof setTimeout>>();
-    // A pause still pending once the time away passes both its own limit and
-    // auto-lock locks then, without waiting for the return: Android's chooser
-    // keeps the app away for as long as it stays up, and the copy it offers
-    // must not outlive the session. Locking sweeps the copy, so a target picked
-    // later reads nothing.
-    const expireWhileAway = (entry: PauseEntry) => {
-      const limit = autoLockRef.current;
-      const awayAt = entry.awayAt;
-      if (limit < 0 || awayAt === null) return;
-      const timer = setTimeout(
-        () => {
-          timers.delete(timer);
-          // Back in the meantime, or the pause ended: that trip is judged as before.
-          if (entry.awayAt !== awayAt || !pausesRef.current.delete(entry)) return;
-          judgeAway(Date.now() - awayAt);
-          settleWaiters();
-        },
-        awayExpiryDelay(entry.maxAwayMs, limit),
-      );
-      timers.add(timer);
-    };
-    const onChange = (next: AppStateStatus) => {
-      // Vault unavailable: try once more on each return to the foreground.
-      if (statusRef.current === 'unavailable') {
-        if (next === 'active' && !resettingPinRef.current) void launch();
-        return;
-      }
-      const pauses = pausesRef.current;
-      if (statusRef.current === 'unlocked' && pauses.size === 0) {
-        if (next === 'background' || next === 'inactive') {
-          if (backgroundedAt.current === null) pauseEndedAwayRef.current = false;
-          backgroundedAt.current ??= Date.now();
-        } else if (next === 'active' && backgroundedAt.current !== null) {
-          const idleMs = Date.now() - backgroundedAt.current;
-          const endedOnTheWayBack = pauseEndedAwayRef.current && idleMs < AUTO_LOCK_RETURN_GRACE_MS;
-          backgroundedAt.current = null;
-          pauseEndedAwayRef.current = false;
-          // A picker result that lands just before the app is active again
-          // (Android) is part of coming back, not time away.
-          if (!endedOnTheWayBack) judgeAway(idleMs);
-        }
-      } else if (statusRef.current === 'unlocked') {
-        const now = Date.now();
-        for (const entry of [...pauses]) {
-          if (next === 'background' || next === 'inactive') {
-            if (entry.awayAt === null) {
-              entry.awayAt = now;
-              expireWhileAway(entry);
-            }
-            continue;
-          }
-          if (next !== 'active' || entry.awayAt === null) continue;
-          const awayMs = now - entry.awayAt;
-          entry.awayAt = null;
-          const left = leftDuring(entry);
-          const outcome = pauseReturnOutcome(entry, awayMs, left);
-          if (outcome === 'expired') {
-            pauses.delete(entry);
-            judgeAway(awayMs);
-          } else if (outcome === 'left' && left !== null) {
-            // The user left the app under the chooser: the time since is away time.
-            pauses.delete(entry);
-            judgeAway(now - left);
-          } else if (outcome === 'grace') {
-            const timer = setTimeout(() => {
-              timers.delete(timer);
-              // Still pending: the system UI never showed, or is gone without settling.
-              if (pauses.delete(entry)) {
-                judgeAway(awayMs);
-                settleWaiters();
-              }
-            }, AUTO_LOCK_RETURN_GRACE_MS);
-            timers.add(timer);
-          }
-        }
-      }
-      // Waiting work resumes only after the return to the foreground was judged.
-      settleWaiters();
-    };
-    const subscription = AppState.addEventListener('change', onChange);
-    return () => {
-      subscription.remove();
-      timers.forEach(clearTimeout);
-    };
-  }, [judgeAway, settleWaiters, launch]);
 
   const value = useMemo(
     () => ({
