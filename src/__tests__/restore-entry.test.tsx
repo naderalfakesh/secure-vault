@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { join, relative } from 'path';
+import { join, relative, sep } from 'path';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
@@ -64,6 +64,11 @@ const routeFiles = () =>
     .filter((path) => /\.tsx?$/.test(path))
     .map((path) => relative(ROOT, path));
 
+const screenFiles = () =>
+  filesBelow(join(ROOT, 'src', 'screens'))
+    .filter((path) => /\.tsx?$/.test(path) && !path.includes('__tests__'))
+    .map((path) => relative(ROOT, path));
+
 /** Exactly one user-reachable restore entry, and no way in from outside. */
 describe('the one restore entry', () => {
   beforeEach(() => {
@@ -94,18 +99,32 @@ describe('the one restore entry', () => {
   });
 
   it('is the only route that reads or restores a backup', () => {
-    const callers = routeFiles().filter((path) =>
-      /restoreBackup|inspectBackup|cancelRestore/.test(readFileSync(join(ROOT, path), 'utf8')),
+    // Routes only bind a URL to a screen: the hub's route is the one that
+    // binds the Backup screen, whose files live in src/screens/backup.
+    const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+    const hubRoute = join('app', 'settings', 'backup.tsx');
+    const hubFiles = screenFiles().filter((path) =>
+      path.startsWith(join('src', 'screens', 'backup') + sep),
     );
-    expect(callers).toEqual([join('app', 'settings', 'backup.tsx')]);
-    // Nor does any other route mount the restore sheet.
-    const mounts = routeFiles().filter((path) =>
-      /RestoreSheet/.test(readFileSync(join(ROOT, path), 'utf8')),
+    const outsideHub = (path: string) => !hubFiles.includes(path);
+    expect(routeFiles().filter((path) => /@\/screens\/backup\b/.test(read(path)))).toEqual([
+      hubRoute,
+    ]);
+    const callers = [...routeFiles(), ...screenFiles()].filter((path) =>
+      /restoreBackup|inspectBackup|cancelRestore/.test(read(path)),
     );
-    expect(mounts).toEqual([join('app', 'settings', 'backup.tsx')]);
+    expect(callers.length).toBeGreaterThan(0);
+    expect(callers.filter(outsideHub)).toEqual([]);
+    // Nor does any other route or screen mount the restore sheet.
+    const mounts = [...routeFiles(), ...screenFiles()].filter((path) =>
+      /RestoreSheet/.test(read(path)),
+    );
+    expect(mounts.length).toBeGreaterThan(0);
+    expect(mounts.filter(outsideHub)).toEqual([]);
     // The hub takes no parameters, so no URL can hand it a file or start a restore.
-    const hub = readFileSync(join(ROOT, 'app', 'settings', 'backup.tsx'), 'utf8');
-    expect(hub).not.toMatch(/useLocalSearchParams|useGlobalSearchParams|Linking/);
+    for (const path of [hubRoute, ...hubFiles]) {
+      expect(read(path)).not.toMatch(/useLocalSearchParams|useGlobalSearchParams|Linking/);
+    }
     expect(routeFiles().filter((path) => /restore/i.test(path))).toEqual([]);
     expect(routeFiles().filter((path) => /\+native-intent/.test(path))).toEqual([]);
   });
