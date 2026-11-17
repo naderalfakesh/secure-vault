@@ -1,29 +1,19 @@
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
-import { useThrottledAnnouncement } from './announce';
-import { Text } from './Text';
-
-export type ProgressBlockProps = {
-  /** "Verb X of N", e.g. "Checking 18 of 48". */
-  label: string;
-  /** Optional right-hand text: a percentage or "Step 1 of 2". */
-  detail?: string;
-  /** 0 to 1. */
-  progress: number;
-  testID?: string;
-};
+import { useThrottledAnnouncement } from '../announce';
+import { Text } from '../Text';
+import { progressPercent } from './helpers';
+import type { ProgressBlockProps } from './types';
+import { styles } from './ProgressBlock.styles';
 
 /** Determinate progress: label, optional detail, 6 pt bar. */
 export function ProgressBlock({ label, detail, progress, testID }: ProgressBlockProps) {
   // A polite live region on Android; iOS ignores live regions, so it hears
   // the line when it appears and then at most every few seconds.
   useThrottledAnnouncement(label);
-  const percent = Math.round(
-    Math.min(1, Math.max(0, Number.isFinite(progress) ? progress : 0)) * 100,
-  );
+  const percent = progressPercent(progress);
 
   return (
     <View
@@ -56,29 +46,3 @@ export function ProgressBlock({ label, detail, progress, testID }: ProgressBlock
     </View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  block: {
-    gap: theme.spacing.xs,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
-  },
-  label: {
-    flex: 1,
-    fontWeight: '600',
-  },
-  track: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.surfaceMuted,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.primary,
-  },
-}));
