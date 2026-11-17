@@ -1,29 +1,14 @@
 import { useState } from 'react';
-import { Pressable, TextInput, type TextInputProps, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Pressable, TextInput, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
-import { useOnGlass } from './Glass';
-import { Icon } from './Icon';
-import { Text } from './Text';
-
-export type PassphraseFieldProps = Omit<
-  TextInputProps,
-  | 'style'
-  | 'value'
-  | 'onChangeText'
-  | 'secureTextEntry'
-  | 'autoCorrect'
-  | 'autoCapitalize'
-  | 'spellCheck'
-> & {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  /** Error under the field; also turns the border danger. */
-  error?: string | null;
-};
+import { useOnGlass } from '../Glass';
+import { Icon } from '../Icon';
+import { Text } from '../Text';
+import type { PassphraseFieldProps } from './types';
+import { styles } from './PassphraseField.styles';
 
 /**
  * Secure passphrase entry. Any script is accepted; the text
@@ -95,56 +80,3 @@ export function PassphraseField({
     </View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontWeight: '600',
-    marginHorizontal: theme.spacing.xxs,
-  },
-  box: (state: 'idle' | 'focused' | 'error') => ({
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    minHeight: 52,
-    paddingStart: 14,
-    paddingEnd: 4,
-    borderRadius: theme.radii.input,
-    borderWidth: 1.5,
-    borderColor:
-      state === 'error'
-        ? theme.colors.danger
-        : state === 'focused'
-          ? theme.colors.primary
-          : 'transparent',
-    backgroundColor: theme.colors.surfaceMuted,
-  }),
-  solid: (state: 'idle' | 'focused' | 'error') => ({
-    backgroundColor: theme.colors.surface,
-    ...(state === 'idle' && { borderColor: theme.colors.border }),
-  }),
-  input: {
-    flex: 1,
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    writingDirection: 'auto',
-    paddingVertical: theme.spacing.sm,
-  },
-  toggle: {
-    width: theme.touchTarget,
-    height: theme.touchTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  error: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xxs,
-    marginHorizontal: theme.spacing.xxs,
-  },
-  errorText: {
-    flex: 1,
-  },
-}));

@@ -1,30 +1,13 @@
 import { View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 
-import type { Palette } from '@/theme/colors';
 import { t } from '@/i18n';
-import { estimatePassphraseStrength, type PassphraseStrength } from '@/utils/passphraseStrength';
+import { estimatePassphraseStrength } from '@/utils/passphraseStrength';
 
-import { Text } from './Text';
-
-export type StrengthMeterProps = {
-  passphrase: string;
-  testID?: string;
-};
-
-/**
- * The empty track. `borderStrong`, not `surfaceMuted`: on a solid dark sheet
- * (Reduce Transparency) the muted surface is all but the sheet's own colour.
- */
-const TRACK: keyof Palette = 'borderStrong';
-
-const levelColor: Record<PassphraseStrength, keyof Palette> = {
-  0: TRACK,
-  1: 'danger',
-  2: 'warning',
-  3: 'success',
-  4: 'success',
-};
+import { Text } from '../Text';
+import { levelColor, SEGMENTS, TRACK } from './constants';
+import type { StrengthMeterProps } from './types';
+import { styles } from './StrengthMeter.styles';
 
 /** Four-segment passphrase strength. An on-device estimate, never a rule. */
 export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
@@ -42,7 +25,7 @@ export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
       testID={testID}
     >
       <View style={styles.segments}>
-        {[1, 2, 3, 4].map((segment) => (
+        {SEGMENTS.map((segment) => (
           <View
             key={segment}
             testID={`strength-segment-${segment}`}
@@ -61,25 +44,3 @@ export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 18,
-  },
-  segments: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: theme.spacing.xxs,
-  },
-  segment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  label: {
-    fontWeight: '600',
-  },
-}));

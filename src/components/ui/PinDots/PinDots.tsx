@@ -7,21 +7,13 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 import { motion } from '@/theme/tokens';
 
-import { useAnnouncement } from './announce';
-
-export type PinDotsProps = {
-  count?: number;
-  filled: number;
-  /** Wrong PIN: every dot turns danger. Pair it with text; colour never speaks alone. */
-  error?: boolean;
-  /** Increment to play the shake. Reduced motion skips it. */
-  shake?: number;
-};
+import { useAnnouncement } from '../announce';
+import type { PinDotsProps } from './types';
+import { styles } from './PinDots.styles';
 
 /** PIN progress: 6 × 14 pt dots that announce "N of 6 digits entered". */
 export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDotsProps) {
@@ -62,26 +54,3 @@ export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDots
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  dots: {
-    flexDirection: 'row',
-    gap: 14,
-    justifyContent: 'center',
-    // PIN dots fill left to right in every language.
-    direction: 'ltr',
-  },
-  dot: (state: 'empty' | 'filled' | 'error') => ({
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: state === 'empty' ? 1.5 : 0,
-    borderColor: theme.colors.borderStrong,
-    backgroundColor:
-      state === 'error'
-        ? theme.colors.danger
-        : state === 'filled'
-          ? theme.colors.textPrimary
-          : 'transparent',
-  }),
-}));
