@@ -12,31 +12,31 @@ import {
 import { useReducedMotion } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native-unistyles';
 
-import { Button, Icon, IconButton, type IconName, Screen, Text } from '@/components/ui';
-import { biometryIcon } from '@/features/auth/lockCopy';
+import { Button, IconButton, Screen, Text } from '@/components/ui';
+import { OnboardingArt, type OnboardingScene } from '@/features/auth/OnboardingArt';
 import { unlockSlideBody } from '@/features/auth/onboardingCopy';
 import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 import { offsetForPage, pageFromOffset } from '@/utils/pager';
 
-type Slide = { icon: IconName; title: string; body: string };
+type Slide = { scene: OnboardingScene; title: string; body: string };
 
-function introSlides(unlockBody: string, unlockIcon: IconName): Slide[] {
+function introSlides(unlockBody: string): Slide[] {
   return [
     {
-      icon: 'files',
+      scene: 'papers',
       title: t('onboarding.intro.1.title'),
       body: t('onboarding.intro.1.body'),
     },
     {
-      icon: 'lock',
+      scene: 'sealed',
       title: t('onboarding.intro.2.title'),
       body:
         Platform.OS === 'ios'
           ? t('onboarding.intro.2.bodyIos')
           : t('onboarding.intro.2.bodyAndroid'),
     },
-    { icon: unlockIcon, title: t('onboarding.intro.3.title'), body: unlockBody },
+    { scene: 'unlock', title: t('onboarding.intro.3.title'), body: unlockBody },
   ];
 }
 
@@ -47,10 +47,7 @@ export default function OnboardingScreen() {
   const reduceMotion = useReducedMotion();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [page, setPage] = useState(0);
-  const slides = introSlides(
-    unlockSlideBody(biometry),
-    biometry === 'none' ? 'unlock' : biometryIcon(biometry),
-  );
+  const slides = introSlides(unlockSlideBody(biometry));
   const last = page === slides.length - 1;
 
   // A key that guards documents only needs a PIN; it never sees "set up your
@@ -87,9 +84,7 @@ export default function OnboardingScreen() {
   const renderSlide = (slide: Slide) => (
     <View key={slide.title} style={[styles.slide, { width }]}>
       <View style={styles.art}>
-        <View style={styles.badge}>
-          <Icon name={slide.icon} size={40} tone="accent" />
-        </View>
+        <OnboardingArt scene={slide.scene} biometry={biometry} />
       </View>
       <Text variant="title1" accessibilityRole="header">
         {slide.title}
@@ -169,20 +164,7 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.sm,
   },
   art: {
-    height: 240,
-    borderRadius: theme.radii.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.surface,
     marginBottom: theme.spacing.lg,
-  },
-  badge: {
-    width: 96,
-    height: 96,
-    borderRadius: theme.radii.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primaryMuted,
   },
   footer: {
     padding: theme.spacing.md,
