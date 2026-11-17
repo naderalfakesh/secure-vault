@@ -1,24 +1,13 @@
 import { useRef, useState } from 'react';
-import {
-  Pressable,
-  TextInput,
-  type TextInputInstance,
-  type TextInputProps,
-  View,
-} from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Pressable, TextInput, type TextInputInstance, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
-import { Icon } from './Icon';
-import { Text } from './Text';
-
-export type SearchFieldProps = Omit<TextInputProps, 'style' | 'value' | 'onChangeText'> & {
-  value: string;
-  onChangeText: (text: string) => void;
-  /** Called after "Cancel" clears the field and drops focus. */
-  onCancel?: () => void;
-};
+import { Icon } from '../Icon';
+import { Text } from '../Text';
+import type { SearchFieldProps } from './types';
+import { styles } from './SearchField.styles';
 
 /**
  * 44 pt pill search field: leading search glyph, a clear button
@@ -99,40 +88,3 @@ export function SearchField({
     </View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  field: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    minHeight: theme.touchTarget,
-    paddingHorizontal: 14,
-    borderRadius: theme.radii.pill,
-    backgroundColor: theme.colors.surfaceMuted,
-  },
-  input: {
-    flex: 1,
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    writingDirection: 'auto',
-    paddingVertical: theme.spacing.xs,
-  },
-  clear: {
-    width: 18,
-    height: 18,
-    borderRadius: theme.radii.pill,
-    backgroundColor: theme.colors.textTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancel: {
-    minHeight: theme.touchTarget,
-    justifyContent: 'center',
-  },
-}));

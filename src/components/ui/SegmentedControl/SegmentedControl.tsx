@@ -1,23 +1,13 @@
 import { Pressable, View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { textScale } from '@/theme/tokens';
 
-import { Icon } from './Icon';
-import { Text } from './Text';
-import { useLargeText } from './useLargeText';
-
-export type SegmentedOption<T extends string> = { value: T; label: string };
-
-export type SegmentedControlProps<T extends string> = {
-  options: readonly SegmentedOption<T>[];
-  value: T;
-  onChange: (value: T) => void;
-  /** Spoken name of the whole control, e.g. "Appearance". */
-  accessibilityLabel: string;
-  disabled?: boolean;
-  testID?: string;
-};
+import { Icon } from '../Icon';
+import { Text } from '../Text';
+import { useLargeText } from '../useLargeText';
+import { SEGMENT_SLOP } from './constants';
+import type { SegmentedControlProps } from './types';
+import { styles } from './SegmentedControl.styles';
 
 /**
  * Pill segmented control, e.g. System / Light / Dark. Labels
@@ -74,34 +64,3 @@ export function SegmentedControl<T extends string>({
     </View>
   );
 }
-
-const SEGMENT_SLOP = { top: 3, bottom: 3 };
-
-const styles = StyleSheet.create((theme) => ({
-  track: (vertical: boolean) => ({
-    flexDirection: vertical ? 'column' : 'row',
-    padding: 3,
-    gap: 2,
-    borderRadius: vertical ? theme.radii.lg : theme.radii.pill,
-    backgroundColor: theme.colors.surfaceMuted,
-  }),
-  // 38 pt segments; their hit slop reaches over the 3 pt track to 44 pt.
-  // Stacked rows are full 44 pt targets of their own.
-  segment: (selected: boolean, vertical: boolean) => ({
-    flex: vertical ? undefined : 1,
-    minHeight: vertical ? theme.touchTarget : theme.touchTarget - 6,
-    paddingHorizontal: 14,
-    borderRadius: vertical ? theme.radii.md : theme.radii.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: vertical ? 'space-between' : 'center',
-    gap: theme.spacing.xs,
-    ...(selected && { backgroundColor: theme.colors.surface, ...theme.elevation.card }),
-  }),
-  label: (selected: boolean, vertical: boolean) => ({
-    fontWeight: selected ? '600' : '400',
-    flexShrink: 1,
-    ...(vertical && { paddingVertical: theme.spacing.xs }),
-  }),
-  disabled: { opacity: 0.5 },
-}));

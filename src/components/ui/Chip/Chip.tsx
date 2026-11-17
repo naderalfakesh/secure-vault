@@ -1,36 +1,14 @@
-import { Pressable, type PressableProps, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { Pressable, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
-import type { Palette } from '@/theme/colors';
 import { isolate, LRI, PDI } from '@/utils/bidi';
 
-import { Icon, type IconName } from './Icon';
-import { Text } from './Text';
-
-/**
- * `filter` (default) toggles a collection or filter, `status` is the brass
- * expiry chip, `success` marks "Searchable", and `tag` is an outlined `# tag`.
- */
-export type ChipVariant = 'filter' | 'status' | 'success' | 'tag';
-
-export type ChipProps = Omit<PressableProps, 'style' | 'children'> & {
-  label: string;
-  icon?: IconName;
-  variant?: ChipVariant;
-  selected?: boolean;
-  /** Small count rendered after the label, e.g. documents in a category. */
-  count?: number;
-  /** Adds a remove (×) control with a 24 pt hit area. */
-  onRemove?: () => void;
-};
-
-const colours: Record<ChipVariant, { fill: keyof Palette | 'transparent'; ink: keyof Palette }> = {
-  filter: { fill: 'surfaceMuted', ink: 'textPrimary' },
-  status: { fill: 'accentMuted', ink: 'accent' },
-  success: { fill: 'successMuted', ink: 'success' },
-  tag: { fill: 'transparent', ink: 'textPrimary' },
-};
+import { Icon, type IconName } from '../Icon';
+import { Text } from '../Text';
+import { colours } from './constants';
+import type { ChipProps } from './types';
+import { styles } from './Chip.styles';
 
 export function Chip({
   label,
@@ -129,33 +107,3 @@ export function Chip({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  base: (outlined: boolean) => ({
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xxs + 2,
-    minHeight: 36,
-    paddingHorizontal: 14,
-    borderRadius: theme.radii.pill,
-    borderWidth: outlined ? 1 : 0,
-    borderColor: theme.colors.borderStrong,
-  }),
-  inner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xxs + 2,
-    flexShrink: 1,
-  },
-  label: {
-    fontWeight: '500',
-  },
-  remove: {
-    width: 24,
-    height: 24,
-    marginEnd: -theme.spacing.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: { opacity: 0.8 },
-}));
