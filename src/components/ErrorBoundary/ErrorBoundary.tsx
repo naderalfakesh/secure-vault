@@ -1,21 +1,20 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, type ErrorInfo } from 'react';
 import { View } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
 
-import { t } from '../i18n';
-import { Button, EmptyState } from './ui';
+import { t } from '@/i18n';
 
-type Props = { children: ReactNode; fallback?: ReactNode };
-type State = { error: Error | null };
+import { Button, EmptyState } from '../ui';
+import { styles } from './ErrorBoundary.styles';
+import type { ErrorBoundaryProps, ErrorBoundaryState } from './types';
 
 /**
  * Last line of defense above every provider. It never logs the error object
  * itself, because a document title or OCR text could be inside it.
  */
-export class ErrorBoundary extends Component<Props, State> {
-  override state: State = { error: null };
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  override state: ErrorBoundaryState = { error: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
   }
 
@@ -46,14 +45,3 @@ export class ErrorBoundary extends Component<Props, State> {
     );
   }
 }
-
-const styles = StyleSheet.create((theme) => ({
-  root: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-  },
-}));
