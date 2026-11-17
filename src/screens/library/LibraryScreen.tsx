@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '@/components/ui';
 import { indexOrder, NO_FILTER } from '@/features/documents/library';
+import { tabBarClearance } from '@/features/navigation/tabBarClearance';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDelayed } from '@/hooks/useDelayed';
 import { useDocuments } from '@/hooks/useDocuments';
@@ -22,7 +23,6 @@ import {
   SortSheet,
 } from './components';
 import { SKELETON_DELAY_MS } from './constants';
-import { listBottomSpace } from './helpers';
 import { useBulkActions } from './hooks/useBulkActions';
 import { useExpiryDates } from './hooks/useExpiryDates';
 import { useIndexOrder } from './hooks/useIndexOrder';
@@ -79,7 +79,7 @@ export function LibraryScreen() {
   const toggleAll = useCallback(() => pick(allSelected ? [] : shown), [pick, allSelected, shown]);
 
   const listMode = browse.listing || selecting;
-  const bottomSpace = listBottomSpace(insets.bottom);
+  const bottomSpace = tabBarClearance(insets.bottom);
 
   // States that replace the whole screen.
   if (!loading && error) {

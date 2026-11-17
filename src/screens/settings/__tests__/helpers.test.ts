@@ -1,13 +1,10 @@
-import { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT } from '@/components/ui';
 import type { ModelInfo } from '@/features/intelligence';
 import { t } from '@/i18n';
 
-import { SCROLL_BOTTOM_GAP } from '../constants';
 import {
   eraseSubject,
   eraseSubtitleKey,
   modelName,
-  scrollBottomSpace,
   suggestionsSubtitle,
   totalCount,
   versionLabel,
@@ -16,10 +13,6 @@ import {
 const nano = (status: ModelInfo['status']): ModelInfo => ({ engine: 'gemini-nano', status });
 
 describe('settings helpers', () => {
-  it('leaves room for the floating tab bar under the content', () => {
-    expect(scrollBottomSpace(34)).toBe(TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + 34 + SCROLL_BOTTOM_GAP);
-  });
-
   it('adds the build number only when the binary has one', () => {
     expect(versionLabel('1.2.0', '12')).toBe('1.2.0 (12)');
     expect(versionLabel('1.2.0', undefined)).toBe('1.2.0');

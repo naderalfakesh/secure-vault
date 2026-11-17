@@ -1,15 +1,8 @@
-import { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT } from '@/components/ui';
 import type { ModelInfo } from '@/features/intelligence';
 import { type StringKey, t } from '@/i18n';
 import type { BackupOperation } from '@/services/BackupService';
 
-import { SCROLL_BOTTOM_GAP } from './constants';
 import type { SettingsBusy } from './types';
-
-/** Room under the scroll content, above the floating tab bar. */
-export function scrollBottomSpace(insetBottom: number): number {
-  return TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insetBottom + SCROLL_BOTTOM_GAP;
-}
 
 /** "1.0.0 (12)": the version, with the build number when the binary has one. */
 export function versionLabel(version: string, build: string | undefined): string {

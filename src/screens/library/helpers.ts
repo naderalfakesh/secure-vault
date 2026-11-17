@@ -1,4 +1,4 @@
-import { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT } from '@/components/ui';
+import { TAB_BAR_BOTTOM } from '@/components/ui';
 import {
   applyFilter,
   EXPIRING_WINDOW_DAYS,
@@ -11,7 +11,7 @@ import { t } from '@/i18n';
 import type { Document, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 
-import { DAY_MS, LIST_BOTTOM_GAP } from './constants';
+import { DAY_MS } from './constants';
 
 /** The last expiry day (ISO date) that goes on the Expiring soon rail. */
 export function railCutoff(now: number = Date.now()): string {
@@ -89,11 +89,6 @@ export function noMatchesTitle(query: string, scope: string | null): string {
     });
   }
   return scope ? t('library.noDocumentsIn', { scope }) : t('library.noDocuments');
-}
-
-/** Space under the list so its last row clears the floating tab bar. */
-export function listBottomSpace(insetBottom: number): number {
-  return TAB_BAR_HEIGHT + TAB_BAR_BOTTOM + insetBottom + LIST_BOTTOM_GAP;
 }
 
 /** The selection bar sits where the tab bar was. */

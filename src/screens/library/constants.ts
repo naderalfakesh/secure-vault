@@ -13,7 +13,4 @@ export const SORTS: readonly SortOrder[] = ['newest', 'oldest', 'title', 'expiry
 /** Title widths of the skeleton rows, in percent; the meta line is two thirds of it. */
 export const SKELETON_WIDTHS = [60, 52, 66] as const;
 
-/** Room left under the last row, above the floating tab bar. */
-export const LIST_BOTTOM_GAP = 24;
-
 export const DAY_MS = 86_400_000;

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView } from 'react-native';
+import { tabBarClearance } from '@/features/navigation/tabBarClearance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Group, ListRow, Screen, Text } from '@/components/ui';
@@ -17,7 +18,6 @@ import {
   SecurityGroup,
   SuggestionsGroup,
 } from './components';
-import { scrollBottomSpace } from './helpers';
 import { useEraseVault } from './hooks/useEraseVault';
 import { useOnDeviceModel } from './hooks/useOnDeviceModel';
 import { styles } from './SettingsScreen.styles';
@@ -41,10 +41,7 @@ export function SettingsScreen() {
   return (
     <Screen>
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: scrollBottomSpace(insets.bottom) },
-        ]}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarClearance(insets.bottom) }]}
         showsVerticalScrollIndicator={false}
       >
         <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
