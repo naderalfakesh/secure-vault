@@ -6,14 +6,15 @@ import {
   ScrollView,
   View,
 } from 'react-native';
-import { StyleSheet } from 'react-native-unistyles';
 
 import { Button, Icon, IconButton, Text } from '@/components/ui';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import { t } from '@/i18n';
 import type { PickedFile } from '@/types';
 
-import { movedTo, pageLabel, pagePosition, scanText } from './scanCopy';
+import { movedTo, pageLabel, pagePosition, scanText } from '../scanCopy';
+import { pageActions } from './pageActions';
+import { styles } from './ReviewPages.styles';
 
 export type ReviewPagesProps = {
   pages: readonly PickedFile[];
@@ -22,15 +23,6 @@ export type ReviewPagesProps = {
   /** Re-opens the scanner; absent when it cannot run here. */
   onAddPages?: () => void;
 };
-
-/** The actions a page offers: no move past either end. */
-function pageActions(index: number, count: number) {
-  return [
-    ...(index > 0 ? [{ name: 'moveEarlier', label: scanText('review.moveEarlier') }] : []),
-    ...(index < count - 1 ? [{ name: 'moveLater', label: scanText('review.moveLater') }] : []),
-    { name: 'remove', label: scanText('review.remove') },
-  ];
-}
 
 /**
  * Scanned pages before anything is read or saved: remove
@@ -148,66 +140,3 @@ export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPages
     </View>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  root: {
-    flex: 1,
-  },
-  content: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.lg,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: theme.spacing.md,
-    columnGap: theme.spacing.sm,
-  },
-  cell: {
-    width: '31%',
-    gap: theme.spacing.xs,
-  },
-  page: {
-    aspectRatio: 0.75,
-    borderRadius: theme.radii.sm,
-    borderWidth: 2,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.paper,
-    overflow: 'hidden',
-  },
-  pageMoving: {
-    borderColor: theme.colors.primary,
-  },
-  image: {
-    flex: 1,
-  },
-  remove: {
-    position: 'absolute',
-    top: -theme.spacing.sm,
-    end: -theme.spacing.sm,
-  },
-  addTile: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xxs,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.borderStrong,
-    backgroundColor: 'transparent',
-  },
-  addLabel: {
-    fontWeight: '600',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  moveBar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-    padding: theme.spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-}));

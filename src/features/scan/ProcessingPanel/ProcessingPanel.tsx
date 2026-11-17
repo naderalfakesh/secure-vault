@@ -1,27 +1,16 @@
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Button, Icon, InlineAlert, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import { t } from '@/i18n';
 
-import { type ScanCopyKey, scanText } from './scanCopy';
-
-export type ProcessingStep = 'ocr' | 'suggest' | 'encrypt' | 'index';
-
-const STEPS: ProcessingStep[] = ['ocr', 'suggest', 'encrypt', 'index'];
-const STEP_COPY: Record<ProcessingStep, ScanCopyKey> = {
-  ocr: 'step.ocr',
-  suggest: 'step.suggest',
-  encrypt: 'step.encrypt',
-  index: 'step.index',
-};
-
-/** Steps before this one can still be cancelled. */
-export function isCancellable(step: ProcessingStep): boolean {
-  return STEPS.indexOf(step) < STEPS.indexOf('encrypt');
-}
+import { MAX_THUMBNAILS } from '../constants';
+import { scanText } from '../scanCopy';
+import { styles } from './ProcessingPanel.styles';
+import { isCancellable, STEP_COPY, STEPS } from './steps';
+import type { ProcessingStep } from './types';
 
 export type ProcessingPanelProps = {
   step: ProcessingStep;
@@ -76,7 +65,7 @@ export function ProcessingPanel({
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          {thumbnails.slice(0, 3).map((uri) => (
+          {thumbnails.slice(0, MAX_THUMBNAILS).map((uri) => (
             <DocumentImage key={uri} source={{ uri }} style={styles.thumb} contentFit="cover" />
           ))}
         </View>
@@ -158,36 +147,3 @@ export function ProcessingPanel({
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  content: {
-    padding: theme.spacing.md,
-    paddingTop: theme.spacing.lg,
-    gap: theme.spacing.md,
-  },
-  flex: {
-    flex: 1,
-  },
-  thumbs: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  thumb: {
-    width: 56,
-    height: 72,
-    borderRadius: theme.radii.sm,
-    backgroundColor: theme.colors.paper,
-  },
-  steps: {
-    gap: theme.spacing.sm,
-  },
-  step: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    minHeight: theme.touchTarget,
-  },
-  actions: {
-    gap: theme.spacing.sm,
-  },
-}));

@@ -1,6 +1,5 @@
-import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
-import { StyleSheet, useUnistyles } from 'react-native-unistyles';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Button, Chip, Icon, Text } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
@@ -11,7 +10,10 @@ import type { DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { formatDate, joinParts } from '@/utils/format';
 
-import { foundFieldLabel, scanText } from './scanCopy';
+import { MAX_THUMBNAILS } from '../constants';
+import { DetailsField } from '../DetailsField';
+import { foundFieldLabel, scanText } from '../scanCopy';
+import { styles } from './DetailsForm.styles';
 
 export type DetailsFormProps = {
   /** Page images (the rendered first page for a PDF); at most three are drawn. */
@@ -64,7 +66,7 @@ export function DetailsForm({
         >
           {thumbnails.length > 0 ? (
             thumbnails
-              .slice(0, 3)
+              .slice(0, MAX_THUMBNAILS)
               .map((uri) => (
                 <DocumentImage key={uri} source={{ uri }} style={styles.thumb} contentFit="cover" />
               ))
@@ -78,7 +80,7 @@ export function DetailsForm({
           )}
         </View>
 
-        <Field label={scanText('details.titleField')}>
+        <DetailsField label={scanText('details.titleField')}>
           <TextInput
             style={[styles.input, titleMissing && styles.inputError]}
             value={title}
@@ -94,9 +96,9 @@ export function DetailsForm({
               {scanText('details.titleMissing')}
             </Text>
           ) : null}
-        </Field>
+        </DetailsField>
 
-        <Field
+        <DetailsField
           label={
             categorySuggested
               ? joinParts([scanText('details.collection'), scanText('details.suggested')])
@@ -114,10 +116,10 @@ export function DetailsForm({
               />
             ))}
           </View>
-        </Field>
+        </DetailsField>
 
         {fields.length > 0 ? (
-          <Field label={scanText('details.found')}>
+          <DetailsField label={scanText('details.found')}>
             <View style={styles.found}>
               <Text variant="footnote" tone="secondary">
                 {scanText('details.foundHint')}
@@ -133,10 +135,10 @@ export function DetailsForm({
                 ))}
               </View>
             </View>
-          </Field>
+          </DetailsField>
         ) : null}
 
-        <Field label={scanText('details.tags')} hint={scanText('details.tagsHint')}>
+        <DetailsField label={scanText('details.tags')} hint={scanText('details.tagsHint')}>
           <TextInput
             style={styles.input}
             value={tags}
@@ -146,7 +148,7 @@ export function DetailsForm({
             accessibilityLabel={scanText('details.tags')}
             autoCapitalize="none"
           />
-        </Field>
+        </DetailsField>
       </ScrollView>
       <View style={styles.actions}>
         <Button label={scanText('details.save')} onPress={onSave} icon="lock" />
@@ -154,81 +156,3 @@ export function DetailsForm({
     </KeyboardAvoidingView>
   );
 }
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text variant="label" tone="tertiary">
-        {label}
-      </Text>
-      {children}
-      {hint ? (
-        <Text variant="caption" tone="tertiary">
-          {hint}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create((theme) => ({
-  flex: { flex: 1 },
-  form: {
-    padding: theme.spacing.md,
-    gap: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
-  thumbs: {
-    flexDirection: 'row',
-    gap: theme.spacing.xs,
-  },
-  thumb: {
-    width: 56,
-    height: 72,
-    borderRadius: theme.radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.paper,
-    overflow: 'hidden',
-  },
-  placeholder: {
-    width: 96,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xxs,
-    padding: theme.spacing.xxs,
-  },
-  field: {
-    gap: theme.spacing.xs,
-  },
-  input: {
-    minHeight: theme.touchTarget + 4,
-    paddingHorizontal: theme.spacing.sm,
-    borderRadius: theme.radii.input,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    color: theme.colors.textPrimary,
-    textAlign: 'auto',
-    writingDirection: 'auto',
-    ...theme.typography.body,
-  },
-  inputError: {
-    borderColor: theme.colors.danger,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-  },
-  found: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.sm,
-    borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
-  },
-  actions: {
-    padding: theme.spacing.md,
-    paddingTop: theme.spacing.xs,
-  },
-}));
