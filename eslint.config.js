@@ -25,7 +25,7 @@ module.exports = defineConfig([
     files: ['app/**/*.tsx', 'src/**/*.{ts,tsx}'],
     ignores: [
       'src/features/documents/DocumentImage.tsx',
-      'src/services/DocumentService.ts',
+      'src/services/document/residue.ts',
       '**/__tests__/**',
     ],
     rules: {
