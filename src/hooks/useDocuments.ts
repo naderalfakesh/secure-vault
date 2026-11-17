@@ -1,165 +1,29 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { documentService } from '../services/DocumentService';
-import type { Document, DocumentCategory, PickedFile } from '../types';
-import { plainErrorMessage } from '../utils/errors';
-import { t } from '@/i18n';
+import { useCallback } from 'react';
 
-/** "Delete everything" leaves the index closed until setup; the list is simply empty. */
-function isEmptiedVault(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && (e as { code?: unknown }).code === 'VAULT_EMPTIED';
-}
+import { documentService } from '@/services/DocumentService';
+import type { Document } from '@/types';
 
-// In-memory thumbnail cache for performance
-const thumbnailCache = new Map<string, string>();
-const CACHE_MAX_SIZE = 50;
-
-interface UseDocumentsReturn {
-  documents: Document[];
-  loading: boolean;
-  error: string | null;
-  refreshDocuments: () => Promise<void>;
-  addDocument: (file: PickedFile, metadata: Partial<Document>) => Promise<Document>;
-  updateDocument: (id: string, updates: Partial<Document>) => Promise<Document | null>;
-  deleteDocument: (id: string) => Promise<boolean>;
-  getDocumentFile: (id: string) => Promise<string | null>;
-  getDocumentThumbnail: (id: string) => Promise<string | null>;
-  searchDocuments: (query: string) => Promise<Document[]>;
-  filterByCategory: (category: DocumentCategory | null) => void;
-  selectedCategory: DocumentCategory | null;
-  clearThumbnailCache: () => void;
-}
+import { THUMBNAIL_CACHE_MAX_SIZE } from './documents/constants';
+import { rememberThumbnail } from './documents/helpers';
+import { thumbnailCache } from './documents/thumbnailCache';
+import type { UseDocumentsReturn } from './documents/types';
+import { useDocumentList } from './documents/useDocumentList';
+import { useDocumentMutations } from './documents/useDocumentMutations';
 
 export function useDocuments(): UseDocumentsReturn {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<DocumentCategory | null>(null);
-  const previousDocumentsRef = useRef<Document[]>([]);
-  // Bumped by the service after any write, so the list below reloads silently.
-  const [version, setVersion] = useState(0);
-
-  useEffect(() => documentService.subscribe(() => setVersion((v) => v + 1)), []);
-
-  const refreshDocuments = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await documentService.initialize();
-
-      let docs: Document[];
-      if (selectedCategory) {
-        docs = await documentService.getDocumentsByCategory(selectedCategory);
-      } else {
-        docs = await documentService.getAllDocuments();
-      }
-
-      setDocuments(docs);
-    } catch (e: any) {
-      if (isEmptiedVault(e)) {
-        setDocuments([]);
-        return;
-      }
-      // No stale rows under a failed index: their files may be gone.
-      setDocuments([]);
-      setError(plainErrorMessage(e, t('library.loadFailed.fallback')));
-      console.error('Failed to load documents:', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    let active = true;
-    documentService
-      .initialize()
-      .then(() =>
-        selectedCategory
-          ? documentService.getDocumentsByCategory(selectedCategory)
-          : documentService.getAllDocuments(),
-      )
-      .then((docs) => {
-        if (active) {
-          setDocuments(docs);
-          setError(null);
-        }
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (isEmptiedVault(e)) {
-          setDocuments([]);
-          setError(null);
-        } else {
-          // No stale rows under a failed index: their files may be gone.
-          setDocuments([]);
-          setError(plainErrorMessage(e, t('library.loadFailed.fallback')));
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedCategory, version]);
-
-  const addDocument = useCallback(
-    async (file: PickedFile, metadata: Partial<Document>): Promise<Document> => {
-      const doc = await documentService.addDocument(file, metadata);
-      await refreshDocuments();
-      return doc;
-    },
-    [refreshDocuments],
-  );
-
-  const updateDocument = useCallback(
-    async (id: string, updates: Partial<Document>): Promise<Document | null> => {
-      // Optimistic update
-      const previousDocs = [...documents];
-      previousDocumentsRef.current = previousDocs;
-
-      setDocuments((prev) => prev.map((doc) => (doc.id === id ? { ...doc, ...updates } : doc)));
-
-      try {
-        const doc = await documentService.updateDocument(id, updates);
-        if (!doc) {
-          // Rollback on failure
-          setDocuments(previousDocs);
-        }
-        return doc;
-      } catch (e) {
-        // Rollback on error
-        setDocuments(previousDocs);
-        throw e;
-      }
-    },
-    [documents],
-  );
-
-  const deleteDocument = useCallback(
-    async (id: string): Promise<boolean> => {
-      // Optimistic delete
-      const previousDocs = [...documents];
-      previousDocumentsRef.current = previousDocs;
-
-      setDocuments((prev) => prev.filter((doc) => doc.id !== id));
-
-      // Clear thumbnail from cache
-      thumbnailCache.delete(id);
-
-      try {
-        const success = await documentService.deleteDocument(id);
-        if (!success) {
-          // Rollback on failure
-          setDocuments(previousDocs);
-        }
-        return success;
-      } catch (e) {
-        // Rollback on error
-        setDocuments(previousDocs);
-        throw e;
-      }
-    },
-    [documents],
+  const {
+    documents,
+    setDocuments,
+    loading,
+    error,
+    refreshDocuments,
+    filterByCategory,
+    selectedCategory,
+  } = useDocumentList();
+  const { addDocument, updateDocument, deleteDocument } = useDocumentMutations(
+    documents,
+    setDocuments,
+    refreshDocuments,
   );
 
   const getDocumentFile = useCallback(async (id: string): Promise<string | null> => {
@@ -174,16 +38,7 @@ export function useDocuments(): UseDocumentsReturn {
 
     const thumbnail = await documentService.getDocumentThumbnail(id);
 
-    if (thumbnail) {
-      // Manage cache size
-      if (thumbnailCache.size >= CACHE_MAX_SIZE) {
-        const firstKey = thumbnailCache.keys().next().value;
-        if (firstKey) {
-          thumbnailCache.delete(firstKey);
-        }
-      }
-      thumbnailCache.set(id, thumbnail);
-    }
+    if (thumbnail) rememberThumbnail(thumbnailCache, id, thumbnail, THUMBNAIL_CACHE_MAX_SIZE);
 
     return thumbnail;
   }, []);
@@ -201,11 +56,6 @@ export function useDocuments(): UseDocumentsReturn {
     },
     [documents],
   );
-
-  const filterByCategory = useCallback((category: DocumentCategory | null) => {
-    setLoading(true);
-    setSelectedCategory(category);
-  }, []);
 
   return {
     documents,
