@@ -62,70 +62,33 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null);
   const { settings, setSettings, autoLockRef, loadProtectedState, updateSettings } =
     useSecuritySettings();
-  const { status, statusRef, generationRef, waitersRef, away, settleWaiters, changeStatus } =
-    useSessionStatus();
+  const core = useSessionStatus();
+  const { status, changeStatus } = core;
   const { lockout, lockoutRef, applyLockout } = useLockoutState();
-  const availability = useVaultAvailability({
-    statusRef,
-    changeStatus,
-    applyLockout,
-    setSettings,
-    setError,
-  });
+  // What most concerns share: the status and its transition, the lockout, the error.
+  const shared = { ...core, applyLockout, setSettings, setError };
+
+  const availability = useVaultAvailability(shared);
   const { biometry, vaultExists, vaultEmpty, pinLost, keyInvalidated } = availability;
   const { launch, retry, resetLostPin, resettingPinRef, markErased } = availability;
-  const { withoutAutoLock } = useAutoLock({
-    statusRef,
-    changeStatus,
-    settleWaiters,
-    away,
-    autoLockRef,
-    launch,
-    resettingPinRef,
-  });
+  const { withoutAutoLock } = useAutoLock({ ...shared, autoLockRef, launch, resettingPinRef });
   const { unlock, ensureKeyAccess, stepUp } = useBiometricUnlock({
-    setError,
+    ...shared,
     loadProtectedState,
-    applyLockout,
-    changeStatus,
     withoutAutoLock,
   });
   const { unlockWithPin, changePin } = usePinUnlock({
-    statusRef,
+    ...shared,
     lockoutRef,
-    applyLockout,
-    changeStatus,
-    setError,
     ensureKeyAccess,
     loadProtectedState,
   });
-  const { setUp, setupHeld, finishSetup, resetSetup } = useVaultSetup({
-    statusRef,
-    changeStatus,
-    applyLockout,
-    setSettings,
-    setError,
-    availability,
-  });
-  const {
-    notice,
-    postNotice,
-    dismissNotice,
-    shareInterrupted,
-    markShareInterrupted,
-    clearShareInterrupted,
-    resetNotices,
-  } = useSessionNotices();
-  const eraseVault = useEraseVault({
-    setSettings,
-    applyLockout,
-    setError,
-    resetNotices,
-    markErased,
-    resetSetup,
-    changeStatus,
-  });
-  const captureSession = useSessionCapture({ statusRef, generationRef, waitersRef, away });
+  const { setUp, setupHeld, finishSetup, resetSetup } = useVaultSetup({ ...shared, availability });
+  const notices = useSessionNotices();
+  const { notice, postNotice, dismissNotice, resetNotices } = notices;
+  const { shareInterrupted, markShareInterrupted, clearShareInterrupted } = notices;
+  const eraseVault = useEraseVault({ ...shared, resetNotices, markErased, resetSetup });
+  const captureSession = useSessionCapture(core);
 
   const lock = useCallback(() => {
     setError(null);
