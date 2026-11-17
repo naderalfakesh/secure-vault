@@ -552,7 +552,7 @@ public class ExpoVaultModule: Module {
 
   /// The restore in JavaScript replaces the SQLite index with the "database"
   /// extra and opens it with the "_database_key" string entry (see
-  /// `src/data/database.ts`). Every backup the app has written carries both;
+  /// `src/data/store/constants.ts`). Every backup the app has written carries both;
   /// one without them would be refused in JavaScript only after the vault had
   /// been cleared, so it is refused here, before anything is derived or removed.
   private static func hasIndex(_ metas: [BackupContainer.Meta]) -> Bool {

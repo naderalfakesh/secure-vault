@@ -1,7 +1,7 @@
 import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
 import { t } from '../i18n';
 
-/** The index's own sentence for a device key that was not unlocked (see `src/data/database.ts`). */
+/** The index's own sentence for a device key that was not unlocked (see `src/data/store/errors.ts`). */
 export const KEY_LOCKED_MESSAGE = t('errors.keyLocked');
 
 export const KEY_INVALIDATED_MESSAGE = t('errors.keyInvalidated');
