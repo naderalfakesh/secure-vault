@@ -25,6 +25,8 @@ export const backup = {
     'A few unrelated words are easier to remember than a short, complex password.',
   'backup.create.rule.length': 'At least 8 characters',
   'backup.create.rule.repeated': 'Not the same character repeated',
+  'backup.create.rule.met': '{rule}, met',
+  'backup.create.rule.notMet': '{rule}, not met',
   'backup.create.match': 'Passphrases match',
   'backup.create.mismatch': 'The passphrases don’t match yet.',
   'backup.create.sameEverywhere': 'Type it exactly the same way when you restore, on any phone.',

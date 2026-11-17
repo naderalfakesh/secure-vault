@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 
 import { Icon, Text } from '@/components/ui';
+import { t } from '@/i18n';
 
 import { styles } from './Rule.styles';
 
@@ -14,7 +15,9 @@ export function Rule({ met, label }: RuleProps) {
   return (
     <View
       accessible
-      accessibilityLabel={`${label}, ${met ? 'met' : 'not met'}`}
+      accessibilityLabel={t(met ? 'backup.create.rule.met' : 'backup.create.rule.notMet', {
+        rule: label,
+      })}
       style={styles.rule}
     >
       <Icon name={met ? 'check' : 'info'} size={16} tone={met ? 'success' : 'tertiary'} />
