@@ -15,7 +15,7 @@ import type { Origin, Phase, SinglePick } from '../types';
 import { useCameraAccess } from './useCameraAccess';
 import { useDetails } from './useDetails';
 import { useHeldCopies } from './useHeldCopies';
-import { useMountedRef } from './useMountedRef';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useReadPages } from './useReadPages';
 import { useSaveDocument } from './useSaveDocument';
 

@@ -11,7 +11,7 @@ import { plainErrorMessage } from '@/utils/errors';
 
 import { goToLibrary } from '../navigation';
 import type { ViewerBusy } from '../types';
-import { useMounted } from './useMounted';
+import { useMountedRef } from '@/hooks/useMountedRef';
 
 type Options = {
   document: Document | null;
@@ -31,7 +31,7 @@ export function useDocumentActions({
   closeDetails,
 }: Options) {
   const toast = useToast();
-  const mounted = useMounted();
+  const mounted = useMountedRef();
   const deleteWithUndo = useDeleteWithUndo();
 
   const copyText = useCallback(async () => {

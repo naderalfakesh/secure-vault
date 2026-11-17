@@ -12,7 +12,7 @@ import type { Document } from '@/types';
 import { PREPARING_DELAY_MS, SHEET_CLOSE_MS } from '../constants';
 import { shareFileType, wait } from '../helpers';
 import type { ViewerBusy } from '../types';
-import { useMounted } from './useMounted';
+import { useMountedRef } from '@/hooks/useMountedRef';
 
 type Options = {
   document: Document | null;
@@ -24,7 +24,7 @@ type Options = {
 /** The share warning, the decrypted copy and the system share sheet. */
 export function useDocumentShare({ document, pageCount, busy, setBusy }: Options) {
   const toast = useToast();
-  const mounted = useMounted();
+  const mounted = useMountedRef();
   const { settings, stepUp, withoutAutoLock, captureSession, markShareInterrupted } = useSession();
   const [shareStep, setShareStep] = useState<ShareSheetStep | null>(null);
   const [confirming, setConfirming] = useState(false);

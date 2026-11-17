@@ -33,7 +33,7 @@ import { useDocumentActions } from './hooks/useDocumentActions';
 import { useDocumentEditor } from './hooks/useDocumentEditor';
 import { useDocumentShare } from './hooks/useDocumentShare';
 import { useInterruptedShare } from './hooks/useInterruptedShare';
-import { useMounted } from './hooks/useMounted';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useRevealNumber } from './hooks/useRevealNumber';
 import { useViewerDocument } from './hooks/useViewerDocument';
 import { goToLibrary } from './navigation';
@@ -48,7 +48,7 @@ export function DocumentScreen() {
   const [chrome, setChrome] = useState(true);
   const [details, setDetails] = useState(false);
   const [busy, setBusy] = useState<ViewerBusy>(null);
-  const mounted = useMounted();
+  const mounted = useMountedRef();
   const { revealNumber, toggleReveal } = useRevealNumber();
   const editor = useDocumentEditor(document, setDocument);
   const sharing = useDocumentShare({ document, pageCount: pages.length, busy, setBusy });

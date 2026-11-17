@@ -10,7 +10,7 @@ import { styles } from './BiometricsStepScreen.styles';
 import { BiometricsBadge } from './components';
 import { stepBiometry } from './helpers';
 import { useBiometricsChoice } from './hooks/useBiometricsChoice';
-import { useBlockHardwareBack } from './hooks/useBlockHardwareBack';
+import { useBlockHardwareBack } from '@/hooks/useBlockHardwareBack';
 
 /**
  * Enable biometrics, after the PIN is saved. "Use Face

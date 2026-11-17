@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 
 import { KeyInvalidatedBody, ReadFailedBody, RetryActions, UnavailableLayout } from './components';
 import { useEraseVault } from './hooks/useEraseVault';
-import { useMounted } from './hooks/useMounted';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { useRetryActions } from './hooks/useRetryActions';
 
 /**
@@ -23,7 +23,7 @@ import { useRetryActions } from './hooks/useRetryActions';
 export function VaultUnavailableScreen() {
   const { pinLost, keyInvalidated, error, biometry } = useSession();
   const stuck = keyInvalidated;
-  const mounted = useMounted();
+  const mounted = useMountedRef();
   const { trying, resetting, tryAgain, resetPin } = useRetryActions(mounted);
   const { erasing, eraseFailed, eraseAll } = useEraseVault(mounted);
   useAnnouncement(
