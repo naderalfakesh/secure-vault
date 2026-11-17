@@ -8,7 +8,7 @@ import { SESSION_MARKER_DIRECTORY } from '@/features/session/settings';
 
 /**
  * Every secure-store entry the app writes: the session's PIN record, settings
- * and lockout (`settings.ts`), the last backup date (`lastBackup.ts`), and the
+ * and lockout (`storage/sessionStorage.ts`), the last backup date (`lastBackup.ts`), and the
  * appearance setting (`appearance.ts`).
  */
 const SECURE_STORE_ENTRIES = [
