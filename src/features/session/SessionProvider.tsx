@@ -27,52 +27,39 @@ import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
+import {
+  AUTO_LOCK_RETURN_GRACE_MS,
+  DEFAULT_PAUSE_MAX_AWAY_MS,
+  KEY_PROBE_ENTRY,
+  SHARE_PAUSE_MAX_AWAY_MS,
+} from './constants';
+import { describeError, KEY_NOT_UNLOCKED, keyNotUnlocked } from './errors';
 import { reconcileInstall } from './freshInstall';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
+import type {
+  AutoLockPause,
+  KeyRead,
+  PauseEntry,
+  PinChangeResult,
+  PinUnlockResult,
+  SessionCapture,
+  SessionContextValue,
+  SessionNotice,
+  SessionStatus,
+  ShareInterruption,
+} from './types';
 
-/**
- * `unavailable`: the device key or the PIN record could not be read, so the
- * app cannot tell a vault from no vault. It never falls back to setup, which
- * would create a new key over a real vault.
- */
-export type SessionStatus = 'loading' | 'unavailable' | 'setup' | 'locked' | 'unlocked';
-
-/** The unlocked session a piece of work started in. */
-export type SessionCapture = {
-  /** True while that same session is still unlocked. */
-  current: () => boolean;
-  /**
-   * Resolves true once the app is in the foreground with any time away already
-   * checked against auto-lock, and that same session is still unlocked;
-   * resolves false as soon as it has ended. Call it right before presenting
-   * system UI such as a share sheet.
-   */
-  confirm: () => Promise<boolean>;
-  /**
-   * Resolves once that session has ended (locked or erased). Race system UI
-   * against it so work never waits on a sheet that outlived the session.
-   */
-  ended: () => Promise<void>;
-};
-
-/** How a PIN attempt ended. Only `wrong-pin` counts towards the lockout. */
-export type PinUnlockResult = 'unlocked' | 'wrong-pin' | 'not-unlocked';
-
-/**
- * Limits on pausing auto-lock for system UI. `maxAwayMs` bounds the time away
- * a pause can excuse; `endsOnReturn` is for UI that cannot still be open once
- * the app is back in the foreground (Android's share chooser is an activity of
- * its own), so a pause still pending shortly after the return is ended.
- */
-export type AutoLockPause = { maxAwayMs?: number; endsOnReturn?: boolean };
-
-/** A running pause, with the time it began and the time it was left the foreground. */
-type PauseEntry = {
-  maxAwayMs: number;
-  endsOnReturn: boolean;
-  startedAt: number;
-  awayAt: number | null;
-};
+export { AUTO_LOCK_RETURN_GRACE_MS, DEFAULT_PAUSE_MAX_AWAY_MS } from './constants';
+export type {
+  AutoLockPause,
+  PinChangeResult,
+  PinUnlockResult,
+  SessionCapture,
+  SessionContextValue,
+  SessionNotice,
+  SessionStatus,
+  ShareInterruption,
+} from './types';
 
 /**
  * When the user left the app while `entry` ran, or null. Android's share
@@ -92,136 +79,16 @@ function leftDuring(entry: PauseEntry): number | null {
   return stoppedAt >= entry.startedAt ? stoppedAt : null;
 }
 
-/** Time away a pause excuses by default: pickers, the camera, the scanner. */
-export const DEFAULT_PAUSE_MAX_AWAY_MS = 10 * 60_000;
-/** How long after the return an `endsOnReturn` pause may still settle on its own. */
-export const AUTO_LOCK_RETURN_GRACE_MS = 1000;
-
 /**
  * The pause for a share sheet. On iOS the sheet is in-process and may stay up
  * while the user is away briefly; on Android the chooser is its own activity,
  * so a share still pending after the return was blocked or is gone.
  */
 export function sharePause(): AutoLockPause {
-  return { maxAwayMs: 2 * 60_000, endsOnReturn: Platform.OS === 'android' };
+  return { maxAwayMs: SHARE_PAUSE_MAX_AWAY_MS, endsOnReturn: Platform.OS === 'android' };
 }
 
-/** How a PIN change ended. `failed` leaves the reason in `error`. */
-/**
- * `locked-out`: the lockout pause is running, and the current PIN was not
- * checked. `busy`: another PIN attempt was still being judged; nothing was
- * checked or changed.
- */
-export type PinChangeResult = 'changed' | 'wrong-pin' | 'locked-out' | 'busy' | 'failed';
-
-export type SessionNotice = { message: string; tone?: 'neutral' | 'success' | 'danger' };
-
-/** A share the lock cut short; the viewer of that document says so after unlock. */
-export type ShareInterruption = { documentId: string };
-
-// A tiny vault entry whose read proves the device key is currently usable.
-const KEY_PROBE_ENTRY = '_key_probe';
-
-export type SessionContextValue = {
-  status: SessionStatus;
-  /** True during setup when a device key already exists (upgrade from the prototype, or an interrupted setup). */
-  vaultExists: boolean;
-  /**
-   * True during setup when that device key guards no entries at all, e.g.
-   * after "Delete everything": there are no documents that stay.
-   */
-  vaultEmpty: boolean;
-  biometry: BiometryType;
-  settings: SecuritySettings;
-  lockout: LockoutState;
-  /** Prompts for biometrics or the device passcode; resolves false when cancelled or failed. */
-  unlock: () => Promise<boolean>;
-  /** Checks a PIN, records failures for the lockout policy, and unlocks on success. */
-  unlockWithPin: (pin: string) => Promise<PinUnlockResult>;
-  /**
-   * First run: creates the device key and stores the hashed PIN, then unlocks.
-   * The key and PIN are read again first: an unreadable one ends in
-   * `unavailable`, a vault that has both ends in `locked`, and an existing key
-   * is kept. With `holdForOnboarding` the session stays in `setup` with
-   * `setupHeld` until `finishSetup`, so onboarding can show its last step.
-   */
-  setUp: (pin: string, options?: { holdForOnboarding?: boolean }) => Promise<boolean>;
-  /** True after a held setup succeeded and before `finishSetup`. */
-  setupHeld: boolean;
-  /** Ends a held setup and unlocks; does nothing when no setup is held. */
-  finishSetup: () => void;
-  /** Reads the key and PIN again after `unavailable`; resolves the new status. */
-  retry: () => Promise<SessionStatus>;
-  /**
-   * True while `unavailable` because the PIN record is gone although it was
-   * written, and the device key is there (M1). `resetLostPin` is then the way on.
-   */
-  pinLost: boolean;
-  /**
-   * After a lost PIN record: asks for the device key's own gate (biometrics or
-   * the device passcode, the same door the lock screen offers) and, once it
-   * opens, goes to setup to add a new PIN to the existing vault. Resolves
-   * false when the prompt was cancelled or failed, with the reason in `error`.
-   */
-  resetLostPin: () => Promise<boolean>;
-  /**
-   * The vault holds entries its device key can no longer open, so nothing in
-   * it can be decrypted on this device again and the only way on is "Delete
-   * everything". Android: after a lost PIN record the key's gate opened but
-   * the key was invalidated (the screen lock or biometrics changed). Either
-   * platform: the key is gone while entries remain (removing Android's screen
-   * lock deletes it; an earlier install lost it), so setup never runs over them.
-   */
-  keyInvalidated: boolean;
-  changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
-  updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
-  lock: () => void;
-  /** Ask for biometrics again for a sensitive action such as sharing. */
-  stepUp: () => Promise<boolean>;
-  /**
-   * Runs `work` with auto-lock paused. System pickers, the camera, the scanner,
-   * and share sheets send the app to the background without the user leaving it.
-   */
-  withoutAutoLock: <T>(work: () => Promise<T>, pause?: AutoLockPause) => Promise<T>;
-  /** Captures the current unlocked session so long work can tell whether it ended. */
-  captureSession: () => SessionCapture;
-  /** A message for work that ended behind the lock; shown once the vault is unlocked. */
-  notice: SessionNotice | null;
-  postNotice: (notice: SessionNotice) => void;
-  dismissNotice: () => void;
-  /**
-   * Set when the vault locked while a share of this document was running.
-   * In memory only, so a relaunch forgets it; cleared by erase.
-   */
-  shareInterrupted: ShareInterruption | null;
-  markShareInterrupted: (documentId: string) => void;
-  /** Clears the mark; given one, only while that same mark is still the current one. */
-  clearShareInterrupted: (only?: ShareInterruption) => void;
-  /**
-   * Forget the PIN, settings, and lockout after the vault was emptied; returns
-   * to setup. Resolves false when the secure store refused to delete them,
-   * also on a second try: the old PIN then still opens the empty vault after a
-   * relaunch until setup replaces it.
-   */
-  eraseVault: () => Promise<boolean>;
-  /** Last unlock or setup failure, cleared on the next attempt. */
-  error: string | null;
-};
-
 const SessionContext = createContext<SessionContextValue | null>(null);
-
-/** Native error codes that deserve a plain sentence instead of the OS text. */
-const friendlyMessages: Record<string, string> = {
-  BIOMETRIC_AUTH_FAILED: t('session.biometricFailed'),
-  BIOMETRIC_NOT_AVAILABLE: t('session.biometricUnavailable'),
-  NO_AUTH_ENROLLED: t('session.noAuthEnrolled'),
-  KEY_RETRIEVAL_FAILED: t('session.keyRetrievalFailed'),
-  PIN_UNREADABLE: t('session.pinUnreadable'),
-  // Android only: setup keeps an invalidated key while the vault still holds entries.
-  KEY_INVALIDATED: KEY_INVALIDATED_MESSAGE,
-};
-
-const KEY_NOT_UNLOCKED = t('session.keyNotUnlocked.unlock');
 
 /**
  * The stored lockout with any pause longer than its count earned capped and the
@@ -235,8 +102,6 @@ async function loadCappedLockout(): Promise<LockoutState | null> {
   if (capped !== stored) await sessionStorage.saveLockout(capped).catch(() => {});
   return capped;
 }
-
-type KeyRead = 'present' | 'absent' | 'unreadable';
 
 /**
  * Everything launch reads before it picks a status; none of it needs the
@@ -289,30 +154,6 @@ async function readLaunchState(allowLostPin = false) {
 function launchStatus(key: KeyRead, pin: KeyRead, orphaned = false): SessionStatus {
   if (orphaned || key === 'unreadable' || pin === 'unreadable') return 'unavailable';
   return key === 'present' && pin === 'present' ? 'locked' : 'setup';
-}
-
-/** What a cancelled or lapsed key prompt means where it happened; setup has no PIN yet. */
-const keyNotUnlocked = {
-  unlock: KEY_NOT_UNLOCKED,
-  setup: t('session.keyNotUnlocked.setup'),
-  resetPin: t('session.keyNotUnlocked.resetPin'),
-  changePin: t('session.keyNotUnlocked.changePin'),
-} as const;
-
-function describeError(
-  e: unknown,
-  fallback: string,
-  context: keyof typeof keyNotUnlocked = 'unlock',
-): string {
-  // A cancelled or lapsed Android key prompt carries the Keystore's own text.
-  if (isKeyLocked(e)) return keyNotUnlocked[context];
-  const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined;
-  // A refused Face ID or passcode is the same outcome as a lapsed key prompt.
-  // Only the lock screen has a PIN to fall back to, so only it says "enter your PIN".
-  if (code === 'BIOMETRIC_AUTH_FAILED' && context !== 'unlock') return keyNotUnlocked[context];
-  if (typeof code === 'string' && friendlyMessages[code]) return friendlyMessages[code];
-  if (e instanceof Error && e.message) return e.message;
-  return fallback;
 }
 
 /**
