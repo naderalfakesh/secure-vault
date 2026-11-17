@@ -1,0 +1,30 @@
+import { type RefObject, useState } from 'react';
+
+import { useSession } from '@/features/session/SessionProvider';
+
+/** Read the key and the PIN record again, or add a new PIN when only the record is gone. */
+export function useRetryActions(mounted: RefObject<boolean>) {
+  const { retry, resetLostPin } = useSession();
+  const [trying, setTrying] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const tryAgain = () => {
+    setTrying(true);
+    retry()
+      .catch(() => {})
+      .finally(() => {
+        if (mounted.current) setTrying(false);
+      });
+  };
+
+  const resetPin = () => {
+    setResetting(true);
+    resetLostPin()
+      .catch(() => {})
+      .finally(() => {
+        if (mounted.current) setResetting(false);
+      });
+  };
+
+  return { trying, resetting, tryAgain, resetPin };
+}
