@@ -13,12 +13,10 @@ import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import { t } from '@/i18n';
 import {
-  clampLockout,
   EMPTY_LOCKOUT,
   isLocked,
   type LockoutState,
   recordFailure,
-  strictestLockout,
   unreadableLockout,
 } from '@/features/auth/lockout';
 
@@ -27,18 +25,22 @@ import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import vault, { type BiometryType } from '../../../modules/expo-vault';
 import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
-import {
-  AUTO_LOCK_RETURN_GRACE_MS,
-  DEFAULT_PAUSE_MAX_AWAY_MS,
-  KEY_PROBE_ENTRY,
-  SHARE_PAUSE_MAX_AWAY_MS,
-} from './constants';
-import { describeError, KEY_NOT_UNLOCKED, keyNotUnlocked } from './errors';
+import { AUTO_LOCK_RETURN_GRACE_MS, KEY_PROBE_ENTRY, SHARE_PAUSE_MAX_AWAY_MS } from './constants';
+import { describeError, errorCode, KEY_NOT_UNLOCKED, keyNotUnlocked } from './errors';
 import { reconcileInstall } from './freshInstall';
+import {
+  awayExpiryDelay,
+  currentLockout,
+  exceedsAutoLock,
+  launchStatus,
+  newPauseEntry,
+  pauseReturnOutcome,
+  stoppedDuring,
+} from './helpers';
+import { loadCappedLockout, readLaunchState } from './launchState';
 import { DEFAULT_SETTINGS, type SecuritySettings, sessionStorage } from './settings';
 import type {
   AutoLockPause,
-  KeyRead,
   PauseEntry,
   PinChangeResult,
   PinUnlockResult,
@@ -76,7 +78,7 @@ function leftDuring(entry: PauseEntry): number | null {
   } catch {
     // A build without the call: the return is judged as before.
   }
-  return stoppedAt >= entry.startedAt ? stoppedAt : null;
+  return stoppedDuring(entry, stoppedAt);
 }
 
 /**
@@ -89,72 +91,6 @@ export function sharePause(): AutoLockPause {
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-
-/**
- * The stored lockout with any pause longer than its count earned capped and the
- * cap written back, so it ends instead of sliding with the clock; null when the
- * store could not be read.
- */
-async function loadCappedLockout(): Promise<LockoutState | null> {
-  const stored = await sessionStorage.loadLockout();
-  if (!stored) return null;
-  const capped = clampLockout(stored, Date.now());
-  if (capped !== stored) await sessionStorage.saveLockout(capped).catch(() => {});
-  return capped;
-}
-
-/**
- * Everything launch reads before it picks a status; none of it needs the
- * device key. A PIN record its marker says was written but that the store no
- * longer returns is `unreadable` (`pinLost`) while a device key exists: a
- * vault, and a PIN guarding it, that the app cannot see. Without a key there
- * is no vault for it to guard (a device backup restored the marker without
- * the key), so it is absent. `allowLostPin` treats it as absent too, after
- * the owner passed the device key's own gate to set a new PIN.
- */
-async function readLaunchState(allowLostPin = false) {
-  const [key, type, pin, storedLockout, entries] = await Promise.all([
-    vault.hasVault().then(
-      (exists): KeyRead => (exists ? 'present' : 'absent'),
-      (): KeyRead => 'unreadable',
-    ),
-    vault.biometryType().catch(() => 'none' as const),
-    sessionStorage.readPinRecord(),
-    // Readable before the device key is authenticated, so a relaunch keeps
-    // the attempt counter and any pause that is still running.
-    loadCappedLockout(),
-    // The listing reads the folder only and needs no device key; when it
-    // fails, setup keeps saying the documents stay.
-    vault.getAllKeys().then(
-      (keys) => keys,
-      () => null,
-    ),
-  ]);
-  const lost = pin.state === 'unreadable' && pin.lost === true;
-  const pinState: KeyRead = lost && (key === 'absent' || allowLostPin) ? 'absent' : pin.state;
-  return {
-    key,
-    type,
-    pin: pinState,
-    pinLost: lost && key === 'present' && pinState === 'unreadable',
-    storedLockout,
-    entries: entries?.length ?? null,
-    // Entries without the key that encrypted them: a new key cannot open them,
-    // and setup over them would leave an index nobody can read. The key probe
-    // alone is no document; setup overwrites it.
-    orphaned: key === 'absent' && (entries ?? []).some((name) => name !== KEY_PROBE_ENTRY),
-  };
-}
-
-/**
- * The launch table: any read that failed is `unavailable`;
- * a key with a PIN is `locked`; anything else is setup, which keeps a key it
- * finds (Add a PIN).
- */
-function launchStatus(key: KeyRead, pin: KeyRead, orphaned = false): SessionStatus {
-  if (orphaned || key === 'unreadable' || pin === 'unreadable') return 'unavailable';
-  return key === 'present' && pin === 'present' ? 'locked' : 'setup';
-}
 
 /**
  * Owns the lock state for the whole app. The root layout reads `status` to
@@ -314,8 +250,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       try {
         await vault.get(KEY_PROBE_ENTRY);
       } catch (probeError) {
-        const code = (probeError as { code?: unknown } | null)?.code;
-        if (code === 'KEY_INVALIDATED' && (await vault.getAllKeys()).length > 0) {
+        if (errorCode(probeError) === 'KEY_INVALIDATED' && (await vault.getAllKeys()).length > 0) {
           setKeyInvalidated(true);
           setError(KEY_INVALIDATED_MESSAGE);
           return false;
@@ -384,7 +319,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       // failed write; the attempt is judged against the stricter of the two.
       const stored = await loadCappedLockout();
       const now = Date.now();
-      const current = strictestLockout(lockoutRef.current, stored ?? lockoutRef.current, now);
+      const current = currentLockout(lockoutRef.current, stored, now);
       applyLockout(current);
       if (isLocked(current, now)) return 'not-unlocked';
       try {
@@ -464,8 +399,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         } catch (probeError) {
           // "Delete everything" keeps the device key; one the system invalidated
           // can never encrypt again, and an empty vault loses nothing by a new one.
-          const code = (probeError as { code?: unknown } | null)?.code;
-          if (code !== 'KEY_INVALIDATED' || (await vault.getAllKeys()).length > 0) {
+          if (
+            errorCode(probeError) !== 'KEY_INVALIDATED' ||
+            (await vault.getAllKeys()).length > 0
+          ) {
             throw probeError;
           }
           await vault.createVault();
@@ -522,7 +459,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       try {
         const stored = await loadCappedLockout();
         const now = Date.now();
-        const current = strictestLockout(lockoutRef.current, stored ?? lockoutRef.current, now);
+        const current = currentLockout(lockoutRef.current, stored, now);
         applyLockout(current);
         if (isLocked(current, now)) return 'locked-out';
         const record = await sessionStorage.loadPinRecord();
@@ -591,8 +528,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   /** Locks when time away has passed the auto-lock limit. */
   const judgeAway = useCallback(
     (awayMs: number) => {
-      const limit = autoLockRef.current;
-      if (statusRef.current === 'unlocked' && limit >= 0 && awayMs >= limit * 1000) {
+      if (statusRef.current === 'unlocked' && exceedsAutoLock(autoLockRef.current, awayMs)) {
         changeStatus('locked');
       }
     },
@@ -601,12 +537,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const withoutAutoLock = useCallback(
     async <T,>(work: () => Promise<T>, pause: AutoLockPause = {}) => {
-      const entry = {
-        maxAwayMs: pause.maxAwayMs ?? DEFAULT_PAUSE_MAX_AWAY_MS,
-        endsOnReturn: pause.endsOnReturn ?? false,
-        startedAt: Date.now(),
-        awayAt: null as number | null,
-      };
+      const entry = newPauseEntry(pause, Date.now());
       pausesRef.current.add(entry);
       try {
         return await work();
@@ -726,7 +657,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
           judgeAway(Date.now() - awayAt);
           settleWaiters();
         },
-        Math.max(entry.maxAwayMs, limit * 1000) + 1,
+        awayExpiryDelay(entry.maxAwayMs, limit),
       );
       timers.add(timer);
     };
@@ -764,14 +695,15 @@ export function SessionProvider({ children }: PropsWithChildren) {
           const awayMs = now - entry.awayAt;
           entry.awayAt = null;
           const left = leftDuring(entry);
-          if (awayMs > entry.maxAwayMs) {
+          const outcome = pauseReturnOutcome(entry, awayMs, left);
+          if (outcome === 'expired') {
             pauses.delete(entry);
             judgeAway(awayMs);
-          } else if (left !== null) {
+          } else if (outcome === 'left' && left !== null) {
             // The user left the app under the chooser: the time since is away time.
             pauses.delete(entry);
             judgeAway(now - left);
-          } else if (entry.endsOnReturn) {
+          } else if (outcome === 'grace') {
             const timer = setTimeout(() => {
               timers.delete(timer);
               // Still pending: the system UI never showed, or is gone without settling.
