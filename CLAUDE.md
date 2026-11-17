@@ -45,13 +45,14 @@ Required native config. Do not remove any of it:
 
 ## Structure
 
-- `app/` Expo Router routes. The root layout owns the lock gate.
+- `app/` Expo Router routes, one-line re-exports of screens. The root layout owns the lock gate.
+- `src/screens/<screen>/` one screen each: the screen, its `*.styles.ts`, `components/` (a folder per component), `hooks/`, `constants.ts`, `types.ts`, `helpers.ts`. The rules are in ADR 0010 (`docs/adr/0010-code-organisation.md`).
 - `src/brand/folio.ts` the sealed folio mark as SVG: the icon and splash PNGs (`scripts/brand/make-icons.mjs`) and the in-app `Mark` all draw from it.
 - `src/theme` Unistyles tokens (configured from `index.js` before the router loads).
 - `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons.
 - `src/data` SQLCipher index: `schema.ts` migrations, `DocumentRepository`, adapters (`expoSqlite.ts`, `testing/betterSqlite.ts`), `database.ts` (key from the vault, legacy import) with a `database.jest.ts` double.
 - `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService`.
-- `src/features` session provider, document feature pieces; `src/hooks`, `src/security`, `src/types`, `src/utils`.
+- `src/features` domain pieces shared by screens: session provider, documents, scan, backup, viewer; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   key sealed to the Secure Enclave (iOS, ADR 0009) or held by the Keystore,
   string and file storage, export and import.
@@ -64,6 +65,8 @@ Required native config. Do not remove any of it:
 
 ## Rules
 
+- Follow ADR 0010 for code layout: thin routes, styles in `*.styles.ts`, one
+  component per file, files under 300 lines (components under 200).
 - One concern per commit, single-line conventional commit message, no scope,
   no body, no AI attribution anywhere.
 - Work through the plan's phases in order. Each phase ends with a green
