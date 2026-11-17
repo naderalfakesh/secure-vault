@@ -1,0 +1,1 @@
+export { PinMessage } from './PinMessage';
