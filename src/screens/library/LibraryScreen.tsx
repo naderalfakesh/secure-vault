@@ -1,14 +1,9 @@
 import { router } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '@/components/ui';
-import {
-  countByCollection,
-  indexOrder,
-  NO_FILTER,
-  recentDocuments,
-} from '@/features/documents/library';
+import { indexOrder, NO_FILTER } from '@/features/documents/library';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDelayed } from '@/hooks/useDelayed';
 import { useDocuments } from '@/hooks/useDocuments';
@@ -16,12 +11,9 @@ import type { Document } from '@/types';
 
 import {
   DocumentList,
-  EmptyLibrary,
   LibraryHome,
-  LibrarySkeleton,
-  LibraryTitle,
+  LibraryStatus,
   ListFilters,
-  LoadFailed,
   MoveSheet,
   NoMatches,
   SearchHeader,
@@ -30,12 +22,13 @@ import {
   SortSheet,
 } from './components';
 import { SKELETON_DELAY_MS } from './constants';
-import { expiringDocuments, listBottomSpace, visibleDocuments } from './helpers';
+import { listBottomSpace } from './helpers';
 import { useBulkActions } from './hooks/useBulkActions';
 import { useExpiryDates } from './hooks/useExpiryDates';
 import { useIndexOrder } from './hooks/useIndexOrder';
 import { useLibraryAnnouncements } from './hooks/useLibraryAnnouncements';
 import { useLibraryBrowse } from './hooks/useLibraryBrowse';
+import { useLibraryLists } from './hooks/useLibraryLists';
 import { useLibrarySearch } from './hooks/useLibrarySearch';
 import { useSelection } from './hooks/useSelection';
 
@@ -71,18 +64,15 @@ export function LibraryScreen() {
     selectedCount: selected.size,
   });
 
-  const counts = useMemo(() => countByCollection(documents), [documents]);
-  const recent = useMemo(() => recentDocuments(documents), [documents]);
-  const expiring = useMemo(
-    () => expiringDocuments(documents, expiry, railCutoff),
-    [documents, expiry, railCutoff],
-  );
-  const shown = useMemo(() => {
-    const base = search.searching
-      ? (search.results?.hits ?? []).map((hit) => hit.document)
-      : (ordered ?? documents);
-    return visibleDocuments(base, documents, filter, expiry, sort);
-  }, [search.searching, search.results, ordered, documents, filter, expiry, sort]);
+  const { counts, recent, expiring, shown } = useLibraryLists({
+    documents,
+    expiry,
+    railCutoff,
+    hits: search.searching ? (search.results?.hits ?? []) : null,
+    ordered,
+    filter,
+    sort,
+  });
 
   const allSelected = shown.length > 0 && shown.every((document) => selected.has(document.id));
   const { pick } = selection;
@@ -93,28 +83,11 @@ export function LibraryScreen() {
 
   // States that replace the whole screen.
   if (!loading && error) {
-    return (
-      <Screen>
-        <LibraryTitle />
-        <LoadFailed error={error} onRetry={refreshDocuments} />
-      </Screen>
-    );
+    return <LibraryStatus status="failed" error={error} onRetry={refreshDocuments} />;
   }
-  if (loading) {
-    return (
-      <Screen>
-        <LibraryTitle />
-        {showSkeleton ? <LibrarySkeleton /> : null}
-      </Screen>
-    );
-  }
+  if (loading) return <LibraryStatus status="loading" showSkeleton={showSkeleton} />;
   if (documents.length === 0) {
-    return (
-      <Screen>
-        <LibraryTitle />
-        <EmptyLibrary bottomSpace={bottomSpace} onAdd={openAdd} />
-      </Screen>
-    );
+    return <LibraryStatus status="empty" bottomSpace={bottomSpace} onAdd={openAdd} />;
   }
 
   return (

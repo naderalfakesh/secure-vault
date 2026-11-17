@@ -4,6 +4,7 @@ export { EmptyLibrary } from './EmptyLibrary';
 export { ExpiringRail } from './ExpiringRail';
 export { LibraryHome } from './LibraryHome';
 export { LibrarySkeleton } from './LibrarySkeleton';
+export { LibraryStatus } from './LibraryStatus';
 export { LibraryTitle } from './LibraryTitle';
 export { ListFilters } from './ListFilters';
 export { LoadFailed } from './LoadFailed';
