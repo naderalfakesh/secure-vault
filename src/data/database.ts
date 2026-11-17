@@ -1,195 +1,23 @@
-import * as Crypto from 'expo-crypto';
-import { Directory, File } from 'expo-file-system';
-
-import vault from '../../modules/expo-vault';
 import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
 import { t } from '../i18n';
 import { DocumentRepository } from './DocumentRepository';
-import { databaseFilePath, deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
+import { deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
 import { applyMigrations } from './schema';
 import type { SqlDatabase } from './sql';
-import type { DocumentMetadata } from '../types';
+import { DATABASE_FILE_ENTRY, DATABASE_KEY_ENTRY, DEFAULT_DATABASE_NAME } from './store/constants';
+import { emptiedError, erasingError, keyError, nameError } from './store/errors';
+import {
+  copyDatabaseFile,
+  deleteIndexFiles,
+  installDatabaseFile,
+  mainIndexFiles,
+  sweepStaleDatabases,
+} from './store/files';
+import { currentDatabaseName, loadDatabaseKey, vaultEntries } from './store/key';
+import { markLegacyImported, readLegacyIndex } from './store/legacy';
 
-const DEFAULT_DATABASE_NAME = 'securevault.db';
-// Which file holds the index; a restore writes a new file and points here.
-const DATABASE_FILE_ENTRY = '_database_file';
-const DATABASE_KEY_ENTRY = '_database_key';
-const LEGACY_INDEX_ENTRY = '_documents_metadata';
-const LEGACY_IMPORTED_ENTRY = '_legacy_index_imported';
-// The index under any name a restore gave it, with its SQLite side files.
-const INDEX_FILE = /^securevault(-\d+)?\.db(-wal|-shm|-journal)?$/;
-// Only these hold an index; a side file left without its database does not.
-const MAIN_INDEX_FILE = /^securevault(-\d+)?\.db$/;
-
-function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-/** A database key failure, with a sentence a screen can show as is. */
-function keyError(code: string, message: string, cause?: unknown): Error {
-  return Object.assign(new Error(message), { code, cause });
-}
-
-function codeOf(error: unknown): unknown {
-  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
-}
-
-/** Any failure to read a stored key; the key itself is never replaced. */
-function unreadableKey(cause: unknown): Error {
-  if (isKeyLocked(cause)) {
-    return keyError('KEY_LOCKED', t('errors.keyLocked'), cause);
-  }
-  if (codeOf(cause) === 'KEY_INVALIDATED') {
-    return keyError('KEY_INVALIDATED', t('errors.index.keyInvalidated'), cause);
-  }
-  return keyError('DATABASE_KEY_UNREADABLE', t('errors.index.keyUnreadable'), cause);
-}
-
-/** A listing of the vault's entries or of the SQLite folder failed; nothing was read or written. */
-function listingError(cause: unknown): Error {
-  return keyError('DATABASE_FILES_UNREADABLE', t('errors.index.filesUnreadable'), cause);
-}
-
-async function vaultEntries(): Promise<string[]> {
-  try {
-    return await vault.getAllKeys();
-  } catch (error) {
-    throw listingError(error);
-  }
-}
-
-function databaseDirectory(name: string): Directory {
-  const path = databaseFilePath(name);
-  return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
-}
-
-/** The main index files in the SQLite folder, under any name. */
-function mainIndexFiles(): string[] {
-  try {
-    const directory = databaseDirectory(DEFAULT_DATABASE_NAME);
-    // `.exists` also reads false on a stat error; the vault's entry listing,
-    // which throws, is the deciding check wherever this one is used with it.
-    if (!directory.exists) return [];
-    return directory
-      .list()
-      .map((entry) => entry.name)
-      .filter((name) => MAIN_INDEX_FILE.test(name));
-  } catch (error) {
-    throw listingError(error);
-  }
-}
-
-/**
- * Whether the SQLite folder holds an index file under any name; throws a
- * typed DATABASE_FILES_UNREADABLE when the folder cannot be listed.
- */
-export function hasIndexFiles(): boolean {
-  return mainIndexFiles().length > 0;
-}
-
-/**
- * Key hierarchy: the device key (a Keychain item on iOS, a non-exportable
- * Keystore key on Android) is used only inside the vault module; it encrypts
- * this random database key, which SQLCipher uses for every page of the index.
- * Losing the device key loses both.
- *
- * A new key is only written when the entry is absent from the vault's listing
- * (which needs no device key) and no index file of any name exists. Writing
- * one in any other case would make an existing index unreadable for good.
- */
-async function loadDatabaseKey(): Promise<string> {
-  const keys = await vaultEntries();
-  if (keys.includes(DATABASE_KEY_ENTRY)) {
-    let existing: string;
-    try {
-      existing = await vault.get(DATABASE_KEY_ENTRY);
-    } catch (error) {
-      throw unreadableKey(error);
-    }
-    if (/^[0-9a-f]{64}$/i.test(existing)) return existing;
-    throw unreadableKey(new Error('The stored database key is malformed.'));
-  }
-  // Any main index file, not only `name`, which may be the default guessed for an unreadable one.
-  if (mainIndexFiles().length > 0) {
-    throw keyError('DATABASE_KEY_MISSING', t('errors.index.keyMissing'));
-  }
-  const key = toHex(Crypto.getRandomBytes(32));
-  await vault.put(DATABASE_KEY_ENTRY, key);
-  return key;
-}
-
-function nameError(cause: unknown): Error {
-  if (isKeyLocked(cause) || codeOf(cause) === 'KEY_INVALIDATED') return unreadableKey(cause);
-  return keyError('DATABASE_NAME_UNREADABLE', t('errors.index.nameUnreadable'), cause);
-}
-
-function isRestoredName(name: string): boolean {
-  return MAIN_INDEX_FILE.test(name) && name !== DEFAULT_DATABASE_NAME;
-}
-
-type IndexName = { name: string; guessed: boolean };
-
-/**
- * The index file in use; restores switch to a fresh file instead of reusing
- * the name. A vault that never stored a name uses the default, unless a
- * restored index exists: then a restore moved its file but failed to record
- * the name. A stored name that cannot be read is only replaced by the default
- * when no restored index exists, and that guess is `guessed`.
- */
-async function currentDatabaseName(): Promise<IndexName> {
-  let cause: unknown;
-  try {
-    const name = await vault.get(DATABASE_FILE_ENTRY);
-    if (MAIN_INDEX_FILE.test(name)) return { name, guessed: false };
-    cause = new Error('The stored index name is malformed.');
-  } catch (error) {
-    // A locked key says nothing about the name; guessing would point at the wrong file.
-    if (isKeyLocked(error)) throw unreadableKey(error);
-    cause = error;
-  }
-  const listed = (await vaultEntries()).includes(DATABASE_FILE_ENTRY);
-  if (mainIndexFiles().some(isRestoredName)) {
-    throw nameError(listed ? cause : new Error('A restored index has no stored name.'));
-  }
-  return { name: DEFAULT_DATABASE_NAME, guessed: listed };
-}
-
-/** Index files left behind by earlier restores; the current one is kept. */
-function sweepStaleDatabases(current: string): void {
-  try {
-    const directory = databaseDirectory(current);
-    if (!directory.exists) return;
-    for (const entry of directory.list()) {
-      const { name } = entry;
-      if (INDEX_FILE.test(name) && !name.startsWith(current)) {
-        try {
-          entry.delete();
-        } catch {
-          // Still open by an abandoned connection; picked up next launch.
-        }
-      }
-    }
-  } catch {
-    // Sweeping is best effort.
-  }
-}
-
-async function readLegacyIndex(): Promise<DocumentMetadata | null> {
-  try {
-    await vault.get(LEGACY_IMPORTED_ENTRY);
-    return null;
-  } catch (error) {
-    if (isKeyLocked(error)) throw unreadableKey(error);
-    // Not imported yet.
-  }
-  try {
-    return JSON.parse(await vault.get(LEGACY_INDEX_ENTRY)) as DocumentMetadata;
-  } catch (error) {
-    if (isKeyLocked(error)) throw unreadableKey(error);
-    return null;
-  }
-}
+export { hasIndexFiles } from './store/files';
 
 export type DocumentStore = { db: SqlDatabase; repository: DocumentRepository };
 
@@ -208,14 +36,6 @@ let erasing = false;
 // Set once "Delete everything" succeeded: only setup may create the next key
 // and index, so a screen refreshing its list in between writes nothing.
 let emptied = false;
-
-function erasingError(): Error {
-  return keyError('INDEX_ERASING', t('errors.index.erasing'));
-}
-
-function emptiedError(): Error {
-  return keyError('VAULT_EMPTIED', t('errors.index.emptied'));
-}
 
 /** Setup calls this so the next open may create the key and index again after "Delete everything". */
 export function allowDocumentStore(): void {
@@ -242,7 +62,7 @@ async function openStore(): Promise<DocumentStore> {
     await applyMigrations(db);
     if (legacy) {
       await migrateLegacyIndex(legacy, repository);
-      await vault.put(LEGACY_IMPORTED_ENTRY, new Date().toISOString());
+      await markLegacyImported();
     }
   } catch (error) {
     // Left open, expo-sqlite would hand the same connection to the retry, and an erase's close would only release it.
@@ -340,12 +160,7 @@ export async function deleteDocumentStore(removeEntries: () => Promise<void>): P
       throw keyError('ERASE_INCOMPLETE', t('errors.erase.indexOpen'), error);
     }
     await deleteEncryptedDatabase(name);
-    const directory = databaseDirectory(name);
-    if (directory.exists) {
-      for (const entry of directory.list()) {
-        if (INDEX_FILE.test(entry.name)) entry.delete();
-      }
-    }
+    deleteIndexFiles(name);
     await removeEntries();
     const left = await vaultEntries();
     if (left.includes(DATABASE_KEY_ENTRY) || left.includes(DATABASE_FILE_ENTRY)) {
@@ -365,10 +180,7 @@ export async function exportDatabaseFile(destPath: string): Promise<void> {
   const { db } = await openDocumentStore();
   await db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
   const { name } = await currentDatabaseName();
-  const source = new File(`file://${databaseFilePath(name)}`);
-  const target = new File(`file://${destPath}`);
-  if (target.exists) target.delete();
-  await source.copy(target);
+  await copyDatabaseFile(name, destPath);
 }
 
 /**
@@ -389,22 +201,4 @@ export async function replaceDatabaseFile(sourcePath: string): Promise<void> {
     // A failed swap reaches the caller through `swap`; a failed open, whoever waits for the index.
   });
   await swap;
-}
-
-async function installDatabaseFile(sourcePath: string): Promise<void> {
-  const name = `securevault-${Date.now()}.db`;
-  const path = databaseFilePath(name);
-  const directory = new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
-  if (!directory.exists) directory.create({ intermediates: true });
-  const source = new File(`file://${sourcePath}`);
-  const target = new File(`file://${path}`);
-  await source.move(target);
-  try {
-    await vault.put(DATABASE_FILE_ENTRY, name);
-  } catch (error) {
-    // Unnamed, the restored file would be taken for a stale one. The vault's entries are already
-    // replaced, so the restore ends as a partial one with BACKUP_INDEX.
-    await target.move(new File(`file://${sourcePath}`)).catch(() => {});
-    throw error;
-  }
 }
