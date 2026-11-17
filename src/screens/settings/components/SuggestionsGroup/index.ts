@@ -1,0 +1,1 @@
+export { SuggestionsGroup } from './SuggestionsGroup';
