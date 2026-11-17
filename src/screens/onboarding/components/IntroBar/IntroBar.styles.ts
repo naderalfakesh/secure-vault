@@ -1,0 +1,11 @@
+import { StyleSheet } from 'react-native-unistyles';
+
+export const styles = StyleSheet.create((theme) => ({
+  bar: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.sm,
+  },
+}));
