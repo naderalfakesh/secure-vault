@@ -1,0 +1,1 @@
+export { SetupPinHeader } from './SetupPinHeader';
