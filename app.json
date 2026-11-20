@@ -33,7 +33,6 @@
     "plugins": [
       "expo-router",
       "./plugins/withSecureVault.js",
-      "./plugins/withMlkitSimulatorFix",
       "expo-font",
       [
         "expo-splash-screen",

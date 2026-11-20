@@ -1,7 +1,12 @@
 # ADR 0001: Patch Google ML Kit frameworks for Apple Silicon simulators
 
-- Status: Accepted
+- Status: Superseded by [ADR 0011](0011-apple-vision-text-recognition-on-ios.md)
 - Date: 2026-09-07
+
+> 2026-11-20: iOS now reads text with Apple Vision and links no ML Kit
+> framework, so `plugins/withMlkitSimulatorFix.js` and
+> `plugins/mlkit-sim-patch.py` were removed. The record below is kept as it
+> was decided.
 
 ## Context
 
