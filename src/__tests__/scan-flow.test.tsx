@@ -716,7 +716,7 @@ describe('Add a document: details', () => {
     const { view } = await readPassport();
 
     expect(view.getByText('New document')).toBeOnTheScreen();
-    expect(view.getByLabelText('Title').props.value).toBe('Republic Of Example');
+    expect(view.getByLabelText('Title').props.value).toBe('Republic of Example');
     expect(view.getByText('suggested', { exact: false })).toBeOnTheScreen();
     expect(view.getByRole('button', { name: 'ID & Personal' })).toBeSelected();
     expect(view.getByText('No. •••• 4821')).toBeOnTheScreen();

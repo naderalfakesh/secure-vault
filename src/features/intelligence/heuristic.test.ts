@@ -56,7 +56,8 @@ describe('heuristic intelligence', () => {
   });
 
   it('suggests a short title from the first readable line', () => {
-    expect(suggestTitle(passport)).toBe('Republic Of Example');
+    expect(suggestTitle(passport)).toBe('Republic of Example');
+    expect(suggestTitle('THE BANK OF EXAMPLE AND TRUST')).toBe('The Bank of Example and Trust');
     expect(suggestTitle('Blue Cross member card')).toBe('Blue Cross member card');
     expect(suggestTitle('12345\n\n')).toBeUndefined();
   });

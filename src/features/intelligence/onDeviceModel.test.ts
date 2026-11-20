@@ -127,7 +127,7 @@ describe('suggestions from the on-device model', () => {
     const suggestion = await suggestForText(passport);
 
     expect(suggestion.engine).toBe('apple-foundation-models');
-    expect(suggestion.title).toBe('Republic Of Example');
+    expect(suggestion.title).toBe('Republic of Example');
     expect(suggestion.fields).toContainEqual({ key: 'expires', value: '2031-11-14', kind: 'date' });
     expect(suggestion.fields).toContainEqual({ key: 'number', value: 'X0000000', kind: 'text' });
   });

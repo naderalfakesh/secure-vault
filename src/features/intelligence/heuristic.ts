@@ -38,6 +38,21 @@ const categoryKeywords: [DocumentCategory, RegExp][] = [
 
 const expiryKeywords =
   /\b(expir\w*|valid (?:until|through|thru|to)|date of expiry|exp\.?|best before|renew(?:al)? by)\b/i;
+// Lowercase inside a title-cased heading, never as its first word.
+const minorWords = new Set([
+  'a',
+  'an',
+  'and',
+  'at',
+  'by',
+  'for',
+  'in',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+]);
 const issueKeywords = /\b(issued?|date of issue|issue date)\b/i;
 // The value must hold a digit. Text read from a two-column card lists the
 // labels before the values ("Policy number Policyholder Vehicle ..."), and a
@@ -136,10 +151,19 @@ export function suggestTitle(text: string): string | undefined {
   if (!candidate) return undefined;
   const words = candidate.split(/\s+/).slice(0, 6).join(' ');
   // Headings on official documents are usually set in capitals.
-  if (words === words.toUpperCase()) {
-    return words.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
-  }
+  if (words === words.toUpperCase()) return titleCase(words);
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** "REPUBLIC OF EXAMPLE" → "Republic of Example": short joining words stay lowercase. */
+function titleCase(words: string): string {
+  return words
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) =>
+      index > 0 && minorWords.has(word) ? word : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(' ');
 }
 
 export function extractFields(text: string): ExtractedField[] {
