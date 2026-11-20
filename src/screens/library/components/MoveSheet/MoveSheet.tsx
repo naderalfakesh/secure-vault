@@ -23,10 +23,9 @@ export function MoveSheet({ visible, count, busy, onClose, onMove }: MoveSheetPr
       onClose={onClose}
       title={t('library.move.title', { documents: tp('format.documents', count) })}
       dismissable={!busy}
-      detent="large"
       scroll={false}
     >
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView style={styles.scroller} contentContainerStyle={styles.body}>
         <Group header={t('library.move.collection')} separatorInset="content">
           {allCategories.map((category) => (
             <ListRow

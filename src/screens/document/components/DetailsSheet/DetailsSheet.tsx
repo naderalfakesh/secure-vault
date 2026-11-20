@@ -31,9 +31,14 @@ export function DetailsSheet({
       // The details body is its own scroll view.
       scroll={false}
       headerAction={editing ? { label: t('viewer.edit.cancel'), onPress: onCancelEdit } : undefined}
-      detent={editing ? 'large' : 'auto'}
+      // Editing has its own Cancel, so the close button would be a second way out.
+      closeButton={!editing}
     >
-      <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.scroller}
+        contentContainerStyle={styles.sheetBody}
+        keyboardShouldPersistTaps="handled"
+      >
         {children}
       </ScrollView>
     </Sheet>

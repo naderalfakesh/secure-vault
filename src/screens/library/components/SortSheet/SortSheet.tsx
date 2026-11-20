@@ -44,12 +44,11 @@ export function SortSheet({
       visible={visible}
       onClose={onClose}
       title={t('library.sortAndFilter')}
-      detent="large"
       // The body is its own scroll view.
       scroll={false}
       headerAction={{ label: t('library.sheet.reset'), onPress: reset }}
     >
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView style={styles.scroller} contentContainerStyle={styles.body}>
         <Group header={t('library.sheet.sortBy')}>
           {SORTS.map((option) => (
             <ListRow
