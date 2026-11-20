@@ -186,10 +186,20 @@ export function extractFields(text: string): ExtractedField[] {
   return fields;
 }
 
+/**
+ * The collection (search does not read it, so the tag is what finds it) and
+ * the year that matters: the expiry, else the issue date, else the first date
+ * read, such as a receipt's. A birth date or a printed date never wins over them.
+ */
 export function suggestTags(text: string, category?: DocumentCategory): string[] {
   const tags = new Set<string>();
   if (category) tags.add(category);
-  const year = findDates(text)[0]?.date.slice(0, 4);
+  const fields = extractFields(text);
+  const date =
+    fields.find((field) => field.key === EXPIRY_FIELD)?.value ??
+    fields.find((field) => field.key === 'issued')?.value ??
+    findDates(text)[0]?.date;
+  const year = date?.slice(0, 4);
   if (year) tags.add(year);
   return [...tags].slice(0, 3);
 }

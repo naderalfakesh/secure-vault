@@ -70,6 +70,16 @@ describe('heuristic intelligence', () => {
     });
     const full = await heuristicIntelligence.suggest(passport);
     expect(full.category).toBe(DocumentCategory.ID);
-    expect(full.tags).toEqual([DocumentCategory.ID, '2020']);
+    expect(full.tags).toEqual([DocumentCategory.ID, '2030']);
+  });
+
+  it('tags the expiry year, then the issue year, then the first date', async () => {
+    const tagsFor = async (text: string) => (await heuristicIntelligence.suggest(text)).tags;
+    // A birth date read first never becomes the tag.
+    expect(await tagsFor('Date of birth 01 JAN 1990\nDate of issue 15 NOV 2021')).toContain('2021');
+    expect(await tagsFor('Receipt\n2024-03-05\nTotal 10.90')).toEqual([
+      DocumentCategory.RECEIPTS,
+      '2024',
+    ]);
   });
 });
