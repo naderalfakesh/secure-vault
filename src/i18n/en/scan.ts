@@ -45,7 +45,11 @@ export const scan = {
   'scan.review.doneMoving': 'Done',
   'scan.processing.reading': 'Reading the document',
   'scan.processing.saving': 'Saving the document',
-  'scan.processing.footer':
+  /** iOS: Apple Vision reads the text (ADR 0011). */
+  'scan.processing.footerVision':
+    'Text is read on this device by Apple’s Vision framework, which is part of iOS.',
+  /** Android: Google ML Kit reads the text and sends Google metrics (docs/SECURITY.md). */
+  'scan.processing.footerMlKit':
     'Text is read on this device. Google ML Kit sends Google usage and performance metrics. Google says it doesn’t send your images or their text.',
   'scan.processing.cancel': 'Cancel',
   'scan.processing.done': 'Done',

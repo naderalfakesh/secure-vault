@@ -16,17 +16,18 @@ describe('How your data is protected', () => {
       view.getByText(/kept by the iOS Keychain\. It is never put in a backup\./),
     ).toBeOnTheScreen();
     expect(view.getByText(/stored only as a salted hash/)).toBeOnTheScreen();
-    // ML Kit sends Google usage metrics that cannot be turned off, so no "no analytics" claim.
+    // Android's ML Kit sends Google usage metrics, so the claim stays "itself".
     expect(
       view.getByText(/There is no account, and SecureVault itself collects no analytics\./),
     ).toBeOnTheScreen();
-    // iOS scans with VisionKit, so the Play services scanner is not named here.
+    // iOS scans with VisionKit and reads with Apple Vision (ADR 0011): no Google notice.
     expect(
       view.getByText(
-        'SecureVault uses Google ML Kit to read document text on this phone. ML Kit sends Google usage and performance metrics, which include an ID for this install. Google says ML Kit doesn’t send your images or the text it reads. This can’t be turned off.',
+        'SecureVault reads document text on this phone with Apple’s Vision framework, which is part of iOS. The text isn’t sent anywhere.',
       ),
     ).toBeOnTheScreen();
-    expect(view.queryByText(/Play services/)).toBeNull();
+    expect(view.queryByText(/ML Kit|Google|Play services/)).toBeNull();
+    expect(mlKitDisclosure()).toBeNull();
     expect(view.queryByText(/anonymous/i)).toBeNull();
     expect(
       view.queryByText(/^There is no account, and SecureVault collects no analytics\.$/),
@@ -70,15 +71,28 @@ describe('How your data is protected', () => {
       expect(mlKitDisclosure()).toBe(
         'SecureVault uses Google ML Kit to read document text on this phone. It also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. Google says ML Kit doesn’t send your images or the text it reads. This can’t be turned off.',
       );
+      // Android reads with ML Kit, so the Apple Vision sentence is not among the facts.
+      expect(protectionFacts().join(' ')).not.toMatch(/Vision/);
     } finally {
       Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
     }
   });
 
-  it('marks the ML Kit notice with an info icon, not a success check', async () => {
+  it('shows the ML Kit notice on Android only', async () => {
+    const os = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
+    try {
+      const view = await render(<ProtectionScreen />);
+      expect(view.getByLabelText(/^SecureVault uses Google ML Kit/)).toBeOnTheScreen();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { value: os, configurable: true });
+    }
+  });
+
+  it('marks every iOS fact, Apple Vision included, with a success check', async () => {
     const view = await render(<ProtectionScreen />);
-    expect(view.getByLabelText(mlKitDisclosure())).toBeOnTheScreen();
-    // One info glyph for the notice; the success checks are only the facts.
+    expect(view.queryByLabelText(/ML Kit/)).toBeNull();
+    // No notice on iOS: the success checks are exactly the facts.
     type Node = { props?: Record<string, unknown>; children?: (Node | string)[] | null };
     const names: unknown[] = [];
     const walk = (node: Node | string | null) => {
@@ -89,7 +103,8 @@ describe('How your data is protected', () => {
     const root = view.toJSON() as Node | Node[] | null;
     (Array.isArray(root) ? root : [root]).forEach(walk);
     const count = (symbol: string) => names.filter((name) => name === symbol).length;
-    expect(count('info.circle')).toBe(1);
+    expect(count('info.circle')).toBe(0);
     expect(count('checkmark')).toBe(protectionFacts().length);
+    expect(protectionFacts()).toHaveLength(6);
   });
 });

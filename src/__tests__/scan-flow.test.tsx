@@ -553,9 +553,11 @@ describe('Add a document: processing', () => {
     expect(view.getByText('Reading the document')).toBeOnTheScreen();
     expect(view.getByLabelText('Reading the text, in progress')).toBeOnTheScreen();
     expect(view.getByLabelText('Encrypting, not started')).toBeOnTheScreen();
+    // iOS reads with Apple Vision, so no Google ML Kit notice here (ADR 0011).
+    expect(view.queryByText(/ML Kit|Google/)).toBeNull();
     expect(
       view.getByText(
-        'Text is read on this device. Google ML Kit sends Google usage and performance metrics. Google says it doesn’t send your images or their text.',
+        'Text is read on this device by Apple’s Vision framework, which is part of iOS.',
       ),
     ).toBeOnTheScreen();
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
