@@ -44,6 +44,11 @@ public final class ExpoDocumentAiModule: Module {
       #endif
       throw ModelUnavailableException("ios-version")
     }
+
+    // Apple Vision OCR (ADR 0011). Async functions run off the main queue.
+    AsyncFunction("recognizeText") { (path: String) throws -> [String: Any] in
+      try TextRecognizer.recognize(path: path)
+    }
   }
 }
 

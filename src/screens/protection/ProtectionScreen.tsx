@@ -16,6 +16,7 @@ import { styles } from './ProtectionScreen.styles';
 export function ProtectionScreen() {
   // Where this device keeps the key; the plain sentence shows until it answers.
   const protection = useKeyProtection();
+  const mlKitNotice = mlKitDisclosure();
 
   return (
     <Screen>
@@ -37,8 +38,8 @@ export function ProtectionScreen() {
           {protectionFacts(protection).map((fact) => (
             <ListRow key={fact} icon="check" tint="success" title={fact} />
           ))}
-          {/* What ML Kit sends is a notice, not a protection: no success check. */}
-          <ListRow icon="info" tint="neutral" title={mlKitDisclosure()} />
+          {/* Android: what ML Kit sends is a notice, not a protection, so no success check. */}
+          {mlKitNotice ? <ListRow icon="info" tint="neutral" title={mlKitNotice} /> : null}
         </Group>
         <Group header={t('settings.protection.cant')} separatorInset="content">
           {PROTECTION_LIMITS.map((limit) => (

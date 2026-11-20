@@ -7,7 +7,7 @@ import { DocumentImage } from '@/features/documents/DocumentImage';
 import { t } from '@/i18n';
 
 import { MAX_THUMBNAILS } from '../constants';
-import { scanText } from '../scanCopy';
+import { readingFooter, scanText } from '../scanCopy';
 import { styles } from './ProcessingPanel.styles';
 import { isCancellable, STEP_COPY, STEPS } from './steps';
 import type { ProcessingStep } from './types';
@@ -139,7 +139,7 @@ export function ProcessingPanel({
         />
       )}
       <Text variant="footnote" tone="secondary">
-        {scanText('processing.footer')}
+        {readingFooter()}
       </Text>
       {cancellable && !failed ? (
         <Button label={scanText('processing.cancel')} variant="secondary" onPress={onCancel} />

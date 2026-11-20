@@ -27,8 +27,10 @@ no emulator is booted.
 
 Required native config. Do not remove any of it:
 
-- `plugins/withMlkitSimulatorFix.js` strips Google ML Kit's
-  `EXCLUDED_ARCHS = arm64`, so `expo run:ios` sees Apple Silicon simulators.
+- `react-native.config.js` unlinks `@react-native-ml-kit/text-recognition`
+  on iOS: Apple Vision reads text there (ADR 0011), and linking ML Kit would
+  bring back Google's metrics and its arm64-simulator exclusion. Android
+  keeps ML Kit.
 - `plugins/withSqlCipherOpenSsl.js` packages SQLCipher's `libcrypto.so`,
   which AGP drops when the project path contains spaces.
 - The `expo-sqlite` plugin options `useSQLCipher: true` and `enableFTS: true`
@@ -51,7 +53,7 @@ Required native config. Do not remove any of it:
 - `src/theme` Unistyles tokens (configured from `index.js` before the router loads).
 - `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons.
 - `src/data` SQLCipher index: `schema.ts` migrations, `DocumentRepository`, adapters (`expoSqlite.ts`, `testing/betterSqlite.ts`), `database.ts` (key from the vault, legacy import) with a `database.jest.ts` double.
-- `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService`.
+- `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService` (`src/services/ocr`: Apple Vision on iOS, ML Kit on Android).
 - `src/features` domain pieces shared by screens: session provider, documents, scan, backup, viewer; `src/hooks`, `src/security`, `src/types`, `src/utils`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   key sealed to the Secure Enclave (iOS, ADR 0009) or held by the Keystore,
@@ -59,7 +61,7 @@ Required native config. Do not remove any of it:
   Native tests: `Package.swift` and `tests/swift` (the format files as a Swift
   package), `android/src/test` (JUnit and Robolectric), both reading the
   vectors `tests/make-fixtures.mjs` writes to `tests/fixtures`.
-- `modules/expo-document-ai/` local Expo Module: Apple Foundation Models (iOS 26+) and Gemini Nano (ML Kit GenAI Prompt API, pinned to `1.0.0-beta4` for Kotlin 2.2) for document suggestions; `src/features/intelligence/onDeviceModel.ts` checks every answer against the text (ADR 0008).
+- `modules/expo-document-ai/` local Expo Module: Apple Vision text recognition on iOS (`recognizeText`, ADR 0011), Apple Foundation Models (iOS 26+) and Gemini Nano (ML Kit GenAI Prompt API, pinned to `1.0.0-beta4` for Kotlin 2.2) for document suggestions; `src/features/intelligence/onDeviceModel.ts` checks every answer against the text (ADR 0008).
 - `plugins/` config plugins (listed above).
 - `docs/` plan, security model (`docs/SECURITY.md`), ADRs (`docs/adr/`, numbered), verification notes (`docs/verification/`), screenshots (`docs/images/`), archived 2025 plan.
 

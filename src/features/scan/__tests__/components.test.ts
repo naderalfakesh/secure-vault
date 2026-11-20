@@ -1,6 +1,9 @@
+import { Platform } from 'react-native';
+
 import { isCancellable } from '../ProcessingPanel';
 import { pageActions } from '../ReviewPages/pageActions';
 import { sourceRows } from '../SourceList';
+import { readingFooter } from '../scanCopy';
 
 const names = (actions: { name: string }[]) => actions.map((action) => action.name);
 const keys = (rows: { key: string; disabled?: boolean }[]) =>
@@ -44,5 +47,21 @@ describe('sourceRows', () => {
 
   it('drops the camera rows once access is refused', () => {
     expect(keys(sourceRows(true, true, true))).toEqual(['library', 'files']);
+  });
+});
+
+describe('readingFooter', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('names Apple Vision on iOS and no Google metrics', () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    expect(readingFooter()).toBe(
+      'Text is read on this device by Apple’s Vision framework, which is part of iOS.',
+    );
+  });
+
+  it('keeps the ML Kit metrics notice on Android', () => {
+    jest.replaceProperty(Platform, 'OS', 'android');
+    expect(readingFooter()).toMatch(/^Text is read on this device\. Google ML Kit sends Google/);
   });
 });

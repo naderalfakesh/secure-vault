@@ -38,23 +38,25 @@ function keyFact(protection: KeyProtection | null): string {
  * sentence was narrowed (see docs/verification/redesign-onboarding.md).
  */
 export function protectionFacts(protection: KeyProtection | null = null): string[] {
-  return [
+  const facts = [
     t('settings.protection.fact.encrypted'),
     keyFact(protection),
     t('settings.protection.fact.pin'),
     t('settings.protection.fact.backup'),
     t('settings.protection.fact.account'),
   ];
+  // iOS reads text with Apple Vision, part of the system (ADR 0011).
+  if (Platform.OS === 'ios') facts.push(t('settings.protection.fact.textVision'));
+  return facts;
 }
 
 /**
- * The Google ML Kit disclosure, a notice rather than a protection, so the
- * screen shows it with an info icon. The Play services scanner is Android's.
+ * The Google ML Kit disclosure, Android only: a notice rather than a
+ * protection, so the screen shows it with an info icon. iOS uses no ML Kit
+ * and gets null.
  */
-export function mlKitDisclosure(): string {
-  return t('settings.protection.fact.mlkit', {
-    scanner: Platform.OS === 'android' ? t('settings.protection.fact.mlkitScanner') : '',
-  });
+export function mlKitDisclosure(): string | null {
+  return Platform.OS === 'android' ? t('settings.protection.fact.mlkit') : null;
 }
 
 export const PROTECTION_LIMITS = [

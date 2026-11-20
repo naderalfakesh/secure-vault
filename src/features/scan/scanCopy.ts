@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { type StringKey, t, tp } from '@/i18n';
 import type { scan } from '@/i18n/en/scan';
 import { isolate } from '@/utils/bidi';
@@ -13,6 +15,14 @@ export type ScanCopyKey = {
 
 export function scanText(key: ScanCopyKey): string {
   return t(`scan.${key}` as StringKey);
+}
+
+/**
+ * Who reads the text, under the processing steps: Apple Vision on iOS,
+ * Google ML Kit and its metrics on Android (ADR 0011).
+ */
+export function readingFooter(): string {
+  return scanText(Platform.OS === 'ios' ? 'processing.footerVision' : 'processing.footerMlKit');
 }
 
 /** "budget-final.numbers can’t be added. Choose a PDF…", with the name isolated. */
