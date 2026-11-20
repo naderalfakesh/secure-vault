@@ -13,10 +13,25 @@ export interface ModelInfo {
   reason?: string | null;
 }
 
+/** A line of text in the upright image's pixels, origin top-left. */
+export interface RecognizedLine {
+  text: string;
+  frame: { left: number; top: number; width: number; height: number };
+}
+
+/** What Apple Vision read: every line, plus the upright image's size. */
+export interface RecognizedText {
+  width: number;
+  height: number;
+  lines: RecognizedLine[];
+}
+
 interface NativeDocumentAi {
   modelInfo(): Promise<ModelInfo>;
   extractDetails(instructions: string, text: string): Promise<string>;
   downloadModel(): Promise<void>;
+  /** iOS only: Apple Vision text recognition (ADR 0011). */
+  recognizeText?(path: string): Promise<RecognizedText>;
 }
 
 // Optional so a build without the module still runs with heuristic suggestions.
@@ -62,4 +77,16 @@ export function extractDetails(instructions: string, text: string): Promise<stri
 export function downloadModel(): Promise<void> {
   if (!native) return Promise.reject(new Error('The on-device model is not available.'));
   return native.downloadModel();
+}
+
+/**
+ * Reads the text in an image file with Apple Vision (iOS only, ADR 0011):
+ * accurate recognition with language correction, on the device. Rejects on
+ * other platforms, where the app reads text with ML Kit instead.
+ */
+export function recognizeText(path: string): Promise<RecognizedText> {
+  if (Platform.OS !== 'ios' || !native?.recognizeText) {
+    return Promise.reject(new Error('Apple Vision text recognition is not available.'));
+  }
+  return native.recognizeText(path);
 }
