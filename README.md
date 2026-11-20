@@ -60,7 +60,7 @@ on iOS only; Android was rebuilt in Phase 3. The
   Thumbnails and pages encrypted separately so lists stay fast
 - A SQLCipher index with FTS5 search over titles, tags, and extracted text;
   the prototype's JSON index migrates on first open
-- VisionKit and ML Kit document scanning with multi-page capture, plus
+- VisionKit (iOS) and ML Kit (Android) document scanning with multi-page capture, plus
   Photos and Files as secondary sources; PDFs rendered natively so one viewer
   handles everything
 - On-device text reading with suggested titles, categories, tags, and typed
@@ -70,11 +70,13 @@ on iOS only; Android was rebuilt in Phase 3. The
   suggestions, and every date and number it proposes must appear in the
   scanned text before the form shows it; elsewhere text patterns do the same
   job ([ADR 0008](docs/adr/0008-on-device-language-models.md)). Text is read on
-  the device by Google ML Kit (and, on Android, scanned by the Google Play
-  services document scanner). ML Kit sends Google usage and performance
-  metrics, which include a per-installation identifier. Google says ML Kit
-  does not send your images or the text it reads. This cannot be turned off (see
-  `docs/SECURITY.md`)
+  the device: by Apple's Vision framework on iOS, with no Google framework in
+  the build ([ADR 0011](docs/adr/0011-apple-vision-text-recognition-on-ios.md)),
+  and by Google ML Kit on Android (where pages are also scanned by the Google
+  Play services document scanner). On Android, ML Kit sends Google usage and
+  performance metrics, which include a per-installation identifier. Google
+  says ML Kit does not send your images or the text it reads. This cannot be
+  turned off (see `docs/SECURITY.md`)
 - A pinch-zoom page viewer with a thumbnail strip, sharing under the
   document's own name with guaranteed cleanup, and delete with undo
 - Passphrase-protected `.svbackup` files that hold the documents and the
@@ -113,16 +115,16 @@ stored in plain. The
 
 ## Technology
 
-| Area       | Choice                                                                                                                                             |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                                                       |
-| Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                                                         |
-| Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                                                        |
-| Native     | Three local Expo Modules in Swift and Kotlin: the vault, the document scanner, and on-device document AI                                           |
-| Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                                                             |
-| Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                                                        |
-| Text       | ML Kit text recognition; Apple Foundation Models or Gemini Nano on the device, checked against the text, with a heuristic fallback                 |
-| Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, XCTest and JUnit with shared vectors, ESLint, Prettier, Expo Doctor |
+| Area       | Choice                                                                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                                                                        |
+| Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                                                                          |
+| Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                                                                         |
+| Native     | Three local Expo Modules in Swift and Kotlin: the vault, the document scanner, and on-device document AI                                                            |
+| Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                                                                              |
+| Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                                                                         |
+| Text       | Apple Vision (iOS) and ML Kit (Android) text recognition; Apple Foundation Models or Gemini Nano on the device, checked against the text, with a heuristic fallback |
+| Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, XCTest and JUnit with shared vectors, ESLint, Prettier, Expo Doctor                  |
 
 ## Quality
 
@@ -163,9 +165,9 @@ src/theme/               Colors, tokens, typography, Unistyles setup
 src/brand/               The sealed folio mark: one SVG for icons, splash and in-app mark
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
-modules/expo-document-ai/       Apple Foundation Models and Gemini Nano suggestions
+modules/expo-document-ai/       Apple Vision text reading; Foundation Models and Gemini Nano suggestions
 scripts/brand/           Renders every icon and splash PNG (npm run assets:icons)
-plugins/                 Config plugins: biometric strings, ML Kit simulator fix, SQLCipher OpenSSL
+plugins/                 Config plugins: biometric strings, SQLCipher OpenSSL
 docs/                    Plan, security model, ADRs, verification records, screenshots
 ```
 

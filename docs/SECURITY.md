@@ -12,9 +12,11 @@ intact and its Keychain and Keystore work as documented. It does not defend agai
 or rooted device with a debugger attached, a malicious OS update, or someone
 who knows the app PIN and has the unlocked phone in hand. There is no
 account, and SecureVault itself sends nothing anywhere and collects no
-analytics. Google ML Kit, which reads document text on the device (and, on
-Android, the Google Play services document scanner), sends Google usage and
-performance metrics; see "Google ML Kit metrics" below.
+analytics. On iOS, document text is read by Apple's Vision framework, part
+of the system, and no Google framework is linked. On Android, Google ML Kit,
+which reads document text on the device, and the Google Play services
+document scanner send Google usage and performance metrics; see "Google ML
+Kit metrics (Android)" below.
 
 ## Key hierarchy
 
@@ -541,13 +543,19 @@ disabled until it ends.
 - Screenshots are blocked while unlocked; on the iOS simulator the frame
   buffer can still be captured, which is a simulator property.
 
-## Google ML Kit metrics
+## Google ML Kit metrics (Android)
 
-SecureVault uses Google ML Kit to read document text on the device, on both
-platforms. On Android it also uses the Google Play services document
-scanner, which runs inside Google Play services, outside the app. The app
-keeps both, and discloses them on the protection page and the processing
-sheet.
+On iOS, SecureVault reads document text with Apple's Vision framework
+(`VNRecognizeTextRequest`, ADR 0011), scans with VisionKit and suggests with
+Apple's Foundation Model: all part of iOS, on the device. The iOS build
+links no ML Kit framework (`react-native.config.js` unlinks the text
+recognition package there), so nothing in this section applies to iOS, and
+the iOS protection page and processing sheet name Apple Vision instead.
+
+On Android, SecureVault uses Google ML Kit to read document text on the
+device, and the Google Play services document scanner, which runs inside
+Google Play services, outside the app. The app keeps both on Android, and
+discloses them on the protection page and the processing sheet.
 
 What is sent:
 
@@ -558,11 +566,11 @@ What is sent:
   metrics such as latency, API configuration such as image format and
   resolution, input and output size, feature version, event types and error
   codes. They are encrypted in transit.
-- The `MLKitCommon` privacy manifest (pod 13.0.0) declares these collected
-  data types, for analytics (and, except diagnostics, app functionality),
-  not linked to the user and not used for tracking: device ID, performance
-  data, product interaction, other diagnostic data, other user content, and
-  other data types.
+- Before ADR 0011, iOS builds linked ML Kit too; the `MLKitCommon` privacy
+  manifest (pod 13.0.0) declared these collected data types, for analytics
+  (and, except diagnostics, app functionality), not linked to the user and
+  not used for tracking: device ID, performance data, product interaction,
+  other diagnostic data, other user content, and other data types.
 - Google says ML Kit does not send your images or the text it reads: Google's ML Kit
   terms say processing happens on the device and that input data and
   results are not sent to Google servers. The manifest's "other user
@@ -571,18 +579,19 @@ What is sent:
   though Google says the identifier is not meant to identify a user or a
   device.
 
-How it is sent: on iOS, `MLKitCommon` carries its own Clearcut uploader,
-which queues events in `Library/Caches/CCTClearcutLogger` and reads Phenotype
-configuration (the milestone 1 QA found both in the app container). On
-Android the bundled text recognition logs through Google's data transport,
-and the scanner logs from Google Play services. The GenAI Prompt API that
+How it is sent: the bundled text recognition logs through Google's data
+transport, and the scanner logs from Google Play services. The GenAI Prompt API that
 reaches Gemini Nano (ADR 0008) logs the same way (`FIREBASE_ML_SDK` events in
 the data transport queue). Gemini Nano itself runs in Android AICore on the
 device, and Apple's Foundation Model runs on the device under Apple
 Intelligence; the document text is not sent to either company's servers.
 
-This cannot be turned off. Neither ML Kit nor the scanner offers a setting,
-Info.plist key or manifest flag for it. The `firebase_*` and
+(On iOS, before ADR 0011, `MLKitCommon` carried its own Clearcut uploader
+that queued events in `Library/Caches/CCTClearcutLogger`; iOS builds no
+longer contain it.)
+
+On Android this cannot be turned off. Neither ML Kit nor the scanner offers
+a setting or manifest flag for it. The `firebase_*` and
 `FirebaseDataCollectionDefaultEnabled` switches belong to Firebase, which
 SecureVault does not use, and the bundled and unbundled models log alike.
 
