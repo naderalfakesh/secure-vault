@@ -13,24 +13,25 @@ export type SetupPinHeaderProps = {
   confirming: boolean;
 };
 
-/** Back to the intro, and which of the two steps this is. */
+/** Back on the left, "Step n of 2" in the middle, as Change PIN lays out its steps. */
 export function SetupPinHeader({ keepsDocuments, confirming }: SetupPinHeaderProps) {
   return (
     <View style={styles.header}>
-      {keepsDocuments ? (
-        <View />
-      ) : (
-        <IconButton
-          icon="back"
-          accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
-        />
-      )}
+      <View style={styles.side}>
+        {keepsDocuments ? null : (
+          <IconButton
+            icon="back"
+            accessibilityLabel={t('common.back')}
+            onPress={() => router.back()}
+          />
+        )}
+      </View>
       {keepsDocuments ? null : (
-        <Text variant="footnote" tone="secondary">
+        <Text variant="subheadline" tone="secondary" style={styles.step}>
           {confirming ? t('onboarding.pin.step2') : t('onboarding.pin.step1')}
         </Text>
       )}
+      <View style={styles.side} />
     </View>
   );
 }

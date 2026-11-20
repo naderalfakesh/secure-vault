@@ -5,6 +5,8 @@ import { STAGE_INK, STAGE_INK_DIM } from '../../constants';
 export const styles = StyleSheet.create((theme) => ({
   ink: {
     color: STAGE_INK,
+    // A title that wraps stays centred over its page line.
+    textAlign: 'center',
   },
   dim: {
     color: STAGE_INK_DIM,
