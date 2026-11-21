@@ -2,14 +2,13 @@ import type { ReactElement } from 'react';
 import { FlatList, View } from 'react-native';
 
 import type { SnippetPiece } from '@/data/DocumentRepository';
-import { LibraryRow } from '@/features/documents/DocumentCard';
 import type { Document } from '@/types';
 
+import { LibraryRow } from '../LibraryRow';
 import { styles } from './DocumentList.styles';
 
 type DocumentListProps = {
   documents: readonly Document[];
-  getThumbnail: (id: string) => Promise<string | null>;
   /** Matched words per document, while searching. */
   snippets?: ReadonlyMap<string, SnippetPiece[] | null>;
   header?: ReactElement;
@@ -25,7 +24,6 @@ type DocumentListProps = {
 /** Search results, a collection or "See all", as one grouped list. */
 export function DocumentList({
   documents,
-  getThumbnail,
   snippets,
   header,
   empty,
@@ -50,7 +48,6 @@ export function DocumentList({
           {index > 0 ? <View style={styles.separator} /> : null}
           <LibraryRow
             document={item}
-            getThumbnail={getThumbnail}
             snippet={snippets?.get(item.id) ?? undefined}
             selectable={selecting}
             selected={selected.has(item.id)}

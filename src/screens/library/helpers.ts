@@ -10,11 +10,10 @@ import {
 import { t } from '@/i18n';
 import type { Document, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
-
-import { DAY_MS } from './constants';
+import { DAY_MS } from '@/utils/time';
 
 /** The last expiry day (ISO date) that goes on the Expiring soon rail. */
-export function railCutoff(now: number = Date.now()): string {
+export function expiringCutoffDate(now: number = Date.now()): string {
   return new Date(now + EXPIRING_WINDOW_DAYS * DAY_MS).toISOString().slice(0, 10);
 }
 

@@ -33,6 +33,8 @@ export function useLibraryBrowse() {
   }, []);
 
   const closeSheet = useCallback(() => setSheet(null), []);
+  const openSortSheet = useCallback(() => setSheet('sort'), []);
+  const openMoveSheet = useCallback(() => setSheet('move'), []);
 
   /** Search, a collection or "See all" replace the home sections with a list. */
   const listing = focused || query.trim().length > 0 || browsing || isFiltering(filter);
@@ -47,8 +49,9 @@ export function useLibraryBrowse() {
     sort,
     setSort,
     sheet,
-    setSheet,
     closeSheet,
+    openSortSheet,
+    openMoveSheet,
     listing,
     leaveList,
     browse,

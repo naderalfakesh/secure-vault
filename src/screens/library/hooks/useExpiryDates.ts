@@ -5,7 +5,7 @@ import { documentService } from '@/services/DocumentService';
 import type { Document } from '@/types';
 
 import { ALL_EXPIRY_DAYS } from '../constants';
-import { railCutoff } from '../helpers';
+import { expiringCutoffDate } from '../helpers';
 
 /**
  * Every recorded expiry date, and the last day that goes on the Expiring soon
@@ -13,7 +13,6 @@ import { railCutoff } from '../helpers';
  */
 export function useExpiryDates(documents: readonly Document[]) {
   const [expiry, setExpiry] = useState<ExpiryDates>(new Map());
-  const [cutoff, setCutoff] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -22,7 +21,6 @@ export function useExpiryDates(documents: readonly Document[]) {
       .then((rows) => {
         if (!active) return;
         setExpiry(new Map(rows.map(({ document, date }) => [document.id, date])));
-        setCutoff(railCutoff());
       })
       .catch(() => {});
     return () => {
@@ -30,5 +28,6 @@ export function useExpiryDates(documents: readonly Document[]) {
     };
   }, [documents]);
 
-  return { expiry, railCutoff: cutoff };
+  // Computed per render: until the dates load no document has one, so the rail is empty.
+  return { expiry, railCutoff: expiringCutoffDate() };
 }

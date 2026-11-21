@@ -9,6 +9,38 @@ import { isolate } from '@/utils/bidi';
 
 const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });
 
+/** Puts the deleted documents back and says how it went. */
+async function undoDelete(
+  deleted: readonly DeletedDocument[],
+  toast: ReturnType<typeof useToast>,
+): Promise<void> {
+  const single = deleted.length === 1 ? deleted[0].document.title : null;
+  const missing: string[] = [];
+  for (const item of deleted) {
+    try {
+      await documentService.restoreDocument(item);
+    } catch {
+      missing.push(item.document.title);
+    }
+  }
+  if (missing.length > 0) {
+    toast.show({
+      message:
+        missing.length === 1
+          ? t('library.delete.restoreFailedOne', { title: quoted(missing[0]) })
+          : t('library.delete.restoreFailedMany', { count: missing.length }),
+      tone: 'danger',
+    });
+    return;
+  }
+  toast.show({
+    message: single
+      ? t('library.delete.backOne', { title: quoted(single) })
+      : t('library.delete.backMany', { count: deleted.length }),
+    tone: 'success',
+  });
+}
+
 /**
  * Delete without a confirmation, then offer Undo with a countdown, using the
  * service's undo window.
@@ -61,7 +93,6 @@ export function useDeleteWithUndo() {
               : t('library.delete.failedMany', { count: failed.length }),
           tone: 'danger',
         });
-        if (deleted.length === 0) return 0;
       }
       if (deleted.length === 0) return 0;
 
@@ -73,37 +104,7 @@ export function useDeleteWithUndo() {
         icon: 'trash',
         countdown: true,
         durationMs: UNDO_TOAST_MS,
-        action: {
-          label: t('library.delete.undo'),
-          onPress: () => {
-            void (async () => {
-              const missing: string[] = [];
-              for (const item of deleted) {
-                try {
-                  await documentService.restoreDocument(item);
-                } catch {
-                  missing.push(item.document.title);
-                }
-              }
-              if (missing.length > 0) {
-                toast.show({
-                  message:
-                    missing.length === 1
-                      ? t('library.delete.restoreFailedOne', { title: quoted(missing[0]) })
-                      : t('library.delete.restoreFailedMany', { count: missing.length }),
-                  tone: 'danger',
-                });
-                return;
-              }
-              toast.show({
-                message: single
-                  ? t('library.delete.backOne', { title: quoted(single) })
-                  : t('library.delete.backMany', { count: deleted.length }),
-                tone: 'success',
-              });
-            })();
-          },
-        },
+        action: { label: t('library.delete.undo'), onPress: () => void undoDelete(deleted, toast) },
       });
       return deleted.length;
     },

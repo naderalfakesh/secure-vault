@@ -1,16 +1,15 @@
 import { View } from 'react-native';
 
 import { Group } from '@/components/ui';
-import { LibraryRow } from '@/features/documents/DocumentCard';
 import { t } from '@/i18n';
 import type { Document } from '@/types';
 
+import { LibraryRow } from '../LibraryRow';
 import { SectionHeader } from '../SectionHeader';
 import { styles } from './RecentDocuments.styles';
 
 type RecentDocumentsProps = {
   documents: readonly Document[];
-  getThumbnail: (id: string) => Promise<string | null>;
   onOpen: (document: Document) => void;
   onStartSelecting: (document: Document) => void;
   onSeeAll: () => void;
@@ -19,7 +18,6 @@ type RecentDocumentsProps = {
 /** The last few documents added, with "See all". */
 export function RecentDocuments({
   documents,
-  getThumbnail,
   onOpen,
   onStartSelecting,
   onSeeAll,
@@ -36,7 +34,6 @@ export function RecentDocuments({
             <LibraryRow
               key={document.id}
               document={document}
-              getThumbnail={getThumbnail}
               onPress={onOpen}
               onLongPress={onStartSelecting}
             />

@@ -5,7 +5,7 @@ import {
   expiringDocuments,
   noMatchesTitle,
   presentIds,
-  railCutoff,
+  expiringCutoffDate,
   selectionBarBottom,
   soleCollection,
   toggleCollection,
@@ -35,7 +35,7 @@ const all = [lease, passport, invoice];
 
 describe('library screen helpers', () => {
   it('puts the rail cutoff ninety days out', () => {
-    expect(railCutoff(Date.UTC(2026, 10, 18))).toBe('2027-02-16');
+    expect(expiringCutoffDate(Date.UTC(2026, 10, 18))).toBe('2027-02-16');
   });
 
   it('keeps documents expiring by the cutoff, soonest first', () => {

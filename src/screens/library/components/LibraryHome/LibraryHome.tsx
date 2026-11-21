@@ -14,7 +14,6 @@ type LibraryHomeProps = {
   recent: readonly Document[];
   counts: Record<DocumentCategory, number>;
   bottomSpace: number;
-  getThumbnail: (id: string) => Promise<string | null>;
   onOpen: (document: Document) => void;
   onStartSelecting: (document: Document) => void;
   onBrowse: (collections?: DocumentCategory[]) => void;
@@ -27,7 +26,6 @@ export function LibraryHome({
   recent,
   counts,
   bottomSpace,
-  getThumbnail,
   onOpen,
   onStartSelecting,
   onBrowse,
@@ -39,16 +37,10 @@ export function LibraryHome({
       keyboardShouldPersistTaps="handled"
     >
       {expiring.length > 0 ? (
-        <ExpiringRail
-          documents={expiring}
-          expiry={expiry}
-          getThumbnail={getThumbnail}
-          onOpen={onOpen}
-        />
+        <ExpiringRail documents={expiring} expiry={expiry} onOpen={onOpen} />
       ) : null}
       <RecentDocuments
         documents={recent}
-        getThumbnail={getThumbnail}
         onOpen={onOpen}
         onStartSelecting={onStartSelecting}
         onSeeAll={() => onBrowse()}

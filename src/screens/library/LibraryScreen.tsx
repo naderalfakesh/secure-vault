@@ -3,11 +3,11 @@ import { useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Screen } from '@/components/ui';
+import { useDocumentList } from '@/features/documents/hooks/useDocumentList';
 import { indexOrder, NO_FILTER } from '@/features/documents/library';
 import { tabBarClearance } from '@/features/navigation/tabBarClearance';
 import { useHideTabBar } from '@/features/navigation/tabBarVisibility';
 import { useDelayed } from '@/hooks/useDelayed';
-import { useDocuments } from '@/hooks/useDocuments';
 import type { Document } from '@/types';
 
 import {
@@ -37,7 +37,7 @@ const openAdd = () => router.push('/documents/add');
 
 export function LibraryScreen() {
   const insets = useSafeAreaInsets();
-  const { documents, loading, error, refreshDocuments, getDocumentThumbnail } = useDocuments();
+  const { documents, loading, error, refresh } = useDocumentList();
   const browse = useLibraryBrowse();
   const { filter, sort } = browse;
   const order = indexOrder(sort);
@@ -83,7 +83,7 @@ export function LibraryScreen() {
 
   // States that replace the whole screen.
   if (!loading && error) {
-    return <LibraryStatus status="failed" error={error} onRetry={refreshDocuments} />;
+    return <LibraryStatus status="failed" error={error} onRetry={refresh} />;
   }
   if (loading) return <LibraryStatus status="loading" showSkeleton={showSkeleton} />;
   if (documents.length === 0) {
@@ -109,14 +109,13 @@ export function LibraryScreen() {
           documentCount={documents.length}
           onLeaveList={browse.leaveList}
           onSelect={() => selection.start()}
-          onSort={() => browse.setSheet('sort')}
+          onSort={browse.openSortSheet}
         />
       )}
 
       {listMode ? (
         <DocumentList
           documents={shown}
-          getThumbnail={getDocumentThumbnail}
           snippets={search.searching ? search.snippets : undefined}
           header={
             selecting ? undefined : (
@@ -127,7 +126,7 @@ export function LibraryScreen() {
                 resultCount={shown.length}
                 searching={search.searching}
                 sort={sort}
-                onSort={() => browse.setSheet('sort')}
+                onSort={browse.openSortSheet}
               />
             )
           }
@@ -155,7 +154,6 @@ export function LibraryScreen() {
           recent={recent}
           counts={counts}
           bottomSpace={bottomSpace}
-          getThumbnail={getDocumentThumbnail}
           onOpen={openDocument}
           onStartSelecting={selection.start}
           onBrowse={browse.browse}
@@ -167,7 +165,7 @@ export function LibraryScreen() {
           insetBottom={insets.bottom}
           count={selected.size}
           busy={actions.deleting}
-          onMove={() => browse.setSheet('move')}
+          onMove={browse.openMoveSheet}
           onDelete={actions.deleteSelected}
         />
       ) : null}

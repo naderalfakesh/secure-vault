@@ -3,10 +3,10 @@ import { Text } from 'react-native';
 
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import { openTestDatabase } from '@/data/testing/betterSqlite';
+import { documentService } from '@/services/DocumentService';
 import vault from '@modules/expo-vault';
 
-import { useDocuments } from './useDocuments';
-import { documentService } from '../services/DocumentService';
+import { useDocumentList } from '../useDocumentList';
 
 jest.mock('@/data/testing/betterSqlite', () => {
   const actual = jest.requireActual('@/data/testing/betterSqlite');
@@ -18,7 +18,7 @@ const opens = openTestDatabase as jest.Mock;
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
 function Home() {
-  const { documents, error, loading } = useDocuments();
+  const { documents, error, loading } = useDocumentList();
   return (
     <>
       <Text testID="count">{loading ? 'loading' : String(documents.length)}</Text>
@@ -27,7 +27,7 @@ function Home() {
   );
 }
 
-describe('useDocuments', () => {
+describe('useDocumentList', () => {
   beforeEach(async () => {
     vaultMock.reset();
     await closeDocumentStore();
