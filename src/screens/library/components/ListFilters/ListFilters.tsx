@@ -11,8 +11,8 @@ import {
 import { t } from '@/i18n';
 import type { DocumentCategory } from '@/types';
 
-import { soleCollection } from '../../helpers';
 import { styles } from './ListFilters.styles';
+import { soleCollection } from '../../helpers';
 
 type ListFiltersProps = {
   filter: LibraryFilter;

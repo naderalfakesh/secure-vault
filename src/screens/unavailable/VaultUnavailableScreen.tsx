@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
 import { KeyInvalidatedBody, ReadFailedBody, RetryActions, UnavailableLayout } from './components';
 import { useEraseVault } from './hooks/useEraseVault';
-import { useMountedRef } from '@/hooks/useMountedRef';
 import { useRetryActions } from './hooks/useRetryActions';
 
 /**

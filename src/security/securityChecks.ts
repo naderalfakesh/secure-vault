@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
-import { File } from 'expo-file-system';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 export interface SecurityCheckResult {
   rooted: boolean;

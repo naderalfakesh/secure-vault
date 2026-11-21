@@ -4,8 +4,8 @@ import { View } from 'react-native';
 import { Button, Icon, Screen, Text } from '@/components/ui';
 import { t } from '@/i18n';
 
-import type { LoadFailure } from '../../types';
 import { styles } from './ViewerFailure.styles';
+import type { LoadFailure } from '../../types';
 
 type ViewerFailureProps = {
   failure: LoadFailure;

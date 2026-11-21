@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+
 import type { SecurityCheckResult } from '../security/securityChecks';
 import { detectDeviceCompromise } from '../security/securityChecks';
 

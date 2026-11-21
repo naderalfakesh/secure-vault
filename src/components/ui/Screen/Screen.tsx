@@ -1,8 +1,8 @@
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { ScreenProps } from './types';
 import { styles } from './Screen.styles';
+import type { ScreenProps } from './types';
 
 /**
  * Themed page container; every route renders inside one. The background sits

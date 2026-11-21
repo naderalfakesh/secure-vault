@@ -1,20 +1,21 @@
-import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
+import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
-import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
+
+import { createBackup } from '@/testing/backup';
+import vault, { type BackupProgress } from '@modules/expo-vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import vault, { type BackupProgress } from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
 import { backupService } from '../services/BackupService';
-import { createBackup } from '@/testing/backup';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));

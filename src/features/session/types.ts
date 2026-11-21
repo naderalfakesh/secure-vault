@@ -1,6 +1,6 @@
 import type { LockoutState } from '@/features/auth/lockout';
+import type { BiometryType } from '@modules/expo-vault';
 
-import type { BiometryType } from '../../../modules/expo-vault';
 import type { SecuritySettings } from './settings';
 
 /**

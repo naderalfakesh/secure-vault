@@ -3,6 +3,7 @@ import { type Dispatch, type SetStateAction, useCallback } from 'react';
 import { useToast } from '@/components/ui';
 import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
 import { copySensitiveText } from '@/features/viewer/clipboard';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
 import { ocrService } from '@/services/OcrService';
@@ -11,7 +12,6 @@ import { plainErrorMessage } from '@/utils/errors';
 
 import { goToLibrary } from '../navigation';
 import type { ViewerBusy } from '../types';
-import { useMountedRef } from '@/hooks/useMountedRef';
 
 type Options = {
   document: Document | null;

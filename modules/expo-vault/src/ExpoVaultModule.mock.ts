@@ -342,3 +342,7 @@ export function followLinksOnDelete(
 }
 
 export default vaultMock;
+
+// The module's pure helpers stay real, so code under test imports them from
+// the module's entry point as the app does.
+export { isKeyLocked, withKeyRecovery } from './withKeyRecovery';

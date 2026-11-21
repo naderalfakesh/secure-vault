@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 
 import { isCancellable } from '../ProcessingPanel';
 import { pageActions } from '../ReviewPages/pageActions';
-import { sourceRows } from '../SourceList';
 import { readingFooter } from '../scanCopy';
+import { sourceRows } from '../SourceList';
 
 const names = (actions: { name: string }[]) => actions.map((action) => action.name);
 const keys = (rows: { key: string; disabled?: boolean }[]) =>

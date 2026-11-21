@@ -2,9 +2,9 @@ import { Children, isValidElement } from 'react';
 import { View } from 'react-native';
 
 import { Text } from '../Text';
+import { styles } from './Group.styles';
 import { GroupContext } from './GroupContext';
 import type { GroupProps } from './types';
-import { styles } from './Group.styles';
 
 /** Grouped surface with hairline separators between its rows. */
 export function Group({

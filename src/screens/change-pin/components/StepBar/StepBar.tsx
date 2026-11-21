@@ -4,9 +4,9 @@ import { View } from 'react-native';
 import { Button, Text } from '@/components/ui';
 import { t } from '@/i18n';
 
+import { styles } from './StepBar.styles';
 import { STEPS, TOTAL_STEPS } from '../../constants';
 import type { Stage } from '../../types';
-import { styles } from './StepBar.styles';
 
 export type StepBarProps = {
   stage: Stage;

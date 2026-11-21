@@ -1,12 +1,13 @@
-import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Directory } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
+import { useEffect } from 'react';
 import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 
+import vault from '@modules/expo-vault';
+
 import BackupScreen from '../../app/settings/backup';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import * as saveModule from '../features/backup/saveToDevice';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';

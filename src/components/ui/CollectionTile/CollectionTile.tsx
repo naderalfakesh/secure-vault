@@ -5,8 +5,8 @@ import { isolate } from '@/utils/bidi';
 
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import type { CollectionTileProps } from './types';
 import { styles } from './CollectionTile.styles';
+import type { CollectionTileProps } from './types';
 
 /** Collection tile: tinted icon tile, name, and document count. */
 export function CollectionTile({ name, count, icon, onPress, testID }: CollectionTileProps) {

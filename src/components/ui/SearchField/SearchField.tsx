@@ -6,8 +6,8 @@ import { t } from '@/i18n';
 
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import type { SearchFieldProps } from './types';
 import { styles } from './SearchField.styles';
+import type { SearchFieldProps } from './types';
 
 /**
  * 44 pt pill search field: leading search glyph, a clear button

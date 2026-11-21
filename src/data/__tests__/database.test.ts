@@ -1,6 +1,7 @@
 import { Directory, File } from 'expo-file-system';
 
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import {
   allowDocumentStore,
   closeDocumentStore,

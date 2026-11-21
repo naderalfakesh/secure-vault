@@ -1,4 +1,5 @@
-import { recognizeText } from '../../../modules/expo-document-ai';
+import { recognizeText } from '@modules/expo-document-ai';
+
 import { groupLines } from './blocks';
 import type { OcrBlock } from './types';
 

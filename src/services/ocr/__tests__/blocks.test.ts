@@ -1,4 +1,5 @@
-import type { RecognizedLine } from '../../../../modules/expo-document-ai';
+import type { RecognizedLine } from '@modules/expo-document-ai';
+
 import { groupLines } from '../blocks';
 
 const line = (

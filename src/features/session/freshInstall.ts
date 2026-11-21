@@ -2,9 +2,9 @@ import { Directory, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import vault from '../../../modules/expo-vault';
 import { hasIndexFiles } from '@/data/database';
 import { SESSION_MARKER_DIRECTORY } from '@/features/session/settings';
+import vault from '@modules/expo-vault';
 
 /**
  * Every secure-store entry the app writes: the session's PIN record, settings

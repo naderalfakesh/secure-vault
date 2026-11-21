@@ -2,8 +2,8 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet as NativeStyleSheet } from 'react-native';
 
 import { Icon } from '../Icon';
-import type { IconButtonProps } from './types';
 import { styles } from './IconButton.styles';
+import type { IconButtonProps } from './types';
 
 export function IconButton({
   icon,

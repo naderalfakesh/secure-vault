@@ -5,8 +5,8 @@ import { isolate } from '@/utils/bidi';
 
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import type { FileCardProps } from './types';
 import { styles } from './FileCard.styles';
+import type { FileCardProps } from './types';
 
 /** A file about to be shared or restored. */
 export function FileCard({ name, meta, icon = 'archive', testID }: FileCardProps) {

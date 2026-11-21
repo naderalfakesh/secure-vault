@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 
-import vault from '../../../modules/expo-vault';
 import type { SessionStatus } from '@/features/session/SessionProvider';
 import { clearCopiedText } from '@/features/viewer/clipboard';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import vault from '@modules/expo-vault';
 
 /** Decrypted previews, rendered pages, share copies, and backup ciphertext. */
 function sweepCaches() {

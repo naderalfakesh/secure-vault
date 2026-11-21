@@ -1,6 +1,6 @@
 import { clampLockout, type LockoutState } from '@/features/auth/lockout';
+import vault from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
 import { interpretLaunchReads } from './helpers';
 import { sessionStorage } from './settings';
 import type { KeyRead } from './types';

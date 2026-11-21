@@ -2,11 +2,11 @@ import { SymbolView } from 'expo-symbols';
 import { I18nManager, Platform, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { toneToColor } from '../Text/constants';
 import { MIRRORED } from './constants';
 import { IconGlyph } from './IconGlyph';
 import { icons } from './icons';
 import type { Glyph, IconProps } from './types';
+import { toneToColor } from '../Text/constants';
 
 export function Icon({
   name,

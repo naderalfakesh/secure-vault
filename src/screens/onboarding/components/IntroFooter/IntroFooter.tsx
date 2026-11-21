@@ -3,8 +3,8 @@ import { View } from 'react-native';
 import { Button } from '@/components/ui';
 import { t } from '@/i18n';
 
-import type { Slide } from '../../types';
 import { styles } from './IntroFooter.styles';
+import type { Slide } from '../../types';
 
 export type IntroFooterProps = {
   slides: Slide[];

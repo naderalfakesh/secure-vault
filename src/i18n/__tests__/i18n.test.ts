@@ -2,10 +2,9 @@ import { I18nManager } from 'react-native';
 
 import { formatDate } from '@/utils/format';
 
-import { applyLayoutDirection, wantsRTL } from '../direction';
 import { displayDigit } from '../digits';
+import { applyLayoutDirection, wantsRTL } from '../direction';
 import { en, namespaces } from '../en';
-
 import { appLocale, isRTLLanguage, resolveLocale, setAppLocaleForTesting, t, tp } from '../index';
 
 const english = [{ languageTag: 'en-US', languageCode: 'en' }];

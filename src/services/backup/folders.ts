@@ -1,6 +1,7 @@
 import { Directory, type File, Paths } from 'expo-file-system';
 
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import { removeNoFollow } from '../removeNoFollow';
 import { BACKUP_DIRECTORY, BACKUP_STAGING_DIRECTORY, RESTORE_SOURCE_DIRECTORY } from './constants';
 import type { ProgressListener } from './types';

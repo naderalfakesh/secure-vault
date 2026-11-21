@@ -4,8 +4,8 @@ import { Group, SegmentedControl } from '@/components/ui';
 import { t } from '@/i18n';
 import type { AppearancePreference } from '@/theme/appearance';
 
-import { APPEARANCE_CHOICES } from '../../constants';
 import { styles } from './AppearanceGroup.styles';
+import { APPEARANCE_CHOICES } from '../../constants';
 
 export type AppearanceGroupProps = {
   value: AppearancePreference;

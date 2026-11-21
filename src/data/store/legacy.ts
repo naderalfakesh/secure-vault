@@ -1,7 +1,6 @@
 import type { DocumentMetadata } from '@/types';
+import vault, { isKeyLocked } from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { LEGACY_IMPORTED_ENTRY, LEGACY_INDEX_ENTRY } from './constants';
 import { unreadableKey } from './errors';
 

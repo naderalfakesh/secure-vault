@@ -3,12 +3,12 @@ import { View } from 'react-native';
 import { Button, Icon, InlineAlert, PassphraseField, StrengthMeter, Text } from '@/components/ui';
 import { passphraseProblem } from '@/services/BackupService';
 
+import { styles } from './PassphraseForm.styles';
 import { backupCopy as copy } from '../../../backupCopy';
 import { CAN_SAVE } from '../../constants';
 import { passphraseChecks } from '../../helpers';
 import type { Destination } from '../../types';
 import { Rule } from '../Rule';
-import { styles } from './PassphraseForm.styles';
 
 export type PassphraseFormProps = {
   passphrase: string;

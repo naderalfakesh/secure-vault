@@ -3,10 +3,10 @@ import { Text } from 'react-native';
 
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import { openTestDatabase } from '@/data/testing/betterSqlite';
+import vault from '@modules/expo-vault';
 
-import vault from '../../modules/expo-vault';
-import { documentService } from '../services/DocumentService';
 import { useDocuments } from './useDocuments';
+import { documentService } from '../services/DocumentService';
 
 jest.mock('@/data/testing/betterSqlite', () => {
   const actual = jest.requireActual('@/data/testing/betterSqlite');

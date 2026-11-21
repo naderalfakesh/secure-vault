@@ -5,8 +5,7 @@ import {
   wrongPinMessage,
 } from '@/features/auth/lockCopy';
 import { t } from '@/i18n';
-
-import type { BiometryType } from '../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 /** Whole seconds left in a lockout, from its remaining milliseconds. */
 export function secondsLeft(remainingMs: number): number {

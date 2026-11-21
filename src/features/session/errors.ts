@@ -1,7 +1,6 @@
 import { t } from '@/i18n';
 import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
-
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
+import { isKeyLocked } from '@modules/expo-vault';
 
 /** Native error codes that deserve a plain sentence instead of the OS text. */
 const friendlyMessages: Record<string, string> = {

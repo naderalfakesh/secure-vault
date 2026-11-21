@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
-import type { CardProps } from './types';
 import { styles } from './Card.styles';
+import type { CardProps } from './types';
 
 /**
  * Grouped surface for rows and content, styled like a Group (surface, radius

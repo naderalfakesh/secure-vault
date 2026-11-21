@@ -3,9 +3,9 @@ import { Pressable, View } from 'react-native';
 import { Button, Icon, Sheet, Text } from '@/components/ui';
 import { t } from '@/i18n';
 
+import { styles } from './EraseSheet.styles';
 import { eraseSubject } from '../../helpers';
 import type { EraseRequest } from '../../types';
-import { styles } from './EraseSheet.styles';
 
 export type EraseSheetProps = {
   /** Null closes the sheet. */

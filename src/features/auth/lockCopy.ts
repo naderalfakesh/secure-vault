@@ -2,8 +2,7 @@ import { Platform } from 'react-native';
 
 import type { IconName } from '@/components/ui';
 import { t, tp } from '@/i18n';
-
-import type { BiometryType } from '../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 /**
  * What the biometric way in is called on this phone. Android

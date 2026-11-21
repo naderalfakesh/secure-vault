@@ -6,8 +6,8 @@ import { isolate } from '@/utils/bidi';
 import { PaperThumbnail } from '../PaperThumbnail';
 import { Text } from '../Text';
 import { THUMBNAIL_HEIGHT } from './constants';
-import type { DocumentCardProps } from './types';
 import { styles } from './DocumentCard.styles';
+import type { DocumentCardProps } from './types';
 
 /** Document card: paper thumbnail, title, brass expiry line. */
 export function DocumentCard({

@@ -5,8 +5,8 @@ import { useAnnouncement } from '../announce';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
 import { looks } from './constants';
-import type { InlineAlertProps } from './types';
 import { styles } from './InlineAlert.styles';
+import type { InlineAlertProps } from './types';
 
 /** Inline callout: colour, icon, and text together, never colour alone. */
 export function InlineAlert({

@@ -1,7 +1,7 @@
 import { choosePinHint, EASY_PIN_WARNING } from '@/features/auth/onboardingCopy';
 import { t } from '@/i18n';
+import type { BiometryType } from '@modules/expo-vault';
 
-import type { BiometryType } from '../../../modules/expo-vault';
 import type { Stage } from './types';
 
 /** The second step: confirming, and saving what was confirmed. */

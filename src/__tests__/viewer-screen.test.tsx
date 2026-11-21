@@ -6,9 +6,9 @@ import { AppState, type AppStateStatus, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { closeDocumentStore } from '@/data/database';
+import vault from '@modules/expo-vault';
 
 import DocumentViewerScreen from '../../app/documents/[id]';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';

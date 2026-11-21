@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 
 import type { ExtractedField } from '@/data/DocumentRepository';
 import { DocumentCategory } from '@/types';
+import { extractDetails, type ModelEngine, modelInfo } from '@modules/expo-document-ai';
 
-import { extractDetails, type ModelEngine, modelInfo } from '../../../modules/expo-document-ai';
 import { findDates, heuristicIntelligence } from './heuristic';
 import { type DocumentIntelligence, type DocumentSuggestion, EXPIRY_FIELD } from './types';
 

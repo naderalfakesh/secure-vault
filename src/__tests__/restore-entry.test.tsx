@@ -7,9 +7,10 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
+import vault from '@modules/expo-vault';
+
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 

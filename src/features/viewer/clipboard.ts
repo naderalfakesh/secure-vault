@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { Platform } from 'react-native';
 
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
 
 /** How long iOS keeps copied document text on the clipboard. */
 export const COPIED_TEXT_EXPIRY_MS = 2 * 60_000;

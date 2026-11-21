@@ -5,9 +5,9 @@ import { useEffect } from 'react';
 import { AccessibilityInfo, Text } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
+import vault from '@modules/expo-vault';
 
 import LibraryScreen from '../../app/(tabs)/index';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';

@@ -1,7 +1,7 @@
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useRef } from 'react';
 
-import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import { EMPTY_LOCKOUT, isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
+import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import { t } from '@/i18n';
 
 import { describeError } from '../errors';

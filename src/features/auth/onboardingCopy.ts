@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
 
 import { t } from '@/i18n';
-
-import type { BiometryType } from '../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 /** Intro step 3, worded for the biometric this phone has. */
 export function unlockSlideBody(biometry: BiometryType): string {

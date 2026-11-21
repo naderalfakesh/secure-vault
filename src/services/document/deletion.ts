@@ -1,7 +1,7 @@
 import type { DocumentRepository } from '@/data/DocumentRepository';
 import type { PickedFile } from '@/types';
+import ExpoVaultModule from '@modules/expo-vault';
 
-import ExpoVaultModule from '../../../modules/expo-vault';
 import { cacheLocation, toPath } from './helpers';
 import { discardTemp } from './residue';
 import type { DeletedDocument, DocumentLookup, RepositorySource } from './types';

@@ -1,11 +1,12 @@
-import { downloadModel, modelInfo } from '../../../modules/expo-document-ai';
+import { downloadModel, modelInfo } from '@modules/expo-document-ai';
+
 import { heuristicIntelligence } from './heuristic';
 import { onDeviceModelIntelligence } from './onDeviceModel';
 import type { DocumentIntelligence, DocumentSuggestion } from './types';
 
 export type { DocumentIntelligence, DocumentSuggestion, IntelligenceEngine } from './types';
 export { EXPIRY_FIELD } from './types';
-export type { ModelInfo } from '../../../modules/expo-document-ai';
+export type { ModelInfo } from '@modules/expo-document-ai';
 
 /** The platform's on-device model and whether it is ready, for Settings. */
 export const onDeviceModelInfo = modelInfo;

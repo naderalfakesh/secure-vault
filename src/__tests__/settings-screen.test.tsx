@@ -1,18 +1,19 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import Constants from 'expo-constants';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { Linking, Text } from 'react-native';
 
-import appJson from '../../app.json';
+import vault from '@modules/expo-vault';
+
 import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
-import vault from '../../modules/expo-vault';
+import appJson from '../../app.json';
 import { ToastProvider } from '../components/ui';
-import { backupService } from '../services/BackupService';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { backupService } from '../services/BackupService';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));

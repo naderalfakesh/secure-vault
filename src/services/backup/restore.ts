@@ -1,8 +1,8 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { replaceDatabaseFile } from '@/data/database';
+import vault from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
 import { documentService, PICKER_DIRECTORY } from '../document';
 import { excludeFromBackupQuietly, removeNoFollow } from '../removeNoFollow';
 import {

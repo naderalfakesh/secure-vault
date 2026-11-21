@@ -3,11 +3,12 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Text } from 'react-native';
 
-import { LOCKOUT_BASE_MS } from '../auth/lockout';
 import { hashPasscode } from '@/testing/passcode';
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import { SessionProvider, useSession } from './SessionProvider';
 import { SESSION_MARKER_DIRECTORY, sessionStorage } from './settings';
+import { LOCKOUT_BASE_MS } from '../auth/lockout';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as { reset(): void };

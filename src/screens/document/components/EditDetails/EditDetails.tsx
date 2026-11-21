@@ -6,8 +6,8 @@ import { useAnnouncement } from '@/components/ui/announce';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { t } from '@/i18n';
 
-import type { Draft } from '../../types';
 import { styles } from './EditDetails.styles';
+import type { Draft } from '../../types';
 
 type EditDetailsProps = {
   draft: Draft;

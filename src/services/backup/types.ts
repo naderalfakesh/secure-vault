@@ -1,4 +1,4 @@
-import type { BackupProgress } from '../../../modules/expo-vault';
+import type { BackupProgress } from '@modules/expo-vault';
 
 export interface BackupResult {
   uri: string;

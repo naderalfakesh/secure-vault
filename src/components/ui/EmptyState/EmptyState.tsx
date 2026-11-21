@@ -12,8 +12,8 @@ import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
 import { ENTER_MS, ENTER_RISE } from './constants';
-import type { EmptyStateProps } from './types';
 import { styles } from './EmptyState.styles';
+import type { EmptyStateProps } from './types';
 
 export function EmptyState({
   icon,

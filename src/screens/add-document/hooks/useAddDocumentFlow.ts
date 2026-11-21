@@ -2,12 +2,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import { movePage } from '@/features/scan/pages';
 import type { ProcessingStep } from '@/features/scan/ProcessingPanel';
-import type { Source, SourceProblem } from '@/features/scan/SourceList';
 import { sourceFailureMessage } from '@/features/scan/sourceErrors';
+import type { Source, SourceProblem } from '@/features/scan/SourceList';
 import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { documentService } from '@/services/DocumentService';
+import { isCameraAvailable, isScannerSupported } from '@modules/expo-document-scanner';
 
-import { isCameraAvailable, isScannerSupported } from '../../../../modules/expo-document-scanner';
 import { SCANNED_TITLE } from '../constants';
 import { thumbnailsFor, withoutPage } from '../helpers';
 import { importFile, pickPhoto, scanPages } from '../pickers';
@@ -15,7 +16,6 @@ import type { Origin, Phase, SinglePick } from '../types';
 import { useCameraAccess } from './useCameraAccess';
 import { useDetails } from './useDetails';
 import { useHeldCopies } from './useHeldCopies';
-import { useMountedRef } from '@/hooks/useMountedRef';
 import { useReadPages } from './useReadPages';
 import { useSaveDocument } from './useSaveDocument';
 

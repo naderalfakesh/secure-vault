@@ -4,8 +4,8 @@ import type { Document } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { plainErrorMessage } from '@/utils/errors';
 import { formatDate, formatFileSize, joinParts } from '@/utils/format';
+import { isKeyLocked } from '@modules/expo-vault';
 
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { FIELD_TITLES } from './constants';
 import type { Draft } from './types';
 

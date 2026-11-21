@@ -1,12 +1,12 @@
 import * as Clipboard from 'expo-clipboard';
 import { Platform } from 'react-native';
 
-import vault from '../../../../modules/expo-vault';
 import {
   clearCopiedText,
   COPIED_TEXT_EXPIRY_MS,
   copySensitiveText,
 } from '@/features/viewer/clipboard';
+import vault from '@modules/expo-vault';
 
 jest.mock('expo-clipboard', () => {
   let content = '';

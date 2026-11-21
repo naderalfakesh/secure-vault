@@ -8,8 +8,8 @@ import { GlassBackground, useGlass } from '../Glass';
 import { Icon } from '../Icon';
 import { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT } from './constants';
 import { Tab } from './Tab';
-import type { TabBarProps } from './types';
 import { styles } from './TabBar.styles';
+import type { TabBarProps } from './types';
 
 /**
  * Floating tab bar: Library · central Scan button · Settings.

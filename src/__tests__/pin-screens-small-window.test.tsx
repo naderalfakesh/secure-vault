@@ -2,13 +2,14 @@ import { render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Dimensions } from 'react-native';
 
-import ChangePinScreen from '../../app/settings/change-pin';
+import { hashPasscode } from '@/testing/passcode';
+import vault from '@modules/expo-vault';
+
 import LockScreen from '../../app/lock';
+import ChangePinScreen from '../../app/settings/change-pin';
 import CreatePinScreen from '../../app/setup/pin';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { pinPadMetrics } from '../components/ui/PinPad';
-import { hashPasscode } from '@/testing/passcode';
 import { SessionProvider } from '../features/session/SessionProvider';
 
 jest.mock('expo-router', () => ({

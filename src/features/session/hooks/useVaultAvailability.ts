@@ -11,8 +11,8 @@ import {
 import { type LockoutState, unreadableLockout } from '@/features/auth/lockout';
 import { t } from '@/i18n';
 import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
+import vault, { type BiometryType } from '@modules/expo-vault';
 
-import vault, { type BiometryType } from '../../../../modules/expo-vault';
 import { KEY_PROBE_ENTRY } from '../constants';
 import { describeError, errorCode, keyNotUnlocked } from '../errors';
 import { reconcileInstall } from '../freshInstall';

@@ -1,9 +1,9 @@
+import { act, renderRouter, screen } from 'expo-router/testing-library';
 import * as SecureStore from 'expo-secure-store';
 import * as SplashScreen from 'expo-splash-screen';
-import { act, renderRouter, screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
-import vault from '../../modules/expo-vault';
+import vault from '@modules/expo-vault';
 
 jest.mock('expo-splash-screen', () => ({
   preventAutoHideAsync: jest.fn(async () => true),

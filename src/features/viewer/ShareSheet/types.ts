@@ -1,4 +1,4 @@
-import type { BiometryType } from '../../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 export type ShareSheetStep = 'warning' | 'preparing';
 

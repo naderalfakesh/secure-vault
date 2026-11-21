@@ -1,6 +1,6 @@
 import type { Directory, File } from 'expo-file-system';
 
-import ExpoVaultModule from '../../modules/expo-vault';
+import ExpoVaultModule from '@modules/expo-vault';
 
 /**
  * Removes a cache or tmp entry, a folder with everything in it, without

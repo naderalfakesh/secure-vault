@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import { useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
+import { t, tp } from '@/i18n';
 import { type DeletedDocument, documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import type { Document } from '@/types';
-import { t, tp } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 
 const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });

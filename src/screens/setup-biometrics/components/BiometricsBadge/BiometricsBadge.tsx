@@ -2,8 +2,8 @@ import { View } from 'react-native';
 
 import { Icon } from '@/components/ui';
 import { biometryIcon } from '@/features/auth/lockCopy';
+import type { BiometryType } from '@modules/expo-vault';
 
-import type { BiometryType } from '../../../../../modules/expo-vault';
 import { styles } from './BiometricsBadge.styles';
 
 export type BiometricsBadgeProps = {

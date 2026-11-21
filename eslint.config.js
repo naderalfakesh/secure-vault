@@ -5,7 +5,15 @@ const prettierConfig = require('eslint-config-prettier/flat');
 
 module.exports = defineConfig([
   {
-    ignores: ['android/**', 'coverage/**', 'dist/**', 'ios/**', 'reports/**', 'expo-env.d.ts'],
+    ignores: [
+      '.claude/**',
+      'android/**',
+      'coverage/**',
+      'dist/**',
+      'ios/**',
+      'reports/**',
+      'expo-env.d.ts',
+    ],
   },
   expoConfig,
   {
@@ -18,6 +26,18 @@ module.exports = defineConfig([
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       'react-hooks/exhaustive-deps': 'error',
+      // Packages, then app aliases, then the file's own neighbours.
+      'import/order': [
+        'error',
+        {
+          groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index']],
+          pathGroups: [{ pattern: '@{,modules}/**', group: 'internal' }],
+          pathGroupsExcludedImportTypes: ['builtin'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+        },
+      ],
+      'import/no-duplicates': 'error',
     },
   },
   {

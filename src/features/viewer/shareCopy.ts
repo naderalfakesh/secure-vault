@@ -3,8 +3,7 @@ import { Platform } from 'react-native';
 import { biometryName } from '@/features/auth/lockCopy';
 import { type StringKey, t } from '@/i18n';
 import type { share } from '@/i18n/en/share';
-
-import type { BiometryType } from '../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 /**
  * The Share strings. They live in the string table

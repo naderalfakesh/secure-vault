@@ -2,9 +2,10 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
-import type { BiometryType } from '../../../modules/expo-vault';
-import { biometryName } from './lockCopy';
 import { t } from '@/i18n';
+import type { BiometryType } from '@modules/expo-vault';
+
+import { biometryName } from './lockCopy';
 
 /**
  * Why biometrics can or cannot be used. `denied` is iOS only: the user

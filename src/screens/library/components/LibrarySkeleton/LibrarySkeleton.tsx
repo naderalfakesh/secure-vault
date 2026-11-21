@@ -2,8 +2,8 @@ import { View } from 'react-native';
 
 import { Group, Skeleton } from '@/components/ui';
 
-import { SKELETON_WIDTHS } from '../../constants';
 import { styles } from './LibrarySkeleton.styles';
+import { SKELETON_WIDTHS } from '../../constants';
 
 /** Placeholder rows while a slow index loads; silent for assistive tech. */
 export function LibrarySkeleton() {

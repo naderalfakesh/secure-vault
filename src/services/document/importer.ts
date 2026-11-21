@@ -3,8 +3,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { t } from '@/i18n';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
+import ExpoVaultModule from '@modules/expo-vault';
 
-import ExpoVaultModule from '../../../modules/expo-vault';
 import { removeNoFollow } from '../removeNoFollow';
 import {
   FILE_PREFIX,

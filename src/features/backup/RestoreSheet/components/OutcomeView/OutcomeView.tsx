@@ -2,9 +2,9 @@ import { View } from 'react-native';
 
 import { Button, FileCard, Icon, InlineAlert, Text } from '@/components/ui';
 
+import { styles } from './OutcomeView.styles';
 import { backupCopy as copy, stoppedAtLabel } from '../../../backupCopy';
 import type { FinalOutcome, PickedBackup } from '../../types';
-import { styles } from './OutcomeView.styles';
 
 export type OutcomeViewProps = {
   outcome: FinalOutcome;

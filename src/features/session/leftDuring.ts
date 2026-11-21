@@ -1,4 +1,5 @@
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import { stoppedDuring } from './helpers';
 import type { PauseEntry } from './types';
 

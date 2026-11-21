@@ -12,8 +12,8 @@ import { t } from '@/i18n';
 import { motion } from '@/theme/tokens';
 
 import { useAnnouncement } from '../announce';
-import type { PinDotsProps } from './types';
 import { styles } from './PinDots.styles';
+import type { PinDotsProps } from './types';
 
 /** PIN progress: 6 × 14 pt dots that announce "N of 6 digits entered". */
 export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDotsProps) {

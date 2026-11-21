@@ -7,8 +7,8 @@ import type { SourceProblem } from '@/features/scan/SourceList';
 import { documentService } from '@/services/DocumentService';
 import { isEncryptedPdf } from '@/services/pdfPassword';
 import type { PickedFile } from '@/types';
+import { isCameraAvailable, scanDocuments } from '@modules/expo-document-scanner';
 
-import { isCameraAvailable, scanDocuments } from '../../../modules/expo-document-scanner';
 import { IMPORT_TYPES, JPEG_TYPE, PHOTO_QUALITY, SCANNED_TITLE } from './constants';
 import { photoName, scanPageName } from './helpers';
 import type { SinglePick } from './types';

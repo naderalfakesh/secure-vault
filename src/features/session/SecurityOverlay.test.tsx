@@ -3,7 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
-import vault from '../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import { SecurityOverlay } from './SecurityOverlay';
 import { SessionProvider, useSession } from './SessionProvider';
 

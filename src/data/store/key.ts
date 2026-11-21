@@ -1,9 +1,8 @@
 import * as Crypto from 'expo-crypto';
 
 import { t } from '@/i18n';
+import vault, { isKeyLocked } from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import {
   DATABASE_FILE_ENTRY,
   DATABASE_KEY_ENTRY,

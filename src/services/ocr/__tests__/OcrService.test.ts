@@ -1,7 +1,8 @@
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { Platform } from 'react-native';
 
-import type { RecognizedLine, RecognizedText } from '../../../../modules/expo-document-ai';
+import type { RecognizedLine, RecognizedText } from '@modules/expo-document-ai';
+
 import { ocrService } from '../OcrService';
 
 jest.mock('@react-native-ml-kit/text-recognition', () => ({
@@ -9,7 +10,7 @@ jest.mock('@react-native-ml-kit/text-recognition', () => ({
   default: { recognize: jest.fn() },
 }));
 
-const vision = jest.requireMock('../../../../modules/expo-document-ai') as {
+const vision = jest.requireMock('@modules/expo-document-ai') as {
   setRecognizedText(next: RecognizedText | Error): void;
   recognizedPaths(): string[];
   resetModel(): void;

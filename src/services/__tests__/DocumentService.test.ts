@@ -2,8 +2,8 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 
 import { closeDocumentStore, openDocumentStore } from '@/data/database';
+import vault from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
 import { DocumentCategory } from '../../types';
 import { documentService, PICKER_DIRECTORY, shareFileName } from '../DocumentService';
 

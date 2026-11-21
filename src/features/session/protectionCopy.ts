@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-import type { KeyProtection } from '../../../modules/expo-vault';
 import { t } from '@/i18n';
+import type { KeyProtection } from '@modules/expo-vault';
 
 /**
  * The key sentence. It names the Secure Enclave or secure hardware only when

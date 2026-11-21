@@ -6,8 +6,8 @@ import { Icon } from '../Icon';
 import { Text } from '../Text';
 import { useLargeText } from '../useLargeText';
 import { SEGMENT_SLOP } from './constants';
-import type { SegmentedControlProps } from './types';
 import { styles } from './SegmentedControl.styles';
+import type { SegmentedControlProps } from './types';
 
 /**
  * Pill segmented control, e.g. System / Light / Dark. Labels

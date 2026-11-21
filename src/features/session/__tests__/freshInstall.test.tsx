@@ -3,11 +3,11 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { Platform, Text } from 'react-native';
 
-import vault from '../../../../modules/expo-vault';
 import { reconcileInstall } from '@/features/session/freshInstall';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { sessionStorage } from '@/features/session/settings';
 import { hashPasscode } from '@/testing/passcode';
+import vault from '@modules/expo-vault';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as {

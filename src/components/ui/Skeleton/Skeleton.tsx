@@ -10,8 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { PULSE_MIN_OPACITY, PULSE_MS, PULSE_RANGE } from './constants';
-import type { SkeletonProps } from './types';
 import { styles } from './Skeleton.styles';
+import type { SkeletonProps } from './types';
 
 export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style }: SkeletonProps) {
   const reduceMotion = useReducedMotion();

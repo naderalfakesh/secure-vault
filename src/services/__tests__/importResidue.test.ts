@@ -2,9 +2,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
+import vault from '@modules/expo-vault';
+import { followLinksOnDelete } from '@modules/expo-vault/src/ExpoVaultModule.mock';
 
-import vault from '../../../modules/expo-vault';
-import { followLinksOnDelete } from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
 import {
   APPLE_INBOX_DIRECTORY,
   documentService,

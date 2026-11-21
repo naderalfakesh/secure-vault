@@ -1,8 +1,8 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import * as Reanimated from 'react-native-reanimated';
 
-import { Text } from '../Text';
 import { Sheet } from '../Sheet';
+import { Text } from '../Text';
 
 describe('Sheet', () => {
   afterEach(() => jest.restoreAllMocks());

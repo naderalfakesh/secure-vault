@@ -10,9 +10,9 @@ import {
 } from '@/features/documents/library';
 import { t, tp } from '@/i18n';
 
+import { styles } from './SortSheet.styles';
 import { SORTS } from '../../constants';
 import { toggleCollection } from '../../helpers';
-import { styles } from './SortSheet.styles';
 
 type SortSheetProps = {
   visible: boolean;

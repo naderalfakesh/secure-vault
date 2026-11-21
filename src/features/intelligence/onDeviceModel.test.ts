@@ -13,7 +13,7 @@ import {
   MODEL_TIMEOUT_MS,
 } from './onDeviceModel';
 
-const model = jest.requireMock('../../../modules/expo-document-ai') as {
+const model = jest.requireMock('@modules/expo-document-ai') as {
   setModelInfo(info: { engine: string; status: string }): void;
   setModelAnswer(answer: string | Error | ((text: string) => Promise<string>)): void;
   modelCalls(): { instructions: string; text: string }[];

@@ -2,20 +2,22 @@ import { act, fireEvent, render, waitFor, within } from '@testing-library/react-
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { AccessibilityInfo, Linking, Text } from 'react-native';
 
-import AddDocumentScreen from '../../app/documents/add';
-import vault from '../../modules/expo-vault';
-import * as scannerMock from '../../modules/expo-document-scanner/src/index.mock';
+import * as scannerMock from '@modules/expo-document-scanner/src/index.mock';
 import {
   queueScan,
   setCameraAvailable,
   setScannerSupported,
-} from '../../modules/expo-document-scanner/src/index.mock';
+} from '@modules/expo-document-scanner/src/index.mock';
+import vault from '@modules/expo-vault';
+
+import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
+import { scanText } from '../features/scan/scanCopy';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
@@ -24,7 +26,6 @@ import {
   SCANNER_DIRECTORY,
 } from '../services/DocumentService';
 import { ocrService } from '../services/OcrService';
-import { scanText } from '../features/scan/scanCopy';
 import { isolate } from '../utils/bidi';
 
 jest.mock('expo-image-picker', () => ({
@@ -489,7 +490,7 @@ describe('Add a document: review pages', () => {
     const { view, pages } = await scanInto(1);
     const late = plantScan(1, 10);
     let answer: () => void = () => {};
-    const scanModule = jest.requireMock('../../modules/expo-document-scanner') as {
+    const scanModule = jest.requireMock('@modules/expo-document-scanner') as {
       scanDocuments: () => Promise<unknown>;
     };
     const original = scanModule.scanDocuments;

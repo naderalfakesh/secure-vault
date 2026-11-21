@@ -5,8 +5,8 @@ import { t } from '@/i18n';
 import { useThrottledAnnouncement } from '../announce';
 import { Text } from '../Text';
 import { progressPercent } from './helpers';
-import type { ProgressBlockProps } from './types';
 import { styles } from './ProgressBlock.styles';
+import type { ProgressBlockProps } from './types';
 
 /** Determinate progress: label, optional detail, 6 pt bar. */
 export function ProgressBlock({ label, detail, progress, testID }: ProgressBlockProps) {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 
-import vault, { type BackupInfo } from '../../../modules/expo-vault';
+import vault, { type BackupInfo } from '@modules/expo-vault';
+
 import { busyError, partialError } from './errors';
 import { discardBackup, writeBackup } from './exporter';
 import { toPath } from './folders';

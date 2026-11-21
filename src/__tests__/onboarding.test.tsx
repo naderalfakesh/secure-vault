@@ -1,11 +1,10 @@
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
-
-import vault from '../../modules/expo-vault';
+import vault from '@modules/expo-vault';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const vaultMock = vault as unknown as { reset(): void };

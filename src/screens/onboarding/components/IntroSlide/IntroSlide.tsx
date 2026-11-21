@@ -4,8 +4,8 @@ import { Text } from '@/components/ui';
 import { OnboardingArt } from '@/features/auth/OnboardingArt';
 import type { SessionContextValue } from '@/features/session/SessionProvider';
 
-import type { Slide } from '../../types';
 import { styles } from './IntroSlide.styles';
+import type { Slide } from '../../types';
 
 export type IntroSlideProps = {
   slide: Slide;

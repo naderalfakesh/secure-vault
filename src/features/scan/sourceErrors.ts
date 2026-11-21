@@ -1,5 +1,5 @@
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
 import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from '@/utils/errors';
+import { isKeyLocked } from '@modules/expo-vault';
 
 import { scanText, type ScanCopyKey } from './scanCopy';
 import type { Source } from './SourceList';

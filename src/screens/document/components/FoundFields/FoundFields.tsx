@@ -5,8 +5,8 @@ import type { ExtractedField } from '@/data/DocumentRepository';
 import { t } from '@/i18n';
 import { formatDate } from '@/utils/format';
 
-import { fieldTitle, maskNumber } from '../../helpers';
 import { styles } from './FoundFields.styles';
+import { fieldTitle, maskNumber } from '../../helpers';
 
 type FoundFieldsProps = {
   fields: readonly ExtractedField[];

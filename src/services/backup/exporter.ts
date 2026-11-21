@@ -1,8 +1,8 @@
 import { type Directory, File } from 'expo-file-system';
 
 import { exportDatabaseFile } from '@/data/database';
+import vault from '@modules/expo-vault';
 
-import vault from '../../../modules/expo-vault';
 import { removeNoFollow } from '../removeNoFollow';
 import { DATABASE_ENTRY } from './constants';
 import { stagingError } from './errors';

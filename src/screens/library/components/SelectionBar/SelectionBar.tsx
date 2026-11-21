@@ -3,8 +3,8 @@ import { View } from 'react-native';
 import { Button } from '@/components/ui';
 import { t, tp } from '@/i18n';
 
-import { selectionBarBottom } from '../../helpers';
 import { styles } from './SelectionBar.styles';
+import { selectionBarBottom } from '../../helpers';
 
 type SelectionBarProps = {
   /** The bottom safe-area inset. */

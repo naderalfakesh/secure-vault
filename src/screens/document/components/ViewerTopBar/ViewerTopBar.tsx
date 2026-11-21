@@ -4,8 +4,8 @@ import { IconButton, Text } from '@/components/ui';
 import { t } from '@/i18n';
 import { isolate } from '@/utils/bidi';
 
-import { TOP_BAR_GAP } from '../../constants';
 import { styles } from './ViewerTopBar.styles';
+import { TOP_BAR_GAP } from '../../constants';
 
 type ViewerTopBarProps = {
   insetTop: number;

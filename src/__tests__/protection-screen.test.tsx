@@ -1,8 +1,9 @@
 import { render } from '@testing-library/react-native';
 import { Platform } from 'react-native';
 
+import vault from '@modules/expo-vault';
+
 import ProtectionScreen from '../../app/settings/protection';
-import vault from '../../modules/expo-vault';
 import { mlKitDisclosure, protectionFacts } from '../features/session/protectionCopy';
 
 jest.mock('expo-router', () => ({ router: { back: jest.fn() }, Stack: { Screen: () => null } }));

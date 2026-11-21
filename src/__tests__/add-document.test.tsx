@@ -2,18 +2,19 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
-import AddDocumentScreen from '../../app/documents/add';
-import vault from '../../modules/expo-vault';
 import {
   queueScan,
   setCameraAvailable,
   setScannerSupported,
-} from '../../modules/expo-document-scanner/src/index.mock';
+} from '@modules/expo-document-scanner/src/index.mock';
+import vault from '@modules/expo-vault';
+
+import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import {

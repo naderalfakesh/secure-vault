@@ -7,12 +7,12 @@ import {
   useState,
 } from 'react';
 
-import { hashPasscodeAsync } from '@/features/auth/passcode';
 import { EMPTY_LOCKOUT, type LockoutState } from '@/features/auth/lockout';
+import { hashPasscodeAsync } from '@/features/auth/passcode';
 import { t } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
+import vault from '@modules/expo-vault';
 
-import vault from '../../../../modules/expo-vault';
 import { KEY_PROBE_ENTRY } from '../constants';
 import { describeError, errorCode } from '../errors';
 import { launchStatus } from '../helpers';

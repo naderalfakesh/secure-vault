@@ -4,13 +4,13 @@ import { View } from 'react-native';
 import { Button, Screen, Text } from '@/components/ui';
 import { biometricStepCopy, useBiometricAvailability } from '@/features/auth/biometricAvailability';
 import { useSession } from '@/features/session/SessionProvider';
+import { useBlockHardwareBack } from '@/hooks/useBlockHardwareBack';
 import { t } from '@/i18n';
 
 import { styles } from './BiometricsStepScreen.styles';
 import { BiometricsBadge } from './components';
 import { stepBiometry } from './helpers';
 import { useBiometricsChoice } from './hooks/useBiometricsChoice';
-import { useBlockHardwareBack } from '@/hooks/useBlockHardwareBack';
 
 /**
  * Enable biometrics, after the PIN is saved. "Use Face

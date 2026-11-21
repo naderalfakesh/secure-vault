@@ -3,9 +3,9 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { Icon } from '../Icon';
 import { Text } from '../Text';
+import { styles } from './Button.styles';
 import { buttonFill, isPlainVariant } from './helpers';
 import type { ButtonProps } from './types';
-import { styles } from './Button.styles';
 
 /** Capsule button. Disabled buttons change colour, not just opacity. */
 export function Button({

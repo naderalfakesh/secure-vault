@@ -1,6 +1,6 @@
 import type { useUnistyles } from 'react-native-unistyles';
 
-import type { BiometryType } from '../../../../modules/expo-vault';
+import type { BiometryType } from '@modules/expo-vault';
 
 export type OnboardingScene = 'papers' | 'sealed' | 'unlock';
 

@@ -1,14 +1,14 @@
-import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
+import { useEffect } from 'react';
 import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { closeDocumentStore } from '@/data/database';
+import vault from '@modules/expo-vault';
 
 import DocumentDetailScreen from '../../app/documents/[id]';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import * as SessionModule from '../features/session/SessionProvider';
 import {

@@ -6,9 +6,9 @@ import { isolate, LRI, PDI } from '@/utils/bidi';
 
 import { Icon, type IconName } from '../Icon';
 import { Text } from '../Text';
+import { styles } from './Chip.styles';
 import { colours } from './constants';
 import type { ChipProps } from './types';
-import { styles } from './Chip.styles';
 
 export function Chip({
   label,

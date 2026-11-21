@@ -1,4 +1,5 @@
-import { isKeyLocked } from '../../modules/expo-vault/src/withKeyRecovery';
+import { isKeyLocked } from '@modules/expo-vault';
+
 import { t } from '../i18n';
 
 /** The index's own sentence for a device key that was not unlocked (see `src/data/store/errors.ts`). */

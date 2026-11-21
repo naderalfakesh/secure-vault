@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 
-import ExpoVaultModule from '../../../modules/expo-vault';
+import ExpoVaultModule from '@modules/expo-vault';
+
 import { PAGE_MAX_PIXELS } from './constants';
 import { cacheLocation, shareFileName, toPath, toUri } from './helpers';
 import type { DocumentLookup, RepositorySource, ShareCopy } from './types';

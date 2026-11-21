@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
 import { ScrollView } from 'react-native';
-import { tabBarClearance } from '@/features/navigation/tabBarClearance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Group, ListRow, Screen, Text } from '@/components/ui';
 import { useBiometricAvailability } from '@/features/auth/biometricAvailability';
+import { tabBarClearance } from '@/features/navigation/tabBarClearance';
 import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 import { setAppearance, useAppearance } from '@/theme/appearance';

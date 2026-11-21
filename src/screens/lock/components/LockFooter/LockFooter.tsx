@@ -2,8 +2,8 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/ui';
 import { biometryIcon, deviceUnlockLabel } from '@/features/auth/lockCopy';
+import type { BiometryType } from '@modules/expo-vault';
 
-import type { BiometryType } from '../../../../../modules/expo-vault';
 import { styles } from './LockFooter.styles';
 
 export type LockFooterProps = {

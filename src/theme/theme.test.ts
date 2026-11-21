@@ -1,7 +1,7 @@
 import { darkColors, lightColors } from './colors';
 import { controlSize, motion, radii, spacing, touchTarget } from './tokens';
-import { darkTheme, lightTheme } from './unistyles';
 import { typography } from './typography';
+import { darkTheme, lightTheme } from './unistyles';
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);

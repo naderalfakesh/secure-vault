@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
-import vault from '../../../../modules/expo-vault';
+import vault from '@modules/expo-vault';
+
 import type { AwayClock, SessionStatus } from '../types';
 
 /**

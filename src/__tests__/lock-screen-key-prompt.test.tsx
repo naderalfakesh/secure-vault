@@ -2,18 +2,19 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
-import LockScreen from '../../app/lock';
 import { hashPasscode } from '@/testing/passcode';
+
+import LockScreen from '../../app/lock';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';
 
 // The real key recovery wrapper over the in-memory vault, with an Android-style
 // key whose authentication window has lapsed until the prompt is answered.
-jest.mock('../../modules/expo-vault', () => {
-  const { createVaultMock } = jest.requireActual(
-    '../../modules/expo-vault/src/ExpoVaultModule.mock',
+jest.mock('@modules/expo-vault', () => {
+  const { createVaultMock } = jest.requireActual('@modules/expo-vault/src/ExpoVaultModule.mock');
+  const { isKeyLocked, withKeyRecovery } = jest.requireActual(
+    '@modules/expo-vault/src/withKeyRecovery',
   );
-  const { withKeyRecovery } = jest.requireActual('../../modules/expo-vault/src/withKeyRecovery');
   const native = createVaultMock();
   const state = { keyOpen: false, answer: false };
   const get = native.get.bind(native);
@@ -28,10 +29,17 @@ jest.mock('../../modules/expo-vault', () => {
     state.keyOpen = state.answer;
     return state.answer;
   });
-  return { __esModule: true, default: withKeyRecovery(native), native, state };
+  return {
+    __esModule: true,
+    default: withKeyRecovery(native),
+    isKeyLocked,
+    withKeyRecovery,
+    native,
+    state,
+  };
 });
 
-const { native, state } = jest.requireMock('../../modules/expo-vault') as {
+const { native, state } = jest.requireMock('@modules/expo-vault') as {
   native: {
     reset(): void;
     put(key: string, value: string): Promise<void>;

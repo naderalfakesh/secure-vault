@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import vault, { type KeyProtection } from '../../../../modules/expo-vault';
+import vault, { type KeyProtection } from '@modules/expo-vault';
 
 /** Where this device keeps the key; null until the vault answers. */
 export function useKeyProtection(): KeyProtection | null {

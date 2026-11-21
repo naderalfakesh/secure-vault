@@ -1,11 +1,11 @@
 import { renderHook } from '@testing-library/react-native';
 
-import vault from '../../../../modules/expo-vault';
 import type { SessionStatus } from '@/features/session/SessionProvider';
 import { useVaultSweep } from '@/features/session/useVaultSweep';
 import * as clipboard from '@/features/viewer/clipboard';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import vault from '@modules/expo-vault';
 
 function spies() {
   return {

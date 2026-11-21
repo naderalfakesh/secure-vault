@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import * as SecureStore from 'expo-secure-store';
+import { useEffect } from 'react';
 import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
 
-import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
-import { hashPasscode } from '@/testing/passcode';
-import * as SecureStore from 'expo-secure-store';
-import vault from '../../../modules/expo-vault';
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import { documentService } from '@/services/DocumentService';
+import { hashPasscode } from '@/testing/passcode';
+import vault from '@modules/expo-vault';
+
 import {
   type PinUnlockResult,
   AUTO_LOCK_RETURN_GRACE_MS,
@@ -17,6 +17,7 @@ import {
   useSession,
 } from './SessionProvider';
 import type { SecuritySettings } from './settings';
+import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 const secureStoreMock = SecureStore as unknown as { __reset(): void };

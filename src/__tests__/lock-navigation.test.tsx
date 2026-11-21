@@ -1,11 +1,12 @@
-import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testing-library';
+import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
-import vault from '../../modules/expo-vault';
 import { hashPasscode } from '@/testing/passcode';
+import vault from '@modules/expo-vault';
+
 import { useSession } from '../features/session/SessionProvider';
 
 const secureStoreMock = SecureStore as unknown as { __reset(): void };

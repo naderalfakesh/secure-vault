@@ -7,8 +7,8 @@ import { t } from '@/i18n';
 import { useOnGlass } from '../Glass';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import type { PassphraseFieldProps } from './types';
 import { styles } from './PassphraseField.styles';
+import type { PassphraseFieldProps } from './types';
 
 /**
  * Secure passphrase entry. Any script is accepted; the text

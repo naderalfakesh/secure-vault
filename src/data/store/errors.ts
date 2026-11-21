@@ -1,6 +1,5 @@
 import { t } from '@/i18n';
-
-import { isKeyLocked } from '../../../modules/expo-vault/src/withKeyRecovery';
+import { isKeyLocked } from '@modules/expo-vault';
 
 /** A database key failure, with a sentence a screen can show as is. */
 export function keyError(code: string, message: string, cause?: unknown): Error {

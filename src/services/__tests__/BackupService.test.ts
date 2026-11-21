@@ -1,14 +1,15 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { closeDocumentStore } from '@/data/database';
-
-import vault, { type BackupProgress } from '../../../modules/expo-vault';
+import { createBackup } from '@/testing/backup';
+import vault, { type BackupProgress } from '@modules/expo-vault';
 import {
   followLinksOnDelete,
   type VaultMockExport,
   type VaultMockImport,
-} from '../../../modules/expo-vault/src/ExpoVaultModule.mock';
-import { withKeyRecovery } from '../../../modules/expo-vault/src/withKeyRecovery';
+} from '@modules/expo-vault/src/ExpoVaultModule.mock';
+import { withKeyRecovery } from '@modules/expo-vault/src/withKeyRecovery';
+
 import { DocumentCategory } from '../../types';
 import {
   BACKUP_DIRECTORY,
@@ -22,7 +23,6 @@ import {
   RESTORE_STAGING_DIRECTORY,
 } from '../BackupService';
 import { documentService, PICKER_DIRECTORY } from '../DocumentService';
-import { createBackup } from '@/testing/backup';
 
 const vaultMock = vault as unknown as {
   reset(): void;

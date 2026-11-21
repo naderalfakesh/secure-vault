@@ -6,8 +6,8 @@ import { useAnnouncement } from '../announce';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import type { BannerProps } from './types';
 import { styles } from './Banner.styles';
+import type { BannerProps } from './types';
 
 /** Persistent elevated notice, e.g. the share-interrupted banner. */
 export function Banner({

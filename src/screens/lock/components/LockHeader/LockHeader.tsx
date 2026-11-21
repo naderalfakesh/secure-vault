@@ -3,8 +3,8 @@ import { ScrollView, View } from 'react-native';
 import { Icon, Mark, Text } from '@/components/ui';
 import { textScale } from '@/theme/tokens';
 
-import { MARK_SIZE } from '../../constants';
 import { styles } from './LockHeader.styles';
+import { MARK_SIZE } from '../../constants';
 
 export type LockHeaderProps = {
   compact: boolean;

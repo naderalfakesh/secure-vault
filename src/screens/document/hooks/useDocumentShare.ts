@@ -6,13 +6,13 @@ import { useToast } from '@/components/ui';
 import { sharePause, useSession } from '@/features/session/SessionProvider';
 import { shareText } from '@/features/viewer/shareCopy';
 import type { ShareSheetStep } from '@/features/viewer/ShareSheet';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { documentService } from '@/services/DocumentService';
 import type { Document } from '@/types';
 
 import { PREPARING_DELAY_MS, SHEET_CLOSE_MS } from '../constants';
 import { shareFileType, wait } from '../helpers';
 import type { ViewerBusy } from '../types';
-import { useMountedRef } from '@/hooks/useMountedRef';
 
 type Options = {
   document: Document | null;

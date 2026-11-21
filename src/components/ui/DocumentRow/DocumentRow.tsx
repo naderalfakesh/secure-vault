@@ -6,8 +6,8 @@ import { isolate } from '@/utils/bidi';
 import { Icon } from '../Icon';
 import { PaperThumbnail } from '../PaperThumbnail';
 import { Text } from '../Text';
-import type { DocumentRowProps } from './types';
 import { styles } from './DocumentRow.styles';
+import type { DocumentRowProps } from './types';
 
 /** Library row: paper thumbnail, title, meta, optional snippet. */
 export function DocumentRow({

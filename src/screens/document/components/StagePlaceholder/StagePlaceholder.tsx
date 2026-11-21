@@ -3,8 +3,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { Text } from '@/components/ui';
 import { t } from '@/i18n';
 
-import { STAGE_INK_DIM } from '../../constants';
 import { styles } from './StagePlaceholder.styles';
+import { STAGE_INK_DIM } from '../../constants';
 
 type StagePlaceholderProps = {
   loading: boolean;

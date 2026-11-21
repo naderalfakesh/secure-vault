@@ -4,8 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
+import vault from '@modules/expo-vault';
+
 import ChangePinScreen from '../../app/settings/change-pin';
-import vault from '../../modules/expo-vault';
 import { ToastProvider } from '../components/ui';
 import { verifyPasscodeAsync } from '../features/auth/passcode';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';

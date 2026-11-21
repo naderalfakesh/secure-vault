@@ -9,6 +9,7 @@ import { useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
 import { ShareSheet } from '@/features/viewer/ShareSheet';
 import { useDelayed } from '@/hooks/useDelayed';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
 import {
@@ -33,7 +34,6 @@ import { useDocumentActions } from './hooks/useDocumentActions';
 import { useDocumentEditor } from './hooks/useDocumentEditor';
 import { useDocumentShare } from './hooks/useDocumentShare';
 import { useInterruptedShare } from './hooks/useInterruptedShare';
-import { useMountedRef } from '@/hooks/useMountedRef';
 import { useRevealNumber } from './hooks/useRevealNumber';
 import { useViewerDocument } from './hooks/useViewerDocument';
 import { goToLibrary } from './navigation';

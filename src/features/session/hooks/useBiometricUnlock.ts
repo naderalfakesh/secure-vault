@@ -2,9 +2,8 @@ import { type Dispatch, type SetStateAction, useCallback } from 'react';
 
 import { EMPTY_LOCKOUT, type LockoutState } from '@/features/auth/lockout';
 import { t } from '@/i18n';
+import vault, { isKeyLocked } from '@modules/expo-vault';
 
-import vault from '../../../../modules/expo-vault';
-import { isKeyLocked } from '../../../../modules/expo-vault/src/withKeyRecovery';
 import { KEY_PROBE_ENTRY } from '../constants';
 import { describeError, KEY_NOT_UNLOCKED } from '../errors';
 import { sessionStorage } from '../settings';
