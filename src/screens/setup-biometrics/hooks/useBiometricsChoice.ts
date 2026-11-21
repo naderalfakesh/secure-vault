@@ -2,12 +2,25 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useState } from 'react';
 
 import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
 /** "Use Face ID" or "Not now": either way biometric unlock is settled and setup finishes. */
 export function useBiometricsChoice() {
   const { finishSetup, updateSettings } = useSession();
+  const mounted = useMountedRef();
   const [busy, setBusy] = useState(false);
+
+  // A settings write that fails leaves the screen usable, so the owner can try again.
+  const settle = async (biometricUnlock: boolean) => {
+    try {
+      await updateSettings({ biometricUnlock });
+    } catch {
+      if (mounted.current) setBusy(false);
+      return;
+    }
+    finishSetup();
+  };
 
   const enableBiometrics = async () => {
     setBusy(true);
@@ -23,14 +36,12 @@ export function useBiometricsChoice() {
       // A prompt that could not be shown is a no; the PIN still works.
     }
     // Only a passed check turns it on: the prompt's own "Not now" means no.
-    await updateSettings({ biometricUnlock: allowed });
-    finishSetup();
+    await settle(allowed);
   };
 
   const notNow = async () => {
     setBusy(true);
-    await updateSettings({ biometricUnlock: false });
-    finishSetup();
+    await settle(false);
   };
 
   return { busy, enableBiometrics, notNow };
