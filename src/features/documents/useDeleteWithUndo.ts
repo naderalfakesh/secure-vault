@@ -9,12 +9,18 @@ import { isolate } from '@/utils/bidi';
 
 const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });
 
+/** The title when exactly one document was deleted. */
+function singleTitle(deleted: readonly DeletedDocument[]): string | null {
+  const [only, second] = deleted;
+  return only && !second ? only.document.title : null;
+}
+
 /** Puts the deleted documents back and says how it went. */
 async function undoDelete(
   deleted: readonly DeletedDocument[],
   toast: ReturnType<typeof useToast>,
 ): Promise<void> {
-  const single = deleted.length === 1 ? deleted[0].document.title : null;
+  const single = singleTitle(deleted);
   const missing: string[] = [];
   for (const item of deleted) {
     try {
@@ -24,10 +30,11 @@ async function undoDelete(
     }
   }
   if (missing.length > 0) {
+    const [firstMissing] = missing;
     toast.show({
       message:
-        missing.length === 1
-          ? t('library.delete.restoreFailedOne', { title: quoted(missing[0]) })
+        missing.length === 1 && firstMissing !== undefined
+          ? t('library.delete.restoreFailedOne', { title: quoted(firstMissing) })
           : t('library.delete.restoreFailedMany', { count: missing.length }),
       tone: 'danger',
     });
@@ -86,17 +93,18 @@ export function useDeleteWithUndo() {
       }
 
       if (failed.length > 0) {
+        const [firstFailed] = failed;
         toast.show({
           message:
-            failed.length === 1
-              ? t('library.delete.failedOne', { title: quoted(failed[0].title) })
+            failed.length === 1 && firstFailed
+              ? t('library.delete.failedOne', { title: quoted(firstFailed.title) })
               : t('library.delete.failedMany', { count: failed.length }),
           tone: 'danger',
         });
       }
       if (deleted.length === 0) return 0;
 
-      const single = deleted.length === 1 ? deleted[0].document.title : null;
+      const single = singleTitle(deleted);
       toast.show({
         message: single
           ? t('library.delete.doneOne', { title: quoted(single) })

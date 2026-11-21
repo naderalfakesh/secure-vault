@@ -2,6 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { closeDocumentStore } from '@/data/database';
 import { createBackup } from '@/testing/backup';
+import { at } from '@/testing/lists';
 import vault, { type BackupProgress } from '@modules/expo-vault';
 import {
   followLinksOnDelete,
@@ -449,7 +450,7 @@ describe('BackupService', () => {
       const answers: boolean[] = [];
 
       await backupService.restoreBackup(backup.uri, 'correct horse battery', (event) => {
-        const runId = importBackup.mock.calls[0][4];
+        const runId = at(at(importBackup.mock.calls, 0), 4);
         if (event.phase === 'import') answers.push(vault.cancelRestore(runId));
       });
 
@@ -1111,7 +1112,7 @@ describe('BackupService', () => {
       await backupService.restoreBackup(kept, 'correct horse battery').catch(() => {});
 
       expect(inspect).toHaveBeenCalledWith(pathOf(kept));
-      expect(importBackup.mock.calls[0][0]).toBe(pathOf(kept));
+      expect(at(at(importBackup.mock.calls, 0), 0)).toBe(pathOf(kept));
       expect(pathOf(kept).startsWith(pathOf(Paths.cache.uri))).toBe(false);
     });
 

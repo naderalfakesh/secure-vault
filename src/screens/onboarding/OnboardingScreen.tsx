@@ -19,6 +19,7 @@ export function OnboardingScreen() {
   const slides = introSlides(unlockSlideBody(biometry));
   const { width, reduceMotion, scrollRef, page, onScroll, goTo } = useIntroPager(slides.length);
   const last = page === slides.length - 1;
+  const currentSlide = slides[page];
 
   // A key that guards documents only needs a PIN; it never sees "set up your
   // vault". A held setup has a key too, and stays where it is.
@@ -40,7 +41,7 @@ export function OnboardingScreen() {
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <IntroBar canGoBack={page > 0} last={last} onBack={() => goTo(page - 1)} onSkip={toPin} />
       {reduceMotion ? (
-        <View style={styles.pager}>{renderSlide(slides[page])}</View>
+        <View style={styles.pager}>{currentSlide ? renderSlide(currentSlide) : null}</View>
       ) : (
         <ScrollView
           ref={scrollRef}

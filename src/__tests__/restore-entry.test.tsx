@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Text } from 'react-native';
 
+import { at } from '@/testing/lists';
 import vault from '@modules/expo-vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
@@ -96,7 +97,7 @@ describe('the one restore entry', () => {
       .getAllByRole('button')
       .filter((button) => RESTORE_ENTRY.test(button.props.accessibilityLabel ?? ''));
     expect(entries).toHaveLength(1);
-    expect(entries[0].props.accessibilityLabel).toMatch(/^Restore from a backup…/);
+    expect(at(entries, 0).props.accessibilityLabel).toMatch(/^Restore from a backup…/);
   });
 
   it('is the only route that reads or restores a backup', () => {

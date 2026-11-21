@@ -19,6 +19,8 @@ interface Draft {
   box: Box;
 }
 
+const firstBox = (draft: Draft): Box => draft.lines[0]?.box ?? draft.box;
+
 function toLine({ text, frame }: RecognizedLine): Line {
   return {
     text,
@@ -71,7 +73,9 @@ export function groupLines(recognized: RecognizedLine[]): OcrBlock[] {
     let best: Draft | undefined;
     let bestOverlap = -1;
     for (const draft of drafts) {
-      const overlap = continuation(draft.lines[draft.lines.length - 1].box, line.box);
+      const tail = draft.lines.at(-1);
+      if (!tail) continue;
+      const overlap = continuation(tail.box, line.box);
       if (overlap !== null && overlap > bestOverlap) {
         best = draft;
         bestOverlap = overlap;
@@ -91,7 +95,7 @@ export function groupLines(recognized: RecognizedLine[]): OcrBlock[] {
   }
 
   return drafts
-    .sort((a, b) => readingOrder(a.lines[0].box, b.lines[0].box))
+    .sort((a, b) => readingOrder(firstBox(a), firstBox(b)))
     .map((draft) => ({
       text: draft.lines.map((line) => line.text).join('\n'),
       lines: draft.lines.map((line) => line.text),

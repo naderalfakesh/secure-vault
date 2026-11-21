@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
 
 import { createBackup } from '@/testing/backup';
+import { at } from '@/testing/lists';
 import vault, { type BackupProgress } from '@modules/expo-vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
@@ -616,7 +617,7 @@ describe('Backup hub restore refusals that leave the vault unchanged', () => {
     expect(view.queryByRole('button', { name: 'Restore and replace vault' })).toBeNull();
     expect(discardPicked).toHaveBeenCalledWith(KEPT);
     await act(async () => {
-      await fireEvent.press(close[close.length - 1]);
+      await fireEvent.press(at(close, -1));
     });
     await waitFor(() => expect(view.queryByText('Restore from backup')).toBeNull());
   });
@@ -652,7 +653,7 @@ describe('Backup hub picker after "Choose another file"', () => {
     const dismissed = view.getByTestId('restore-sheet').props.onDismiss as () => void;
     const choose = view.getAllByRole('button', { name: 'Choose another file' });
     await act(async () => {
-      await fireEvent.press(choose[choose.length - 1]);
+      await fireEvent.press(at(choose, -1));
     });
     // The sheet is closing: no picker on top of a view controller being dismissed.
     expect(pick).toHaveBeenCalledTimes(1);
@@ -677,7 +678,7 @@ describe('Backup hub picker after "Choose another file"', () => {
 
     const choose = view.getAllByRole('button', { name: 'Choose another file' });
     await act(async () => {
-      await fireEvent.press(choose[choose.length - 1]);
+      await fireEvent.press(at(choose, -1));
     });
     expect(pick).toHaveBeenCalledTimes(1);
     await settleFor(1100);

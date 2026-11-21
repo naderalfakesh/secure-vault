@@ -1,5 +1,6 @@
 import { Directory, File } from 'expo-file-system';
 
+import { at } from '@/testing/lists';
 import vault from '@modules/expo-vault';
 
 import {
@@ -517,7 +518,7 @@ describe('index name, erase and legacy import', () => {
       code: 'KEY_LOCKED',
     });
     expect(moves).toHaveLength(2);
-    expect(moves[1]).toEqual([moves[0][1], moves[0][0]]);
+    expect(at(moves, 1)).toEqual([at(at(moves, 0), 1), at(at(moves, 0), 0)]);
     expect([...files]).toEqual(['securevault.db']);
   });
 

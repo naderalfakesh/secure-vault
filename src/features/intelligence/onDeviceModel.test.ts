@@ -1,3 +1,4 @@
+import { only } from '@/testing/lists';
 import { DocumentCategory } from '@/types';
 
 import {
@@ -115,7 +116,7 @@ describe('suggestions from the on-device model', () => {
       { key: 'issued', value: '2021-11-15', kind: 'date' },
       { key: 'number', value: 'X0000000', kind: 'text' },
     ]);
-    const [call] = model.modelCalls();
+    const call = only(model.modelCalls());
     expect(call.instructions).toBe(MODEL_INSTRUCTIONS);
     expect(call.text.length).toBe(MAX_TEXT_LENGTH);
   });

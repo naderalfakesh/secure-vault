@@ -39,6 +39,7 @@ export const EASY_PIN_WARNING = t('onboarding.pin.easy');
 export function isEasyPin(pin: string): boolean {
   if (!/^\d{2,}$/.test(pin)) return false;
   const digits = [...pin].map(Number);
-  const steps = new Set(digits.slice(1).map((digit, index) => digit - digits[index]));
-  return steps.size === 1 && [0, 1, -1].includes([...steps][0]);
+  const steps = new Set(digits.slice(1).map((digit, index) => digit - (digits[index] ?? digit)));
+  const [step] = steps;
+  return steps.size === 1 && step !== undefined && [0, 1, -1].includes(step);
 }

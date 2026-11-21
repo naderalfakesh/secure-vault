@@ -98,9 +98,11 @@ export function resultLine(count: number, searching: boolean, filter: LibraryFil
 export function collectionScope(collections: readonly DocumentCategory[]): string | null {
   if (collections.length === 0) return null;
   const names = collections.map(categoryLabel);
-  if (names.length === 1) return names[0];
+  const last = names.at(-1);
+  if (last === undefined) return null;
+  if (names.length === 1) return last;
   return t('library.scope.list', {
     names: names.slice(0, -1).join(t('library.scope.join')),
-    last: names[names.length - 1],
+    last,
   });
 }

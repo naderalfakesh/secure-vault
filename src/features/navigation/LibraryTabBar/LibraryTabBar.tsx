@@ -14,25 +14,25 @@ export function LibraryTabBar({ state, emitter, navigateToTab }: LibraryTabBarPr
   const hidden = useTabBarHidden();
   if (hidden) return null;
 
-  const items = state.routes
-    .filter((route) => TABS[route.name])
-    .map((route) => {
-      const selected = state.routes[state.index]?.key === route.key;
-      return {
-        key: route.key,
-        label: t(TABS[route.name].label),
-        icon: TABS[route.name].icon,
-        selected,
-        onPress: () => {
-          const event = emitter.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!selected && !event.defaultPrevented) navigateToTab(route.key);
-        },
-      };
-    });
+  const items = state.routes.flatMap((route) => {
+    const tab = TABS[route.name];
+    if (!tab) return [];
+    const selected = state.routes[state.index]?.key === route.key;
+    return {
+      key: route.key,
+      label: t(tab.label),
+      icon: tab.icon,
+      selected,
+      onPress: () => {
+        const event = emitter.emit({
+          type: 'tabPress',
+          target: route.key,
+          canPreventDefault: true,
+        });
+        if (!selected && !event.defaultPrevented) navigateToTab(route.key);
+      },
+    };
+  });
 
   return (
     <TabBar tabs={items} onScan={() => router.push('/documents/add')} scanLabel={t('nav.scan')} />

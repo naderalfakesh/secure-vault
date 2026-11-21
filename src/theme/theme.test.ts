@@ -1,3 +1,5 @@
+import { at } from '@/testing/lists';
+
 import { darkColors, lightColors } from './colors';
 import { controlSize, motion, radii, spacing, touchTarget } from './tokens';
 import { typography } from './typography';
@@ -5,13 +7,13 @@ import { darkTheme, lightTheme } from './unistyles';
 
 function luminance(hex: string): number {
   const channels = [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
-  const [r, g, b] = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const lin = channels.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * at(lin, 0) + 0.7152 * at(lin, 1) + 0.0722 * at(lin, 2);
 }
 
 function contrast(a: string, b: string): number {
-  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (light + 0.05) / (dark + 0.05);
+  const sorted = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (at(sorted, 0) + 0.05) / (at(sorted, 1) + 0.05);
 }
 
 describe('theme', () => {

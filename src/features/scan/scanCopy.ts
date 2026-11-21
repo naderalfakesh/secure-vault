@@ -64,7 +64,8 @@ export function foundFieldLabel(
   field: { key: string; value: string; kind: string },
   formatDate: (iso: string) => string,
 ): string {
-  const name = fieldNames[field.key] ? t(fieldNames[field.key]) : field.key;
+  const nameKey = fieldNames[field.key];
+  const name = nameKey ? t(nameKey) : field.key;
   if (field.kind === 'date') return t('scan.field.value', { name, value: formatDate(field.value) });
   if (field.key === FIELD_KEYS.number) {
     return t('scan.field.maskedNumber', { name, last4: field.value.slice(-4) });

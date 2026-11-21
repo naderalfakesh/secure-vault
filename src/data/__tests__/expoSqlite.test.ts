@@ -1,5 +1,7 @@
 import { openDatabaseAsync } from 'expo-sqlite';
 
+import { at } from '@/testing/lists';
+
 import { openEncryptedDatabase } from '../expoSqlite';
 
 jest.mock('expo-sqlite', () => ({
@@ -57,7 +59,7 @@ describe('expo-sqlite adapter', () => {
     // The cipher check comes before the journal mode is set or any table is read.
     expect(native.getFirstAsync.mock.calls[0]).toEqual(['PRAGMA cipher_version']);
     expect(native.execAsync.mock.invocationCallOrder[1]).toBeGreaterThan(
-      native.getFirstAsync.mock.invocationCallOrder[0],
+      at(native.getFirstAsync.mock.invocationCallOrder, 0),
     );
   });
 

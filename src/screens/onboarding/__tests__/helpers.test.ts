@@ -1,4 +1,5 @@
 import { t } from '@/i18n';
+import { at } from '@/testing/lists';
 
 import { introSlides } from '../helpers';
 
@@ -12,8 +13,8 @@ describe('introSlides', () => {
   });
 
   it('words the second slide for the platform', () => {
-    expect(introSlides('', 'ios')[1].body).toBe(t('onboarding.intro.2.bodyIos'));
-    expect(introSlides('', 'android')[1].body).toBe(t('onboarding.intro.2.bodyAndroid'));
+    expect(at(introSlides('', 'ios'), 1).body).toBe(t('onboarding.intro.2.bodyIos'));
+    expect(at(introSlides('', 'android'), 1).body).toBe(t('onboarding.intro.2.bodyAndroid'));
   });
 
   it('takes the unlock slide body as given', () => {

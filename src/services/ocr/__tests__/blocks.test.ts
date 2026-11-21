@@ -1,3 +1,4 @@
+import { only } from '@/testing/lists';
 import type { RecognizedLine } from '@modules/expo-document-ai';
 
 import { groupLines } from '../blocks';
@@ -60,7 +61,7 @@ describe('grouping Vision lines into blocks', () => {
   });
 
   it('gives each block the box around its lines', () => {
-    const [block] = groupLines([line('First', 40, 0, 100), line('Second line', 30, 22, 300)]);
+    const block = only(groupLines([line('First', 40, 0, 100), line('Second line', 30, 22, 300)]));
     expect(block.boundingBox).toEqual({ left: 30, top: 0, right: 330, bottom: 42 });
     expect(block.lines).toEqual(['First', 'Second line']);
   });
