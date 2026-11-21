@@ -25,6 +25,13 @@ describe('create backup helpers', () => {
     });
     // Emoji count as one character each.
     expect(passphraseChecks('😀'.repeat(MIN_PASSPHRASE_LENGTH - 1), 'x').longEnough).toBe(false);
+    expect(passphraseChecks('😀😁😂🤣', '').longEnough).toBe(false);
+    expect(passphraseChecks('😀😁😂🤣😃😄😅😆', '')).toEqual({
+      longEnough: true,
+      varied: true,
+      matches: false,
+    });
+    expect(passphraseChecks('😀'.repeat(MIN_PASSPHRASE_LENGTH), '').varied).toBe(false);
     expect(passphraseChecks(long, `${long}x`).matches).toBe(false);
   });
 

@@ -1,18 +1,21 @@
+import { isLongEnough, isVaried, passphraseLength } from '@/services/backup/passphrase';
+
 /** 0 = empty, 1 Weak, 2 Fair, 3 Good, 4 Strong (labels: `ui.strength.*`). */
 export type PassphraseStrength = 0 | 1 | 2 | 3 | 4;
 
 /**
  * A rough, on-device estimate for the strength meter, never a gate: the only
- * rules the backup enforces are at least 8 characters and not one repeated
- * character. Works on code points, so any script counts, and the estimate is
+ * rules the backup enforces are the minimum length and not one repeated
+ * character (`services/backup/passphrase`). Works on code points, so any script counts, and the estimate is
  * the length times the bits of the character classes used, with repeats
  * discounted.
  */
 export function estimatePassphraseStrength(passphrase: string): PassphraseStrength {
+  if (passphraseLength(passphrase) === 0) return 0;
+  if (!isLongEnough(passphrase) || !isVaried(passphrase)) return 1;
+
   const characters = Array.from(passphrase.normalize('NFC'));
-  if (characters.length === 0) return 0;
   const unique = new Set(characters).size;
-  if (characters.length < 8 || unique <= 1) return 1;
 
   let pool = 0;
   if (characters.some((c) => /[a-z]/.test(c))) pool += 26;
