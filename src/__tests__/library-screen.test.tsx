@@ -289,6 +289,31 @@ describe('Library', () => {
     );
   });
 
+  it('keeps a document listed and says so when its encrypted file cannot be removed', async () => {
+    const lease = await add('Lease agreement', DocumentCategory.LEGAL);
+    const view = await renderLibrary();
+    await waitFor(() => expect(view.getByRole('button', { name: 'Select' })).toBeOnTheScreen());
+    const real = vault.deleteFile.bind(vault);
+    jest.spyOn(vault, 'deleteFile').mockImplementation(async (key) => {
+      if (key === lease.fileKey) throw new Error('disk busy');
+      return real(key);
+    });
+
+    await fireEvent(view.getByTestId(`document-row-${lease.id}`), 'longPress');
+    await act(async () => {
+      await fireEvent.press(view.getByRole('button', { name: 'Delete 1 document' }));
+    });
+
+    await waitFor(() =>
+      expect(
+        view.getByText(/^Couldn’t delete .*Lease agreement.*\. It’s still in your vault\.$/),
+      ).toBeOnTheScreen(),
+    );
+    expect(await documentService.getDocument(lease.id)).not.toBeNull();
+    expect(view.getByTestId(`document-row-${lease.id}`)).toBeOnTheScreen();
+    expect(view.queryByRole('button', { name: 'Undo' })).toBeNull();
+  });
+
   it('announces the selection count on iOS too', async () => {
     const lease = await add('Lease agreement', DocumentCategory.LEGAL);
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');

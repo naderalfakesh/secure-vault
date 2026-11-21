@@ -5,7 +5,7 @@ import { DocumentRepository } from './DocumentRepository';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
 import { applyMigrations } from './schema';
 import type { SqlDatabase } from './sql';
-import { DATABASE_FILE_ENTRY, DATABASE_KEY_ENTRY, DEFAULT_DATABASE_NAME } from './store/constants';
+import { DEFAULT_DATABASE_NAME } from './store/constants';
 import { emptiedError, erasingError, keyError, nameError } from './store/errors';
 import {
   copyDatabaseFile,
@@ -170,7 +170,8 @@ export class DocumentDatabase {
       deleteIndexFiles(name);
       await removeEntries();
       const left = await vaultEntries();
-      if (left.includes(DATABASE_KEY_ENTRY) || left.includes(DATABASE_FILE_ENTRY)) {
+      // Encrypted documents count too: nothing is meant to survive an erase.
+      if (left.length > 0) {
         throw keyError('ERASE_INCOMPLETE', t('errors.erase.incomplete'));
       }
       this.emptied = true;

@@ -96,6 +96,7 @@ export async function importDocument(
     inserted = true;
     if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
   } catch (e) {
+    // Rollback of an import the user never saw; the original error is what gets reported.
     if (inserted) await repository.remove(id).catch(() => false);
     for (const key of [fileKey, thumbnailKey, ...pageKeys]) {
       await ExpoVaultModule.deleteFile(key).catch(() => {});

@@ -89,7 +89,13 @@ class DocumentService extends DocumentIndex {
   async deleteDocumentWithUndo(id: string): Promise<DeletedDocument | null> {
     const deleted = await copyForUndo(this, this.cacheUri, () => this.repository(), id);
     if (!deleted) return null;
-    await this.deleteDocument(id);
+    try {
+      await this.deleteDocument(id);
+    } catch (error) {
+      // No undo is offered for a document that is still in the vault.
+      discardDeleted(this.cacheUri, deleted);
+      throw error;
+    }
     // The decrypted copies outlive the row only for the undo window.
     this.undoTimers.set(
       id,

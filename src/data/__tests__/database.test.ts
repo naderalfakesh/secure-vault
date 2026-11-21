@@ -339,7 +339,9 @@ describe('database key', () => {
 
     // A restored index without a stored name keeps the open closed first.
     await expect(openDocumentStore()).rejects.toMatchObject({ code: 'DATABASE_NAME_UNREADABLE' });
-    await deleteDocumentStore(async () => {});
+    await deleteDocumentStore(async () => {
+      for (const key of await vault.getAllKeys()) await vault.delete(key);
+    });
     expect([...files]).toEqual([]);
 
     allowDocumentStore();
