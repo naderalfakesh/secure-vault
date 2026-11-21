@@ -1,5 +1,7 @@
 import { appLocale, t, tp } from '@/i18n';
 
+import { DAY_MS } from './time';
+
 export function formatDate(iso: string, locale: string = appLocale().tag): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
@@ -12,8 +14,6 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return t('format.kilobytes', { value: (bytes / 1024).toFixed(1) });
   return t('format.megabytes', { value: (bytes / (1024 * 1024)).toFixed(1) });
 }
-
-const DAY_MS = 86_400_000;
 
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
