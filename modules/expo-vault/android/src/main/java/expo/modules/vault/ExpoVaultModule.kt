@@ -371,7 +371,7 @@ class ExpoVaultModule : Module() {
                             // From the first removal on, a failure is a partial restore.
                             cleared = true
                             previous.forEach {
-                                if (!it.delete() && it.exists()) throw IOException("Could not remove ${it.name}")
+                                VaultFiles.remove(it)
                             }
                             ivPreferences.edit().clear().apply()
                         }
@@ -435,10 +435,8 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("delete") { key: String, promise: Promise ->
             try {
-                val file = vaultFile(key)
-                if (file.exists()) {
-                    file.delete()
-                }
+                // The stored nonce goes only once the entry is gone: a kept entry still needs it.
+                VaultFiles.remove(vaultFile(key))
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {
@@ -504,10 +502,8 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("deleteFile") { key: String, promise: Promise ->
             try {
-                val file = vaultFile(key)
-                if (file.exists()) {
-                    file.delete()
-                }
+                // The stored nonce goes only once the entry is gone: a kept entry still needs it.
+                VaultFiles.remove(vaultFile(key))
                 ivPreferences.edit().remove(key).apply()
                 promise.resolve(null)
             } catch (e: Exception) {

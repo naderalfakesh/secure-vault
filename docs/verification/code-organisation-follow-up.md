@@ -73,9 +73,23 @@ left for later. Native code (Swift, Kotlin), the config plugins and
 
 ## Left as it is
 
-- Android's `deleteFile` ignores the result of `File.delete()`, so a file the
-  system refuses to delete is not reported to JavaScript. Fixing it is a
-  Kotlin change with its own native test run.
 - The mappers still differ on purpose: the session and backup sentences show
   an unknown error's own message, `plainErrorMessage` filters platform
   diagnostics and paths, and the scan sources never show it.
+
+## Android delete (added 2026-11-21)
+
+`delete` and `deleteFile` in the Android vault module called `File.delete()`
+and ignored its result, so an entry the system refused to remove was reported
+to JavaScript as deleted. Both now go through `VaultFiles.remove`: an entry
+that is already gone counts as removed, one that is still there rejects with
+`DELETE_FAILED` or `DELETE_FILE_FAILED`, and its stored nonce is kept. The
+restore's wipe uses the same helper.
+
+- `npm run test:native:android`: 25 tests in 5 classes pass, 3 of them new
+  (`VaultFilesTest`).
+- `./gradlew :app:assembleDebug` builds; the APK installs over the existing
+  app on the `Hakeemi_API36` emulator (Android 16) and starts to the lock
+  screen with this branch's JavaScript from Metro.
+- Not checked: deleting a document on the emulator. Its vault did not open
+  with the recorded test PIN, and the vault was left as it was.
