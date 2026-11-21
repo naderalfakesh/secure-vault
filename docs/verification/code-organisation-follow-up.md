@@ -91,5 +91,11 @@ restore's wipe uses the same helper.
 - `./gradlew :app:assembleDebug` builds; the APK installs over the existing
   app on the `Hakeemi_API36` emulator (Android 16) and starts to the lock
   screen with this branch's JavaScript from Metro.
-- Not checked: deleting a document on the emulator. Its vault did not open
-  with the recorded test PIN, and the vault was left as it was.
+- On that emulator, after its app data was cleared (the old test vault's PIN
+  was not known): first-run setup, Import from Photos through reading (ML
+  Kit), details and Save to vault, then Delete from the details sheet.
+  `files/` held `file_<id>` and `thumb_<id>` after the save and only
+  `_database_key` and `_key_probe` after the delete; no delete failure was
+  logged. Lock now then removed the decrypted copies from `cache/`.
+- Not checked: a removal the system refuses, which cannot be provoked on a
+  device; it rests on `VaultFilesTest`.
