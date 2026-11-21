@@ -51,10 +51,13 @@ Required native config. Do not remove any of it:
 - `src/screens/<screen>/` one screen each: the screen, its `*.styles.ts`, `components/` (a folder per component), `hooks/`, `constants.ts`, `types.ts`, `helpers.ts`. The rules are in ADR 0010 (`docs/adr/0010-code-organisation.md`).
 - `src/brand/folio.ts` the sealed folio mark as SVG: the icon and splash PNGs (`scripts/brand/make-icons.mjs`) and the in-app `Mark` all draw from it.
 - `src/theme` Unistyles tokens (configured from `index.js` before the router loads).
-- `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons.
+- `src/components/ui` design-system primitives; screens never import from `react-native` for text or buttons (ESLint enforces it).
 - `src/data` SQLCipher index: `schema.ts` migrations, `DocumentRepository`, adapters (`expoSqlite.ts`, `testing/betterSqlite.ts`), `database.ts` (key from the vault, legacy import) with a `database.jest.ts` double.
 - `src/services` `DocumentService` (files in the vault module, rows in the index) and `OcrService` (`src/services/ocr`: Apple Vision on iOS, ML Kit on Android).
-- `src/features` domain pieces shared by screens: session provider, documents, scan, backup, viewer; `src/hooks`, `src/security`, `src/types`, `src/utils`.
+- `src/features` domain pieces shared by screens: session provider, documents, scan, backup, viewer, each with its hooks in `hooks/`.
+- `src/hooks` (domain-free hooks), `src/utils` (pure helpers: `errorCode`, `DAY_MS`, `wait`, formatting, secure-store entries), `src/types` (domain types, `FIELD_KEYS`), `src/security`. Reuse these before writing a helper.
+- Imports use `@/` for `src` and `@modules/` for `modules`; a native module is imported by its entry point, never by a file in its `src/`.
+- Tests: unit tests in the `__tests__/` folder beside the code, route-level flow tests in `src/__tests__/`, helpers in `src/testing/`.
 - `modules/expo-vault/` local Expo Module (Swift and Kotlin): AES-256-GCM with a
   key sealed to the Secure Enclave (iOS, ADR 0009) or held by the Keystore,
   string and file storage, export and import.
