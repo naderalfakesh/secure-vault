@@ -1,9 +1,8 @@
 import { router } from 'expo-router';
-import { type Dispatch, type RefObject, useCallback, useRef, useState } from 'react';
+import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 
 import { useToast } from '@/components/ui';
 import { parseTags } from '@/features/documents/tags';
-import type { ProcessingStep } from '@/features/scan/ProcessingPanel';
 import { scanText } from '@/features/scan/scanCopy';
 import { useSession } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
@@ -11,7 +10,8 @@ import type { Document, PickedFile } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
 
 import type { DetailsAction, DetailsState } from '../detailsReducer';
-import type { Phase, SaveNotice } from '../types';
+import type { FlowAction } from '../flowReducer';
+import type { SaveNotice } from '../types';
 
 /** Thrown when the vault locked before the save wrote anything. */
 class SaveStopped extends Error {}
@@ -22,9 +22,10 @@ type SaveDocumentOptions = {
   savingRef: RefObject<boolean>;
   mountedRef: RefObject<boolean>;
   details: DetailsState;
-  dispatch: Dispatch<DetailsAction>;
-  setStep: (step: ProcessingStep) => void;
-  setPhase: (phase: Phase) => void;
+  /** The saved document's id once its files are in the vault. */
+  savedId: string | null;
+  dispatchDetails: Dispatch<DetailsAction>;
+  dispatch: Dispatch<FlowAction>;
 };
 
 /**
@@ -36,23 +37,19 @@ export function useSaveDocument({
   savingRef,
   mountedRef,
   details,
+  savedId,
+  dispatchDetails,
   dispatch,
-  setStep,
-  setPhase,
 }: SaveDocumentOptions) {
   const toast = useToast();
   const { captureSession, postNotice } = useSession();
-  const [saveError, setSaveError] = useState<string | null>(null);
-  // The files are in the vault and only the found values failed: no going back.
-  const [savedId, setSavedId] = useState<string | null>(null);
   // Set once the files are in the vault, so Try again only repeats what failed.
   const saved = useRef<Document | null>(null);
 
   const resetSave = useCallback(() => {
-    setSaveError(null);
-    setSavedId(null);
+    dispatch({ type: 'saveReset' });
     saved.current = null;
-  }, []);
+  }, [dispatch]);
 
   const save = useCallback(async () => {
     if (savingRef.current) return;
@@ -61,7 +58,7 @@ export function useSaveDocument({
     const { title, category, tags, fields, ocrText } = details;
     const cleanTitle = title.trim();
     if (!cleanTitle) {
-      dispatch({ type: 'titleMissing' });
+      dispatchDetails({ type: 'titleMissing' });
       return;
     }
 
@@ -77,9 +74,7 @@ export function useSaveDocument({
       else postNotice(notice);
     };
     savingRef.current = true;
-    setSaveError(null);
-    setStep('encrypt');
-    setPhase('saving');
+    dispatch({ type: 'saveStarted' });
     try {
       await documentService.initialize();
       // Nothing is written once the vault has locked, as with deletes.
@@ -94,10 +89,10 @@ export function useSaveDocument({
           ocrText,
         });
         saved.current = document;
-        if (mountedRef.current) setSavedId(document.id);
+        if (mountedRef.current) dispatch({ type: 'saved', id: document.id });
       }
 
-      if (mountedRef.current) setStep('index');
+      if (mountedRef.current) dispatch({ type: 'saveAdvanced', step: 'index' });
       if (fields.length > 0) await documentService.setFields(document.id, fields);
       const id = document.id;
       const message = scanText(ocrText ? 'saved.withText' : 'saved.plain');
@@ -118,7 +113,7 @@ export function useSaveDocument({
           : plainErrorMessage(e, scanText('processing.failed'));
       if (mountedRef.current && !lockedMeanwhile()) {
         // Inline, with Try again; the pages stay for the retry.
-        setSaveError(message);
+        dispatch({ type: 'saveFailed', message });
       } else {
         report({ message, tone: 'danger' });
       }
@@ -134,9 +129,8 @@ export function useSaveDocument({
     savingRef,
     mountedRef,
     details,
+    dispatchDetails,
     dispatch,
-    setStep,
-    setPhase,
     toast,
     captureSession,
     postNotice,
@@ -149,5 +143,5 @@ export function useSaveDocument({
     router.push(`/documents/${savedId}`);
   }, [savedId]);
 
-  return { save, saveError, savedId, resetSave, openSaved };
+  return { save, resetSave, openSaved };
 }

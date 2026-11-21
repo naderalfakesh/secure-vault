@@ -1,19 +1,17 @@
 import { type Dispatch, type RefObject, useCallback, useEffect, useRef } from 'react';
 
 import { suggestForText } from '@/features/intelligence';
-import type { ProcessingStep } from '@/features/scan/ProcessingPanel';
 import { ocrService } from '@/services/OcrService';
 
 import type { DetailsAction } from '../detailsReducer';
-import type { Phase } from '../types';
+import type { FlowAction } from '../flowReducer';
 
 type ReadPagesOptions = {
   mountedRef: RefObject<boolean>;
-  dispatch: Dispatch<DetailsAction>;
+  dispatchDetails: Dispatch<DetailsAction>;
+  dispatch: Dispatch<FlowAction>;
   /** Empties the form (and any earlier save) before a read fills it. */
   clearDetails: (suggestedTitle?: string) => void;
-  setStep: (step: ProcessingStep) => void;
-  setPhase: (phase: Phase) => void;
 };
 
 /**
@@ -22,10 +20,9 @@ type ReadPagesOptions = {
  */
 export function useReadPages({
   mountedRef,
+  dispatchDetails,
   dispatch,
   clearDetails,
-  setStep,
-  setPhase,
 }: ReadPagesOptions) {
   // Bumped whenever a read is cancelled or superseded; a late read result is dropped.
   const readRun = useRef(0);
@@ -46,8 +43,7 @@ export function useReadPages({
       const run = (readRun.current += 1);
       const current = () => run === readRun.current && mountedRef.current;
       clearDetails(suggestedTitle);
-      setStep('ocr');
-      setPhase('reading');
+      dispatch({ type: 'readingStarted' });
       try {
         const result = await ocrService.extractText(previewUri);
         if (!current()) return;
@@ -55,19 +51,19 @@ export function useReadPages({
           result.text && ocrService.isTextMeaningful(result.text)
             ? ocrService.cleanText(result.text)
             : undefined;
-        dispatch({ type: 'read', ocrText: text });
+        dispatchDetails({ type: 'read', ocrText: text });
         if (text) {
-          setStep('suggest');
+          dispatch({ type: 'readingAdvanced', step: 'suggest' });
           const suggestion = await suggestForText(text);
           if (!current()) return;
-          dispatch({ type: 'suggest', suggestion });
+          dispatchDetails({ type: 'suggest', suggestion });
         }
       } catch {
         // The form still works without suggestions.
       }
-      if (current()) setPhase('details');
+      if (current()) dispatch({ type: 'detailsReady' });
     },
-    [mountedRef, dispatch, clearDetails, setStep, setPhase],
+    [mountedRef, dispatchDetails, dispatch, clearDetails],
   );
 
   return { read, cancelRead };

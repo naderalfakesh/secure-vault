@@ -1,18 +1,18 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useReducer, useRef, useState } from 'react';
 
 import { movePage } from '@/features/scan/pages';
-import type { ProcessingStep } from '@/features/scan/ProcessingPanel';
 import { sourceFailureMessage } from '@/features/scan/sourceErrors';
-import type { Source, SourceProblem } from '@/features/scan/SourceList';
+import type { Source } from '@/features/scan/SourceList';
 import { useSession } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { documentService } from '@/services/DocumentService';
 import { isCameraAvailable, isScannerSupported } from '@modules/expo-document-scanner';
 
 import { SCANNED_TITLE } from '../constants';
+import { flowReducer, initialFlowState } from '../flowReducer';
 import { thumbnailsFor, withoutPage } from '../helpers';
 import { importFile, pickPhoto, scanPages } from '../pickers';
-import type { Origin, Phase, SinglePick } from '../types';
+import type { SinglePick } from '../types';
 import { useCameraAccess } from './useCameraAccess';
 import { useDetails } from './useDetails';
 import { useHeldCopies } from './useHeldCopies';
@@ -26,10 +26,8 @@ export function useAddDocumentFlow() {
   const [scannerSupported] = useState(isScannerSupported);
   const [cameraAvailable] = useState(isCameraAvailable);
 
-  const [phase, setPhase] = useState<Phase>('sources');
-  const [origin, setOrigin] = useState<Origin>('single');
-  const [problem, setProblem] = useState<SourceProblem | null>(null);
-  const [step, setStep] = useState<ProcessingStep>('ocr');
+  const [flow, dispatch] = useReducer(flowReducer, initialFlowState);
+  const { phase, origin, problem, step, saveError, savedId } = flow;
   // One source at a time: a second tap while a pick is still settling (a large
   // PDF rendering, say) would otherwise replace copies this screen still holds.
   const picking = useRef(false);
@@ -38,31 +36,30 @@ export function useAddDocumentFlow() {
   const { files, preview, heldRef, savingRef, setFiles, setPreview, discardCopies, holdSingle } =
     useHeldCopies();
   const { cameraDenied, cameraAllowed } = useCameraAccess(cameraAvailable, mountedRef);
-  const { details, dispatch, ...detailHandlers } = useDetails();
-  const { save, saveError, savedId, resetSave, openSaved } = useSaveDocument({
+  const { details, dispatch: dispatchDetails, ...detailHandlers } = useDetails();
+  const { save, resetSave, openSaved } = useSaveDocument({
     heldRef,
     savingRef,
     mountedRef,
     details,
+    savedId,
+    dispatchDetails,
     dispatch,
-    setStep,
-    setPhase,
   });
 
   const clearDetails = useCallback(
     (suggestedTitle = '') => {
-      dispatch({ type: 'reset', title: suggestedTitle });
+      dispatchDetails({ type: 'reset', title: suggestedTitle });
       resetSave();
     },
-    [dispatch, resetSave],
+    [dispatchDetails, resetSave],
   );
 
   const { read, cancelRead } = useReadPages({
     mountedRef,
+    dispatchDetails,
     dispatch,
     clearDetails,
-    setStep,
-    setPhase,
   });
 
   /** Drops every copy this screen holds and goes back to the sources. */
@@ -70,15 +67,14 @@ export function useAddDocumentFlow() {
     cancelRead();
     discardCopies();
     clearDetails();
-    setPhase('sources');
+    dispatch({ type: 'returnedToSources' });
   }, [cancelRead, discardCopies, clearDetails]);
 
   /** A single photo or file: straight to reading. */
   const acceptSingle = useCallback(
     ({ file, previewUri, suggestedTitle }: SinglePick) => {
       holdSingle(file, previewUri);
-      setProblem(null);
-      setOrigin('single');
+      dispatch({ type: 'singlePicked' });
       void read(previewUri, suggestedTitle);
     },
     [holdSingle, read],
@@ -91,17 +87,15 @@ export function useAddDocumentFlow() {
         if (source === 'scan') {
           const pages = await scanPages(cameraAllowed, isMounted);
           if (!pages) return;
-          setProblem(null);
-          setOrigin('scan');
           setFiles(addingPages ? [...heldRef.current, ...pages] : pages);
-          setPhase('review');
+          dispatch({ type: 'pagesScanned' });
           return;
         }
         if (source === 'files') {
           const outcome = await importFile(isMounted);
           if (!outcome) return;
           if ('problem' in outcome) {
-            if (mountedRef.current) setProblem(outcome.problem);
+            if (mountedRef.current) dispatch({ type: 'sourceFailed', problem: outcome.problem });
           } else {
             acceptSingle(outcome.picked);
           }
@@ -111,7 +105,10 @@ export function useAddDocumentFlow() {
         if (picked) acceptSingle(picked);
       } catch (e) {
         if (mountedRef.current) {
-          setProblem({ kind: 'failed', message: sourceFailureMessage(source, e) });
+          dispatch({
+            type: 'sourceFailed',
+            problem: { kind: 'failed', message: sourceFailureMessage(source, e) },
+          });
         }
       }
     },
@@ -166,13 +163,13 @@ export function useAddDocumentFlow() {
     if (origin === 'scan') {
       cancelRead();
       setPreview(null);
-      setPhase('review');
+      dispatch({ type: 'returnedToReview' });
       return;
     }
     discardAll();
   }, [origin, cancelRead, discardAll, setPreview]);
 
-  const backToDetails = useCallback(() => setPhase('details'), []);
+  const backToDetails = useCallback(() => dispatch({ type: 'returnedToDetails' }), []);
 
   return {
     phase,
