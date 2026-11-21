@@ -29,22 +29,9 @@ export type {
 export class DocumentRepository {
   constructor(private readonly db: SqlDatabase) {}
 
-  async list(
-    category?: DocumentCategory | null,
-    order: DocumentOrder = 'newest',
-  ): Promise<Document[]> {
-    const where = category ? 'WHERE d.category = ?' : '';
+  async list(order: DocumentOrder = 'newest'): Promise<Document[]> {
     const rows = await this.db.all<DocumentRow>(
-      `SELECT ${COLUMNS} FROM documents d ${EXPIRY_JOIN} ${where} ORDER BY ${ORDER_BY[order]}`,
-      category ? [category] : [],
-    );
-    return rows.map(toDocument);
-  }
-
-  async recent(limit: number): Promise<Document[]> {
-    const rows = await this.db.all<DocumentRow>(
-      `SELECT ${COLUMNS} FROM documents d ORDER BY d.updated_at DESC LIMIT ?`,
-      [limit],
+      `SELECT ${COLUMNS} FROM documents d ${EXPIRY_JOIN} ORDER BY ${ORDER_BY[order]}`,
     );
     return rows.map(toDocument);
   }
@@ -57,11 +44,6 @@ export class DocumentRepository {
     return row ? toDocument(row) : null;
   }
 
-  async count(): Promise<number> {
-    const row = await this.db.first<{ n: number }>('SELECT count(*) AS n FROM documents');
-    return row?.n ?? 0;
-  }
-
   async countByCategory(): Promise<Partial<Record<DocumentCategory, number>>> {
     const rows = await this.db.all<{ category: DocumentCategory; n: number }>(
       'SELECT category, count(*) AS n FROM documents GROUP BY category',
@@ -69,18 +51,6 @@ export class DocumentRepository {
     const counts: Partial<Record<DocumentCategory, number>> = {};
     for (const row of rows) counts[row.category] = row.n;
     return counts;
-  }
-
-  async search(query: string): Promise<Document[]> {
-    const fts = toFtsQuery(query);
-    if (!fts) return this.list();
-    const rows = await this.db.all<DocumentRow>(
-      `SELECT ${COLUMNS} FROM documents d
-       WHERE d.id IN (SELECT id FROM documents_fts WHERE documents_fts MATCH ?)
-       ORDER BY d.updated_at DESC`,
-      [fts],
-    );
-    return rows.map(toDocument);
   }
 
   /**
@@ -132,22 +102,46 @@ export class DocumentRepository {
     return { ...doc, updatedAt };
   }
 
+  /**
+   * Writes only the fields `changes` carries with a value, reading the row in
+   * the same transaction, so two overlapping edits of different fields both
+   * survive and an `undefined` never clears stored text.
+   */
   async update(
     id: string,
     changes: Partial<Pick<Document, 'title' | 'category' | 'tags' | 'ocrText'>>,
   ): Promise<Document | null> {
-    const existing = await this.get(id);
-    if (!existing) return null;
-    const next: Document = { ...existing, ...changes, updatedAt: new Date().toISOString() };
-    await this.db.transaction(async () => {
+    return this.db.transaction(async () => {
+      const existing = await this.get(id);
+      if (!existing) return null;
+      const updatedAt = new Date().toISOString();
+      const columns: string[] = [];
+      const values: SqlValue[] = [];
+      if (changes.title !== undefined) {
+        columns.push('title = ?');
+        values.push(changes.title);
+      }
+      if (changes.category !== undefined) {
+        columns.push('category = ?');
+        values.push(changes.category);
+      }
+      if (changes.ocrText !== undefined) {
+        columns.push('ocr_text = ?');
+        values.push(changes.ocrText);
+      }
       await this.db.run(
-        'UPDATE documents SET title = ?, category = ?, ocr_text = ?, updated_at = ? WHERE id = ?',
-        [next.title, next.category, next.ocrText ?? null, next.updatedAt, id],
+        `UPDATE documents SET ${[...columns, 'updated_at = ?'].join(', ')} WHERE id = ?`,
+        [...values, updatedAt, id],
       );
       if (changes.tags) await this.writeTags(id, changes.tags);
       await this.reindex(id);
+      const next: Document = { ...existing, updatedAt };
+      if (changes.title !== undefined) next.title = changes.title;
+      if (changes.category !== undefined) next.category = changes.category;
+      if (changes.tags !== undefined) next.tags = changes.tags;
+      if (changes.ocrText !== undefined) next.ocrText = changes.ocrText;
+      return next;
     });
-    return next;
   }
 
   async remove(id: string): Promise<boolean> {

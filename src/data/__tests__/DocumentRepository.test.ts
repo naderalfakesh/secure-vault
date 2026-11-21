@@ -34,6 +34,9 @@ describe('DocumentRepository', () => {
     await db.close();
   });
 
+  const found = async (query: string) =>
+    (await repo.searchWithSnippets(query)).map((hit) => hit.document.id);
+
   it('applies migrations once and records the schema version', async () => {
     expect(await applyMigrations(db)).toBe(SCHEMA_VERSION);
     const row = await db.first<{ user_version: number }>('PRAGMA user_version');
@@ -56,20 +59,15 @@ describe('DocumentRepository', () => {
       tags: ['travel', 'id, with comma'],
       ocrText: 'Republic of Example',
     });
-    expect(await repo.count()).toBe(1);
     expect(await repo.countByCategory()).toEqual({ [DocumentCategory.ID]: 1 });
   });
 
-  it('lists newest first, filters by category, and orders recent by update time', async () => {
+  it('lists newest first', async () => {
     await repo.insert(doc('1', { category: DocumentCategory.LEGAL }));
     await repo.insert(doc('2', { category: DocumentCategory.MEDICAL }));
     await repo.insert(doc('3', { category: DocumentCategory.LEGAL }));
 
     expect((await repo.list()).map((d) => d.id)).toEqual(['3', '2', '1']);
-    expect((await repo.list(DocumentCategory.LEGAL)).map((d) => d.id)).toEqual(['3', '1']);
-
-    await repo.update('1', { title: 'Renamed lease' });
-    expect((await repo.recent(2)).map((d) => d.id)).toEqual(['1', '3']);
   });
 
   it('searches titles, tags, and extracted text with prefix matching and diacritics folded', async () => {
@@ -83,24 +81,55 @@ describe('DocumentRepository', () => {
     await repo.insert(doc('2', { title: 'Résumé', tags: ['work'] }));
     await repo.insert(doc('3', { title: 'Receipt' }));
 
-    expect((await repo.search('rent')).map((d) => d.id)).toEqual(['1']);
-    expect((await repo.search('hom')).map((d) => d.id)).toEqual(['1']);
-    expect((await repo.search('resume')).map((d) => d.id)).toEqual(['2']);
-    expect((await repo.search('lease agree')).map((d) => d.id)).toEqual(['1']);
-    expect(await repo.search('nothing here')).toEqual([]);
-    expect((await repo.search('   ')).length).toBe(3);
+    expect(await found('rent')).toEqual(['1']);
+    expect(await found('hom')).toEqual(['1']);
+    expect(await found('resume')).toEqual(['2']);
+    expect(await found('lease agree')).toEqual(['1']);
+    expect(await found('nothing here')).toEqual([]);
   });
 
   it('keeps the search index in sync with updates and deletes', async () => {
     await repo.insert(doc('1', { title: 'Old title' }));
     await repo.update('1', { title: 'Insurance card', tags: ['car'] });
-    expect((await repo.search('old')).length).toBe(0);
-    expect((await repo.search('car')).map((d) => d.id)).toEqual(['1']);
+    expect(await found('old')).toEqual([]);
+    expect(await found('car')).toEqual(['1']);
 
     expect(await repo.remove('1')).toBe(true);
     expect(await repo.remove('1')).toBe(false);
-    expect(await repo.search('insurance')).toEqual([]);
+    expect(await found('insurance')).toEqual([]);
     expect(await db.first('SELECT * FROM tags')).toBeNull();
+  });
+
+  it('updates only the fields it is given', async () => {
+    await repo.insert(doc('1', { title: 'Lease', tags: ['home'], ocrText: 'Tenant pays rent' }));
+
+    const renamed = await repo.update('1', { title: 'Lease 2027' });
+
+    expect(renamed).toMatchObject({ title: 'Lease 2027', ocrText: 'Tenant pays rent' });
+    expect(await repo.get('1')).toMatchObject({
+      title: 'Lease 2027',
+      category: DocumentCategory.OTHER,
+      tags: ['home'],
+      ocrText: 'Tenant pays rent',
+    });
+    expect(await found('rent')).toEqual(['1']);
+  });
+
+  it('ignores a key that is present but undefined', async () => {
+    await repo.insert(doc('1', { title: 'Lease', ocrText: 'Tenant pays rent' }));
+
+    await repo.update('1', { title: 'Lease 2027', ocrText: undefined, category: undefined });
+
+    expect(await repo.get('1')).toMatchObject({
+      title: 'Lease 2027',
+      category: DocumentCategory.OTHER,
+      ocrText: 'Tenant pays rent',
+    });
+    expect(await found('rent')).toEqual(['1']);
+  });
+
+  it('reports no row for an unknown id', async () => {
+    expect(await repo.update('missing', { title: 'x' })).toBeNull();
   });
 
   it('stores extracted fields and finds expiring documents', async () => {
@@ -215,23 +244,23 @@ describe('DocumentRepository', () => {
     });
 
     it('sorts by the expiry date in the fields table, undated documents last and newest first', async () => {
-      expect((await repo.list(null, 'expiry')).map((d) => d.id)).toEqual(['2', '1', '4', '3']);
+      expect((await repo.list('expiry')).map((d) => d.id)).toEqual(['2', '1', '4', '3']);
       expect(
         (await repo.searchWithSnippets('card', 'expiry')).map((hit) => hit.document.id),
       ).toEqual(['2', '1', '4', '3']);
     });
 
     it('sorts newest and oldest added', async () => {
-      expect((await repo.list(null, 'newest')).map((d) => d.id)).toEqual(['4', '3', '2', '1']);
-      expect((await repo.list(null, 'oldest')).map((d) => d.id)).toEqual(['1', '2', '3', '4']);
+      expect((await repo.list('newest')).map((d) => d.id)).toEqual(['4', '3', '2', '1']);
+      expect((await repo.list('oldest')).map((d) => d.id)).toEqual(['1', '2', '3', '4']);
       expect(
         (await repo.searchWithSnippets('card', 'oldest')).map((hit) => hit.document.id),
       ).toEqual(['1', '2', '3', '4']);
     });
 
     it('keeps one row per document when sorting by expiry', async () => {
-      expect(await repo.list(null, 'expiry')).toHaveLength(4);
-      expect((await repo.list(null, 'expiry'))[0]).toMatchObject({ id: '2', title: 'Visa' });
+      expect(await repo.list('expiry')).toHaveLength(4);
+      expect((await repo.list('expiry'))[0]).toMatchObject({ id: '2', title: 'Visa' });
     });
   });
 
@@ -269,7 +298,9 @@ describe('migrateLegacyIndex', () => {
     expect(await migrateLegacyIndex(legacy, repo)).toBe(1);
     expect(await migrateLegacyIndex(legacy, repo)).toBe(0);
     expect(await migrateLegacyIndex(null, repo)).toBe(0);
-    expect((await repo.search('passport')).map((d) => d.id)).toEqual(['a']);
+    expect((await repo.searchWithSnippets('passport')).map((hit) => hit.document.id)).toEqual([
+      'a',
+    ]);
     await db.close();
   });
 });
