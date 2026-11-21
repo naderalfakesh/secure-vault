@@ -1,5 +1,7 @@
 import { StyleSheet } from 'react-native-unistyles';
 
+import { pressedFill } from '../pressedStyles';
+
 export const styles = StyleSheet.create((theme) => ({
   row: (hasSubtitle: boolean, divider: boolean) => ({
     flexDirection: 'row',
@@ -11,5 +13,5 @@ export const styles = StyleSheet.create((theme) => ({
     borderBottomWidth: divider ? StyleSheet.hairlineWidth : 0,
     borderBottomColor: theme.colors.border,
   }),
-  pressed: { backgroundColor: theme.colors.surfaceMuted },
+  pressed: pressedFill(theme),
 }));

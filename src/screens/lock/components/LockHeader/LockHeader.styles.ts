@@ -18,8 +18,8 @@ export const styles = StyleSheet.create((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 6,
+    gap: theme.inset.tight,
+    marginTop: theme.inset.tight,
     paddingHorizontal: theme.spacing.xs,
   },
   subtitleText: {

@@ -17,8 +17,8 @@ export const styles = StyleSheet.create((theme) => ({
   trustLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: theme.inset.tight,
     paddingHorizontal: theme.layout.titleMargin,
-    paddingTop: 10,
+    paddingTop: theme.inset.snug,
   },
 }));

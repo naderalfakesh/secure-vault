@@ -1,5 +1,8 @@
 import { StyleSheet } from 'react-native-unistyles';
 
+// Lifts the message above the viewer's bottom bar so it reads as centred in the stage.
+const LIFT_ABOVE_BARS = 120;
+
 export const styles = StyleSheet.create((theme) => ({
   failure: {
     flex: 1,
@@ -7,7 +10,7 @@ export const styles = StyleSheet.create((theme) => ({
     justifyContent: 'center',
     gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.xxl,
-    paddingBottom: 120,
+    paddingBottom: LIFT_ABOVE_BARS,
   },
   failureIcon: {
     width: 72,

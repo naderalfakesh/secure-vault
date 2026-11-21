@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native-unistyles';
 export const styles = StyleSheet.create((theme) => ({
   dots: {
     flexDirection: 'row',
-    gap: 14,
+    gap: theme.inset.roomy,
     justifyContent: 'center',
     // PIN dots fill left to right in every language.
     direction: 'ltr',

@@ -4,9 +4,9 @@ export const styles = StyleSheet.create((theme) => ({
   box: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: theme.inset.snug,
     paddingVertical: theme.spacing.sm,
-    paddingHorizontal: 14,
+    paddingHorizontal: theme.inset.roomy,
     borderRadius: theme.radii.input,
   },
   text: {

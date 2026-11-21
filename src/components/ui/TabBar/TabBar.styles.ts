@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native-unistyles';
 
+import { pressedDim } from '../pressedStyles';
 import { TAB_BAR_HEIGHT } from './constants';
 
 export const styles = StyleSheet.create((theme) => ({
@@ -8,7 +9,7 @@ export const styles = StyleSheet.create((theme) => ({
     start: theme.spacing.lg,
     end: theme.spacing.lg,
     minHeight: TAB_BAR_HEIGHT,
-    paddingVertical: 6,
+    paddingVertical: theme.inset.tight,
     borderRadius: theme.radii.pill,
     flexDirection: 'row',
     alignItems: 'center',
@@ -33,5 +34,5 @@ export const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.primary,
     ...theme.elevation.floating,
   },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  pressed: { ...pressedDim(theme), transform: [{ scale: theme.pressed.scale }] },
 }));

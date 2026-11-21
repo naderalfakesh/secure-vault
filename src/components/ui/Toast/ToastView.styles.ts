@@ -10,7 +10,7 @@ export const styles = StyleSheet.create((theme) => ({
   toast: (danger: boolean) => ({
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: theme.inset.snug,
     maxWidth: 480,
     width: '100%',
     minHeight: 52,
@@ -32,7 +32,7 @@ export const styles = StyleSheet.create((theme) => ({
   },
   action: {
     minHeight: theme.touchTarget,
-    paddingHorizontal: 14,
+    paddingHorizontal: theme.inset.roomy,
     borderRadius: theme.radii.pill,
     justifyContent: 'center',
   },

@@ -10,7 +10,7 @@ export const styles = StyleSheet.create((theme) => ({
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: theme.inset.tight,
   },
   input: {
     minHeight: theme.touchTarget,

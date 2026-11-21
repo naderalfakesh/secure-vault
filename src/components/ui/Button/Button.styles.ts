@@ -20,7 +20,7 @@ export const styles = StyleSheet.create((theme) => ({
     textAlign: 'center',
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressed.dim,
     transform: [{ scale: 0.98 }],
   },
 }));

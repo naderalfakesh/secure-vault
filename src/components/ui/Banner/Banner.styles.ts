@@ -11,7 +11,7 @@ export const styles = StyleSheet.create((theme) => ({
   body: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: theme.inset.snug,
   },
   text: {
     flex: 1,

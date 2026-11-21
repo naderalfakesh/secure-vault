@@ -9,7 +9,7 @@ export const styles = StyleSheet.create((theme) => ({
     paddingTop: compact ? theme.spacing.lg : theme.spacing.xxxl,
     paddingBottom: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    gap: 6,
+    gap: theme.inset.tight,
   }),
   dots: (compact: boolean) => ({
     marginTop: compact ? theme.spacing.lg : 36,

@@ -4,7 +4,7 @@ export const styles = StyleSheet.create((theme) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: theme.inset.snug,
     minHeight: 18,
   },
   segments: {

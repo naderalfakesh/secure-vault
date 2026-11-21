@@ -10,7 +10,7 @@ export const styles = StyleSheet.create((theme) => ({
   },
   body: {
     flex: 1,
-    gap: 2,
+    gap: theme.inset.hair,
   },
   value: {
     flexShrink: 1,

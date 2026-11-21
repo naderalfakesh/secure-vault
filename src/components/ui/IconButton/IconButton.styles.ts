@@ -18,6 +18,6 @@ export const styles = StyleSheet.create((theme) => ({
       borderColor: theme.colors.stageGlassBorder,
     }),
   }),
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: theme.pressed.dimIcon },
   disabled: { opacity: 0.4 },
 }));

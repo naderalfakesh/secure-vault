@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native-unistyles';
 
 export const styles = StyleSheet.create((theme) => ({
   field: {
-    gap: 6,
+    gap: theme.inset.tight,
   },
   label: {
     fontWeight: '600',
@@ -13,8 +13,8 @@ export const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.spacing.xs,
     minHeight: 52,
-    paddingStart: 14,
-    paddingEnd: 4,
+    paddingStart: theme.inset.roomy,
+    paddingEnd: theme.spacing.xxs,
     borderRadius: theme.radii.input,
     borderWidth: 1.5,
     borderColor:

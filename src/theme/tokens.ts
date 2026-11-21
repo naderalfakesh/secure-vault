@@ -12,6 +12,9 @@ export const spacing = {
   xxxl: 56,
 } as const;
 
+/** Optical half steps for padding inside small controls (chips, keys, rows), where the 4-pt steps are too coarse. */
+export const inset = { hair: 2, tight: 6, snug: 10, roomy: 14 } as const;
+
 /** Title margin: titles sit 20 from the edge. */
 export const layout = {
   titleMargin: 20,
@@ -82,6 +85,9 @@ export const textScale = {
   rowTitleMax: 2,
   accessibilityText: 1.7,
 } as const;
+
+/** Pressed feedback shared by the design-system controls. */
+export const pressed = { dim: 0.85, dimIcon: 0.7, scale: 0.97 } as const;
 
 /** Minimum hit target on both platforms. */
 export const touchTarget = 44;

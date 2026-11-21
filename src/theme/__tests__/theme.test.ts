@@ -51,6 +51,12 @@ describe('theme', () => {
     expect(darkTheme.typography).toBe(lightTheme.typography);
   });
 
+  it('shares the inset and pressed tokens between themes', () => {
+    expect(darkTheme.inset).toBe(lightTheme.inset);
+    expect(darkTheme.pressed).toBe(lightTheme.pressed);
+    expect(lightTheme.inset).toEqual({ hair: 2, tight: 6, snug: 10, roomy: 14 });
+  });
+
   it('keeps line heights readable for every variant', () => {
     for (const style of Object.values(typography)) {
       expect(style.lineHeight).toBeGreaterThanOrEqual(style.fontSize);

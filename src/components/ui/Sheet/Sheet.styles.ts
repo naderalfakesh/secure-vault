@@ -24,7 +24,7 @@ export const styles = StyleSheet.create((theme) => {
       borderTopRightRadius: floating ? theme.radii.sheet : theme.radii.sheetAttached,
       borderBottomLeftRadius: floating ? theme.radii.sheet : 0,
       borderBottomRightRadius: floating ? theme.radii.sheet : 0,
-      paddingHorizontal: 20,
+      paddingHorizontal: theme.layout.titleMargin,
       gap: theme.spacing.sm,
       maxHeight: '92%',
       ...(detent === 'medium' && { height: '50%' }),

@@ -49,7 +49,7 @@ export const styles = StyleSheet.create((theme) => ({
     fontWeight: '600',
   },
   pressed: {
-    opacity: 0.7,
+    opacity: theme.pressed.dimIcon,
   },
   moveBar: {
     flexDirection: 'row',

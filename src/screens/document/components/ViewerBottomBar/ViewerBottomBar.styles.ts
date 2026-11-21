@@ -1,5 +1,8 @@
 import { StyleSheet } from 'react-native-unistyles';
 
+// Wider than the 4-pt steps so the pill label sits optically centred in its glass.
+const PILL_PADDING = 22;
+
 export const styles = StyleSheet.create((theme) => ({
   ink: {
     color: theme.colors.onStage,
@@ -17,7 +20,7 @@ export const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.spacing.xs,
     minHeight: 48,
-    paddingHorizontal: 22,
+    paddingHorizontal: PILL_PADDING,
     borderRadius: theme.radii.pill,
     backgroundColor: theme.colors.stageGlass,
     borderWidth: 1,

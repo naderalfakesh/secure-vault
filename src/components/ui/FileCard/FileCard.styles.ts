@@ -6,7 +6,7 @@ export const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
-    paddingHorizontal: 14,
+    paddingHorizontal: theme.inset.roomy,
     borderRadius: theme.radii.lg,
     backgroundColor: theme.colors.surfaceMuted,
   },
@@ -20,6 +20,6 @@ export const styles = StyleSheet.create((theme) => ({
   },
   body: {
     flex: 1,
-    gap: 2,
+    gap: theme.inset.hair,
   },
 }));

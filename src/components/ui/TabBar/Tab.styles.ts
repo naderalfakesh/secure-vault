@@ -9,7 +9,7 @@ export const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: theme.inset.hair,
     backgroundColor: selected ? theme.colors.primaryMuted : 'transparent',
   }),
   label: {

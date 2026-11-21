@@ -12,7 +12,7 @@ export const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     gap: theme.spacing.xs,
     minHeight: theme.touchTarget,
-    paddingHorizontal: 14,
+    paddingHorizontal: theme.inset.roomy,
     borderRadius: theme.radii.pill,
     backgroundColor: theme.colors.surfaceMuted,
   },

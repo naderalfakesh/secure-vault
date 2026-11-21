@@ -1,12 +1,14 @@
 import { StyleSheet } from 'react-native-unistyles';
 
+import { pressedDim } from '../pressedStyles';
+
 export const styles = StyleSheet.create((theme) => ({
   base: (outlined: boolean) => ({
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xxs + 2,
+    gap: theme.inset.tight,
     minHeight: 36,
-    paddingHorizontal: 14,
+    paddingHorizontal: theme.inset.roomy,
     borderRadius: theme.radii.pill,
     borderWidth: outlined ? 1 : 0,
     borderColor: theme.colors.borderStrong,
@@ -14,7 +16,7 @@ export const styles = StyleSheet.create((theme) => ({
   inner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xxs + 2,
+    gap: theme.inset.tight,
     flexShrink: 1,
   },
   label: {
@@ -27,5 +29,5 @@ export const styles = StyleSheet.create((theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pressed: { opacity: 0.8 },
+  pressed: pressedDim(theme),
 }));
