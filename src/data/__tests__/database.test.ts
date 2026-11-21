@@ -4,14 +4,7 @@ import { at } from '@/testing/lists';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
-import {
-  allowDocumentStore,
-  closeDocumentStore,
-  deleteDocumentStore,
-  exportDatabaseFile,
-  openDocumentStore,
-  replaceDatabaseFile,
-} from '../database';
+import { DocumentDatabase } from '../DocumentDatabase';
 import { deleteEncryptedDatabase, openEncryptedDatabase } from '../expoSqlite';
 import { applyMigrations } from '../schema';
 
@@ -23,6 +16,16 @@ jest.mock('../expoSqlite', () => ({
 jest.mock('../schema', () => ({ applyMigrations: jest.fn(async () => 0) }));
 
 const openEncrypted = openEncryptedDatabase as jest.Mock;
+const database = new DocumentDatabase({
+  open: (name, key) => openEncryptedDatabase(name, key),
+  remove: (name) => deleteEncryptedDatabase(name),
+});
+const allowDocumentStore = () => database.allow();
+const closeDocumentStore = () => database.close();
+const deleteDocumentStore = (removeEntries: () => Promise<void>) => database.erase(removeEntries);
+const exportDatabaseFile = (destPath: string) => database.exportTo(destPath);
+const openDocumentStore = () => database.open();
+const replaceDatabaseFile = (sourcePath: string) => database.replaceWith(sourcePath);
 const keyLocked = () => Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' });
 
 describe('database file handling', () => {

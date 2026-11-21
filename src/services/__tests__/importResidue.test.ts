@@ -1,7 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 import { followLinksOnDelete } from '@modules/expo-vault/src/ExpoVaultModule.mock';
@@ -54,7 +54,7 @@ describe('import copies outside the vault', () => {
 
   beforeEach(async () => {
     vaultMock.reset();
-    await closeDocumentStore();
+    await documentDatabase.close();
     const documentsFolder = new Directory(`${container}Documents/`);
     if (!documentsFolder.exists) documentsFolder.create({ intermediates: true });
     documents = jest.spyOn(Paths, 'document', 'get').mockReturnValue(documentsFolder);

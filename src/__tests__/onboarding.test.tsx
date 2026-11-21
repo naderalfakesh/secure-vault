@@ -3,7 +3,7 @@ import { act, fireEvent, renderRouter, screen, waitFor } from 'expo-router/testi
 import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
-import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { secureStoreMock } from '@/testing/secureStore';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
@@ -43,8 +43,8 @@ describe('onboarding', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    await closeDocumentStore();
-    allowDocumentStore();
+    await documentDatabase.close();
+    documentDatabase.allow();
   });
 
   afterEach(() => jest.restoreAllMocks());

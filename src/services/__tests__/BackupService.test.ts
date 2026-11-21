@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { createBackup } from '@/testing/backup';
 import { at } from '@/testing/lists';
 import { vaultMock } from '@/testing/vault';
@@ -140,7 +140,7 @@ describe('passphrase policy', () => {
 describe('BackupService', () => {
   beforeEach(async () => {
     vaultMock.reset();
-    await closeDocumentStore();
+    await documentDatabase.close();
   });
 
   it('refuses to write a backup behind a weak passphrase', async () => {
@@ -1228,6 +1228,8 @@ describe('BackupService', () => {
 
     it('refuses a second restore, an export, and an erase while a restore runs, and leaves its extras alone', async () => {
       let finishImport: () => void = () => {};
+      // The stubbed import restores no entries, so the index key must already be there.
+      await vault.put('_database_key', 'ab'.repeat(32));
       const spy = jest.spyOn(vault, 'importBackup').mockImplementationOnce(
         (_source, _passphrase, extraDir) =>
           new Promise((resolve) => {

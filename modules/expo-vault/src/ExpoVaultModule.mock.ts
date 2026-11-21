@@ -205,6 +205,12 @@ export function createVaultMock(): SecureVault & {
           key: file.key,
           path: `${extraDir}/${file.key}`,
         }));
+        // Natively each extra is written where it is reported; the index installer moves it from there.
+        for (const extra of extras) {
+          const written = new File(`file://${extra.path}`);
+          written.parentDirectory.create({ intermediates: true, idempotent: true });
+          if (!written.exists) written.create();
+        }
         emit({ phase: 'import', done: total, total });
         return { entries: total - 1, extras };
       } finally {

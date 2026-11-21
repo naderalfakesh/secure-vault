@@ -11,6 +11,10 @@ require('./src/theme/unistyles');
 // from an in-memory fake that mirrors the native API surface.
 jest.mock('./modules/expo-vault', () => require('./modules/expo-vault/src/ExpoVaultModule.mock'));
 
+// SQLCipher needs a device: the index adapter is the boundary, and in Jest it
+// opens an in-memory SQLite. Everything above it runs for real.
+jest.mock('./src/data/expoSqlite', () => require('./src/data/expoSqlite.mock'));
+
 jest.mock('expo-device', () => ({ isDevice: true }));
 
 // Biometric availability (F13): a phone with Face ID set up, unless a test
@@ -87,4 +91,6 @@ beforeEach(() => {
   const { Directory, Paths } = require('expo-file-system');
   const markers = new Directory(Paths.document, 'securevault-session');
   if (markers.exists) markers.delete();
+  const index = new Directory(Paths.document, 'SQLite');
+  if (index.exists) index.delete();
 });

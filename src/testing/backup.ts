@@ -1,4 +1,7 @@
+import { File } from 'expo-file-system';
+
 import { type BackupResult, backupService, type ProgressListener } from '@/services/BackupService';
+import vault from '@modules/expo-vault';
 
 type ExportInternals = {
   exclusive<T>(kind: 'export', task: () => Promise<T>): Promise<T>;
@@ -16,4 +19,14 @@ export function createBackup(
 ): Promise<BackupResult> {
   const service = backupService as unknown as ExportInternals;
   return service.exclusive('export', () => service.writeBackup(passphrase, onProgress));
+}
+
+/**
+ * Stands in for the native restore that a test resolves by hand: puts the
+ * restored database where the module said it would be, and the index key the
+ * backup would have carried.
+ */
+export async function plantRestoredIndex(extrasDirectory: string): Promise<void> {
+  new File(`file://${extrasDirectory}/database`).create({ overwrite: true });
+  await vault.put('_database_key', 'ab'.repeat(32));
 }

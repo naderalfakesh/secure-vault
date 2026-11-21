@@ -4,7 +4,7 @@ import { type ComponentType, useEffect } from 'react';
 import { Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { auditAccessibility, countControls } from '@/testing/accessibilityAudit';
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
@@ -100,7 +100,7 @@ describe('accessibility audit of the main screens', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    await closeDocumentStore();
+    await documentDatabase.close();
   });
 
   afterEach(() => jest.restoreAllMocks());

@@ -1,7 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react-native';
 import { useEffect } from 'react';
 
-import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { secureStoreMock } from '@/testing/secureStore';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
@@ -36,8 +36,8 @@ describe('PIN setup copy', () => {
   beforeEach(async () => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    await closeDocumentStore();
-    allowDocumentStore();
+    await documentDatabase.close();
+    documentDatabase.allow();
   });
 
   it('says the documents stay when a vault with entries gets a PIN', async () => {

@@ -1,7 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 
-import { closeDocumentStore, openDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
@@ -21,7 +21,8 @@ describe('DocumentService', () => {
   beforeEach(async () => {
     vaultMock.reset();
     // The next call opens a fresh, empty in-memory index.
-    await closeDocumentStore();
+    await documentDatabase.close();
+    documentDatabase.allow();
   });
 
   afterEach(() => {
@@ -29,7 +30,7 @@ describe('DocumentService', () => {
   });
 
   it('reloads without closing the connection a screen may still be querying', async () => {
-    const { db, repository } = await openDocumentStore();
+    const { db, repository } = await documentDatabase.open();
     const close = jest.spyOn(db, 'close');
     const listener = jest.fn();
     const unsubscribe = documentService.subscribe(listener);
@@ -135,11 +136,9 @@ describe('DocumentService', () => {
   it('still clears the decrypted files when "Delete everything" did not finish', async () => {
     const preview = new File(Paths.cache, 'decrypted_0D2C.jpg');
     preview.writeSync('jpeg');
-    const listing = jest
-      .spyOn(vault, 'getAllKeys')
-      .mockRejectedValueOnce(
-        Object.assign(new Error('not finished'), { code: 'ERASE_INCOMPLETE' }),
-      );
+    // The key entry survives the erase, which the index reports as unfinished.
+    await vault.put('_database_key', 'ab'.repeat(32));
+    const listing = jest.spyOn(vault, 'delete').mockRejectedValue(new Error('busy'));
 
     await expect(documentService.eraseEverything()).rejects.toMatchObject({
       code: 'ERASE_INCOMPLETE',
@@ -254,7 +253,7 @@ describe('DocumentService', () => {
   });
 
   it('leaves no document or vault entries behind when writing its pages fails', async () => {
-    const { repository } = await openDocumentStore();
+    const { repository } = await documentDatabase.open();
     const pages = [picked, { ...picked, uri: '/tmp/page-2.jpg', name: 'page-2.jpg' }];
     const setPages = jest
       .spyOn(repository, 'setPages')
@@ -265,7 +264,8 @@ describe('DocumentService', () => {
     );
 
     expect(await documentService.getAllDocuments()).toHaveLength(0);
-    expect(await vault.getAllKeys()).toEqual([]);
+    // The index key is the index's own entry, not the document's.
+    expect((await vault.getAllKeys()).filter((key) => key !== '_database_key')).toEqual([]);
 
     // A retry from the same pick makes exactly one document.
     await documentService.addDocument(pages, { title: 'Lease' });

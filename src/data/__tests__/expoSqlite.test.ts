@@ -4,6 +4,8 @@ import { at } from '@/testing/lists';
 
 import { openEncryptedDatabase } from '../expoSqlite';
 
+// jest.setup.js replaces this adapter; this file tests the real one.
+jest.unmock('../expoSqlite');
 jest.mock('expo-sqlite', () => ({
   defaultDatabaseDirectory: 'file:///data/SQLite',
   deleteDatabaseAsync: jest.fn(),

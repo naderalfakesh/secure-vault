@@ -2,7 +2,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { AccessibilityInfo, Text } from 'react-native';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { settle } from '@/testing/async';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
@@ -51,7 +51,7 @@ describe('Library', () => {
     // Tests seed documents before setup: the device key that encrypts them comes first,
     // or the launch finds entries without a key and offers only Delete everything.
     await vault.createVault();
-    await closeDocumentStore();
+    await documentDatabase.close();
     (router.push as jest.Mock).mockClear();
   });
 

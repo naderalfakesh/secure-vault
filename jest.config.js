@@ -7,11 +7,8 @@ module.exports = {
     // Test doubles and helpers are not app code.
     '!src/testing/**',
     '!src/data/testing/**',
-    '!src/**/*.jest.ts',
+    '!src/**/*.mock.ts',
   ],
-  moduleNameMapper: {
-    '^@/data/database$': '<rootDir>/src/data/database.jest.ts',
-  },
   resolver: 'react-native-reanimated/jest/resolver.js',
   setupFiles: ['react-native-gesture-handler/jestSetup.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],

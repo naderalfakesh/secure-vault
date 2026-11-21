@@ -1,7 +1,7 @@
 import { act, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
-import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { openTestDatabase } from '@/data/testing/betterSqlite';
 import { documentService } from '@/services/DocumentService';
 import { vaultMock } from '@/testing/vault';
@@ -29,8 +29,8 @@ function Home() {
 describe('useDocumentList', () => {
   beforeEach(async () => {
     vaultMock.reset();
-    await closeDocumentStore();
-    allowDocumentStore();
+    await documentDatabase.close();
+    documentDatabase.allow();
   });
 
   it('empties the list after "Delete everything" without opening the index again', async () => {
@@ -55,7 +55,7 @@ describe('useDocumentList', () => {
     await waitFor(() => expect(view.getByTestId('count')).toHaveTextContent('1'));
 
     // The restore swapped in an index that will not open.
-    await closeDocumentStore();
+    await documentDatabase.close();
     opens.mockImplementation(() => {
       throw new Error('file is not a database');
     });
@@ -68,6 +68,6 @@ describe('useDocumentList', () => {
       'The document index could not be opened, so it stays closed. Nothing was changed.',
     );
     opens.mockImplementation(jest.requireActual('@/data/testing/betterSqlite').openTestDatabase);
-    await closeDocumentStore().catch(() => {});
+    await documentDatabase.close().catch(() => {});
   });
 });

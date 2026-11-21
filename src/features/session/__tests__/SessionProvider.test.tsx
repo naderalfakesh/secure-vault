@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 import { Platform, Text } from 'react-native';
 
-import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '@/features/auth/lockout';
 import { documentService } from '@/services/DocumentService';
 import { appState, moveAppStateTo, resetAppState } from '@/testing/appState';
@@ -147,8 +147,8 @@ describe('SessionProvider', () => {
   });
 
   it('lets the index open again only once setup after "Delete everything" succeeded', async () => {
-    await closeDocumentStore();
-    allowDocumentStore();
+    await documentDatabase.close();
+    documentDatabase.allow();
     await vault.createVault();
     await documentService.eraseEverything();
     await expect(documentService.initialize()).rejects.toMatchObject({ code: 'VAULT_EMPTIED' });

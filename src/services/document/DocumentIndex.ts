@@ -1,4 +1,4 @@
-import { allowDocumentStore, openDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import type {
   DocumentOrder,
   DocumentRepository,
@@ -20,17 +20,17 @@ export class DocumentIndex {
   private listeners = new Set<ChangeListener>();
 
   protected async repository(): Promise<DocumentRepository> {
-    return (await openDocumentStore()).repository;
+    return (await documentDatabase.open()).repository;
   }
 
   /** Opens the index; safe to call repeatedly. */
   async initialize(): Promise<void> {
-    await openDocumentStore();
+    await documentDatabase.open();
   }
 
   /** After "Delete everything" the index stays closed; setup reopens it for the new vault. */
   allowIndex(): void {
-    allowDocumentStore();
+    documentDatabase.allow();
   }
 
   /**
@@ -53,7 +53,7 @@ export class DocumentIndex {
    */
   async reload(): Promise<void> {
     try {
-      await openDocumentStore();
+      await documentDatabase.open();
     } finally {
       this.notify();
     }

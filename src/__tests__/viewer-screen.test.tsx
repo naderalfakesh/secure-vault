@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { appStateListeners, resetAppState } from '@/testing/appState';
 import { secureStoreMock } from '@/testing/secureStore';
 import { vaultMock } from '@/testing/vault';
@@ -76,7 +76,7 @@ describe('Document viewer', () => {
     // Tests seed documents before setup: the device key that encrypts them comes first,
     // or the launch finds entries without a key and offers only Delete everything.
     await vault.createVault();
-    await closeDocumentStore();
+    await documentDatabase.close();
     resetAppState();
     (router.back as jest.Mock).mockClear();
   });

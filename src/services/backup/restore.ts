@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { replaceDatabaseFile } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { errorCode } from '@/utils/errors';
 import vault from '@modules/expo-vault';
 
@@ -118,7 +118,7 @@ export async function replaceVault(
     const database = result.extras.find((extra) => extra.key === DATABASE_ENTRY);
     if (!database) throw indexError(new Error('The backup has no document index.'));
     try {
-      await replaceDatabaseFile(database.path);
+      await documentDatabase.replaceWith(database.path);
       await documentService.clearCache();
       await documentService.reload();
     } catch (error) {

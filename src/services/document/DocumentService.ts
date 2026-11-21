@@ -1,6 +1,6 @@
 import { Paths } from 'expo-file-system';
 
-import { deleteDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import type { Document, PickedFile } from '@/types';
 
 import { UNDO_WINDOW_MS } from './constants';
@@ -143,7 +143,7 @@ class DocumentService extends DocumentIndex {
     for (const timer of this.undoTimers.values()) clearTimeout(timer);
     this.undoTimers.clear();
     try {
-      await deleteDocumentStore(removeVaultEntries);
+      await documentDatabase.erase(removeVaultEntries);
     } finally {
       // Only caches: decrypted copies go also when the erase did not finish.
       await this.clearCache();

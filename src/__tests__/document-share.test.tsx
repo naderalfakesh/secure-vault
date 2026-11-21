@@ -2,7 +2,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
-import { closeDocumentStore } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { moveAppStateTo, resetAppState } from '@/testing/appState';
 import { settle } from '@/testing/async';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
@@ -75,7 +75,7 @@ describe('Document sharing and the lock gate', () => {
     // Tests seed documents before setup: the device key that encrypts them comes first,
     // or the launch finds entries without a key and offers only Delete everything.
     await vault.createVault();
-    await closeDocumentStore();
+    await documentDatabase.close();
     resetAppState();
     share.mockClear();
   });

@@ -6,9 +6,10 @@ import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
 
+import { documentDatabase } from '@/data/database';
 import { appState, resetAppState, setAppState } from '@/testing/appState';
 import { settle } from '@/testing/async';
-import { createBackup } from '@/testing/backup';
+import { createBackup, plantRestoredIndex } from '@/testing/backup';
 import { at } from '@/testing/lists';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
@@ -137,8 +138,10 @@ describe('Backup hub and the lock gate', () => {
   let discard: jest.SpyInstance;
   let discardPicked: jest.SpyInstance;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     resetAppState();
     share.mockClear();
@@ -366,6 +369,7 @@ describe('Backup hub and the lock gate', () => {
       expect(vault.importBackup).toHaveBeenCalledTimes(1);
       expect(extras).not.toBe('');
 
+      await plantRestoredIndex(extras);
       await act(async () => {
         importing.settle({
           entries: 19,
@@ -438,8 +442,10 @@ describe('Backup hub and the lock gate', () => {
 });
 
 describe('Settings "Delete everything"', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
   });
 
@@ -505,8 +511,10 @@ describe('Settings "Delete everything"', () => {
 });
 
 describe('Backup hub restore refusals that leave the vault unchanged', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     pick.mockReset();
   });
@@ -599,8 +607,10 @@ describe('Backup hub picker after "Choose another file"', () => {
     { code: 'ERR_PICKING_IN_PROGRESS' },
   );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     pick.mockReset();
   });
@@ -697,8 +707,10 @@ describe('Backup hub picker after "Choose another file"', () => {
 describe('Backup hub restore phases and outcomes', () => {
   const emitProgress = (event: BackupProgress) => vaultMock.emitProgress(event);
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     pick.mockReset();
     (router.navigate as jest.Mock).mockClear();
@@ -870,6 +882,7 @@ describe('Backup hub restore phases and outcomes', () => {
     });
     expect(view.queryByText('Cancelling…')).toBeNull();
 
+    await plantRestoredIndex(extras);
     await act(async () => {
       emitProgress({ phase: 'import', done: 1, total: 20 });
       importing.settle({ entries: 19, extras: [{ key: 'database', path: `${extras}/database` }] });
@@ -1005,8 +1018,10 @@ describe('Backup hub restore phases and outcomes', () => {
 });
 
 describe('Backup hub create flow', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     share.mockClear();
   });

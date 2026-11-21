@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
+import { documentDatabase } from '@/data/database';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
 import { vaultMock } from '@/testing/vault';
@@ -73,10 +74,12 @@ describe('Backup Save to device on Android', () => {
   const os = Platform.OS;
   let discard: jest.SpyInstance;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     foreground();
     vaultMock.reset();
+    // The reset forgets the index key and file name the open connection was made with.
+    await documentDatabase.close();
     secureStoreMock.__reset();
     share.mockClear();
     jest.spyOn(vault, 'exportBackup').mockResolvedValue({ entries: 19, bytes: 471948836 });

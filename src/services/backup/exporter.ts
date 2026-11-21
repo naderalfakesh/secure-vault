@@ -1,6 +1,6 @@
 import { type Directory, File } from 'expo-file-system';
 
-import { exportDatabaseFile } from '@/data/database';
+import { documentDatabase } from '@/data/database';
 import { AppError } from '@/utils/AppError';
 import vault from '@modules/expo-vault';
 
@@ -44,7 +44,7 @@ export async function writeBackup(
   const unsubscribe = subscribeProgress(onProgress);
   let summary: { entries: number; bytes: number };
   try {
-    await exportDatabaseFile(toPath(databaseCopy.uri));
+    await documentDatabase.exportTo(toPath(databaseCopy.uri));
     summary = await vault.exportBackup(
       toPath(target.uri),
       passphrase,
