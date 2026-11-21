@@ -105,9 +105,13 @@ describe('DocumentService', () => {
       category: DocumentCategory.RECEIPTS,
     });
 
-    expect((await documentService.searchDocuments('rent')).map((d) => d.title)).toEqual(['Lease']);
-    expect((await documentService.searchDocuments('home')).map((d) => d.title)).toEqual(['Lease']);
-    expect(await documentService.searchDocuments('nothing')).toHaveLength(0);
+    expect(
+      (await documentService.searchWithSnippets('rent', 'newest')).map((hit) => hit.document.title),
+    ).toEqual(['Lease']);
+    expect(
+      (await documentService.searchWithSnippets('home', 'newest')).map((hit) => hit.document.title),
+    ).toEqual(['Lease']);
+    expect(await documentService.searchWithSnippets('nothing', 'newest')).toHaveLength(0);
   });
 
   it('empties the image library caches with the decrypted files', async () => {

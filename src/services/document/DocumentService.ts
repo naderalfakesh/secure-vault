@@ -166,4 +166,3 @@ class DocumentService extends DocumentIndex {
 }
 
 export const documentService = new DocumentService();
-export default documentService;

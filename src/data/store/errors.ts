@@ -1,4 +1,5 @@
 import { t } from '@/i18n';
+import { errorCode } from '@/utils/errors';
 import { isKeyLocked } from '@modules/expo-vault';
 
 /** A database key failure, with a sentence a screen can show as is. */
@@ -6,16 +7,12 @@ export function keyError(code: string, message: string, cause?: unknown): Error 
   return Object.assign(new Error(message), { code, cause });
 }
 
-export function codeOf(error: unknown): unknown {
-  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
-}
-
 /** Any failure to read a stored key; the key itself is never replaced. */
 export function unreadableKey(cause: unknown): Error {
   if (isKeyLocked(cause)) {
     return keyError('KEY_LOCKED', t('errors.keyLocked'), cause);
   }
-  if (codeOf(cause) === 'KEY_INVALIDATED') {
+  if (errorCode(cause) === 'KEY_INVALIDATED') {
     return keyError('KEY_INVALIDATED', t('errors.index.keyInvalidated'), cause);
   }
   return keyError('DATABASE_KEY_UNREADABLE', t('errors.index.keyUnreadable'), cause);
@@ -27,7 +24,7 @@ export function listingError(cause: unknown): Error {
 }
 
 export function nameError(cause: unknown): Error {
-  if (isKeyLocked(cause) || codeOf(cause) === 'KEY_INVALIDATED') return unreadableKey(cause);
+  if (isKeyLocked(cause) || errorCode(cause) === 'KEY_INVALIDATED') return unreadableKey(cause);
   return keyError('DATABASE_NAME_UNREADABLE', t('errors.index.nameUnreadable'), cause);
 }
 

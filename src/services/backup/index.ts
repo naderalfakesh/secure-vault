@@ -1,4 +1,4 @@
-export { backupService, default } from './BackupService';
+export { backupService } from './BackupService';
 export {
   BACKUP_DIRECTORY,
   BACKUP_STAGING_DIRECTORY,

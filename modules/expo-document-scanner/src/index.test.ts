@@ -1,11 +1,13 @@
+import type * as ScannerApi from './index';
+
 type NativeStub = {
   isSupported?: () => boolean;
   isCameraAvailable?: () => boolean;
 } | null;
 
 /** Loads the real module against a stubbed native binding and device flag. */
-function loadWith(native: NativeStub, isDevice = true): typeof import('./index') {
-  let api: typeof import('./index') | undefined;
+function loadWith(native: NativeStub, isDevice = true): typeof ScannerApi {
+  let api: typeof ScannerApi | undefined;
   jest.isolateModules(() => {
     jest.doMock('expo', () => ({ requireOptionalNativeModule: () => native }));
     jest.doMock('expo-device', () => ({ isDevice }));

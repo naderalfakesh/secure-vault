@@ -199,4 +199,3 @@ class BackupService {
 }
 
 export const backupService = new BackupService();
-export default backupService;

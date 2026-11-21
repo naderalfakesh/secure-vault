@@ -11,6 +11,7 @@ import {
 import { withKeyRecovery } from '@modules/expo-vault/src/withKeyRecovery';
 
 import { DocumentCategory } from '../../types';
+import { passphraseLength } from '../backup/passphrase';
 import {
   BACKUP_DIRECTORY,
   BACKUP_STAGING_DIRECTORY,
@@ -70,6 +71,13 @@ describe('passphrase policy', () => {
     expect(passphraseProblem('٢٠٢٦١٢٣٤')).toBeNull();
     expect(passphraseProblem('قمر فوق جبل', 'قمر فوق جبل')).toBeNull();
     expect(passphraseProblem('٢٠٢٦١٢٣٤', '20261234')).toMatch(/do not match/);
+  });
+
+  it('counts code points, so four emoji are too short and eight are enough', () => {
+    expect(passphraseLength('😀😁😂🤣')).toBe(4);
+    expect(passphraseProblem('😀😁😂🤣')).toMatch(/at least 8/);
+    expect(passphraseProblem('😀😁😂🤣😃😄😅😆')).toBeNull();
+    expect(passphraseProblem('😀'.repeat(8))).toMatch(/more than one character/);
   });
 
   it('turns native error codes into sentences', () => {

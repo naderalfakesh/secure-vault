@@ -11,7 +11,7 @@ import {
 } from './constants';
 import { listingError } from './errors';
 
-export function databaseDirectory(name: string): Directory {
+function databaseDirectory(name: string): Directory {
   const path = databaseFilePath(name);
   return new Directory(`file://${path.slice(0, path.lastIndexOf('/'))}`);
 }

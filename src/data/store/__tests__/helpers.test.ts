@@ -1,5 +1,7 @@
+import { errorCode } from '@/utils/errors';
+
 import { INDEX_FILE, MAIN_INDEX_FILE } from '../constants';
-import { codeOf, keyError } from '../errors';
+import { keyError } from '../errors';
 import { isRestoredName } from '../files';
 import { toHex } from '../key';
 
@@ -35,8 +37,8 @@ describe('key errors', () => {
     const cause = new Error('io');
     const error = keyError('DATABASE_KEY_MISSING', 'Missing.', cause);
     expect(error).toMatchObject({ message: 'Missing.', code: 'DATABASE_KEY_MISSING', cause });
-    expect(codeOf(error)).toBe('DATABASE_KEY_MISSING');
-    expect(codeOf('text')).toBeNull();
-    expect(codeOf(null)).toBeNull();
+    expect(errorCode(error)).toBe('DATABASE_KEY_MISSING');
+    expect(errorCode('text')).toBeUndefined();
+    expect(errorCode(null)).toBeUndefined();
   });
 });

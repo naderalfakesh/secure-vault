@@ -1,6 +1,6 @@
+import { t } from '@/i18n';
 import { isKeyLocked } from '@modules/expo-vault';
 
-import { t } from '../i18n';
 import { DocumentRepository } from './DocumentRepository';
 import { deleteEncryptedDatabase, openEncryptedDatabase } from './expoSqlite';
 import { migrateLegacyIndex } from './migrateLegacyIndex';

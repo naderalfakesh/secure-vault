@@ -2,6 +2,7 @@ import type { DocumentRepository } from '@/data/DocumentRepository';
 import type { PickedFile } from '@/types';
 import ExpoVaultModule from '@modules/expo-vault';
 
+import { undoName, undoPageName } from './cacheNames';
 import { cacheLocation, toPath } from './helpers';
 import { discardTemp } from './residue';
 import type { DeletedDocument, DocumentLookup, RepositorySource } from './types';
@@ -21,7 +22,7 @@ export async function copyForUndo(
   const fields = await lookup.getFields(id);
   const extension = document.fileType === 'pdf' ? 'pdf' : 'jpg';
   const files: PickedFile[] = [];
-  const main = cacheLocation(cacheUri, `undo_${id}.${extension}`);
+  const main = cacheLocation(cacheUri, undoName(id, extension));
   await ExpoVaultModule.getFile(document.fileKey, main.path);
   files.push({
     uri: main.uri,
@@ -31,7 +32,7 @@ export async function copyForUndo(
   });
   const pageKeys = await (await repositorySource()).getPages(id);
   for (const [index, key] of pageKeys.entries()) {
-    const page = cacheLocation(cacheUri, `undo_${id}_p${index + 1}.jpg`);
+    const page = cacheLocation(cacheUri, undoPageName(id, index + 1));
     await ExpoVaultModule.getFile(key, page.path);
     files.push({ uri: page.uri, name: `page-${index + 1}.jpg`, type: 'image/jpeg' });
   }

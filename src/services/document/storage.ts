@@ -3,6 +3,13 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import ExpoVaultModule from '@modules/expo-vault';
 
+import {
+  decryptedName,
+  decryptedPageName,
+  pdfPagesName,
+  SHARE_DIRECTORY,
+  thumbnailName,
+} from './cacheNames';
 import { PAGE_MAX_PIXELS } from './constants';
 import { cacheLocation, shareFileName, toPath, toUri } from './helpers';
 import type { DocumentLookup, RepositorySource, ShareCopy } from './types';
@@ -16,7 +23,7 @@ export async function decryptDocumentFile(
   const doc = await lookup.getDocument(id);
   if (!doc) return null;
   const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpg';
-  const { uri, path } = cacheLocation(cacheUri, `decrypted_${id}.${extension}`);
+  const { uri, path } = cacheLocation(cacheUri, decryptedName(id, extension));
   await ExpoVaultModule.getFile(doc.fileKey, path);
   return uri;
 }
@@ -28,7 +35,7 @@ export async function decryptThumbnail(
 ): Promise<string | null> {
   const doc = await lookup.getDocument(id);
   if (!doc) return null;
-  const { uri, path } = cacheLocation(cacheUri, `thumb_${id}.jpg`);
+  const { uri, path } = cacheLocation(cacheUri, thumbnailName(id));
   try {
     await ExpoVaultModule.getFile(doc.thumbnailKey, path);
     return uri;
@@ -52,14 +59,14 @@ export async function decryptPages(
   const main = await lookup.getDocumentFile(id);
   if (!main) return [];
   if (doc.fileType === 'pdf') {
-    const { path } = cacheLocation(cacheUri, `pages_${id}`);
+    const { path } = cacheLocation(cacheUri, pdfPagesName(id));
     const pages = await ExpoVaultModule.renderPdfPages(toPath(main), PAGE_MAX_PIXELS, path);
     return pages.map((page) => toUri(page.uri));
   }
   const pageKeys = await (await repositorySource()).getPages(id);
   const uris = [main];
   for (const [index, key] of pageKeys.entries()) {
-    const { uri, path } = cacheLocation(cacheUri, `decrypted_${id}_p${index + 1}.jpg`);
+    const { uri, path } = cacheLocation(cacheUri, decryptedPageName(id, index + 1));
     await ExpoVaultModule.getFile(key, path);
     uris.push(uri);
   }
@@ -84,7 +91,7 @@ export async function prepareShareCopy(
   // A folder per share: Android grants every share target read access to the
   // copy's content URI, and those grants outlive the file. A fresh path means
   // a later copy never answers to an earlier share's grants.
-  const directory = new Directory(Paths.cache, 'share', Crypto.randomUUID());
+  const directory = new Directory(Paths.cache, SHARE_DIRECTORY, Crypto.randomUUID());
   directory.create({ intermediates: true, idempotent: true });
   const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
   const folder = toPath(directory.uri).replace(/\/+$/, '');

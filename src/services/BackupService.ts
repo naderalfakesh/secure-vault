@@ -4,7 +4,6 @@ export {
   BACKUP_STAGING_DIRECTORY,
   backupFileName,
   backupService,
-  default,
   describeBackupError,
   describeBackupErrorPlainly,
   MIN_PASSPHRASE_LENGTH,

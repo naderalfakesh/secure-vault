@@ -6,6 +6,7 @@ import { type Document, DocumentCategory, type PickedFile } from '@/types';
 import ExpoVaultModule from '@modules/expo-vault';
 
 import { removeNoFollow } from '../removeNoFollow';
+import { pdfCoverName } from './cacheNames';
 import {
   FILE_PREFIX,
   IMPORT_COPY_PREFIX,
@@ -111,7 +112,7 @@ async function renderPdfCover(
   pdfPath: string,
   id: string,
 ): Promise<string | null> {
-  const { path } = cacheLocation(cacheUri, `pages_${id}_cover`);
+  const { path } = cacheLocation(cacheUri, pdfCoverName(id));
   const [cover] = await ExpoVaultModule.renderPdfPages(pdfPath, THUMBNAIL_MAX_PIXELS, path);
   return cover ? toPath(cover.uri) : null;
 }

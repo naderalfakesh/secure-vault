@@ -1,4 +1,7 @@
-import { DAY_MS, IMAGE_PICKER_DIRECTORY, IMPORT_COPY, SCANNER_DIRECTORY } from './constants';
+import { DAY_MS } from '@/utils/time';
+
+import { CACHE_DIRECTORIES, CACHE_PREFIXES } from './cacheNames';
+import { IMAGE_PICKER_DIRECTORY, IMPORT_COPY, SCANNER_DIRECTORY } from './constants';
 
 export function toPath(uriOrPath: string): string {
   return uriOrPath.startsWith('file://') ? uriOrPath.replace('file://', '') : uriOrPath;
@@ -52,19 +55,11 @@ export function renamedCopyPattern(name: string): RegExp {
 /** Whether an entry directly in the cache is decrypted or imported scratch that `clearCache` removes. */
 export function isClearableCacheEntry(name: string): boolean {
   return (
-    name.startsWith('decrypted_') ||
-    name.startsWith('thumb_') ||
+    CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)) ||
     IMPORT_COPY.test(name) ||
-    name.startsWith('pages_') ||
-    name.startsWith('undo_') ||
-    name === 'share' ||
-    // expo-sharing's iOS staging links (a share whose extension differs
-    // from its declared type); its own cleanup waits for the next share.
-    name === 'expo-sharing-tmp' ||
+    CACHE_DIRECTORIES.some((directory) => directory === name) ||
     name === IMAGE_PICKER_DIRECTORY ||
-    name === SCANNER_DIRECTORY ||
-    // BackupService's export staging: a killed export can leave one entry here.
-    name === 'backup-staging'
+    name === SCANNER_DIRECTORY
   );
 }
 

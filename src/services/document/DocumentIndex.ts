@@ -70,25 +70,13 @@ export class DocumentIndex {
     return (await this.repository()).list();
   }
 
-  async getDocumentsByCategory(category: DocumentCategory): Promise<Document[]> {
-    return (await this.repository()).list(category);
-  }
-
-  async getRecentDocuments(limit: number): Promise<Document[]> {
-    return (await this.repository()).recent(limit);
-  }
-
   async countByCategory(): Promise<Partial<Record<DocumentCategory, number>>> {
     return (await this.repository()).countByCategory();
   }
 
-  async searchDocuments(query: string): Promise<Document[]> {
-    return (await this.repository()).search(query);
-  }
-
   /** Every document in the index's order: newest or oldest added, or soonest expiry. */
   async listDocuments(order: DocumentOrder): Promise<Document[]> {
-    return (await this.repository()).list(null, order);
+    return (await this.repository()).list(order);
   }
 
   /** Search results with the index's own highlighted snippet of the page text. */

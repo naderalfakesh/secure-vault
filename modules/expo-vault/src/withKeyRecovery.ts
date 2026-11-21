@@ -1,4 +1,4 @@
-export interface KeyRecoveryTarget {
+interface KeyRecoveryTarget {
   unlockWithBiometrics(): Promise<boolean>;
 }
 

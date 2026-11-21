@@ -47,6 +47,3 @@ export const LEGACY_APPLE_TMP = [
 ];
 export const LEGACY_ANDROID_CACHE = /^backup-?\d+\.tmp$/;
 export const LEGACY_ANDROID_FILES = /^vault-?\d+\.tmp$/;
-
-/** One day, for the expiry window. */
-export const DAY_MS = 86_400_000;

@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { replaceDatabaseFile } from '@/data/database';
+import { errorCode } from '@/utils/errors';
 import vault from '@modules/expo-vault';
 
 import { documentService, PICKER_DIRECTORY } from '../document';
@@ -54,8 +55,7 @@ export async function keepPickedFile(
   } catch (error) {
     removeQuietly(new File(uri));
     if (activity() !== 'restore') removeQuietly(folder);
-    const code = (error as { code?: unknown } | null)?.code;
-    if (code === 'BACKUP_BUSY') throw error;
+    if (errorCode(error) === 'BACKUP_BUSY') throw error;
     throw stagingError('BACKUP_RESTORE_STAGING_INVALID', error);
   }
 }

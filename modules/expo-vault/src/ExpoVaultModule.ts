@@ -2,7 +2,7 @@ import { requireNativeModule } from 'expo';
 
 // It loads the native module object from the JSI or falls back to
 // the bridge module (from NativeModulesProxy) if the remote debugger is on.
-const ExpoVaultModule = requireNativeModule('ExpoVault');
+const ExpoVaultModule = requireNativeModule<SecureVault>('ExpoVault');
 
 export type BiometryType = 'faceId' | 'touchId' | 'biometrics' | 'none';
 
@@ -234,4 +234,4 @@ export interface SecureVault {
   ): { remove(): void };
 }
 
-export default ExpoVaultModule as SecureVault;
+export default ExpoVaultModule;

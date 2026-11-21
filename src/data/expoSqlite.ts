@@ -5,7 +5,8 @@ import {
   type SQLiteDatabase,
 } from 'expo-sqlite';
 
-import { t } from '../i18n';
+import { t } from '@/i18n';
+
 import type { SqlDatabase, SqlValue } from './sql';
 
 function closedError(): Error {

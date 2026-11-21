@@ -2,7 +2,6 @@
 export {
   APPLE_INBOX_DIRECTORY,
   documentService,
-  default,
   IMAGE_PICKER_DIRECTORY,
   PICKER_DIRECTORY,
   SCANNER_DIRECTORY,

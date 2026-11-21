@@ -6,6 +6,6 @@ export {
   UNDO_TOAST_MS,
   UNDO_WINDOW_MS,
 } from './constants';
-export { documentService, default } from './DocumentService';
+export { documentService } from './DocumentService';
 export { shareFileName } from './helpers';
 export type { DeletedDocument, ShareCopy } from './types';

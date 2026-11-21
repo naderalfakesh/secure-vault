@@ -1,13 +1,11 @@
 import { t } from '@/i18n';
-import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
+import { errorCode, KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
 import type { RestoreRun } from './types';
 
 /** Plain-language message for a failed export or restore. */
 export function describeBackupError(error: unknown, fallback = t('backup.error.fallback')): string {
-  const code =
-    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
-  switch (code) {
+  switch (errorCode(error)) {
     case 'BACKUP_PASSPHRASE':
       return t('backup.error.passphrase');
     case 'BACKUP_INVALID':
@@ -71,11 +69,8 @@ const knownBackupErrors = new Set([
  * is gone.
  */
 export function describeBackupErrorPlainly(error: unknown, fallback: string): string {
-  const code =
-    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
-  return typeof code === 'string' && knownBackupErrors.has(code)
-    ? describeBackupError(error)
-    : fallback;
+  const code = errorCode(error);
+  return code !== undefined && knownBackupErrors.has(code) ? describeBackupError(error) : fallback;
 }
 
 /** Another export, restore, or erase holds the slot. */
@@ -113,9 +108,7 @@ export function indexError(cause: unknown): Error {
  * code; everything else is a partial restore.
  */
 export function partialError(cause: unknown, stoppedAt: RestoreRun['lastRestored']): Error {
-  const code =
-    typeof cause === 'object' && cause !== null ? (cause as { code?: unknown }).code : null;
-  if (code === 'BACKUP_INDEX') return cause as Error;
+  if (errorCode(cause) === 'BACKUP_INDEX') return cause as Error;
   const message =
     cause instanceof Error && cause.message
       ? cause.message

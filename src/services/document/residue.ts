@@ -23,11 +23,20 @@ import {
   toUri,
 } from './helpers';
 
+/** Runs a cleanup step whose failure changes nothing: a later sweep retries it. */
+function bestEffort(step: () => void): void {
+  try {
+    step();
+  } catch {
+    // Left for the next lock or launch sweep.
+  }
+}
+
 /**
  * The app container's tmp folder on iOS, the sibling of Documents; null on
  * Android or when the container does not have the expected layout.
  */
-export function appleTemporary(): { uri: string; path: string } | null {
+function appleTemporary(): { uri: string; path: string } | null {
   if (Platform.OS !== 'ios') return null;
   try {
     const documentsUri = Paths.document.uri.replace(/\/?$/, '/');
@@ -63,12 +72,11 @@ export function discardPickedCopy(uri: string): void {
   );
   const scanPage = tmp !== null && SCAN_PAGE.test(childName(path, tmp.path) ?? '');
   if (!inImportFolder && !scanPage) return;
-  try {
+  // The lock and launch sweep removes these folders and pages.
+  bestEffort(() => {
     const copy = new File(toUri(uri));
     if (copy.exists) copy.delete();
-  } catch {
-    // The lock and launch sweep removes these folders and pages.
-  }
+  });
 }
 
 function appleInbox(): Directory | null {
@@ -89,34 +97,30 @@ export function discardSystemImportCopy(name: string): void {
   const inbox = appleInbox();
   if (!inbox) return;
   const renamed = renamedCopyPattern(name);
-  try {
+  // The lock and launch sweep removes the Inbox folder.
+  bestEffort(() => {
     for (const entry of inbox.list()) {
       if (entry instanceof File && (entry.name === name || renamed.test(entry.name))) {
         entry.delete();
       }
     }
-  } catch {
-    // The lock and launch sweep removes the Inbox folder.
-  }
+  });
 }
 
 /** iOS's Inbox copies and the scanner's pages left in tmp by a kill or a crash. */
 function sweepAppleTemporary(): void {
   const tmp = appleTemporary();
   if (!tmp) return;
-  try {
+  bestEffort(() => {
     const inbox = appleInbox();
     if (inbox) removeNoFollow(inbox);
-  } catch {
-    // Best effort; retried at the next lock.
-  }
-  try {
+  });
+  // tmp may not exist yet.
+  bestEffort(() => {
     for (const entry of new Directory(tmp.uri).list()) {
       if (entry instanceof File && SCAN_PAGE.test(entry.name)) entry.delete();
     }
-  } catch {
-    // Best effort; tmp may not exist yet.
-  }
+  });
 }
 
 /**
@@ -133,21 +137,17 @@ export function discardImportCopy(cacheUri: string, path: string): void {
     return;
   }
   if (!name || !IMPORT_COPY.test(name)) return;
-  try {
-    removeNoFollow(new File(cacheUri, name));
-  } catch {
-    // The lock and launch sweep removes these copies.
-  }
+  // The lock and launch sweep removes these copies.
+  bestEffort(() => removeNoFollow(new File(cacheUri, name)));
 }
 
 export function discardTemp(cacheUri: string, sourcePath: string, originalUri: string) {
   if (sourcePath === toPath(originalUri) || !isCachePath(cacheUri, sourcePath)) return;
-  try {
+  // Cache files are also swept by clearCache.
+  bestEffort(() => {
     const tempFile = new File(toUri(sourcePath));
     if (tempFile.exists) tempFile.delete();
-  } catch {
-    // Cache files are also swept by clearCache.
-  }
+  });
 }
 
 /**
@@ -167,11 +167,8 @@ export function discardPreview(cacheUri: string, uri: string): void {
   const folder = path.slice(0, path.lastIndexOf('/'));
   const folderName = childName(folder, cache);
   if (!folderName || !PREVIEW_FOLDER.test(folderName) || childName(path, folder) === null) return;
-  try {
-    removeNoFollow(new Directory(cacheUri, folderName));
-  } catch {
-    // Swept by clearCache.
-  }
+  // Swept by clearCache.
+  bestEffort(() => removeNoFollow(new Directory(cacheUri, folderName)));
 }
 
 /**
@@ -181,13 +178,11 @@ export function discardPreview(cacheUri: string, uri: string): void {
  */
 export function sweepLegacyScratch(cacheUri: string): void {
   const sweep = (uri: string, matches: (name: string) => boolean) => {
-    try {
+    bestEffort(() => {
       for (const entry of new Directory(uri).list()) {
         if (entry instanceof File && matches(entry.name)) entry.delete();
       }
-    } catch {
-      // Best effort; the next launch tries again.
-    }
+    });
   };
   if (Platform.OS === 'ios') {
     const tmp = appleTemporary();
@@ -206,19 +201,12 @@ export async function clearCache(cacheUri: string): Promise<void> {
     Image.clearMemoryCache().catch(() => false),
     Image.clearDiskCache().catch(() => false),
   ]);
-  try {
+  // The cache directory may not exist yet, and the OS also purges it.
+  bestEffort(() => {
     for (const entry of new Directory(cacheUri).list()) {
-      if (isClearableCacheEntry(entry.name)) {
-        try {
-          removeNoFollow(entry);
-        } catch {
-          // Best effort; the OS also purges the cache directory.
-        }
-      }
+      if (isClearableCacheEntry(entry.name)) bestEffort(() => removeNoFollow(entry));
     }
-  } catch {
-    // The cache directory may not exist yet.
-  }
+  });
   sweepAppleTemporary();
   await images;
 }

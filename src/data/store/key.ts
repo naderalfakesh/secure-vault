@@ -55,7 +55,7 @@ export async function loadDatabaseKey(): Promise<string> {
   return key;
 }
 
-export type IndexName = { name: string; guessed: boolean };
+type IndexName = { name: string; guessed: boolean };
 
 /**
  * The index file in use; restores switch to a fresh file instead of reusing

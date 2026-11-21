@@ -5,7 +5,7 @@ import type { SqlDatabase } from './sql';
  * future change is one more entry, never an edit of a shipped one.
  */
 const migrations: string[] = [
-  // v1: documents, pages, tags, extracted fields, and a contentless FTS index.
+  // v1: documents, pages, tags, extracted fields, and a full-text (FTS5) index.
   `
   CREATE TABLE documents (
     id TEXT PRIMARY KEY NOT NULL,
