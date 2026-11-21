@@ -1,11 +1,5 @@
 import type { StringKey } from '@/i18n';
 
-/** Glass controls and text on the stage are white in both themes. */
-export const STAGE_INK = '#FFFFFF';
-export const STAGE_INK_DIM = '#B3BAD1';
-/** The border of the page shown in the page strip. */
-export const STRIP_SELECTED = '#8EA2FF';
-
 /** The loading placeholder appears only once a page takes longer than this. */
 export const PLACEHOLDER_DELAY_MS = 300;
 /** Lets a sheet finish closing before the next sheet or the system share sheet opens. */

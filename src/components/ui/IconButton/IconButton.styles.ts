@@ -13,9 +13,9 @@ export const styles = StyleSheet.create((theme) => ({
     ...(variant === 'tinted' && { backgroundColor: theme.colors.surfaceMuted }),
     ...(variant === 'filled' && { backgroundColor: theme.colors.primary }),
     ...(variant === 'glass' && {
-      backgroundColor: 'rgba(255,255,255,0.14)',
+      backgroundColor: theme.colors.stageGlass,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.12)',
+      borderColor: theme.colors.stageGlassBorder,
     }),
   }),
   pressed: { opacity: 0.7 },

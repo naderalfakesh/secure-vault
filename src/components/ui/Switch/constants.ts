@@ -8,6 +8,3 @@ import type { ViewStyle } from 'react-native';
  * the right without this flip, so both are mirrored here, once.
  */
 export const MIRRORED: ViewStyle = { transform: [{ scaleX: -1 }] };
-
-/** The thumb is white in both themes, as the system's is. */
-export const THUMB_COLOR = '#FFFFFF';

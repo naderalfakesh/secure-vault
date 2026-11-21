@@ -1,10 +1,10 @@
 import { ActivityIndicator, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Text } from '@/components/ui';
 import { t } from '@/i18n';
 
 import { styles } from './StagePlaceholder.styles';
-import { STAGE_INK_DIM } from '../../constants';
 
 type StagePlaceholderProps = {
   loading: boolean;
@@ -16,13 +16,14 @@ type StagePlaceholderProps = {
 export function StagePlaceholder({ loading, slow }: StagePlaceholderProps) {
   // `slow` only happens while loading: nothing yet, then the spinner, and
   // once loading is over with no pages, the unavailable line.
+  const { theme } = useUnistyles();
   const unavailable = !loading;
   const spinner = loading && slow;
   return (
     <View style={styles.placeholder}>
       {spinner ? (
         <View style={styles.placeholderPage}>
-          <ActivityIndicator color={STAGE_INK_DIM} />
+          <ActivityIndicator color={theme.colors.onStageDim} />
         </View>
       ) : null}
       {unavailable ? (

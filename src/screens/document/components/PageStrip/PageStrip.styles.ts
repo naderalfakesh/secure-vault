@@ -1,7 +1,5 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-import { STRIP_SELECTED } from '../../constants';
-
 export const styles = StyleSheet.create((theme) => ({
   strip: {
     gap: theme.spacing.xs,
@@ -14,7 +12,7 @@ export const styles = StyleSheet.create((theme) => ({
     overflow: 'hidden',
     backgroundColor: theme.colors.paper,
     borderWidth: 2,
-    borderColor: selected ? STRIP_SELECTED : 'transparent',
+    borderColor: selected ? theme.colors.stageAccent : 'transparent',
     opacity: selected ? 1 : 0.6,
   }),
   stripImage: {

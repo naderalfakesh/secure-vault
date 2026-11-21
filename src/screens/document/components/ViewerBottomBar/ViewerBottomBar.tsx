@@ -1,9 +1,10 @@
 import { Pressable, View } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Icon, Text } from '@/components/ui';
 import { t } from '@/i18n';
 
-import { BOTTOM_BAR_GAP, STAGE_INK } from '../../constants';
+import { BOTTOM_BAR_GAP } from '../../constants';
 import { PageStrip } from '../PageStrip';
 import { styles } from './ViewerBottomBar.styles';
 
@@ -23,6 +24,7 @@ export function ViewerBottomBar({
   onPageChange,
   onDetails,
 }: ViewerBottomBarProps) {
+  const { theme } = useUnistyles();
   return (
     <View style={[styles.bottomBar, { paddingBottom: insetBottom + BOTTOM_BAR_GAP }]}>
       {pages.length > 1 ? (
@@ -34,7 +36,7 @@ export function ViewerBottomBar({
         onPress={onDetails}
         style={styles.detailsPill}
       >
-        <Icon name="info" size={18} color={STAGE_INK} />
+        <Icon name="info" size={18} color={theme.colors.onStage} />
         <Text variant="callout" style={[styles.ink, styles.pillLabel]}>
           {t('viewer.details')}
         </Text>

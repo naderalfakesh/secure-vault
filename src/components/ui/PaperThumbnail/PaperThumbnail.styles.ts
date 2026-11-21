@@ -1,7 +1,5 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-import { PAPER_LINE } from './constants';
-
 export const styles = StyleSheet.create((theme) => ({
   paper: {
     backgroundColor: theme.colors.paper,
@@ -18,6 +16,6 @@ export const styles = StyleSheet.create((theme) => ({
   line: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: PAPER_LINE,
+    backgroundColor: theme.colors.paperLine,
   },
 }));

@@ -1,5 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet as NativeStyleSheet } from 'react-native';
+import { useUnistyles } from 'react-native-unistyles';
 
 import { Icon } from '../Icon';
 import { styles } from './IconButton.styles';
@@ -14,6 +15,7 @@ export function IconButton({
   disabled,
   ...props
 }: IconButtonProps) {
+  const { theme } = useUnistyles();
   const glass = variant === 'glass';
 
   return (
@@ -32,7 +34,7 @@ export function IconButton({
     >
       {glass ? <BlurView intensity={30} tint="dark" style={NativeStyleSheet.absoluteFill} /> : null}
       {glass ? (
-        <Icon name={icon} size={size} color="#FFFFFF" />
+        <Icon name={icon} size={size} color={theme.colors.onStage} />
       ) : (
         <Icon
           name={icon}

@@ -1,15 +1,13 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-import { STAGE_INK, STAGE_INK_DIM } from '../../constants';
-
 export const styles = StyleSheet.create((theme) => ({
   ink: {
-    color: STAGE_INK,
+    color: theme.colors.onStage,
     // A title that wraps stays centred over its page line.
     textAlign: 'center',
   },
   dim: {
-    color: STAGE_INK_DIM,
+    color: theme.colors.onStageDim,
   },
   topBar: {
     position: 'absolute',

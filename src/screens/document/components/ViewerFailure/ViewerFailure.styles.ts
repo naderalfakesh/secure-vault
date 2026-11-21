@@ -1,12 +1,6 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 export const styles = StyleSheet.create((theme) => ({
-  failureBar: {
-    minHeight: 52,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingHorizontal: theme.spacing.xs,
-  },
   failure: {
     flex: 1,
     alignItems: 'center',

@@ -1,10 +1,8 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-import { STAGE_INK_DIM } from '../../constants';
-
 export const styles = StyleSheet.create((theme) => ({
   dim: {
-    color: STAGE_INK_DIM,
+    color: theme.colors.onStageDim,
   },
   placeholder: {
     flex: 1,
@@ -17,6 +15,6 @@ export const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: theme.colors.stageGlassFaint,
   },
 }));

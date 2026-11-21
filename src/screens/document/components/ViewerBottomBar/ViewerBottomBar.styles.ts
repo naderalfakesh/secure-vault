@@ -1,10 +1,8 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-import { STAGE_INK } from '../../constants';
-
 export const styles = StyleSheet.create((theme) => ({
   ink: {
-    color: STAGE_INK,
+    color: theme.colors.onStage,
   },
   bottomBar: {
     position: 'absolute',
@@ -21,9 +19,9 @@ export const styles = StyleSheet.create((theme) => ({
     minHeight: 48,
     paddingHorizontal: 22,
     borderRadius: theme.radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: theme.colors.stageGlass,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: theme.colors.stageGlassBorder,
   },
   pillLabel: {
     fontWeight: '600',
