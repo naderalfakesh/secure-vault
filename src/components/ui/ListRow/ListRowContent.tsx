@@ -3,9 +3,9 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { textScale } from '@/theme/tokens';
 
+import { useLargeText } from '../hooks/useLargeText';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import { useLargeText } from '../useLargeText';
 import { tileColors } from './constants';
 import { styles } from './ListRowContent.styles';
 import type { ListRowContentProps } from './types';

@@ -22,6 +22,7 @@ export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBar
   // A capsule at any height: larger text makes the bar taller.
   const [height, setHeight] = useState(TAB_BAR_HEIGHT);
   const [first, ...rest] = tabs;
+  if (!first) return null;
 
   return (
     <View

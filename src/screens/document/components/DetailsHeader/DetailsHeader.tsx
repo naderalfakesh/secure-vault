@@ -1,10 +1,9 @@
 import { View } from 'react-native';
 
 import { Button, Chip, Text } from '@/components/ui';
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { categoryLabel } from '@/features/documents/categories';
 import { t } from '@/i18n';
-import type { Document } from '@/types';
+import type { ExtractedField, Document } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { formatExpiry } from '@/utils/format';
 

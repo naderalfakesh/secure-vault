@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
+import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
 import { TabBar } from '@/components/ui';
 import { t } from '@/i18n';
@@ -33,14 +33,8 @@ export function LibraryTabBar({ state, emitter, navigateToTab }: LibraryTabBarPr
         },
       };
     });
-  const [first, ...rest] = items;
-  if (!first) return null;
 
   return (
-    <TabBar
-      tabs={[first, ...rest]}
-      onScan={() => router.push('/documents/add')}
-      scanLabel={t('nav.scan')}
-    />
+    <TabBar tabs={items} onScan={() => router.push('/documents/add')} scanLabel={t('nav.scan')} />
   );
 }

@@ -129,6 +129,20 @@ export function t(key: StringKey, params?: StringParams): string {
   return interpolate(lookup(key), params);
 }
 
+/** The part of each key after `Scope.`, e.g. `KeysUnder<'scan'>` is `'page' | 'field.value' | …`. */
+export type KeysUnder<Scope extends string> = StringKey extends infer K
+  ? K extends `${Scope}.${infer Rest}`
+    ? Rest
+    : never
+  : never;
+
+/** A lookup for one namespace of the table, taking the keys without their prefix. */
+export function scopedText<Scope extends string>(scope: Scope) {
+  return (key: KeysUnder<Scope>, params?: StringParams): string =>
+    // TypeScript cannot prove that `${Scope}.${Rest}` is again a key; KeysUnder only ever yields suffixes of real keys.
+    t(`${scope}.${key}` as StringKey, params);
+}
+
 let pluralRules: { tag: string; rules: Intl.PluralRules | null } | null = null;
 
 function pluralCategory(count: number): string {

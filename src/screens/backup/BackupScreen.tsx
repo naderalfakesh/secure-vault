@@ -1,15 +1,13 @@
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
 
-import { Screen, Text } from '@/components/ui';
+import { BackBar, Screen, TitledScroll } from '@/components/ui';
 import { backupCopy as copy } from '@/features/backup/backupCopy';
 import { CreateBackupSheet } from '@/features/backup/CreateBackupSheet';
 import { RestoreSheet } from '@/features/backup/RestoreSheet';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 
-import { styles } from './BackupScreen.styles';
-import { BackupBar, CreateBackupCard, RestoreGroup } from './components';
+import { CreateBackupCard, RestoreGroup } from './components';
 import { useLastBackup } from './hooks/useLastBackup';
 import { useRestorePick } from './hooks/useRestorePick';
 
@@ -31,12 +29,8 @@ export function BackupScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <BackupBar />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
-          {copy['hub.title']}
-        </Text>
-
+      <BackBar label={copy['hub.back']} onPress={() => router.back()} />
+      <TitledScroll title={copy['hub.title']} showsVerticalScrollIndicator={false}>
         <CreateBackupCard
           earlier={earlier}
           lastBackup={lastBackup}
@@ -45,7 +39,7 @@ export function BackupScreen() {
         />
 
         <RestoreGroup earlier={earlier} disabled={blocked} onPick={pick.pickBackup} />
-      </ScrollView>
+      </TitledScroll>
 
       <CreateBackupSheet
         visible={creating}

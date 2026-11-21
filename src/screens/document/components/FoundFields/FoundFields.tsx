@@ -1,8 +1,8 @@
 import { View } from 'react-native';
 
 import { Button, Chip, Group, ListRow } from '@/components/ui';
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { t } from '@/i18n';
+import type { ExtractedField } from '@/types';
 import { formatDate } from '@/utils/format';
 
 import { styles } from './FoundFields.styles';

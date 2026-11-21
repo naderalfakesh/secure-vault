@@ -1,6 +1,5 @@
 import { Text } from '@/components/ui';
-import type { ExtractedField } from '@/data/DocumentRepository';
-import type { Document } from '@/types';
+import type { ExtractedField, Document } from '@/types';
 
 import { detailsFooter, expiryField } from '../../helpers';
 import type { ViewerBusy } from '../../types';

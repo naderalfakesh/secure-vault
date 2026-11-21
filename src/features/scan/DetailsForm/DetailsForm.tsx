@@ -1,12 +1,10 @@
 import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { Button, Chip, Icon, Text } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
-import type { ExtractedField } from '@/data/DocumentRepository';
+import { Button, Chip, Icon, Text, useAnnouncement } from '@/components/ui';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { DocumentImage } from '@/features/documents/DocumentImage';
-import type { DocumentCategory } from '@/types';
+import type { ExtractedField, DocumentCategory } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { formatDate, joinParts } from '@/utils/format';
 

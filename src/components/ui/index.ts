@@ -1,3 +1,5 @@
+export { BackBar } from './BackBar';
+export type { BackBarProps } from './BackBar';
 export { Banner } from './Banner';
 export type { BannerAction, BannerProps } from './Banner';
 export { Button } from './Button';
@@ -59,6 +61,9 @@ export { TAB_BAR_BOTTOM, TAB_BAR_HEIGHT, TabBar } from './TabBar';
 export type { TabBarItem, TabBarProps } from './TabBar';
 export { Text } from './Text';
 export type { AppTextProps, TextTone } from './Text';
+export { TitledScroll } from './TitledScroll';
+export type { TitledScrollProps } from './TitledScroll';
 export { ToastProvider, useToast } from './Toast';
 export type { ToastOptions, ToastTone } from './Toast';
-export { useLargeText } from './useLargeText';
+export { useAnnouncement, useThrottledAnnouncement } from './hooks/useAnnouncement';
+export { useLargeText } from './hooks/useLargeText';

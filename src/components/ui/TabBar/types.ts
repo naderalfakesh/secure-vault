@@ -10,7 +10,7 @@ export type TabBarItem = {
 
 export type TabBarProps = {
   /** The tab before the Scan button (Library) and the tabs after it (Settings). */
-  tabs: readonly [TabBarItem, ...TabBarItem[]];
+  tabs: readonly TabBarItem[];
   onScan: () => void;
   scanLabel?: string;
 };

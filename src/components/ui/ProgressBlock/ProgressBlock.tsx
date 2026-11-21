@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import { t } from '@/i18n';
 
-import { useThrottledAnnouncement } from '../announce';
+import { useThrottledAnnouncement } from '../hooks/useAnnouncement';
 import { Text } from '../Text';
 import { progressPercent } from './helpers';
 import { styles } from './ProgressBlock.styles';

@@ -1,5 +1,4 @@
-import { Button } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { Button, useAnnouncement } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 

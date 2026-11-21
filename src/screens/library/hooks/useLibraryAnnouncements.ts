@@ -1,4 +1,4 @@
-import { useAnnouncement } from '@/components/ui/announce';
+import { useAnnouncement } from '@/components/ui';
 import { t } from '@/i18n';
 
 type State = {

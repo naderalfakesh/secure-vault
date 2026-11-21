@@ -1,8 +1,7 @@
 import { ActivityIndicator, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { Button, FileCard, Icon, Sheet, Text } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { Button, FileCard, Icon, Sheet, Text, useAnnouncement } from '@/components/ui';
 import { biometryIcon } from '@/features/auth/lockCopy';
 
 import { confirmShareLabel, shareText } from '../shareCopy';

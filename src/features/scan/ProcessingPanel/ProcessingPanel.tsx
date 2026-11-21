@@ -1,8 +1,7 @@
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { Button, Icon, InlineAlert, Text } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { Button, Icon, InlineAlert, Text, useAnnouncement } from '@/components/ui';
 import { DocumentImage } from '@/features/documents/DocumentImage';
 import { t } from '@/i18n';
 

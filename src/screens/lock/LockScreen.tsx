@@ -1,7 +1,6 @@
 import { View } from 'react-native';
 
-import { PinPad, Screen, usePinPadMetrics } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { PinPad, Screen, usePinPadMetrics, useAnnouncement } from '@/components/ui';
 import { useLockoutCountdown } from '@/features/auth/hooks/useLockoutCountdown';
 import { biometricKeyLabel, biometryIcon, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { attemptsLeft } from '@/features/auth/lockout';

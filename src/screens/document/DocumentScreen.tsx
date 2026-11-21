@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAnnouncement } from '@/components/ui/announce';
+import { useAnnouncement } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
 import { ShareSheet } from '@/features/viewer/ShareSheet';

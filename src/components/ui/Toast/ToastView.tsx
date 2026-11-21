@@ -11,7 +11,7 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { darkColors } from '@/theme/colors';
 
-import { useAnnouncement } from '../announce';
+import { useAnnouncement } from '../hooks/useAnnouncement';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
 import {

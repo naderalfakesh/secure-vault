@@ -2,8 +2,8 @@ import { View } from 'react-native';
 
 import { t } from '@/i18n';
 
-import { useAnnouncement } from '../announce';
 import { Button } from '../Button';
+import { useAnnouncement } from '../hooks/useAnnouncement';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
 import { styles } from './Banner.styles';

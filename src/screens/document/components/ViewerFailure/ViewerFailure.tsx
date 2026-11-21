@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 
-import { Button, Icon, Screen, Text } from '@/components/ui';
+import { BackBar, Button, Icon, Screen, Text } from '@/components/ui';
 import { t } from '@/i18n';
 
 import { styles } from './ViewerFailure.styles';
@@ -18,15 +18,7 @@ export function ViewerFailure({ failure, onBack }: ViewerFailureProps) {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.failureBar}>
-        <Button
-          label={t('viewer.library')}
-          variant="plain"
-          size="md"
-          icon="back"
-          onPress={onBack}
-        />
-      </View>
+      <BackBar label={t('viewer.library')} onPress={onBack} />
       <View style={styles.failure} accessibilityRole="alert">
         <View style={styles.failureIcon}>
           <Icon name={missing ? 'document' : 'warning'} size={30} tone="secondary" />

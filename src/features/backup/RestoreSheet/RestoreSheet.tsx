@@ -1,7 +1,6 @@
 import { View } from 'react-native';
 
-import { Sheet } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { Sheet, useAnnouncement } from '@/components/ui';
 
 import { backupCopy as copy } from '../backupCopy';
 import { InspectStep, OutcomeView, RunningStep } from './components';

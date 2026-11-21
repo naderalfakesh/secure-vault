@@ -1,21 +1,14 @@
 import { Platform } from 'react-native';
 
 import { biometryName } from '@/features/auth/lockCopy';
-import { type StringKey, t } from '@/i18n';
-import type { share } from '@/i18n/en/share';
+import { scopedText, t } from '@/i18n';
 import type { BiometryType } from '@modules/expo-vault';
 
 /**
  * The Share strings. They live in the string table
  * under `share.`; this module keeps the short keys the share flow uses.
  */
-type ShareCopyKey = {
-  [K in keyof typeof share]: K extends `share.${infer Key}` ? Key : never;
-}[keyof typeof share];
-
-export function shareText(key: ShareCopyKey): string {
-  return t(`share.${key}` as StringKey);
-}
+export const shareText = scopedText('share');
 
 /**
  * "Confirm with Face ID" when Confirm before sharing is on. Without

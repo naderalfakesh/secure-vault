@@ -3,9 +3,9 @@ import { Pressable, View } from 'react-native';
 import { t } from '@/i18n';
 import { textScale } from '@/theme/tokens';
 
+import { useLargeText } from '../hooks/useLargeText';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import { useLargeText } from '../useLargeText';
 import { styles } from './SheetHeader.styles';
 import type { SheetHeaderProps } from './types';
 

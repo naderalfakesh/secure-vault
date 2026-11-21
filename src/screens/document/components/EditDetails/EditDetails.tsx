@@ -1,8 +1,7 @@
 import { TextInput, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
-import { Button, Chip, Text } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { Button, Chip, Text, useAnnouncement } from '@/components/ui';
 import { allCategories, categoryIcons, categoryLabel } from '@/features/documents/categories';
 import { t } from '@/i18n';
 

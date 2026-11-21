@@ -2,9 +2,9 @@ import { Pressable, View } from 'react-native';
 
 import { textScale } from '@/theme/tokens';
 
+import { useLargeText } from '../hooks/useLargeText';
 import { Icon } from '../Icon';
 import { Text } from '../Text';
-import { useLargeText } from '../useLargeText';
 import { SEGMENT_SLOP } from './constants';
 import { styles } from './SegmentedControl.styles';
 import type { SegmentedControlProps } from './types';

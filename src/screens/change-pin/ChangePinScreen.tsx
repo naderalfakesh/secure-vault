@@ -1,8 +1,7 @@
 import { Stack } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 
-import { PinDots, PinPad, Screen, Text, usePinPadMetrics } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { PinDots, PinPad, Screen, Text, usePinPadMetrics, useAnnouncement } from '@/components/ui';
 import { useLockoutCountdown } from '@/features/auth/hooks/useLockoutCountdown';
 import { LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { useSession } from '@/features/session/SessionProvider';

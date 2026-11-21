@@ -1,7 +1,6 @@
 import { ScrollView, View } from 'react-native';
 
-import { PinDots, PinPad, Screen, Text, usePinPadMetrics } from '@/components/ui';
-import { useAnnouncement } from '@/components/ui/announce';
+import { PinDots, PinPad, Screen, Text, usePinPadMetrics, useAnnouncement } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 
 import { EasyPinChoice, KeyBadge, PinMessage, SetupPinHeader } from './components';

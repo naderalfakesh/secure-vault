@@ -1,12 +1,10 @@
 import { router, Stack } from 'expo-router';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
-import { Button, Group, InlineAlert, ListRow, Screen, Text } from '@/components/ui';
+import { BackBar, Group, InlineAlert, ListRow, Screen, TitledScroll } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockChoice } from '@/features/session/settings';
 import { t } from '@/i18n';
-
-import { styles } from './AutoLockScreen.styles';
 
 /** Auto-lock: a radio list, counted from leaving the app. */
 export function AutoLockScreen() {
@@ -15,19 +13,8 @@ export function AutoLockScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.bar}>
-        <Button
-          label={t('settings.title')}
-          variant="plain"
-          size="md"
-          icon="back"
-          onPress={() => router.back()}
-        />
-      </View>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text variant="largeTitle" accessibilityRole="header" style={styles.title}>
-          {t('settings.autoLock')}
-        </Text>
+      <BackBar label={t('settings.title')} onPress={() => router.back()} />
+      <TitledScroll title={t('settings.autoLock')}>
         <View accessibilityRole="radiogroup" accessibilityLabel={t('settings.autoLock')}>
           <Group header={t('settings.autoLock.header')} footer={t('settings.autoLock.footer')}>
             {AUTO_LOCK_OPTIONS.map((option) => (
@@ -43,7 +30,7 @@ export function AutoLockScreen() {
         {settings.autoLockSeconds === -1 ? (
           <InlineAlert tone="warning" announce message={t('settings.autoLock.neverWarning')} />
         ) : null}
-      </ScrollView>
+      </TitledScroll>
     </Screen>
   );
 }
