@@ -2,28 +2,28 @@ import { View } from 'react-native';
 
 import { PinPad, Screen, usePinPadMetrics } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
+import { useLockoutCountdown } from '@/features/auth/hooks/useLockoutCountdown';
 import { biometricKeyLabel, biometryIcon, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { attemptsLeft } from '@/features/auth/lockout';
 import { useSession } from '@/features/session/SessionProvider';
-import { useSecurityStatus } from '@/hooks/useSecurityStatus';
+import { useDeviceIntegrity } from '@/hooks/useDeviceIntegrity';
 
 import { InsecureBanner, LockDots, LockFooter, LockHeader } from './components';
 import { lockMessage } from './helpers';
 import { useBiometricPrompt } from './hooks/useBiometricPrompt';
-import { useLockCountdown } from './hooks/useLockCountdown';
 import { usePinUnlock } from './hooks/usePinUnlock';
 import { styles } from './LockScreen.styles';
 
 export function LockScreen() {
   const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
-  const security = useSecurityStatus();
+  const deviceIntact = useDeviceIntegrity();
   const { compact } = usePinPadMetrics();
   // Biometric unlock off: the PIN comes first, and the device-unlock button
   // below still opens the system prompt for whoever wants it.
   const hasBiometrics = biometry !== 'none' && settings.biometricUnlock;
 
   useBiometricPrompt(status, hasBiometrics, unlock);
-  const lockLeft = useLockCountdown(lockout);
+  const lockLeft = useLockoutCountdown(lockout);
   const entry = usePinUnlock(unlockWithPin);
 
   const { lockedOut, alerting, title, subtitle } = lockMessage({
@@ -60,7 +60,7 @@ export function LockScreen() {
           error={entry.flash}
           shake={entry.shake}
         />
-        {security.isSecure ? null : <InsecureBanner />}
+        {deviceIntact ? null : <InsecureBanner />}
       </View>
       <PinPad
         onKey={entry.onKey}

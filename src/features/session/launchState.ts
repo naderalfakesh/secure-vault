@@ -1,4 +1,4 @@
-import { clampLockout, type LockoutState } from '@/features/auth/lockout';
+import { clampLockout, EMPTY_LOCKOUT, type LockoutState } from '@/features/auth/lockout';
 import vault from '@modules/expo-vault';
 
 import { interpretLaunchReads } from './helpers';
@@ -16,6 +16,12 @@ export async function loadCappedLockout(): Promise<LockoutState | null> {
   const capped = clampLockout(stored, Date.now());
   if (capped !== stored) await sessionStorage.saveLockout(capped).catch(() => {});
   return capped;
+}
+
+/** Forgets the failures and the pause in memory and in the store; a store that refuses the write leaves the in-memory reset. */
+export async function clearLockout(applyLockout: (next: LockoutState) => void): Promise<void> {
+  applyLockout(EMPTY_LOCKOUT);
+  await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
 }
 
 /**
@@ -47,5 +53,3 @@ export async function readLaunchState(allowLostPin = false) {
   ]);
   return { key, type, storedLockout, ...interpretLaunchReads(key, pin, entries, allowLostPin) };
 }
-
-export type LaunchState = Awaited<ReturnType<typeof readLaunchState>>;

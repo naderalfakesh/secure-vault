@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 
 import { pinLostHint } from '../../helpers';
 
-export type ReadFailedBodyProps = {
+type ReadFailedBodyProps = {
   pinLost: boolean;
   biometry: SessionContextValue['biometry'];
   error: string | null;

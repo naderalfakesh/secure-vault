@@ -6,7 +6,7 @@ import { t } from '@/i18n';
 
 import { styles } from './UnavailableLayout.styles';
 
-export type UnavailableLayoutProps = {
+type UnavailableLayoutProps = {
   /** The explanation under the title. */
   children: ReactNode;
   /** The way on: the buttons at the bottom. */

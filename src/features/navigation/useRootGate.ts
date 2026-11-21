@@ -1,9 +1,9 @@
 import { useReducedMotion } from 'react-native-reanimated';
 
+import { useLegacyScratchSweep } from '@/features/session/hooks/useLegacyScratchSweep';
+import { useSessionToasts } from '@/features/session/hooks/useSessionToasts';
+import { useVaultSweep } from '@/features/session/hooks/useVaultSweep';
 import { useSession } from '@/features/session/SessionProvider';
-import { useLegacyScratchSweep } from '@/features/session/useLegacyScratchSweep';
-import { useSessionToasts } from '@/features/session/useSessionToasts';
-import { useVaultSweep } from '@/features/session/useVaultSweep';
 
 import { useLaunchSplash } from './launchSplash';
 import { stackAnimation } from './stackAnimation';
@@ -27,7 +27,7 @@ export function useRootGate() {
   // vault locks, whichever path locked it, and at a launch that does not
   // land on the lock screen.
   useVaultSweep(status);
-  useSessionToasts(status);
+  useSessionToasts();
   useReturnToShare(status, shareInterrupted);
 
   return {

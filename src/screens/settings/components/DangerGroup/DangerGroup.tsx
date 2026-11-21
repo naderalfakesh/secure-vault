@@ -5,7 +5,7 @@ import type { BackupOperation } from '@/services/BackupService';
 import { eraseSubtitleKey } from '../../helpers';
 import type { SettingsBusy } from '../../types';
 
-export type DangerGroupProps = {
+type DangerGroupProps = {
   busy: SettingsBusy;
   /** The backup work holding the service's slot, if any. */
   running: BackupOperation | null;

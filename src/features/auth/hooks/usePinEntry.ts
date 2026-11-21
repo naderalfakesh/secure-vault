@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const PIN_LENGTH = 6;
+const PIN_LENGTH = 6;
 // Brief beat after the last digit so the final dot fills before we react.
 const SUBMIT_DELAY_MS = 120;
 // How long the dots stay red on a wrong entry before clearing.
 const ERROR_FLASH_MS = 600;
 
-export interface PinEntryHelpers {
+interface PinEntryHelpers {
   /** Clear the entered digits (and any error) immediately, e.g. when advancing a stage. */
   clear: () => void;
   /** Flash the dots red, then clear; `after` runs once the flash ends. */

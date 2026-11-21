@@ -7,10 +7,10 @@ import { useSession } from '@/features/session/SessionProvider';
 import { useBlockHardwareBack } from '@/hooks/useBlockHardwareBack';
 import { t } from '@/i18n';
 
-import { styles } from './BiometricsStepScreen.styles';
 import { BiometricsBadge } from './components';
 import { stepBiometry } from './helpers';
 import { useBiometricsChoice } from './hooks/useBiometricsChoice';
+import { styles } from './SetupBiometricsScreen.styles';
 
 /**
  * Enable biometrics, after the PIN is saved. "Use Face
@@ -18,7 +18,7 @@ import { useBiometricsChoice } from './hooks/useBiometricsChoice';
  * ID permission is asked; only a passed check turns biometric unlock on.
  * Whatever the answer, and after "Not now", the vault opens. Settings shows the reason later if biometrics stay unavailable.
  */
-export function BiometricsStepScreen() {
+export function SetupBiometricsScreen() {
   const { status, setupHeld, biometry } = useSession();
   const availability = useBiometricAvailability();
   const { busy, enableBiometrics, notNow } = useBiometricsChoice();

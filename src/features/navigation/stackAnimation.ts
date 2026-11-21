@@ -1,4 +1,4 @@
-export type StackAnimation = 'none' | 'fade' | 'default';
+type StackAnimation = 'none' | 'fade' | 'default';
 
 /**
  * How the root stack moves between screens: not at all under the splash

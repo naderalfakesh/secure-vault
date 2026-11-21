@@ -6,7 +6,7 @@ import type { BiometryType } from '@modules/expo-vault';
 
 import { styles } from './LockFooter.styles';
 
-export type LockFooterProps = {
+type LockFooterProps = {
   compact: boolean;
   lockedOut: boolean;
   biometry: BiometryType;

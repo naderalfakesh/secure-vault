@@ -11,14 +11,14 @@ import { Platform } from 'react-native';
 import { SHARE_PAUSE_MAX_AWAY_MS } from './constants';
 import { useAutoLock } from './hooks/useAutoLock';
 import { useBiometricUnlock } from './hooks/useBiometricUnlock';
-import { useEraseVault } from './hooks/useEraseVault';
 import { useLockoutState } from './hooks/useLockoutState';
-import { usePinUnlock } from './hooks/usePinUnlock';
+import { usePinAuth } from './hooks/usePinAuth';
 import { useSecuritySettings } from './hooks/useSecuritySettings';
 import { useSessionCapture } from './hooks/useSessionCapture';
 import { useSessionNotices } from './hooks/useSessionNotices';
 import { useSessionStatus } from './hooks/useSessionStatus';
 import { useVaultAvailability } from './hooks/useVaultAvailability';
+import { useVaultReset } from './hooks/useVaultReset';
 import { useVaultSetup } from './hooks/useVaultSetup';
 import type { AutoLockPause, SessionContextValue } from './types';
 
@@ -77,7 +77,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     loadProtectedState,
     withoutAutoLock,
   });
-  const { unlockWithPin, changePin } = usePinUnlock({
+  const { unlockWithPin, changePin } = usePinAuth({
     ...shared,
     lockoutRef,
     ensureKeyAccess,
@@ -87,7 +87,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const notices = useSessionNotices();
   const { notice, postNotice, dismissNotice, resetNotices } = notices;
   const { shareInterrupted, markShareInterrupted, clearShareInterrupted } = notices;
-  const eraseVault = useEraseVault({ ...shared, resetNotices, markErased, resetSetup });
+  const eraseVault = useVaultReset({ ...shared, resetNotices, markErased, resetSetup });
   const captureSession = useSessionCapture(core);
 
   const lock = useCallback(() => {

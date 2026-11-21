@@ -6,7 +6,7 @@ import { t } from '@/i18n';
 import { styles } from './IntroFooter.styles';
 import type { Slide } from '../../types';
 
-export type IntroFooterProps = {
+type IntroFooterProps = {
   slides: Slide[];
   page: number;
   onNext: () => void;

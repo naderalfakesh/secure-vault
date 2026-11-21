@@ -1,1 +1,1 @@
-export { BiometricsStepScreen } from './BiometricsStepScreen';
+export { SetupBiometricsScreen } from './SetupBiometricsScreen';

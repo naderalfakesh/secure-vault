@@ -1,12 +1,12 @@
 import { type Dispatch, type RefObject, type SetStateAction, useCallback, useRef } from 'react';
 
-import { EMPTY_LOCKOUT, isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
+import { isLocked, type LockoutState, recordFailure } from '@/features/auth/lockout';
 import { hashPasscodeAsync, verifyPasscodeAsync } from '@/features/auth/passcode';
 import { t } from '@/i18n';
 
 import { describeError } from '../errors';
 import { currentLockout } from '../helpers';
-import { loadCappedLockout } from '../launchState';
+import { clearLockout, loadCappedLockout } from '../launchState';
 import { sessionStorage } from '../settings';
 import type { PinChangeResult, PinUnlockResult, SessionStatus } from '../types';
 
@@ -21,7 +21,7 @@ type Options = {
 };
 
 /** The app PIN: unlocking with it and changing it, both judged against the lockout. */
-export function usePinUnlock({
+export function usePinAuth({
   statusRef,
   lockoutRef,
   applyLockout,
@@ -54,8 +54,7 @@ export function usePinUnlock({
           // A key prompt the user cancelled is not a wrong PIN.
           if (!(await ensureKeyAccess())) return 'not-unlocked';
           await loadProtectedState();
-          applyLockout(EMPTY_LOCKOUT);
-          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+          await clearLockout(applyLockout);
           changeStatus('unlocked');
           return 'unlocked';
         }
@@ -113,8 +112,7 @@ export function usePinUnlock({
           return 'wrong-pin';
         }
         if (current.failures > 0) {
-          applyLockout(EMPTY_LOCKOUT);
-          await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+          await clearLockout(applyLockout);
         }
         await sessionStorage.savePinRecord(await hashPasscodeAsync(nextPin));
         return 'changed';

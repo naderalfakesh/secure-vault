@@ -1,7 +1,7 @@
 import { biometricSubtitle, LOCKOUT_BODY, wrongPinMessage } from '@/features/auth/lockCopy';
 import { t } from '@/i18n';
 
-import { type LockMessageInput, lockMessage, secondsLeft } from '../helpers';
+import { type LockMessageInput, lockMessage } from '../helpers';
 
 const base: LockMessageInput = {
   lockLeft: 0,
@@ -12,19 +12,6 @@ const base: LockMessageInput = {
   biometry: 'none',
   pinLength: 0,
 };
-
-describe('secondsLeft', () => {
-  it('rounds up to whole seconds', () => {
-    expect(secondsLeft(0)).toBe(0);
-    expect(secondsLeft(1)).toBe(1);
-    expect(secondsLeft(1000)).toBe(1);
-    expect(secondsLeft(29_001)).toBe(30);
-  });
-
-  it('stays at or below zero once the lockout has passed', () => {
-    expect(secondsLeft(-500)).toBeLessThanOrEqual(0);
-  });
-});
 
 describe('lockMessage', () => {
   it('asks for the PIN by default', () => {

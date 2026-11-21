@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { useToast } from '@/components/ui';
-import { usePinEntry } from '@/features/auth/usePinEntry';
+import { usePinEntry } from '@/features/auth/hooks/usePinEntry';
 import type { SessionContextValue } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 

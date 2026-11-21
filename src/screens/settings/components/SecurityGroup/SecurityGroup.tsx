@@ -11,7 +11,7 @@ import type { SessionContextValue } from '@/features/session/SessionProvider';
 import { autoLockLabel, type SecuritySettings } from '@/features/session/settings';
 import { t } from '@/i18n';
 
-export type SecurityGroupProps = {
+type SecurityGroupProps = {
   settings: SecuritySettings;
   updateSettings: SessionContextValue['updateSettings'];
   biometry: SessionContextValue['biometry'];

@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui';
 import { t } from '@/i18n';
 
-export type RetryActionsProps = {
+type RetryActionsProps = {
   pinLost: boolean;
   trying: boolean;
   resetting: boolean;

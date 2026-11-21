@@ -2,14 +2,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { useBiometricAvailability } from '@/features/auth/biometricAvailability';
+import { usePinEntry } from '@/features/auth/hooks/usePinEntry';
 import { isEasyPin } from '@/features/auth/onboardingCopy';
-import { usePinEntry } from '@/features/auth/usePinEntry';
 import { useSession } from '@/features/session/SessionProvider';
 
 import type { Stage } from '../types';
 
 /** Choose, (maybe) accept an easy PIN, confirm, then save the PIN with the session. */
-export function useCreatePin(keepsDocuments: boolean) {
+export function useSetupPinFlow(keepsDocuments: boolean) {
   const { setUp, error } = useSession();
   const biometrics = useBiometricAvailability();
   const [stage, setStage] = useState<Stage>('create');
@@ -67,7 +67,7 @@ export function useCreatePin(keepsDocuments: boolean) {
     press(key);
   };
 
-  const useAnyway = () => {
+  const acceptEasyPin = () => {
     clear();
     setStage('confirm');
   };
@@ -77,5 +77,5 @@ export function useCreatePin(keepsDocuments: boolean) {
     startOver();
   };
 
-  return { stage, mismatch, shownError, pin, flash, shake, onKey, useAnyway, chooseAnother };
+  return { stage, mismatch, shownError, pin, flash, shake, onKey, acceptEasyPin, chooseAnother };
 }

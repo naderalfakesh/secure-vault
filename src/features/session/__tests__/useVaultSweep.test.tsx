@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-native';
 
+import { useVaultSweep } from '@/features/session/hooks/useVaultSweep';
 import type { SessionStatus } from '@/features/session/SessionProvider';
-import { useVaultSweep } from '@/features/session/useVaultSweep';
 import * as clipboard from '@/features/viewer/clipboard';
 import { backupService } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';

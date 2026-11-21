@@ -6,7 +6,7 @@ import type { BiometryType } from '@modules/expo-vault';
 
 import { styles } from './BiometricsBadge.styles';
 
-export type BiometricsBadgeProps = {
+type BiometricsBadgeProps = {
   kind: BiometryType;
 };
 

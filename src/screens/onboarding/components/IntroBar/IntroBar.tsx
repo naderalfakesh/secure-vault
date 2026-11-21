@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 
 import { styles } from './IntroBar.styles';
 
-export type IntroBarProps = {
+type IntroBarProps = {
   /** Back is offered from the second slide on. */
   canGoBack: boolean;
   /** The last slide has no Skip: its own button sets up. */

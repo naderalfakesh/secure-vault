@@ -7,11 +7,6 @@ import {
 import { t } from '@/i18n';
 import type { BiometryType } from '@modules/expo-vault';
 
-/** Whole seconds left in a lockout, from its remaining milliseconds. */
-export function secondsLeft(remainingMs: number): number {
-  return Math.ceil(remainingMs / 1000);
-}
-
 export type LockMessageInput = {
   /** Seconds left in a lockout; 0 when there is none. */
   lockLeft: number;
@@ -26,7 +21,7 @@ export type LockMessageInput = {
   pinLength: number;
 };
 
-export type LockMessage = {
+type LockMessage = {
   lockedOut: boolean;
   alerting: boolean;
   title: string;
@@ -46,8 +41,8 @@ export function lockMessage({
   const lockedOut = lockLeft > 0;
 
   const showWrong = wrong && !lockedOut;
-  const showError = Boolean(error) && !lockedOut && !showWrong;
-  const alerting = showWrong || showError;
+  const shownError = !lockedOut && !showWrong && error ? error : null;
+  const alerting = showWrong || shownError !== null;
 
   const title = lockedOut
     ? t('lock.lockoutTitle', { time: formatCountdown(lockLeft) })
@@ -56,8 +51,8 @@ export function lockMessage({
     ? LOCKOUT_BODY
     : showWrong
       ? wrongPinMessage(attemptsLeft)
-      : showError
-        ? (error as string)
+      : shownError
+        ? shownError
         : hasBiometrics && pinLength === 0
           ? biometricSubtitle(biometry)
           : t('lock.enterPin');

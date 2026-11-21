@@ -1,1 +1,1 @@
-export { VaultUnavailableScreen } from './VaultUnavailableScreen';
+export { UnavailableScreen } from './UnavailableScreen';

@@ -59,5 +59,3 @@ export function useSessionStatus() {
 
   return { status, statusRef, generationRef, waitersRef, away, settleWaiters, changeStatus };
 }
-
-export type SessionStatusState = ReturnType<typeof useSessionStatus>;

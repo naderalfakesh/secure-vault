@@ -3,15 +3,14 @@ import * as Device from 'expo-device';
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-export interface SecurityCheckResult {
+interface SecurityCheckResult {
   rooted: boolean;
   tampered: boolean;
   indicators: string[];
   integrityIssues: string[];
 }
 
-const EXPECTED_ANDROID_PACKAGE = 'com.naderalfakesh.securevault';
-const EXPECTED_IOS_BUNDLE = 'com.naderalfakesh.securevault';
+const EXPECTED_BUNDLE_ID = 'com.naderalfakesh.securevault';
 
 const ANDROID_ROOT_PATHS = [
   '/system/app/Superuser.apk',
@@ -67,14 +66,10 @@ export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
       ? Constants?.expoConfig?.android?.package
       : Constants?.expoConfig?.ios?.bundleIdentifier;
 
-  if (currentPackage && Platform.OS === 'android' && currentPackage !== EXPECTED_ANDROID_PACKAGE) {
+  const onDevice = Platform.OS === 'android' || Platform.OS === 'ios';
+  if (onDevice && currentPackage && currentPackage !== EXPECTED_BUNDLE_ID) {
     // i18n-ignore: diagnostic detail, never shown on screen
-    tamperIssues.push(`Unexpected Android package: ${currentPackage}`);
-  }
-
-  if (currentPackage && Platform.OS === 'ios' && currentPackage !== EXPECTED_IOS_BUNDLE) {
-    // i18n-ignore: diagnostic detail, never shown on screen
-    tamperIssues.push(`Unexpected iOS bundle ID: ${currentPackage}`);
+    tamperIssues.push(`Unexpected app identifier: ${currentPackage}`);
   }
 
   return {

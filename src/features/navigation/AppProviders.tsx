@@ -8,7 +8,7 @@ import { SessionProvider } from '@/features/session/SessionProvider';
 
 const rootStyle = { flex: 1 };
 
-export type AppProvidersProps = {
+type AppProvidersProps = {
   children: ReactNode;
 };
 

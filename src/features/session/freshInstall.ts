@@ -29,7 +29,7 @@ const options: SecureStore.SecureStoreOptions = {
  * `undecided`: something could not be read or removed; nothing was decided
  * and the next launch checks again.
  */
-export type InstallCheck = 'kept' | 'cleared' | 'undecided';
+type InstallCheck = 'kept' | 'cleared' | 'undecided';
 
 /** Whether any of the vault's files are on disk: its entries, the index, or the PIN markers. */
 async function filesOnDisk(): Promise<boolean> {

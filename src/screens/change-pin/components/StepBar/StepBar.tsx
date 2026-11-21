@@ -8,7 +8,7 @@ import { styles } from './StepBar.styles';
 import { STEPS, TOTAL_STEPS } from '../../constants';
 import type { Stage } from '../../types';
 
-export type StepBarProps = {
+type StepBarProps = {
   stage: Stage;
 };
 

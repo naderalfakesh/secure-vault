@@ -1,12 +1,12 @@
 import { type Dispatch, type SetStateAction, useCallback } from 'react';
 
-import { EMPTY_LOCKOUT, type LockoutState } from '@/features/auth/lockout';
+import type { LockoutState } from '@/features/auth/lockout';
 import { t } from '@/i18n';
 import vault, { isKeyLocked } from '@modules/expo-vault';
 
 import { KEY_PROBE_ENTRY } from '../constants';
 import { describeError, KEY_NOT_UNLOCKED } from '../errors';
-import { sessionStorage } from '../settings';
+import { clearLockout } from '../launchState';
 import type { SessionContextValue, SessionStatus } from '../types';
 
 type Options = {
@@ -57,8 +57,7 @@ export function useBiometricUnlock({
       const ok = await vault.unlockWithBiometrics();
       if (ok) {
         await loadProtectedState();
-        applyLockout(EMPTY_LOCKOUT);
-        await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
+        await clearLockout(applyLockout);
         changeStatus('unlocked');
       }
       return ok;

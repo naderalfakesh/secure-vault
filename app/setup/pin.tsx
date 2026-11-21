@@ -1,1 +1,1 @@
-export { CreatePinScreen as default } from '@/screens/setup-pin';
+export { SetupPinScreen as default } from '@/screens/setup-pin';

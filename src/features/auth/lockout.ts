@@ -27,6 +27,11 @@ export function lockRemainingMs(state: LockoutState, now: number): number {
   return Math.max(0, state.lockedUntil - now);
 }
 
+/** Whole seconds left in a lockout, from its remaining milliseconds. */
+export function secondsLeft(remainingMs: number): number {
+  return Math.ceil(remainingMs / 1000);
+}
+
 /** Attempts left before the next lock kicks in. */
 export function attemptsLeft(state: LockoutState): number {
   return LOCKOUT_THRESHOLD - (state.failures % LOCKOUT_THRESHOLD);

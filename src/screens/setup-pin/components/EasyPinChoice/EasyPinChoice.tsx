@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 
 import { styles } from './EasyPinChoice.styles';
 
-export type EasyPinChoiceProps = {
+type EasyPinChoiceProps = {
   onUseAnyway: () => void;
   onChooseAnother: () => void;
 };

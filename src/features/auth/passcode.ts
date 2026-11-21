@@ -15,7 +15,7 @@ const DEFAULT_ITERATIONS = 4096;
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
 
-export interface PasscodeRecord {
+interface PasscodeRecord {
   scheme: typeof SCHEME;
   iterations: number;
   salt: Uint8Array;

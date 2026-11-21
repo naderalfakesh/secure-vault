@@ -16,7 +16,7 @@ type Options = {
 };
 
 /** Forgets the PIN, settings, and lockout after the vault was emptied; returns to setup. */
-export function useEraseVault({
+export function useVaultReset({
   setSettings,
   applyLockout,
   setError,

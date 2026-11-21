@@ -7,7 +7,7 @@ import type { AppearancePreference } from '@/theme/appearance';
 import { styles } from './AppearanceGroup.styles';
 import { APPEARANCE_CHOICES } from '../../constants';
 
-export type AppearanceGroupProps = {
+type AppearanceGroupProps = {
   value: AppearancePreference;
   onChange: (value: AppearancePreference) => void;
 };

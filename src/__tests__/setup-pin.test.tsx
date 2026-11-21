@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import vault from '@modules/expo-vault';
 
-import CreatePinScreen from '../../app/setup/pin';
+import SetupPinScreen from '../../app/setup/pin';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 
@@ -23,7 +23,7 @@ function Gate() {
   useEffect(() => {
     session = value;
   });
-  return value.status === 'setup' ? <CreatePinScreen /> : null;
+  return value.status === 'setup' ? <SetupPinScreen /> : null;
 }
 
 const renderSetup = () =>

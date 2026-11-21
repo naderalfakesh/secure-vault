@@ -4,7 +4,7 @@ import { PinDots } from '@/components/ui';
 
 import { styles } from './LockDots.styles';
 
-export type LockDotsProps = {
+type LockDotsProps = {
   compact: boolean;
   lockedOut: boolean;
   /** Digits entered so far. */

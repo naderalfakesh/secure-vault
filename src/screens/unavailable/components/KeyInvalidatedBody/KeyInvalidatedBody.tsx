@@ -1,7 +1,7 @@
 import { Text } from '@/components/ui';
 import { t } from '@/i18n';
 
-export type KeyInvalidatedBodyProps = {
+type KeyInvalidatedBodyProps = {
   error: string | null;
   eraseFailed: boolean;
 };

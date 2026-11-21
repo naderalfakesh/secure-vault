@@ -1,1 +1,1 @@
-export { VaultUnavailableScreen as default } from '@/screens/unavailable';
+export { UnavailableScreen as default } from '@/screens/unavailable';

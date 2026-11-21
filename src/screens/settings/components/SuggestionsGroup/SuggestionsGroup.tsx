@@ -4,7 +4,7 @@ import { t } from '@/i18n';
 
 import { modelName, suggestionsSubtitle } from '../../helpers';
 
-export type SuggestionsGroupProps = {
+type SuggestionsGroupProps = {
   /** The engine in use; empty while it is being chosen. */
   engine: string;
   model: ModelInfo | null;

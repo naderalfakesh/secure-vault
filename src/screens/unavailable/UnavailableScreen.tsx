@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
 import { useSession } from '@/features/session/SessionProvider';
-import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
 import { KeyInvalidatedBody, ReadFailedBody, RetryActions, UnavailableLayout } from './components';
@@ -20,12 +19,11 @@ import { useRetryActions } from './hooks/useRetryActions';
  * decrypted again: the plain sentence and "Delete everything" are then the
  * only way on, behind a native confirmation.
  */
-export function VaultUnavailableScreen() {
+export function UnavailableScreen() {
   const { pinLost, keyInvalidated, error, biometry } = useSession();
   const stuck = keyInvalidated;
-  const mounted = useMountedRef();
-  const { trying, resetting, tryAgain, resetPin } = useRetryActions(mounted);
-  const { erasing, eraseFailed, eraseAll } = useEraseVault(mounted);
+  const { trying, resetting, tryAgain, resetPin } = useRetryActions();
+  const { erasing, eraseFailed, eraseAll } = useEraseVault();
   useAnnouncement(
     trying ? t('unavailable.trying') : resetting ? t('unavailable.pinLost.resetting') : null,
   );

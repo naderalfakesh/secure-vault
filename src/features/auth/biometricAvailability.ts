@@ -13,7 +13,7 @@ import { biometryName } from './lockCopy';
  * permission, so there it is never reported. `noPasscode`: the phone has no
  * passcode or screen lock, so no biometric can be set up yet.
  */
-export type BiometricState = 'available' | 'notEnrolled' | 'noPasscode' | 'denied' | 'unavailable';
+type BiometricState = 'available' | 'notEnrolled' | 'noPasscode' | 'denied' | 'unavailable';
 
 export type BiometricAvailability = { state: BiometricState; kind: BiometryType };
 

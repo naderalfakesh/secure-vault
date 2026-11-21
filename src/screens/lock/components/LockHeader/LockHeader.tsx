@@ -6,7 +6,7 @@ import { textScale } from '@/theme/tokens';
 import { styles } from './LockHeader.styles';
 import { MARK_SIZE } from '../../constants';
 
-export type LockHeaderProps = {
+type LockHeaderProps = {
   compact: boolean;
   lockedOut: boolean;
   alerting: boolean;

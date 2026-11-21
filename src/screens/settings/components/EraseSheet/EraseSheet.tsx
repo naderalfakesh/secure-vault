@@ -7,7 +7,7 @@ import { styles } from './EraseSheet.styles';
 import { eraseSubject } from '../../helpers';
 import type { EraseRequest } from '../../types';
 
-export type EraseSheetProps = {
+type EraseSheetProps = {
   /** Null closes the sheet. */
   erase: EraseRequest | null;
   onClose: () => void;

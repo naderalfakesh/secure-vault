@@ -1,1 +1,1 @@
-export { CreatePinScreen } from './CreatePinScreen';
+export { SetupPinScreen } from './SetupPinScreen';

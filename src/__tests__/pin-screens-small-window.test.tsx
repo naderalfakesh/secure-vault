@@ -7,7 +7,7 @@ import vault from '@modules/expo-vault';
 
 import LockScreen from '../../app/lock';
 import ChangePinScreen from '../../app/settings/change-pin';
-import CreatePinScreen from '../../app/setup/pin';
+import SetupPinScreen from '../../app/setup/pin';
 import { ToastProvider } from '../components/ui';
 import { pinPadMetrics } from '../components/ui/PinPad';
 import { SessionProvider } from '../features/session/SessionProvider';
@@ -85,7 +85,7 @@ describe('PIN screens on short windows (M3)', () => {
     setWindow(411, 648);
     const view = await render(
       <SessionProvider>
-        <CreatePinScreen />
+        <SetupPinScreen />
       </SessionProvider>,
     );
     await waitFor(() => expect(view.getByRole('button', { name: '5' })).toBeOnTheScreen());

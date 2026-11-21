@@ -5,17 +5,17 @@ import { useAnnouncement } from '@/components/ui/announce';
 import { useSession } from '@/features/session/SessionProvider';
 
 import { EasyPinChoice, KeyBadge, PinMessage, SetupPinHeader } from './components';
-import { styles } from './CreatePinScreen.styles';
 import { isConfirmStep, pinPrompt } from './helpers';
-import { useCreatePin } from './hooks/useCreatePin';
+import { useSetupPinFlow } from './hooks/useSetupPinFlow';
+import { styles } from './SetupPinScreen.styles';
 
 /** Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
-export function CreatePinScreen() {
+export function SetupPinScreen() {
   const { vaultExists, vaultEmpty, biometry } = useSession();
   const { compact } = usePinPadMetrics();
   // After "Delete everything" the key stays but no documents do.
   const keepsDocuments = vaultExists && !vaultEmpty;
-  const entry = useCreatePin(keepsDocuments);
+  const entry = useSetupPinFlow(keepsDocuments);
   const { stage } = entry;
 
   const { title, saving, message, alerting, failing } = pinPrompt({
@@ -54,7 +54,7 @@ export function CreatePinScreen() {
           <PinDots filled={entry.pin.length} error={entry.flash} shake={entry.shake} />
         </View>
         {stage === 'easy' ? (
-          <EasyPinChoice onUseAnyway={entry.useAnyway} onChooseAnother={entry.chooseAnother} />
+          <EasyPinChoice onUseAnyway={entry.acceptEasyPin} onChooseAnother={entry.chooseAnother} />
         ) : null}
       </ScrollView>
       <View style={styles.pad(compact)}>

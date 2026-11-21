@@ -23,7 +23,7 @@ export const keyNotUnlocked = {
   changePin: t('session.keyNotUnlocked.changePin'),
 } as const;
 
-export type KeyPromptContext = keyof typeof keyNotUnlocked;
+type KeyPromptContext = keyof typeof keyNotUnlocked;
 
 /** The native error code a rejection carries, if any. */
 export function errorCode(e: unknown): unknown {

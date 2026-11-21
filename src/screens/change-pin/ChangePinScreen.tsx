@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 
 import { PinDots, PinPad, Screen, Text, usePinPadMetrics } from '@/components/ui';
 import { useAnnouncement } from '@/components/ui/announce';
+import { useLockoutCountdown } from '@/features/auth/hooks/useLockoutCountdown';
 import { LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { useSession } from '@/features/session/SessionProvider';
 
@@ -10,7 +11,6 @@ import { styles } from './ChangePinScreen.styles';
 import { PinMessage, StepBar } from './components';
 import { pinPrompt } from './helpers';
 import { useChangePinFlow } from './hooks/useChangePinFlow';
-import { useLockoutCountdown } from './hooks/useLockoutCountdown';
 
 export function ChangePinScreen() {
   const { changePin, error, lockout } = useSession();

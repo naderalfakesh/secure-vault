@@ -9,6 +9,7 @@ import {
   lockRemainingMs,
   recordFailure,
   sanitizeLockout,
+  secondsLeft,
   strictestLockout,
   unreadableLockout,
 } from './lockout';
@@ -93,5 +94,18 @@ describe('lockout', () => {
     expect(state.failures).toBe(0);
     expect(lockRemainingMs(state, now)).toBe(LOCKOUT_BASE_MS);
     expect(isLocked(state, now + LOCKOUT_BASE_MS)).toBe(false);
+  });
+});
+
+describe('secondsLeft', () => {
+  it('rounds up to whole seconds', () => {
+    expect(secondsLeft(0)).toBe(0);
+    expect(secondsLeft(1)).toBe(1);
+    expect(secondsLeft(1000)).toBe(1);
+    expect(secondsLeft(29_001)).toBe(30);
+  });
+
+  it('stays at or below zero once the lockout has passed', () => {
+    expect(secondsLeft(-500)).toBeLessThanOrEqual(0);
   });
 });

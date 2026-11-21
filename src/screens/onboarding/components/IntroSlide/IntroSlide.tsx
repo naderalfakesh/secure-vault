@@ -7,7 +7,7 @@ import type { SessionContextValue } from '@/features/session/SessionProvider';
 import { styles } from './IntroSlide.styles';
 import type { Slide } from '../../types';
 
-export type IntroSlideProps = {
+type IntroSlideProps = {
   slide: Slide;
   /** One page of the pager: the window's width. */
   width: number;
