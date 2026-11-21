@@ -1,7 +1,7 @@
 # ADR 0010: Code organisation
 
 - Status: Accepted
-- Date: 2026-11-18 (amended 2026-11-21: shared code, imports, tests, types)
+- Date: 2026-11-18 (amended 2026-11-21: shared code, imports, tests, types, errors, state)
 
 ## Context
 
@@ -108,6 +108,29 @@ A service or provider is split by concern: types, constants, pure helpers
 and the stateful class or hook that wires them. The public import paths
 (`@/services/DocumentService`, `@/features/session/SessionProvider`) stay.
 
+### Errors
+
+An error the app raises is an `AppError` (`src/utils/AppError.ts`) with a
+`code` from one list; an error that carries data is a subclass beside its
+factory (`PartialRestoreError`). Native modules reject with plain errors that
+carry a `code` too, so code is read with `errorCode`, never with `instanceof`
+alone. A sentence for an error comes from `resolveErrorMessage` and the one
+table in `src/utils/errorMessages.ts`; a place that words a code differently
+passes `overrides`, it does not keep a table of its own.
+
+### State
+
+- A context that many components read is split into state and actions
+  (`useSessionState`, `useSessionActions`). The actions object keeps one
+  identity, so a component that only calls actions never renders again; an
+  action that needs the latest state reads it through a ref.
+- A flow with phases keeps them in one reducer with an action per event
+  (`flowReducer.ts`, `detailsReducer.ts`), in a pure file with its own test.
+  Side effects on files stay in hooks.
+- State that outlives a screen and is not React state lives in a class with
+  its device-only dependency injected (`DocumentDatabase` and its SQLite
+  adapter). Jest replaces that adapter, never the class.
+
 ### Tests
 
 - A unit test sits in the `__tests__/` folder beside the code it covers and
@@ -117,6 +140,9 @@ and the stateful class or hook that wires them. The public import paths
   These cross screens and features, so they belong to no single folder.
 - Shared test helpers live in `src/testing/`; native-module doubles live
   beside their module as `*.mock.ts` and are wired in `jest.setup.js`.
+- A test file that passes about 450 lines is split by area
+  (`BackupService.restore.test.ts`), with the shared setup in `src/testing/`:
+  Jest collects every file under `__tests__/`, so a helper cannot sit there.
 
 ### Types
 
