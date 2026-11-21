@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
-import { type StringKey, t, tp } from '@/i18n';
-import type { scan } from '@/i18n/en/scan';
+import { type KeysUnder, scopedText, type StringKey, t, tp } from '@/i18n';
+import { FIELD_KEYS } from '@/types';
 import { isolate } from '@/utils/bidi';
 
 /**
@@ -9,13 +9,9 @@ import { isolate } from '@/utils/bidi';
  * string table under `scan.`; this module keeps the short keys the scan
  * screens use.
  */
-export type ScanCopyKey = {
-  [K in keyof typeof scan]: K extends `scan.${infer Key}` ? Key : never;
-}[keyof typeof scan];
+export type ScanCopyKey = KeysUnder<'scan'>;
 
-export function scanText(key: ScanCopyKey): string {
-  return t(`scan.${key}` as StringKey);
-}
+export const scanText = scopedText('scan');
 
 /**
  * Who reads the text, under the processing steps: Apple Vision on iOS,
@@ -70,7 +66,7 @@ export function foundFieldLabel(
 ): string {
   const name = fieldNames[field.key] ? t(fieldNames[field.key]) : field.key;
   if (field.kind === 'date') return t('scan.field.value', { name, value: formatDate(field.value) });
-  if (field.key === 'number') {
+  if (field.key === FIELD_KEYS.number) {
     return t('scan.field.maskedNumber', { name, last4: field.value.slice(-4) });
   }
   return t('scan.field.value', { name, value: field.value });

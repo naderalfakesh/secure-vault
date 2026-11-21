@@ -1,7 +1,6 @@
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { formatTags } from '@/features/documents/tags';
 import { t, tp } from '@/i18n';
-import type { Document } from '@/types';
+import { type Document, type ExtractedField, FIELD_KEYS } from '@/types';
 import { isolate } from '@/utils/bidi';
 import { errorCode, plainErrorMessage } from '@/utils/errors';
 import { formatDate, formatFileSize, joinParts } from '@/utils/format';
@@ -20,7 +19,7 @@ export function maskNumber(value: string): string {
 
 /** The recognised expiry date, if the scanner found one. */
 export function expiryField(fields: readonly ExtractedField[]): ExtractedField | undefined {
-  return fields.find((field) => field.key === 'expires' && field.kind === 'date');
+  return fields.find((field) => field.key === FIELD_KEYS.expires && field.kind === 'date');
 }
 
 /** "Page 2 of 3" for the top bar, or nothing while there are no pages. */

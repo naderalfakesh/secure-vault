@@ -1,4 +1,6 @@
-import type { Document, DocumentCategory, FileType } from '@/types';
+import type { Document, DocumentCategory, ExtractedField, FileType } from '@/types';
+
+export type { ExtractedField };
 
 /** A `documents` row as SQLite returns it, with the tags folded into one column. */
 export type DocumentRow = {
@@ -14,8 +16,6 @@ export type DocumentRow = {
   updated_at: string;
   tags: string | null;
 };
-
-export type ExtractedField = { key: string; value: string; kind: 'text' | 'date' | 'number' };
 
 export type NewDocument = Omit<Document, 'updatedAt'> & { updatedAt?: string };
 

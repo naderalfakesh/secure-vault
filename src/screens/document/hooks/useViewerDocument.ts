@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { documentService } from '@/services/DocumentService';
-import type { Document } from '@/types';
+import type { ExtractedField, Document } from '@/types';
 
 import { unreadableDetail } from '../helpers';
 import type { LoadFailure } from '../types';

@@ -1,7 +1,7 @@
-import type { ExtractedField } from '@/data/DocumentRepository';
+import { type ExtractedField, FIELD_KEYS } from '@/types';
 import { DocumentCategory } from '@/types';
 
-import { type DocumentIntelligence, type DocumentSuggestion, EXPIRY_FIELD } from './types';
+import type { DocumentIntelligence, DocumentSuggestion } from './types';
 
 /**
  * The always-available engine. Regular expressions and keyword lists are not
@@ -176,18 +176,18 @@ function fieldsFrom(text: string, dates: readonly FoundDate[]): ExtractedField[]
   const fields: ExtractedField[] = [];
   const expiry = dates.find((d) => expiryKeywords.test(d.context));
   const issue = dates.find((d) => issueKeywords.test(d.context) && d.date !== expiry?.date);
-  if (expiry) fields.push({ key: EXPIRY_FIELD, value: expiry.date, kind: 'date' });
+  if (expiry) fields.push({ key: FIELD_KEYS.expires, value: expiry.date, kind: 'date' });
   else {
     // Without a keyword, the latest future date is the best guess for an expiry.
     const today = new Date().toISOString().slice(0, 10);
     const future = dates
       .filter((d) => d.date > today)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
-    if (future) fields.push({ key: EXPIRY_FIELD, value: future.date, kind: 'date' });
+    if (future) fields.push({ key: FIELD_KEYS.expires, value: future.date, kind: 'date' });
   }
-  if (issue) fields.push({ key: 'issued', value: issue.date, kind: 'date' });
+  if (issue) fields.push({ key: FIELD_KEYS.issued, value: issue.date, kind: 'date' });
   const number = text.match(numberKeywords)?.[1];
-  if (number) fields.push({ key: 'number', value: number.toUpperCase(), kind: 'text' });
+  if (number) fields.push({ key: FIELD_KEYS.number, value: number.toUpperCase(), kind: 'text' });
   return fields;
 }
 
@@ -204,8 +204,8 @@ function suggestTags(
   const tags = new Set<string>();
   if (category) tags.add(category);
   const date =
-    fields.find((field) => field.key === EXPIRY_FIELD)?.value ??
-    fields.find((field) => field.key === 'issued')?.value ??
+    fields.find((field) => field.key === FIELD_KEYS.expires)?.value ??
+    fields.find((field) => field.key === FIELD_KEYS.issued)?.value ??
     dates[0]?.date;
   const year = date?.slice(0, 4);
   if (year) tags.add(year);

@@ -1,5 +1,4 @@
-import type { ExtractedField } from '@/data/DocumentRepository';
-import type { DocumentCategory } from '@/types';
+import type { DocumentCategory, ExtractedField } from '@/types';
 
 export interface DocumentSuggestion {
   title?: string;
@@ -18,5 +17,3 @@ export interface DocumentIntelligence {
   /** Never throws: a failing engine returns an empty suggestion. */
   suggest(ocrText: string): Promise<DocumentSuggestion>;
 }
-
-export const EXPIRY_FIELD = 'expires';

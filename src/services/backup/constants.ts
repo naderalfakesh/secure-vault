@@ -1,4 +1,3 @@
-export const MIN_PASSPHRASE_LENGTH = 8;
 /** The container entry that carries the encrypted SQLite index. */
 export const DATABASE_ENTRY = 'database';
 /**

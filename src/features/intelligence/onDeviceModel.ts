@@ -1,11 +1,11 @@
 import { Platform } from 'react-native';
 
-import type { ExtractedField } from '@/data/DocumentRepository';
+import { type ExtractedField, FIELD_KEYS } from '@/types';
 import { DocumentCategory } from '@/types';
 import { extractDetails, type ModelEngine, modelInfo } from '@modules/expo-document-ai';
 
 import { findDates, heuristicIntelligence } from './heuristic';
-import { type DocumentIntelligence, type DocumentSuggestion, EXPIRY_FIELD } from './types';
+import type { DocumentIntelligence, DocumentSuggestion } from './types';
 
 /**
  * Apple's Foundation Model on iOS 26+, Gemini Nano on supported Android
@@ -152,12 +152,13 @@ export const onDeviceModelIntelligence: DocumentIntelligence = {
     const found = (key: string) => fallback.fields.find((field) => field.key === key)?.value;
 
     const fields: ExtractedField[] = [];
-    const expires = model.expires ?? found(EXPIRY_FIELD);
-    const issued = model.issued ?? found('issued');
-    const number = model.number ?? found('number');
-    if (expires) fields.push({ key: EXPIRY_FIELD, value: expires, kind: 'date' });
-    if (issued && issued !== expires) fields.push({ key: 'issued', value: issued, kind: 'date' });
-    if (number) fields.push({ key: 'number', value: number, kind: 'text' });
+    const expires = model.expires ?? found(FIELD_KEYS.expires);
+    const issued = model.issued ?? found(FIELD_KEYS.issued);
+    const number = model.number ?? found(FIELD_KEYS.number);
+    if (expires) fields.push({ key: FIELD_KEYS.expires, value: expires, kind: 'date' });
+    if (issued && issued !== expires)
+      fields.push({ key: FIELD_KEYS.issued, value: issued, kind: 'date' });
+    if (number) fields.push({ key: FIELD_KEYS.number, value: number, kind: 'text' });
 
     const category = model.category ?? fallback.category;
     const tags = model.tags.length

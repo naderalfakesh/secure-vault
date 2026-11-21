@@ -1,6 +1,6 @@
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { formatTags } from '@/features/documents/tags';
 import type { DocumentSuggestion } from '@/features/intelligence';
+import type { ExtractedField } from '@/types';
 import { DocumentCategory } from '@/types';
 
 /** The details form: what reading suggested, as the user corrected it. */

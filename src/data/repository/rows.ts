@@ -1,9 +1,10 @@
+import { FIELD_KEYS } from '@/types';
 import type { Document } from '@/types';
 
 import type { DocumentOrder, DocumentRow } from './types';
 
-// The expiry date, when the document has one, for sorting (fields.key = 'expires').
-export const EXPIRY_JOIN = `LEFT JOIN fields expiry ON expiry.document_id = d.id AND expiry.key = 'expires' AND expiry.kind = 'date'`;
+// The expiry date, when the document has one, for sorting.
+export const EXPIRY_JOIN = `LEFT JOIN fields expiry ON expiry.document_id = d.id AND expiry.key = '${FIELD_KEYS.expires}' AND expiry.kind = 'date'`;
 
 export const ORDER_BY: Record<DocumentOrder, string> = {
   newest: 'd.created_at DESC',

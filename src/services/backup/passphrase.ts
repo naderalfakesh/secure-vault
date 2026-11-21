@@ -1,8 +1,6 @@
 import { t } from '@/i18n';
 
-import { MIN_PASSPHRASE_LENGTH } from './constants';
-
-export { MIN_PASSPHRASE_LENGTH };
+export const MIN_PASSPHRASE_LENGTH = 8;
 
 // The backup key is derived from the passphrase inside the vault module
 // (ADR 0007) and never stored; JavaScript only decides which passphrases are

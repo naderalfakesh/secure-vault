@@ -1,6 +1,5 @@
-import type { ExtractedField } from '@/data/DocumentRepository';
 import { t, tp } from '@/i18n';
-import { type Document, DocumentCategory } from '@/types';
+import { type Document, DocumentCategory, type ExtractedField } from '@/types';
 import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from '@/utils/errors';
 
 import {

@@ -5,6 +5,7 @@ import type {
   ExtractedField,
   SearchHit,
 } from '@/data/DocumentRepository';
+import { FIELD_KEYS } from '@/types';
 import type { Document, DocumentCategory } from '@/types';
 
 import { expiryCutoff } from './helpers';
@@ -101,7 +102,7 @@ export class DocumentIndex {
   /** Documents whose extracted expiry date falls within `days` from today, soonest first. */
   async getExpiring(days: number): Promise<{ document: Document; date: string }[]> {
     const before = expiryCutoff(days, Date.now());
-    return (await this.repository()).expiring('expires', before);
+    return (await this.repository()).expiring(FIELD_KEYS.expires, before);
   }
 
   async getFields(id: string): Promise<ExtractedField[]> {
