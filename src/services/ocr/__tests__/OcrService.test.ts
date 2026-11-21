@@ -38,6 +38,13 @@ describe('ocr text cleaning', () => {
     expect(ocrService.isTextMeaningful('12 34 56 78')).toBe(false);
     expect(ocrService.isTextMeaningful('Passport No: X1234567')).toBe(true);
   });
+
+  it('judges text in any script by its letters', () => {
+    expect(ocrService.isTextMeaningful('جواز سفر الجمهورية')).toBe(true);
+    expect(ocrService.isTextMeaningful('护照 中华人民共和国')).toBe(true);
+    expect(ocrService.isTextMeaningful('Паспорт Российская Федерация')).toBe(true);
+    expect(ocrService.isTextMeaningful('--- ... !!! ???')).toBe(false);
+  });
 });
 
 describe('platform text readers', () => {

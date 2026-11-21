@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { errorCode } from '@/utils/errors';
+
 import { readWithMlKit } from './mlKit';
 import type { OcrResult, TextReader } from './types';
 import { readWithVision } from './vision';
@@ -29,8 +31,9 @@ class OcrService {
         text: fullText.trim(),
         blocks,
       };
-    } catch (error: any) {
-      console.warn('OCR extraction failed:', error?.message || 'Unknown OCR error');
+    } catch (error: unknown) {
+      // The message can carry a file path, so only the code is logged.
+      console.warn('OCR extraction failed:', errorCode(error) ?? 'no error code');
       // Return empty result on failure - don't block document import
       return {
         text: '',
@@ -46,8 +49,9 @@ class OcrService {
   isTextMeaningful(text: string): boolean {
     if (!text || text.length < 3) return false;
 
-    // Check if text has a reasonable ratio of letters to total characters
-    const letters = text.replace(/[^a-zA-Z]/g, '').length;
+    // Letters of any script (and their combining marks, which Arabic and
+    // Indic text uses for vowels); digits stay noise so a page of numbers is not indexed.
+    const letters = text.replace(/[^\p{L}\p{M}]/gu, '').length;
     const ratio = letters / text.length;
 
     return ratio > 0.3; // At least 30% letters
@@ -69,4 +73,3 @@ class OcrService {
 }
 
 export const ocrService = new OcrService();
-export default ocrService;
