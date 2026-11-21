@@ -6,19 +6,19 @@ import { documentDatabase } from '@/data/database';
 import { settle } from '@/testing/async';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import LibraryScreen from '../../app/(tabs)/index';
 import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
-import type { useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 import { isolate } from '../utils/bidi';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 const CLOSED =
   'The document index could not be found, so it stays closed. Nothing was changed. Try again.';

@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import { Text } from '@/components/ui';
 import { OnboardingArt } from '@/features/auth/OnboardingArt';
-import type { SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionState } from '@/features/session/SessionProvider';
 
 import { styles } from './IntroSlide.styles';
 import type { Slide } from '../../types';
@@ -11,7 +11,7 @@ type IntroSlideProps = {
   slide: Slide;
   /** One page of the pager: the window's width. */
   width: number;
-  biometry: SessionContextValue['biometry'];
+  biometry: SessionState['biometry'];
 };
 
 /** The illustration over the slide's title and body. */

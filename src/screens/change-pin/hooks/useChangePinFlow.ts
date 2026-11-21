@@ -3,13 +3,13 @@ import { useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { usePinEntry } from '@/features/auth/hooks/usePinEntry';
-import type { SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionActions } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 
 import type { Stage } from '../types';
 
 /** Current PIN, new PIN, confirmation, then the change itself. */
-export function useChangePinFlow(changePin: SessionContextValue['changePin']) {
+export function useChangePinFlow(changePin: SessionActions['changePin']) {
   const toast = useToast();
   const [stage, setStage] = useState<Stage>('current');
   const [current, setCurrent] = useState('');

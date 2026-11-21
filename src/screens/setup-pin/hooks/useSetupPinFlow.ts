@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { useBiometricAvailability } from '@/features/auth/biometricAvailability';
 import { usePinEntry } from '@/features/auth/hooks/usePinEntry';
 import { isEasyPin } from '@/features/auth/onboardingCopy';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 
 import type { Stage } from '../types';
 
 /** Choose, (maybe) accept an easy PIN, confirm, then save the PIN with the session. */
 export function useSetupPinFlow(keepsDocuments: boolean) {
-  const { setUp, error } = useSession();
+  const { error } = useSessionState();
+  const { setUp } = useSessionActions();
   const biometrics = useBiometricAvailability();
   const [stage, setStage] = useState<Stage>('create');
   const [first, setFirst] = useState('');

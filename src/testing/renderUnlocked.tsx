@@ -4,9 +4,11 @@ import { Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastProvider } from '@/components/ui';
-import { SessionProvider, useSession } from '@/features/session/SessionProvider';
+import { SessionProvider } from '@/features/session/SessionProvider';
 
-export type Session = ReturnType<typeof useSession>;
+import { type Session, useSessionValue } from './session';
+
+export type { Session };
 
 interface RenderUnlockedOptions {
   /** Called on every render with the live session, so a test can lock or change it. */
@@ -25,7 +27,7 @@ function UnlockGate({
   screen: ReactElement;
   onSession: (session: Session) => void;
 }) {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     onSession(value);
   });

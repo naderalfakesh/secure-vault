@@ -9,6 +9,7 @@ import { documentService } from '@/services/DocumentService';
 import { appState, moveAppStateTo, resetAppState } from '@/testing/appState';
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
@@ -18,14 +19,13 @@ import {
   sharePause,
   type SessionCapture,
   SessionProvider,
-  useSession,
 } from '../SessionProvider';
 import type { SecuritySettings } from '../settings';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
 
 function Probe() {
-  const session = useSession();
+  const session = useSessionValue();
   return (
     <>
       <Text testID="status">{session.status}</Text>
@@ -289,9 +289,9 @@ describe('SessionProvider', () => {
 describe('SessionProvider session capture', () => {
   const moveTo = moveAppStateTo;
 
-  let session: ReturnType<typeof useSession>;
+  let session: Session;
   function Capture() {
-    const value = useSession();
+    const value = useSessionValue();
     useEffect(() => {
       session = value;
     });
@@ -1168,9 +1168,9 @@ describe('SessionProvider PIN lockout across relaunches', () => {
 
   it('judges one PIN attempt at a time so none of them is lost', async () => {
     await lockedVault();
-    let session: ReturnType<typeof useSession> | null = null;
+    let session: Session | null = null;
     function Capture() {
-      const value = useSession();
+      const value = useSessionValue();
       useEffect(() => {
         session = value;
       });
@@ -1206,9 +1206,9 @@ describe('SessionProvider PIN lockout across relaunches', () => {
     jest
       .spyOn(vault, 'hasVault')
       .mockImplementationOnce(() => new Promise<boolean>((resolve) => (finishStartup = resolve)));
-    let session: ReturnType<typeof useSession> | null = null;
+    let session: Session | null = null;
     function Capture() {
-      const value = useSession();
+      const value = useSessionValue();
       useEffect(() => {
         session = value;
       });

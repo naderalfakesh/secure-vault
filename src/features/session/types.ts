@@ -76,7 +76,7 @@ export type ShareInterruption = { documentId: string };
 /** What one launch read found for the device key or the PIN record. */
 export type KeyRead = 'present' | 'absent' | 'unreadable';
 
-export type SessionContextValue = {
+export type SessionState = {
   status: SessionStatus;
   /** True during setup when a device key already exists (upgrade from the prototype, or an interrupted setup). */
   vaultExists: boolean;
@@ -88,6 +88,35 @@ export type SessionContextValue = {
   biometry: BiometryType;
   settings: SecuritySettings;
   lockout: LockoutState;
+  /** True after a held setup succeeded and before `finishSetup`. */
+  setupHeld: boolean;
+  /**
+   * True while `unavailable` because the PIN record is gone although it was
+   * written, and the device key is there (M1). `resetLostPin` is then the way on.
+   */
+  pinLost: boolean;
+  /**
+   * The vault holds entries its device key can no longer open, so nothing in
+   * it can be decrypted on this device again and the only way on is "Delete
+   * everything". Android: after a lost PIN record the key's gate opened but
+   * the key was invalidated (the screen lock or biometrics changed). Either
+   * platform: the key is gone while entries remain (removing Android's screen
+   * lock deletes it; an earlier install lost it), so setup never runs over them.
+   */
+  keyInvalidated: boolean;
+  /** A message for work that ended behind the lock; shown once the vault is unlocked. */
+  notice: SessionNotice | null;
+  /**
+   * Set when the vault locked while a share of this document was running.
+   * In memory only, so a relaunch forgets it; cleared by erase.
+   */
+  shareInterrupted: ShareInterruption | null;
+  /** Last unlock or setup failure, cleared on the next attempt. */
+  error: string | null;
+};
+
+/** Every function the session offers. The object is the same for the provider's lifetime. */
+export type SessionActions = {
   /** Prompts for biometrics or the device passcode; resolves false when cancelled or failed. */
   unlock: () => Promise<boolean>;
   /** Checks a PIN, records failures for the lockout policy, and unlocks on success. */
@@ -100,17 +129,10 @@ export type SessionContextValue = {
    * `setupHeld` until `finishSetup`, so onboarding can show its last step.
    */
   setUp: (pin: string, options?: { holdForOnboarding?: boolean }) => Promise<boolean>;
-  /** True after a held setup succeeded and before `finishSetup`. */
-  setupHeld: boolean;
   /** Ends a held setup and unlocks; does nothing when no setup is held. */
   finishSetup: () => void;
   /** Reads the key and PIN again after `unavailable`; resolves the new status. */
   retry: () => Promise<SessionStatus>;
-  /**
-   * True while `unavailable` because the PIN record is gone although it was
-   * written, and the device key is there (M1). `resetLostPin` is then the way on.
-   */
-  pinLost: boolean;
   /**
    * After a lost PIN record: asks for the device key's own gate (biometrics or
    * the device passcode, the same door the lock screen offers) and, once it
@@ -118,15 +140,6 @@ export type SessionContextValue = {
    * false when the prompt was cancelled or failed, with the reason in `error`.
    */
   resetLostPin: () => Promise<boolean>;
-  /**
-   * The vault holds entries its device key can no longer open, so nothing in
-   * it can be decrypted on this device again and the only way on is "Delete
-   * everything". Android: after a lost PIN record the key's gate opened but
-   * the key was invalidated (the screen lock or biometrics changed). Either
-   * platform: the key is gone while entries remain (removing Android's screen
-   * lock deletes it; an earlier install lost it), so setup never runs over them.
-   */
-  keyInvalidated: boolean;
   changePin: (currentPin: string, nextPin: string) => Promise<PinChangeResult>;
   updateSettings: (changes: Partial<SecuritySettings>) => Promise<void>;
   lock: () => void;
@@ -139,15 +152,8 @@ export type SessionContextValue = {
   withoutAutoLock: <T>(work: () => Promise<T>, pause?: AutoLockPause) => Promise<T>;
   /** Captures the current unlocked session so long work can tell whether it ended. */
   captureSession: () => SessionCapture;
-  /** A message for work that ended behind the lock; shown once the vault is unlocked. */
-  notice: SessionNotice | null;
   postNotice: (notice: SessionNotice) => void;
   dismissNotice: () => void;
-  /**
-   * Set when the vault locked while a share of this document was running.
-   * In memory only, so a relaunch forgets it; cleared by erase.
-   */
-  shareInterrupted: ShareInterruption | null;
   markShareInterrupted: (documentId: string) => void;
   /** Clears the mark; given one, only while that same mark is still the current one. */
   clearShareInterrupted: (only?: ShareInterruption) => void;
@@ -158,6 +164,4 @@ export type SessionContextValue = {
    * relaunch until setup replaces it.
    */
   eraseVault: () => Promise<boolean>;
-  /** Last unlock or setup failure, cleared on the next attempt. */
-  error: string | null;
 };

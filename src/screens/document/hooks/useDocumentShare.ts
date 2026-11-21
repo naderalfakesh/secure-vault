@@ -3,7 +3,7 @@ import { type Dispatch, type SetStateAction, useCallback, useRef, useState } fro
 import { Platform } from 'react-native';
 
 import { useToast } from '@/components/ui';
-import { sharePause, useSession } from '@/features/session/SessionProvider';
+import { sharePause, useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 import { shareText } from '@/features/viewer/shareCopy';
 import type { ShareSheetStep } from '@/features/viewer/ShareSheet';
 import { useMountedRef } from '@/hooks/useMountedRef';
@@ -26,7 +26,8 @@ type Options = {
 export function useDocumentShare({ document, pageCount, busy, setBusy }: Options) {
   const toast = useToast();
   const mounted = useMountedRef();
-  const { settings, stepUp, withoutAutoLock, captureSession, markShareInterrupted } = useSession();
+  const { settings } = useSessionState();
+  const { stepUp, withoutAutoLock, captureSession, markShareInterrupted } = useSessionActions();
   const [shareStep, setShareStep] = useState<ShareSheetStep | null>(null);
   const [confirming, setConfirming] = useState(false);
   // Bumped by every share and by Cancel: a copy whose run is no longer the

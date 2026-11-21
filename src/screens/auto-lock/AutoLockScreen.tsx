@@ -2,13 +2,14 @@ import { router, Stack } from 'expo-router';
 import { View } from 'react-native';
 
 import { BackBar, Group, InlineAlert, ListRow, Screen, TitledScroll } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 import { AUTO_LOCK_OPTIONS, autoLockChoice } from '@/features/session/settings';
 import { t } from '@/i18n';
 
 /** Auto-lock: a radio list, counted from leaving the app. */
 export function AutoLockScreen() {
-  const { settings, updateSettings } = useSession();
+  const { settings } = useSessionState();
+  const { updateSettings } = useSessionActions();
 
   return (
     <Screen>

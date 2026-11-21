@@ -4,7 +4,7 @@ import { type Dispatch, type RefObject, useCallback, useRef } from 'react';
 import { useToast } from '@/components/ui';
 import { parseTags } from '@/features/documents/tags';
 import { scanText } from '@/features/scan/scanCopy';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { documentService } from '@/services/DocumentService';
 import type { Document, PickedFile } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
@@ -42,7 +42,7 @@ export function useSaveDocument({
   dispatch,
 }: SaveDocumentOptions) {
   const toast = useToast();
-  const { captureSession, postNotice } = useSession();
+  const { captureSession, postNotice } = useSessionActions();
   // Set once the files are in the vault, so Try again only repeats what failed.
   const saved = useRef<Document | null>(null);
 

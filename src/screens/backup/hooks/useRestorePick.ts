@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/ui';
 import { backupCopy as copy } from '@/features/backup/backupCopy';
 import type { PickedBackup } from '@/features/backup/RestoreSheet';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
@@ -17,7 +17,7 @@ import { openPicker } from '../picker';
 /** Picking a backup file, the restore sheet it opens, and "Choose another file". */
 export function useRestorePick() {
   const toast = useToast();
-  const { withoutAutoLock, captureSession } = useSession();
+  const { withoutAutoLock, captureSession } = useSessionActions();
   // The lock unmounts this screen while a restore may still be running.
   const mounted = useMountedRef();
   const [restore, setRestore] = useState<PickedBackup | null>(null);

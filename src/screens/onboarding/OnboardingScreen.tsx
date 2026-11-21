@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 
 import { Screen } from '@/components/ui';
 import { unlockSlideBody } from '@/features/auth/onboardingCopy';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 
 import { IntroBar, IntroFooter, IntroSlide } from './components';
 import { introSlides } from './helpers';
@@ -15,7 +15,7 @@ const toPin = () => router.push('/setup/pin');
 
 /** The intro, steps 1–3. */
 export function OnboardingScreen() {
-  const { biometry, vaultExists, vaultEmpty, setupHeld } = useSession();
+  const { biometry, vaultExists, vaultEmpty, setupHeld } = useSessionState();
   const slides = introSlides(unlockSlideBody(biometry));
   const { width, reduceMotion, scrollRef, page, onScroll, goTo } = useIntroPager(slides.length);
   const last = page === slides.length - 1;

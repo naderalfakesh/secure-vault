@@ -1,7 +1,7 @@
 import { ScrollView, View } from 'react-native';
 
 import { PinDots, PinPad, Screen, Text, usePinPadMetrics, useAnnouncement } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 
 import { EasyPinChoice, KeyBadge, PinMessage, SetupPinHeader } from './components';
 import { isConfirmStep, pinPrompt } from './helpers';
@@ -10,7 +10,7 @@ import { styles } from './SetupPinScreen.styles';
 
 /** Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
 export function SetupPinScreen() {
-  const { vaultExists, vaultEmpty, biometry } = useSession();
+  const { vaultExists, vaultEmpty, biometry } = useSessionState();
   const { compact } = usePinPadMetrics();
   // After "Delete everything" the key stays but no documents do.
   const keepsDocuments = vaultExists && !vaultEmpty;

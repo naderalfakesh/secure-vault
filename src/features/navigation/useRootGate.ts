@@ -3,7 +3,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { useLegacyScratchSweep } from '@/features/session/hooks/useLegacyScratchSweep';
 import { useSessionToasts } from '@/features/session/hooks/useSessionToasts';
 import { useVaultSweep } from '@/features/session/hooks/useVaultSweep';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 
 import { useLaunchSplash } from './launchSplash';
 import { stackAnimation } from './stackAnimation';
@@ -15,7 +15,7 @@ import { useReturnToShare } from './useReturnToShare';
  * or an unlock.
  */
 export function useRootGate() {
-  const { status, shareInterrupted } = useSession();
+  const { status, shareInterrupted } = useSessionState();
   // Reduced motion: screens cross-fade instead of sliding.
   const reduceMotion = useReducedMotion();
   const ready = status !== 'loading';

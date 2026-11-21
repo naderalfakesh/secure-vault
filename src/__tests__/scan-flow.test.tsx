@@ -8,6 +8,7 @@ import { AccessibilityInfo, Linking } from 'react-native';
 import { settle } from '@/testing/async';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import * as scannerMock from '@modules/expo-document-scanner/src/index.mock';
 import {
@@ -20,7 +21,6 @@ import vault from '@modules/expo-vault';
 import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
 import { scanText } from '../features/scan/scanCopy';
-import type { useSession } from '../features/session/SessionProvider';
 import { SessionProvider } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
@@ -769,7 +769,7 @@ describe('Add a document: details', () => {
 });
 
 describe('Add a document: the lock', () => {
-  let session: ReturnType<typeof useSession>;
+  let session: Session;
 
   beforeEach(() => {
     vaultMock.reset();

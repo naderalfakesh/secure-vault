@@ -3,11 +3,12 @@ import { useEffect } from 'react';
 
 import { documentDatabase } from '@/data/database';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import SetupPinScreen from '../../app/setup/pin';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
@@ -15,10 +16,10 @@ jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }
 const KEPT = 'Your documents stay where they are. The PIN is a second way in.';
 const EMPTY = 'Your vault is empty. The PIN is your fallback when biometrics are unavailable.';
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 function Gate() {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     session = value;
   });

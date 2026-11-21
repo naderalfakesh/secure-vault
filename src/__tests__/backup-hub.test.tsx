@@ -13,12 +13,12 @@ import { createBackup, plantRestoredIndex } from '@/testing/backup';
 import { at } from '@/testing/lists';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault, { type BackupProgress } from '@modules/expo-vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import type { useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
 import { backupService } from '../services/BackupService';
 
@@ -51,7 +51,7 @@ function pickReturns(name: string) {
   });
 }
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 async function renderUnlocked(
   autoLockSeconds: AutoLockSeconds = 0,

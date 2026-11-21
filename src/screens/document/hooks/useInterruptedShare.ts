@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 import type { Document } from '@/types';
 
 /** The banner for a share the lock cut short, and its Share again. */
 export function useInterruptedShare(document: Document | null, openShare: () => void) {
-  const { shareInterrupted, clearShareInterrupted } = useSession();
+  const { shareInterrupted } = useSessionState();
+  const { clearShareInterrupted } = useSessionActions();
 
   // A banner that was seen goes once its viewer closes (Back, or the lock), so
   // later unlocks do not bring this viewer back for it. Only that same mark:

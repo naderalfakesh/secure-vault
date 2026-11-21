@@ -7,7 +7,7 @@ const mockFinishSetup = jest.fn();
 const mockUpdateSettings = jest.fn();
 
 jest.mock('@/features/session/SessionProvider', () => ({
-  useSession: () => ({ finishSetup: mockFinishSetup, updateSettings: mockUpdateSettings }),
+  useSessionActions: () => ({ finishSetup: mockFinishSetup, updateSettings: mockUpdateSettings }),
 }));
 
 jest.mock('expo-local-authentication', () => ({

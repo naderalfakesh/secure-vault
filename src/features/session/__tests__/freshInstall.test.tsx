@@ -4,10 +4,11 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform, Text } from 'react-native';
 
 import { reconcileInstall } from '@/features/session/freshInstall';
-import { SessionProvider, useSession } from '@/features/session/SessionProvider';
+import { SessionProvider } from '@/features/session/SessionProvider';
 import { sessionStorage } from '@/features/session/settings';
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
@@ -183,7 +184,7 @@ describe('reconcileInstall (iOS: Keychain items outlive the app)', () => {
   it('sends a reinstall to setup instead of the old lock screen', async () => {
     await keychainLeftovers();
     function Status() {
-      return <Text testID="status">{useSession().status}</Text>;
+      return <Text testID="status">{useSessionValue().status}</Text>;
     }
 
     const view = await render(
@@ -200,7 +201,7 @@ describe('reconcileInstall (iOS: Keychain items outlive the app)', () => {
     await keychainLeftovers();
     await vault.put('_key_probe', 'ok');
     function Status() {
-      return <Text testID="status">{useSession().status}</Text>;
+      return <Text testID="status">{useSessionValue().status}</Text>;
     }
 
     const view = await render(

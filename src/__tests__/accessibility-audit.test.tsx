@@ -8,6 +8,7 @@ import { documentDatabase } from '@/data/database';
 import { auditAccessibility, countControls } from '@/testing/accessibilityAudit';
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
@@ -24,7 +25,7 @@ import BiometricsScreen from '../../app/setup/biometrics';
 import OnboardingScreen from '../../app/setup/index';
 import SetupPinScreen from '../../app/setup/pin';
 import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
@@ -53,10 +54,10 @@ const routeParams = (jest.requireMock('expo-router') as { __params: { id?: strin
 /** An Arabic title, so every list and sentence is walked with it. */
 const ARABIC_TITLE = 'عقد الإيجار 2026.pdf';
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 function Gate({ Screen, status }: { Screen: ComponentType; status: string }) {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     session = value;
   });

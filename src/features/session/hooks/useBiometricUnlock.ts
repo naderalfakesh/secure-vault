@@ -7,14 +7,14 @@ import vault, { isKeyLocked } from '@modules/expo-vault';
 import { KEY_PROBE_ENTRY } from '../constants';
 import { describeError, KEY_NOT_UNLOCKED } from '../errors';
 import { clearLockout } from '../launchState';
-import type { SessionContextValue, SessionStatus } from '../types';
+import type { SessionActions, SessionStatus } from '../types';
 
 type Options = {
   setError: Dispatch<SetStateAction<string | null>>;
   loadProtectedState: () => Promise<void>;
   applyLockout: (next: LockoutState) => void;
   changeStatus: (next: SessionStatus) => void;
-  withoutAutoLock: SessionContextValue['withoutAutoLock'];
+  withoutAutoLock: SessionActions['withoutAutoLock'];
 };
 
 /**

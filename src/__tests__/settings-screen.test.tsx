@@ -7,12 +7,12 @@ import { Linking } from 'react-native';
 
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
 import appJson from '../../app.json';
-import type { useSession } from '../features/session/SessionProvider';
 import { backupService } from '../services/BackupService';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -22,7 +22,7 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 async function renderUnlocked(screen: 'settings' | 'auto-lock') {
   const view = await renderUnlockedScreen(

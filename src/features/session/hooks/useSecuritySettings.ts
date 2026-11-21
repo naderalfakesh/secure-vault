@@ -9,20 +9,24 @@ export function useSecuritySettings() {
   useEffect(() => {
     autoLockRef.current = settings.autoLockSeconds;
   }, [settings.autoLockSeconds]);
+  // The latest rendered settings, so `updateSettings` keeps one identity.
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   /** Reads the settings again once the vault is open. */
   const loadProtectedState = useCallback(async () => {
     setSettings(await sessionStorage.loadSettings());
   }, []);
 
-  const updateSettings = useCallback(
-    async (changes: Partial<SecuritySettings>) => {
-      const next = { ...settings, ...changes };
-      setSettings(next);
-      await sessionStorage.saveSettings(next).catch(() => {});
-    },
-    [settings],
-  );
+  const updateSettings = useCallback(async (changes: Partial<SecuritySettings>) => {
+    const next = { ...settingsRef.current, ...changes };
+    // Two changes made before the next render build on each other.
+    settingsRef.current = next;
+    setSettings(next);
+    await sessionStorage.saveSettings(next).catch(() => {});
+  }, []);
 
   return { settings, setSettings, autoLockRef, loadProtectedState, updateSettings };
 }

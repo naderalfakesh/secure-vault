@@ -1,5 +1,5 @@
 import { Button, useAnnouncement } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 
 import { KeyInvalidatedBody, ReadFailedBody, RetryActions, UnavailableLayout } from './components';
@@ -19,7 +19,7 @@ import { useRetryActions } from './hooks/useRetryActions';
  * only way on, behind a native confirmation.
  */
 export function UnavailableScreen() {
-  const { pinLost, keyInvalidated, error, biometry } = useSession();
+  const { pinLost, keyInvalidated, error, biometry } = useSessionState();
   const stuck = keyInvalidated;
   const { trying, resetting, tryAgain, resetPin } = useRetryActions();
   const { erasing, eraseFailed, eraseAll } = useEraseVault();

@@ -1,11 +1,11 @@
 import { Platform } from 'react-native';
 
-import type { SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionState } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 
 /** The device key's gate as this platform and phone name it. */
 export function pinLostHint(
-  biometry: SessionContextValue['biometry'],
+  biometry: SessionState['biometry'],
   os: typeof Platform.OS = Platform.OS,
 ): string {
   if (os === 'ios') {

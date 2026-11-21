@@ -3,7 +3,7 @@ import { useCallback, useReducer, useRef, useState } from 'react';
 import { movePage } from '@/features/scan/pages';
 import { sourceFailureMessage } from '@/features/scan/sourceErrors';
 import type { Source } from '@/features/scan/SourceList';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { documentService } from '@/services/DocumentService';
 import { isCameraAvailable, isScannerSupported } from '@modules/expo-document-scanner';
@@ -21,7 +21,7 @@ import { useSaveDocument } from './useSaveDocument';
 
 /** The scan and import flow: which phase shows, and every move between phases. */
 export function useAddDocumentFlow() {
-  const { withoutAutoLock } = useSession();
+  const { withoutAutoLock } = useSessionActions();
   // Hardware answers that do not change while the screen is open.
   const [scannerSupported] = useState(isScannerSupported);
   const [cameraAvailable] = useState(isCameraAvailable);

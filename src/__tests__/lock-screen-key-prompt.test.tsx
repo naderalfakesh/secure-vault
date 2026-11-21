@@ -4,9 +4,10 @@ import { Text } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue } from '@/testing/session';
 
 import LockScreen from '../../app/lock';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';
 
 // The real key recovery wrapper over the in-memory vault, with an Android-style
@@ -51,7 +52,7 @@ const { native, state } = jest.requireMock('@modules/expo-vault') as {
 };
 
 function Status() {
-  return <Text testID="status">{useSession().status}</Text>;
+  return <Text testID="status">{useSessionValue().status}</Text>;
 }
 
 async function lockedVault(storedLockout?: { failures: number; lockedUntil: number }) {

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { Button, Screen, Text } from '@/components/ui';
 import { biometricStepCopy, useBiometricAvailability } from '@/features/auth/biometricAvailability';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 import { useBlockHardwareBack } from '@/hooks/useBlockHardwareBack';
 import { t } from '@/i18n';
 
@@ -19,7 +19,7 @@ import { styles } from './SetupBiometricsScreen.styles';
  * Whatever the answer, and after "Not now", the vault opens. Settings shows the reason later if biometrics stay unavailable.
  */
 export function SetupBiometricsScreen() {
-  const { status, setupHeld, biometry } = useSession();
+  const { status, setupHeld, biometry } = useSessionState();
   const availability = useBiometricAvailability();
   const { busy, enableBiometrics, notNow } = useBiometricsChoice();
   const kind = stepBiometry(availability, biometry);

@@ -3,7 +3,7 @@ import { FullWindowOverlay } from 'react-native-screens';
 
 import { PrivacyCover } from '@/components/ui';
 
-import { useSession } from '../SessionProvider';
+import { useSessionState } from '../SessionProvider';
 import { usePrivacyCover } from './usePrivacyCover';
 import { useScreenCaptureBlock } from './useScreenCaptureBlock';
 
@@ -18,7 +18,7 @@ import { useScreenCaptureBlock } from './useScreenCaptureBlock';
  * sheets that are already presented, not beneath them.
  */
 export function SecurityOverlay() {
-  const { status, settings } = useSession();
+  const { status, settings } = useSessionState();
   useScreenCaptureBlock(settings.privacyScreen && status === 'unlocked');
   const visible = usePrivacyCover(status, settings.privacyScreen);
 

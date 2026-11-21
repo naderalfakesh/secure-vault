@@ -60,6 +60,12 @@ export function useVaultAvailability({
     };
   }, []);
 
+  // The latest rendered `pinLost`, so `resetLostPin` keeps one identity.
+  const pinLostRef = useRef(pinLost);
+  useEffect(() => {
+    pinLostRef.current = pinLost;
+  }, [pinLost]);
+
   const launch = useCallback((): Promise<SessionStatus> => {
     launchingRef.current ??= (async () => {
       try {
@@ -111,7 +117,8 @@ export function useVaultAvailability({
   }, [statusRef, launch]);
 
   const resetLostPin = useCallback(async () => {
-    if (!pinLost || statusRef.current !== 'unavailable' || resettingPinRef.current) return false;
+    if (!pinLostRef.current || statusRef.current !== 'unavailable' || resettingPinRef.current)
+      return false;
     setError(null);
     resettingPinRef.current = true;
     try {
@@ -143,7 +150,7 @@ export function useVaultAvailability({
     } finally {
       resettingPinRef.current = false;
     }
-  }, [statusRef, launch, pinLost, setError]);
+  }, [statusRef, launch, setError]);
 
   /** After "Delete everything": an empty vault with nothing lost or invalidated. */
   const markErased = useCallback(() => {

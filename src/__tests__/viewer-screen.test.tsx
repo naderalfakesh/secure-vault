@@ -7,12 +7,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { documentDatabase } from '@/data/database';
 import { appStateListeners, resetAppState } from '@/testing/appState';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import DocumentViewerScreen from '../../app/documents/[id]';
 import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
@@ -28,10 +29,10 @@ jest.mock('expo-router', () => {
 
 const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 function Gate() {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     session = value;
   });

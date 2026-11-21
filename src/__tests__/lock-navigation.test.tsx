@@ -6,15 +6,14 @@ import { Text } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
-import { useSession } from '../features/session/SessionProvider';
-
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 function Home() {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     session = value;
   });

@@ -1,12 +1,12 @@
 import { Text } from '@/components/ui';
-import type { SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionState } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 
 import { pinLostHint } from '../../helpers';
 
 type ReadFailedBodyProps = {
   pinLost: boolean;
-  biometry: SessionContextValue['biometry'];
+  biometry: SessionState['biometry'];
   error: string | null;
 };
 

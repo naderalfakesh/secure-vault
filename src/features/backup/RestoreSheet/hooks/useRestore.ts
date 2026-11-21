@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 import { backupService, describeBackupErrorPlainly } from '@/services/BackupService';
@@ -21,7 +21,7 @@ type UseRestoreOptions = Pick<RestoreSheetProps, 'backup' | 'onRestored'>;
 /** The passphrase, the restore with its progress and cancel, and how it ended. */
 export function useRestore({ backup, onRestored }: UseRestoreOptions) {
   const toast = useToast();
-  const { captureSession, postNotice } = useSession();
+  const { captureSession, postNotice } = useSessionActions();
   const [passphrase, setPassphrase] = useState('');
   const [stage, setStage] = useState<Stage>(() => initialStage(backup));
   const [cancelling, setCancelling] = useState(false);

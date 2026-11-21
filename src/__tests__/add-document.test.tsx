@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import {
   queueScan,
@@ -16,7 +17,6 @@ import vault from '@modules/expo-vault';
 
 import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
-import type { useSession } from '../features/session/SessionProvider';
 import { SessionProvider } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
@@ -240,7 +240,7 @@ describe('AddDocumentScreen file import', () => {
   });
 
   describe('a save the lock interrupts', () => {
-    let session: ReturnType<typeof useSession>;
+    let session: Session;
 
     beforeEach(() => {
       vaultMock.reset();

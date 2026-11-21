@@ -1,7 +1,7 @@
 import * as Sharing from 'expo-sharing';
 
 import type { ToastOptions } from '@/components/ui';
-import type { SessionCapture, SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionActions, SessionCapture } from '@/features/session/SessionProvider';
 import { sharePause } from '@/features/session/SessionProvider';
 import type { BackupResult } from '@/services/BackupService';
 
@@ -13,8 +13,8 @@ import { SAVE_INTERRUPTED, SHARE_INTERRUPTED } from '../constants';
 type HandOffContext = {
   backup: BackupResult;
   session: SessionCapture;
-  withoutAutoLock: SessionContextValue['withoutAutoLock'];
-  postNotice: SessionContextValue['postNotice'];
+  withoutAutoLock: SessionActions['withoutAutoLock'];
+  postNotice: SessionActions['postNotice'];
   showToast: (options: ToastOptions) => void;
 };
 

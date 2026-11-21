@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
 import { confirmErase, eraseEverything } from '@/features/session/eraseEverything';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 
 /** "Delete everything", the only way on once nothing in the vault can be decrypted. */
 export function useEraseVault() {
   const mounted = useMountedRef();
-  const { eraseVault } = useSession();
+  const { eraseVault } = useSessionActions();
   const [erasing, setErasing] = useState(false);
   const [eraseFailed, setEraseFailed] = useState(false);
 

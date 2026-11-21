@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Group, ListRow, Screen, Text } from '@/components/ui';
 import { useBiometricAvailability } from '@/features/auth/biometricAvailability';
 import { tabBarClearance } from '@/features/navigation/tabBarClearance';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 import { t } from '@/i18n';
 import { setAppearance, useAppearance } from '@/theme/appearance';
 
@@ -25,7 +25,8 @@ import { styles } from './SettingsScreen.styles';
 const openBackup = () => router.push('/settings/backup');
 
 export function SettingsScreen() {
-  const { lock, settings, updateSettings, biometry } = useSession();
+  const { settings, biometry } = useSessionState();
+  const { lock, updateSettings } = useSessionActions();
   const insets = useSafeAreaInsets();
   const eraser = useEraseVault();
   const { closeErase } = eraser;

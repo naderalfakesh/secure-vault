@@ -7,12 +7,12 @@ import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { documentDatabase } from '@/data/database';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import BackupScreen from '../../app/settings/backup';
 import * as saveModule from '../features/backup/saveToDevice';
-import type { useSession } from '../features/session/SessionProvider';
 import { backupService } from '../services/BackupService';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -34,7 +34,7 @@ const FAILED =
 const INTERRUPTED =
   'SecureVault locked before the backup was saved. The temporary copy was removed.';
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 // In the foreground, so the sheet may present system UI.
 function foreground() {

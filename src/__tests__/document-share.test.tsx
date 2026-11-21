@@ -7,11 +7,11 @@ import { moveAppStateTo, resetAppState } from '@/testing/appState';
 import { settle } from '@/testing/async';
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import DocumentDetailScreen from '../../app/documents/[id]';
-import type { useSession } from '../features/session/SessionProvider';
 import * as SessionModule from '../features/session/SessionProvider';
 import { AUTO_LOCK_RETURN_GRACE_MS } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
@@ -33,7 +33,7 @@ const share = Sharing.shareAsync as jest.Mock;
 const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
 const moveTo = moveAppStateTo;
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 async function renderUnlocked(size = 2048) {
   const document = await documentService.addDocument(

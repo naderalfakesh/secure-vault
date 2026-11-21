@@ -7,14 +7,14 @@ import {
   biometricUnavailableReason,
 } from '@/features/auth/biometricAvailability';
 import { biometryIcon, biometryName } from '@/features/auth/lockCopy';
-import type { SessionContextValue } from '@/features/session/SessionProvider';
+import type { SessionActions, SessionState } from '@/features/session/SessionProvider';
 import { autoLockLabel, type SecuritySettings } from '@/features/session/settings';
 import { t } from '@/i18n';
 
 type SecurityGroupProps = {
   settings: SecuritySettings;
-  updateSettings: SessionContextValue['updateSettings'];
-  biometry: SessionContextValue['biometry'];
+  updateSettings: SessionActions['updateSettings'];
+  biometry: SessionState['biometry'];
   /** Null until the device has answered. */
   biometrics: BiometricAvailability | null;
   onLock: () => void;

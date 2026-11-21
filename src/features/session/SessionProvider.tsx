@@ -1,14 +1,8 @@
-import {
-  createContext,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { type PropsWithChildren, useCallback, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { SHARE_PAUSE_MAX_AWAY_MS } from './constants';
+import { SessionActionsContext, SessionStateContext } from './context';
 import { useAutoLock } from './hooks/useAutoLock';
 import { useBiometricUnlock } from './hooks/useBiometricUnlock';
 import { useLockoutState } from './hooks/useLockoutState';
@@ -20,16 +14,18 @@ import { useSessionStatus } from './hooks/useSessionStatus';
 import { useVaultAvailability } from './hooks/useVaultAvailability';
 import { useVaultReset } from './hooks/useVaultReset';
 import { useVaultSetup } from './hooks/useVaultSetup';
-import type { AutoLockPause, SessionContextValue } from './types';
+import type { AutoLockPause } from './types';
 
 export { AUTO_LOCK_RETURN_GRACE_MS, DEFAULT_PAUSE_MAX_AWAY_MS } from './constants';
+export { useSessionActions, useSessionState } from './context';
 export type {
   AutoLockPause,
   PinChangeResult,
   PinUnlockResult,
+  SessionActions,
   SessionCapture,
-  SessionContextValue,
   SessionNotice,
+  SessionState,
   SessionStatus,
   ShareInterruption,
 } from './types';
@@ -45,8 +41,6 @@ export type {
 export function sharePause(): AutoLockPause {
   return { maxAwayMs: SHARE_PAUSE_MAX_AWAY_MS, endsOnReturn: Platform.OS === 'android' };
 }
-
-const SessionContext = createContext<SessionContextValue | null>(null);
 
 /**
  * Owns the lock state for the whole app. The root layout reads `status` to
@@ -95,7 +89,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     changeStatus('locked');
   }, [changeStatus]);
 
-  const value = useMemo(
+  const state = useMemo(
     () => ({
       status,
       vaultExists,
@@ -103,28 +97,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
       biometry,
       settings,
       lockout,
-      unlock,
-      unlockWithPin,
-      setUp,
       setupHeld,
-      finishSetup,
-      retry,
       pinLost,
-      resetLostPin,
       keyInvalidated,
-      changePin,
-      updateSettings,
-      lock,
-      stepUp,
-      withoutAutoLock,
-      captureSession,
       notice,
-      postNotice,
-      dismissNotice,
       shareInterrupted,
-      markShareInterrupted,
-      clearShareInterrupted,
-      eraseVault,
       error,
     }),
     [
@@ -134,39 +111,61 @@ export function SessionProvider({ children }: PropsWithChildren) {
       biometry,
       settings,
       lockout,
+      setupHeld,
+      pinLost,
+      keyInvalidated,
+      notice,
+      shareInterrupted,
+      error,
+    ],
+  );
+
+  // Every function below keeps its identity (state they read goes through a
+  // ref), so this value is created once and consumers of it never render again.
+  const actions = useMemo(
+    () => ({
       unlock,
       unlockWithPin,
       setUp,
-      setupHeld,
       finishSetup,
       retry,
-      pinLost,
       resetLostPin,
-      keyInvalidated,
       changePin,
       updateSettings,
       lock,
       stepUp,
       withoutAutoLock,
       captureSession,
-      notice,
       postNotice,
       dismissNotice,
-      shareInterrupted,
       markShareInterrupted,
       clearShareInterrupted,
       eraseVault,
-      error,
+    }),
+    [
+      unlock,
+      unlockWithPin,
+      setUp,
+      finishSetup,
+      retry,
+      resetLostPin,
+      changePin,
+      updateSettings,
+      lock,
+      stepUp,
+      withoutAutoLock,
+      captureSession,
+      postNotice,
+      dismissNotice,
+      markShareInterrupted,
+      clearShareInterrupted,
+      eraseVault,
     ],
   );
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-}
-
-export function useSession(): SessionContextValue {
-  const context = useContext(SessionContext);
-  if (!context) {
-    throw new Error('useSession must be used inside SessionProvider');
-  }
-  return context;
+  return (
+    <SessionActionsContext.Provider value={actions}>
+      <SessionStateContext.Provider value={state}>{children}</SessionStateContext.Provider>
+    </SessionActionsContext.Provider>
+  );
 }

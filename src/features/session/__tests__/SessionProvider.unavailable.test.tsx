@@ -6,16 +6,17 @@ import { AppState, type AppStateStatus, Text } from 'react-native';
 import { LOCKOUT_BASE_MS } from '@/features/auth/lockout';
 import { hashPasscode } from '@/testing/passcode';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
-import { SessionProvider, useSession } from '../SessionProvider';
+import { SessionProvider } from '../SessionProvider';
 import { SESSION_MARKER_DIRECTORY, sessionStorage } from '../settings';
 
 const PIN_ENTRY = 'securevault.pin';
 
 function Probe() {
-  const session = useSession();
+  const session = useSessionValue();
   return (
     <>
       <Text testID="status">{session.status}</Text>

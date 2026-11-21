@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAnnouncement } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionState } from '@/features/session/SessionProvider';
 import { PageStage } from '@/features/viewer/PageStage';
 import { ShareSheet } from '@/features/viewer/ShareSheet';
 import { useDelayed } from '@/hooks/useDelayed';
@@ -42,7 +42,7 @@ import type { ViewerBusy } from './types';
 export function DocumentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const { settings, biometry } = useSession();
+  const { settings, biometry } = useSessionState();
   const { document, setDocument, loading, failure, pages, fields } = useViewerDocument(id);
   const [page, setPage] = useState(0);
   const [chrome, setChrome] = useState(true);

@@ -4,7 +4,7 @@ import { PinPad, Screen, usePinPadMetrics, useAnnouncement } from '@/components/
 import { useLockoutCountdown } from '@/features/auth/hooks/useLockoutCountdown';
 import { biometricKeyLabel, biometryIcon, LOCKOUT_BODY } from '@/features/auth/lockCopy';
 import { attemptsLeft } from '@/features/auth/lockout';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions, useSessionState } from '@/features/session/SessionProvider';
 import { useDeviceIntegrity } from '@/hooks/useDeviceIntegrity';
 
 import { InsecureBanner, LockDots, LockFooter, LockHeader } from './components';
@@ -14,7 +14,8 @@ import { usePinUnlock } from './hooks/usePinUnlock';
 import { styles } from './LockScreen.styles';
 
 export function LockScreen() {
-  const { status, biometry, settings, lockout, unlock, unlockWithPin, error } = useSession();
+  const { status, biometry, settings, lockout, error } = useSessionState();
+  const { unlock, unlockWithPin } = useSessionActions();
   const deviceIntact = useDeviceIntegrity();
   const { compact } = usePinPadMetrics();
   // Biometric unlock off: the PIN comes first, and the device-unlock button

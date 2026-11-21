@@ -3,10 +3,11 @@ import { useEffect } from 'react';
 
 import { moveAppStateTo, resetAppState } from '@/testing/appState';
 import { secureStoreMock } from '@/testing/secureStore';
+import { useSessionValue, type Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 
 import { SecurityOverlay } from '../SecurityOverlay';
-import { SessionProvider, useSession } from '../SessionProvider';
+import { SessionProvider } from '../SessionProvider';
 
 // The native overlay window, as a plain view the test can look inside.
 jest.mock('react-native-screens', () => {
@@ -26,10 +27,10 @@ jest.mock('expo-screen-capture', () => ({
 
 const moveTo = moveAppStateTo;
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 function Capture() {
-  const value = useSession();
+  const value = useSessionValue();
   useEffect(() => {
     session = value;
   });

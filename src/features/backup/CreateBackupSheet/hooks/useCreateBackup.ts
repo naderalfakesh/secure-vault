@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 import { backupService, passphraseProblem } from '@/services/BackupService';
@@ -20,7 +20,7 @@ import { saveToDevice, shareBackup } from './handOff';
  */
 export function useCreateBackup({ visible, onClose, onShared }: CreateBackupSheetProps) {
   const toast = useToast();
-  const { withoutAutoLock, captureSession, postNotice } = useSession();
+  const { withoutAutoLock, captureSession, postNotice } = useSessionActions();
   const [passphrase, setPassphrase] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [stage, setStage] = useState<Stage>({ name: 'form' });

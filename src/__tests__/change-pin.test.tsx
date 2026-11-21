@@ -4,11 +4,11 @@ import * as SecureStore from 'expo-secure-store';
 
 import { renderUnlockedScreen } from '@/testing/renderUnlocked';
 import { secureStoreMock } from '@/testing/secureStore';
+import type { Session } from '@/testing/session';
 import { vaultMock } from '@/testing/vault';
 
 import ChangePinScreen from '../../app/settings/change-pin';
 import { verifyPasscodeAsync } from '../features/auth/passcode';
-import type { useSession } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';
 
 jest.mock('expo-router', () => ({
@@ -16,7 +16,7 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-let session: ReturnType<typeof useSession>;
+let session: Session;
 
 async function renderScreen() {
   const view = await renderUnlockedScreen(<ChangePinScreen />, {

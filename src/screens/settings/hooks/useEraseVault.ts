@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { confirmErase, eraseEverything } from '@/features/session/eraseEverything';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { t } from '@/i18n';
 import { describeBackupError } from '@/services/BackupService';
@@ -14,7 +14,7 @@ import type { EraseRequest, SettingsBusy } from '../types';
 /** Delete everything: the sheet with its document count, the confirmation, and the erase. */
 export function useEraseVault() {
   const toast = useToast();
-  const { eraseVault } = useSession();
+  const { eraseVault } = useSessionActions();
   // The Delete everything sheet, with the number of documents it erases.
   const [erase, setErase] = useState<EraseRequest | null>(null);
   const [busy, setBusy] = useState<SettingsBusy>(null);

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import { useToast } from '@/components/ui';
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { t, tp } from '@/i18n';
 import { type DeletedDocument, documentService, UNDO_TOAST_MS } from '@/services/DocumentService';
 import type { Document } from '@/types';
@@ -54,7 +54,7 @@ async function undoDelete(
  */
 export function useDeleteWithUndo() {
   const toast = useToast();
-  const { captureSession, postNotice } = useSession();
+  const { captureSession, postNotice } = useSessionActions();
 
   return useCallback(
     async (documents: readonly Document[]): Promise<number> => {

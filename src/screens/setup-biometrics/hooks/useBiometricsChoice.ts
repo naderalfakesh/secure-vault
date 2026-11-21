@@ -1,13 +1,13 @@
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useState } from 'react';
 
-import { useSession } from '@/features/session/SessionProvider';
+import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
 /** "Use Face ID" or "Not now": either way biometric unlock is settled and setup finishes. */
 export function useBiometricsChoice() {
-  const { finishSetup, updateSettings } = useSession();
+  const { finishSetup, updateSettings } = useSessionActions();
   const mounted = useMountedRef();
   const [busy, setBusy] = useState(false);
 
