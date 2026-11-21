@@ -1,4 +1,4 @@
-import { errorCode, pickerBusy } from '../helpers';
+import { pickerBusy } from '../helpers';
 
 describe('backup hub helpers', () => {
   it('recognises a picker that is still closing the last pick', () => {
@@ -8,13 +8,5 @@ describe('backup hub helpers', () => {
     expect(pickerBusy({ code: 'ERR_OTHER', message: 42 })).toBe(false);
     expect(pickerBusy(null)).toBe(false);
     expect(pickerBusy(undefined)).toBe(false);
-  });
-
-  it('reads a native error code', () => {
-    expect(errorCode(Object.assign(new Error('x'), { code: 'BACKUP_INVALID' }))).toBe(
-      'BACKUP_INVALID',
-    );
-    expect(errorCode(new Error('x'))).toBeUndefined();
-    expect(errorCode(null)).toBeUndefined();
   });
 });

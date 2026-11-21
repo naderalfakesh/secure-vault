@@ -5,7 +5,7 @@ import type { RestoreProgress } from '@/services/BackupService';
 import { backupCopy as copy, restoreProgressLabel } from '../../../backupCopy';
 import type { PickedBackup } from '../../types';
 
-export type RunningStepProps = {
+type RunningStepProps = {
   backup: PickedBackup;
   progress: RestoreProgress;
   cancelling: boolean;

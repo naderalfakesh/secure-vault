@@ -1,9 +1,10 @@
 import { t, tp } from '@/i18n';
 import { backup } from '@/i18n/en/backup';
 import { describeBackupError, describeBackupErrorPlainly } from '@/services/BackupService';
+import { errorCode } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
 
-export type BackupCopyKey = keyof typeof backup extends infer K
+type BackupCopyKey = keyof typeof backup extends infer K
   ? K extends `backup.${infer Short}`
     ? Short
     : never
@@ -22,16 +23,16 @@ export const backupCopy = Object.fromEntries(
   ]),
 ) as Record<BackupCopyKey, string>;
 
-/** "Checking 18 of 48" / "Restoring 7 of 48"; just "Checking…" until the first entry is done. */
 /**
  * The module counts the passphrase check entry as entry 1 of every pass;
  * people only see their own entries, as the file card and the outcome toast
  * count them ("32 entries", never "of 33").
  */
-export function withoutCheckEntry(done: number, total: number): { done: number; total: number } {
+function withoutCheckEntry(done: number, total: number): { done: number; total: number } {
   return { done: Math.max(done - 1, 0), total: Math.max(total - 1, 0) };
 }
 
+/** "Checking 18 of 48" / "Restoring 7 of 48"; just "Checking…" until the first entry is done. */
 export function restoreProgressLabel(phase: 'verify' | 'import', done: number, total: number) {
   const shown = withoutCheckEntry(done, total);
   if (shown.done <= 0) return t(`backup.restore.progress.${phase}Start`);
@@ -68,13 +69,8 @@ export type RestoreOutcome =
   /** The documents are back but the index is not. */
   | { kind: 'index'; message: string };
 
-function codeOf(error: unknown): unknown {
-  return typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
-}
-
 export function restoreOutcome(error: unknown): RestoreOutcome {
-  const code = codeOf(error);
-  switch (code) {
+  switch (errorCode(error)) {
     case 'BACKUP_PASSPHRASE':
       return { kind: 'inspect', message: describeBackupError(error), tone: 'danger', field: true };
     case 'BACKUP_CANCELLED':

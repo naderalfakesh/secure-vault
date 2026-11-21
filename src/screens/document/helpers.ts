@@ -1,15 +1,14 @@
 import type { ExtractedField } from '@/data/DocumentRepository';
+import { formatTags } from '@/features/documents/tags';
 import { t, tp } from '@/i18n';
 import type { Document } from '@/types';
 import { isolate } from '@/utils/bidi';
-import { plainErrorMessage } from '@/utils/errors';
+import { errorCode, plainErrorMessage } from '@/utils/errors';
 import { formatDate, formatFileSize, joinParts } from '@/utils/format';
 import { isKeyLocked } from '@modules/expo-vault';
 
 import { FIELD_TITLES } from './constants';
 import type { Draft } from './types';
-
-export const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function fieldTitle(key: string): string {
   return FIELD_TITLES[key] ? t(FIELD_TITLES[key]) : key;
@@ -34,8 +33,7 @@ export function pageLine(page: number, count: number): string {
  * damage; say what happened instead. Anything else keeps the screen's own text.
  */
 export function unreadableDetail(error: unknown): string | undefined {
-  const code = (error as { code?: unknown } | null)?.code;
-  return isKeyLocked(error) || code === 'KEY_INVALIDATED'
+  return isKeyLocked(error) || errorCode(error) === 'KEY_INVALIDATED'
     ? plainErrorMessage(error, t('viewer.unreadable.body'))
     : undefined;
 }
@@ -44,16 +42,8 @@ export function draftFromDocument(document: Document): Draft {
   return {
     title: document.title,
     category: document.category,
-    tags: document.tags.join(', '),
+    tags: formatTags(document.tags),
   };
-}
-
-/** Comma-separated tags, trimmed, without empty ones. */
-export function parseTags(text: string): string[] {
-  return text
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
 }
 
 /** What the system share sheet is told about the copy. */

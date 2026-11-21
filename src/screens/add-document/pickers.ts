@@ -44,7 +44,7 @@ export async function scanPages(
   }));
 }
 
-export type ImportOutcome = { picked: SinglePick } | { problem: SourceProblem } | null;
+type ImportOutcome = { picked: SinglePick } | { problem: SourceProblem } | null;
 
 /** A PDF or image from Files, or the reason it cannot be used. */
 export async function importFile(isMounted: IsMounted): Promise<ImportOutcome> {

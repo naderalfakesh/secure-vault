@@ -9,7 +9,7 @@ import type { BiometryType } from '@modules/expo-vault';
  * The Share strings. They live in the string table
  * under `share.`; this module keeps the short keys the share flow uses.
  */
-export type ShareCopyKey = {
+type ShareCopyKey = {
   [K in keyof typeof share]: K extends `share.${infer Key}` ? Key : never;
 }[keyof typeof share];
 

@@ -1,4 +1,5 @@
 import type { ExtractedField } from '@/data/DocumentRepository';
+import { formatTags } from '@/features/documents/tags';
 import type { DocumentSuggestion } from '@/features/intelligence';
 import { DocumentCategory } from '@/types';
 
@@ -50,7 +51,7 @@ export function detailsReducer(state: DetailsState, action: DetailsAction): Deta
         title: suggestion.title ? suggestion.title : state.title,
         category: suggestion.category ? suggestion.category : state.category,
         categorySuggested: suggestion.category ? true : state.categorySuggested,
-        tags: suggestion.tags.length ? suggestion.tags.join(', ') : state.tags,
+        tags: suggestion.tags.length ? formatTags(suggestion.tags) : state.tags,
         fields: suggestion.fields,
       };
     }

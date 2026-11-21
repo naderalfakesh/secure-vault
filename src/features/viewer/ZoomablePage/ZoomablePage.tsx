@@ -25,9 +25,8 @@ export function ZoomablePage({
   onEdgeSwipe,
   testID = 'zoomable-page',
 }: ZoomablePageProps) {
-  const { zoomed, reportZoom, reportEdgeSwipe } = useZoomState({ uri, onZoomChange, onEdgeSwipe });
+  const { zoomed, reportZoom, reportEdgeSwipe } = useZoomState({ onZoomChange, onEdgeSwipe });
   const { gesture, pageStyle, width, height } = useZoomGestures({
-    uri,
     testID,
     zoomed,
     reportZoom,

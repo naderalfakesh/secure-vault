@@ -1,24 +1,18 @@
-import * as Sharing from 'expo-sharing';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
-import { sharePause, useSession } from '@/features/session/SessionProvider';
+import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 import { backupService, passphraseProblem } from '@/services/BackupService';
 import { formatFileSize } from '@/utils/format';
+import { wait } from '@/utils/time';
 
-import { backupCopy as copy } from '../../backupCopy';
 import { recordLastBackup } from '../../lastBackup';
-import { saveBackupToDevice } from '../../saveToDevice';
-import {
-  CAN_SAVE,
-  EXPORT_STOPPED,
-  SAVE_INTERRUPTED,
-  SHARE_INTERRUPTED,
-  SHEET_DISMISS_MS,
-} from '../constants';
+import { CAN_SAVE, EXPORT_STOPPED, SHEET_DISMISS_MS } from '../constants';
 import { exportFailure } from '../helpers';
 import type { CreateBackupSheetProps, Destination, Stage } from '../types';
+import { saveToDevice, shareBackup } from './handOff';
 
 /**
  * The create flow: the two passphrase fields, the export with its progress,
@@ -32,17 +26,10 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
   const [stage, setStage] = useState<Stage>({ name: 'form' });
   const [open, setOpen] = useState(visible);
   // The lock unmounts the hub while an export may still be running.
-  const mounted = useRef(true);
+  const mounted = useMountedRef();
   // Try again after a failed export goes where the first attempt was going.
   const lastDestination = useRef<Destination>('share');
   const preferred: Destination = CAN_SAVE() ? 'save' : 'share';
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
 
   // Each opening starts with empty fields. `open` follows `visible` until the
   // export hands off, when the sheet closes itself before the share sheet.
@@ -78,73 +65,20 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
             onClose();
             // Let the sheet's modal finish dismissing; presenting the share sheet
             // over a dismissing modal leaves iOS with neither on screen.
-            await new Promise((resolve) => setTimeout(resolve, SHEET_DISMISS_MS));
+            await wait(SHEET_DISMISS_MS);
             if (!mounted.current || !(await session.confirm()) || !mounted.current) {
               cancelled = true;
               return;
             }
-            if (destination === 'save') {
-              // The same encrypted container the share sheet hands out; the
-              // service removes the staged copy once this returns or throws.
-              let outcome: Awaited<ReturnType<typeof saveBackupToDevice>>;
-              try {
-                outcome = await saveBackupToDevice(backup.uri, backup.name, {
-                  aroundPicker: (work) => withoutAutoLock(work),
-                  stillCurrent: session.current,
-                  ended: session.ended(),
-                });
-              } catch {
-                // The provider's own text can name paths or accounts: one sentence instead.
-                if (session.current()) {
-                  toast.show({ message: copy['create.saveFailed'], tone: 'danger' });
-                } else {
-                  postNotice({ message: SAVE_INTERRUPTED });
-                }
-                return;
-              }
-              if (outcome === 'interrupted' || !session.current()) {
-                postNotice({ message: SAVE_INTERRUPTED });
-                return;
-              }
-              if (outcome === 'cancelled') {
-                toast.show({ message: copy['create.saveCancelled'] });
-                return;
-              }
-              const saved = new Date();
-              await recordLastBackup(saved);
-              if (mounted.current) onShared(saved);
-              toast.show({
-                message: t('backup.create.saved', {
-                  count: backup.entries,
-                  size: formatFileSize(backup.bytes),
-                }),
-                tone: 'success',
-              });
-              return;
-            }
-            // A share that never settles must not keep the export, and its slot, open.
-            await Promise.race([
-              withoutAutoLock(
-                () =>
-                  Sharing.shareAsync(backup.uri, {
-                    dialogTitle: backup.name,
-                    mimeType: 'application/octet-stream',
-                    UTI: 'public.data',
-                  }),
-                sharePause(),
-              ),
-              session.ended(),
-            ]);
-            if (!session.current()) {
-              // It may have been shared already, so this says less than EXPORT_STOPPED.
-              postNotice({ message: SHARE_INTERRUPTED });
-              return;
-            }
-            const made = new Date();
-            await recordLastBackup(made);
-            if (mounted.current) onShared(made);
+            const handOff = { backup, session, withoutAutoLock, postNotice, showToast: toast.show };
+            const done = await (destination === 'save'
+              ? saveToDevice(handOff)
+              : shareBackup(handOff));
+            if (!done) return;
+            await recordLastBackup(done);
+            if (mounted.current) onShared(done);
             toast.show({
-              message: t('backup.create.shared', {
+              message: t(destination === 'save' ? 'backup.create.saved' : 'backup.create.shared', {
                 count: backup.entries,
                 size: formatFileSize(backup.bytes),
               }),
@@ -163,6 +97,7 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
       }
     },
     [
+      mounted,
       passphrase,
       confirmation,
       captureSession,

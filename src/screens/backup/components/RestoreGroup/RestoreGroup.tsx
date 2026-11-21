@@ -2,7 +2,7 @@ import { Group, ListRow } from '@/components/ui';
 import { backupCopy as copy } from '@/features/backup/backupCopy';
 import type { BackupOperation } from '@/services/BackupService';
 
-export type RestoreGroupProps = {
+type RestoreGroupProps = {
   /** Backup work started before this screen opened, still running. */
   earlier: BackupOperation | null;
   disabled: boolean;

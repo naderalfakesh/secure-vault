@@ -45,6 +45,10 @@ export const MODEL_TIMEOUT_MS = 20_000;
 
 const categories = new Set<string>(Object.values(DocumentCategory));
 
+function isCategory(value: string): value is DocumentCategory {
+  return categories.has(value);
+}
+
 function compact(value: string): string {
   return value.toUpperCase().replace(/[\s\-/.]/g, '');
 }
@@ -97,15 +101,16 @@ export function checkModelAnswer(answer: string, text: string) {
 
   return {
     title: title && title.length <= 60 && !/[{}"]/.test(title) ? title : undefined,
-    category: category && categories.has(category) ? (category as DocumentCategory) : undefined,
+    category: category && isCategory(category) ? category : undefined,
     expires: date(raw.expires),
     issued: date(raw.issued),
     number:
+      number !== undefined &&
       numberKey.length >= 4 &&
       numberKey.length <= 30 &&
       /\d/.test(numberKey) &&
       textKey.includes(numberKey)
-        ? number!.toUpperCase()
+        ? number.toUpperCase()
         : undefined,
     tags,
   };

@@ -2,7 +2,7 @@ import { Button, InlineAlert } from '@/components/ui';
 
 import { backupCopy as copy } from '../../../backupCopy';
 
-export type ExportFailedProps = {
+type ExportFailedProps = {
   message: string;
   onRetry: () => void;
   onClose: () => void;

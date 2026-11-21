@@ -11,7 +11,6 @@ import {
   fileIcon,
   maskNumber,
   pageLine,
-  parseTags,
   shareFileMeta,
   shareFileType,
   unreadableDetail,
@@ -76,20 +75,14 @@ describe('unreadableDetail', () => {
   });
 });
 
-describe('draftFromDocument and parseTags', () => {
-  it('round-trips the tags through the comma-separated field', () => {
+describe('draftFromDocument', () => {
+  it('shows the tags as the comma-separated field', () => {
     const draft = draftFromDocument(doc());
     expect(draft).toEqual({
       title: 'Passport',
       category: DocumentCategory.ID,
       tags: 'travel, family',
     });
-    expect(parseTags(draft.tags)).toEqual(['travel', 'family']);
-  });
-
-  it('drops empty tags and trims the rest', () => {
-    expect(parseTags(' a ,, b ,')).toEqual(['a', 'b']);
-    expect(parseTags('')).toEqual([]);
   });
 });
 

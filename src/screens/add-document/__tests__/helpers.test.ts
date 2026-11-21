@@ -1,6 +1,6 @@
 import type { PickedFile } from '@/types';
 
-import { parseTags, photoName, scanPageName, thumbnailsFor, withoutPage } from '../helpers';
+import { photoName, scanPageName, thumbnailsFor, withoutPage } from '../helpers';
 
 const page = (uri: string): PickedFile => ({ uri, name: `${uri}.jpg`, type: 'image/jpeg' });
 
@@ -14,11 +14,6 @@ describe('add document helpers', () => {
     expect(photoName('IMG_0001.HEIC', 1700)).toBe('IMG_0001.HEIC');
     expect(photoName(null, 1700)).toBe('scan-1700.jpg');
     expect(photoName(undefined, 1700)).toBe('scan-1700.jpg');
-  });
-
-  it('splits tags on commas and drops blanks', () => {
-    expect(parseTags(' travel, ,id ,  ')).toEqual(['travel', 'id']);
-    expect(parseTags('')).toEqual([]);
   });
 
   it('shows a scan’s pages and a single pick’s preview', () => {

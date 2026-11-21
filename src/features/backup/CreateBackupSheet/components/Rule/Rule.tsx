@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 
 import { styles } from './Rule.styles';
 
-export type RuleProps = {
+type RuleProps = {
   met: boolean;
   label: string;
 };

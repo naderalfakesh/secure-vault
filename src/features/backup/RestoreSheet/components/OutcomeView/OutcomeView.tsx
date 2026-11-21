@@ -6,7 +6,7 @@ import { styles } from './OutcomeView.styles';
 import { backupCopy as copy, stoppedAtLabel } from '../../../backupCopy';
 import type { FinalOutcome, PickedBackup } from '../../types';
 
-export type OutcomeViewProps = {
+type OutcomeViewProps = {
   outcome: FinalOutcome;
   backup: PickedBackup;
   onRestoreAgain: () => void;

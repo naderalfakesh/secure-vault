@@ -10,7 +10,7 @@ import { passphraseChecks } from '../../helpers';
 import type { Destination } from '../../types';
 import { Rule } from '../Rule';
 
-export type PassphraseFormProps = {
+type PassphraseFormProps = {
   passphrase: string;
   onPassphraseChange: (value: string) => void;
   confirmation: string;

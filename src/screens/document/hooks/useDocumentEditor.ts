@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
 
 import { useToast } from '@/components/ui';
+import { parseTags } from '@/features/documents/tags';
 import { t } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
 import { type Document, DocumentCategory } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
 
-import { draftFromDocument, parseTags } from '../helpers';
+import { draftFromDocument } from '../helpers';
 import type { Draft } from '../types';
 
 /** The edit form in the details sheet: title, collection and tags. */

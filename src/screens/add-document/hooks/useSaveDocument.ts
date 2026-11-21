@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { type Dispatch, type RefObject, useCallback, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
+import { parseTags } from '@/features/documents/tags';
 import type { ProcessingStep } from '@/features/scan/ProcessingPanel';
 import { scanText } from '@/features/scan/scanCopy';
 import { useSession } from '@/features/session/SessionProvider';
@@ -10,7 +11,6 @@ import type { Document, PickedFile } from '@/types';
 import { plainErrorMessage } from '@/utils/errors';
 
 import type { DetailsAction, DetailsState } from '../detailsReducer';
-import { parseTags } from '../helpers';
 import type { Phase, SaveNotice } from '../types';
 
 /** Thrown when the vault locked before the save wrote anything. */

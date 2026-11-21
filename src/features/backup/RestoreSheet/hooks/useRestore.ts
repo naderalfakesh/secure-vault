@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 import { backupService, describeBackupErrorPlainly } from '@/services/BackupService';
 
@@ -24,16 +25,9 @@ export function useRestore({ backup, onRestored }: UseRestoreOptions) {
   const [passphrase, setPassphrase] = useState('');
   const [stage, setStage] = useState<Stage>(() => initialStage(backup));
   const [cancelling, setCancelling] = useState(false);
-  const mounted = useRef(true);
+  const mounted = useMountedRef();
   // Set between the Restore press and the native call, so a Cancel in that frame counts.
   const startingRef = useRef<{ cancelled: boolean } | null>(null);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
 
   // A closed sheet stays mounted until its modal is gone; it keeps no passphrase.
   if (!backup && passphrase) setPassphrase('');
@@ -89,7 +83,7 @@ export function useRestore({ backup, onRestored }: UseRestoreOptions) {
     } finally {
       if (mounted.current) setCancelling(false);
     }
-  }, [backup, passphrase, captureSession, postNotice, toast, onRestored]);
+  }, [backup, passphrase, captureSession, postNotice, toast, onRestored, mounted]);
 
   const cancel = useCallback(() => {
     if (startingRef.current) {

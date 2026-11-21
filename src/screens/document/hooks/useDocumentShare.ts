@@ -9,9 +9,10 @@ import type { ShareSheetStep } from '@/features/viewer/ShareSheet';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { documentService } from '@/services/DocumentService';
 import type { Document } from '@/types';
+import { wait } from '@/utils/time';
 
 import { PREPARING_DELAY_MS, SHEET_CLOSE_MS } from '../constants';
-import { shareFileType, wait } from '../helpers';
+import { shareFileType } from '../helpers';
 import type { ViewerBusy } from '../types';
 
 type Options = {

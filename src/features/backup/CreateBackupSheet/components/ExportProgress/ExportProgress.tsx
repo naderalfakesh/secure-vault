@@ -3,7 +3,7 @@ import { t } from '@/i18n';
 
 import { backupCopy as copy } from '../../../backupCopy';
 
-export type ExportProgressProps = {
+type ExportProgressProps = {
   done: number;
   total: number;
   percent: number;

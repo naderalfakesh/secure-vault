@@ -3,7 +3,7 @@ import { Button, FileCard, InlineAlert, PassphraseField, Text } from '@/componen
 import { backupCopy as copy, backupFileMeta } from '../../../backupCopy';
 import type { InspectOutcome, PickedBackup } from '../../types';
 
-export type InspectStepProps = {
+type InspectStepProps = {
   backup: PickedBackup;
   /** Why the last attempt came back here, if it did. */
   outcome: InspectOutcome | null;

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
@@ -26,7 +25,6 @@ import {
 } from './constants';
 
 type Options = {
-  uri: string;
   /** Prefix for the gestures' test ids. */
   testID: string;
   zoomed: boolean;
@@ -44,7 +42,6 @@ type Options = {
  * animated transform.
  */
 export function useZoomGestures({
-  uri,
   testID,
   zoomed,
   reportZoom,
@@ -62,14 +59,6 @@ export function useZoomGestures({
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
   const dismissY = useSharedValue(0);
-
-  useEffect(() => {
-    // A new page starts at rest.
-    scale.set(MIN_SCALE);
-    translateX.set(0);
-    translateY.set(0);
-    dismissY.set(0);
-  }, [uri, scale, translateX, translateY, dismissY]);
 
   const clampToBounds = (value: number, size: number, currentScale: number) => {
     'worklet';

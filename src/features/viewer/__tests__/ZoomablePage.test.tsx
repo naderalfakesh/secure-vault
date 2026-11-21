@@ -17,12 +17,12 @@ jest.mock('react-native-reanimated', () => {
   };
 });
 
-function Page({ uri, onZoomChange }: { uri: string; onZoomChange: (zoomed: boolean) => void }) {
+function Page({ onZoomChange }: { onZoomChange: (zoomed: boolean) => void }) {
   const progress = useSharedValue(0);
   return (
     <GestureHandlerRootView>
       <ZoomablePage
-        uri={uri}
+        uri="file:///p1.jpg"
         label="Page"
         onZoomChange={onZoomChange}
         onDismiss={() => {}}
@@ -34,10 +34,11 @@ function Page({ uri, onZoomChange }: { uri: string; onZoomChange: (zoomed: boole
 }
 
 describe('ZoomablePage', () => {
-  it('drops the zoom, and says so, when it is handed another page', async () => {
+  it('reports the zoom and enables the zoomed pan only while zoomed', async () => {
     const onZoomChange = jest.fn();
-    const view = await render(<Page uri="file:///p1.jpg" onZoomChange={onZoomChange} />);
+    await render(<Page onZoomChange={onZoomChange} />);
     expect(onZoomChange).not.toHaveBeenCalled();
+    expect(getByGestureTestId('zoomable-page-pan').config.enabled).toBe(false);
 
     await act(async () => {
       fireGestureHandler(getByGestureTestId('zoomable-page-double-tap'), [
@@ -47,22 +48,15 @@ describe('ZoomablePage', () => {
     });
     expect(onZoomChange).toHaveBeenLastCalledWith(true);
     expect(getByGestureTestId('zoomable-page-pan').config.enabled).toBe(true);
+    expect(getByGestureTestId('zoomable-page-dismiss').config.enabled).toBe(false);
 
     await act(async () => {
-      view.rerender(<Page uri="file:///p2.jpg" onZoomChange={onZoomChange} />);
+      fireGestureHandler(getByGestureTestId('zoomable-page-double-tap'), [
+        { state: State.BEGAN, x: 195, y: 422 },
+        { state: State.END, x: 195, y: 422 },
+      ]);
     });
-
     expect(onZoomChange).toHaveBeenLastCalledWith(false);
     expect(getByGestureTestId('zoomable-page-pan').config.enabled).toBe(false);
-    expect(getByGestureTestId('zoomable-page-dismiss').config.enabled).not.toBe(false);
-  });
-
-  it('reports nothing for a new page while at rest', async () => {
-    const onZoomChange = jest.fn();
-    const view = await render(<Page uri="file:///p1.jpg" onZoomChange={onZoomChange} />);
-    await act(async () => {
-      view.rerender(<Page uri="file:///p2.jpg" onZoomChange={onZoomChange} />);
-    });
-    expect(onZoomChange).not.toHaveBeenCalled();
   });
 });

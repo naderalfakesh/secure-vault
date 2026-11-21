@@ -9,8 +9,7 @@ import { t } from '@/i18n';
 import { MAX_THUMBNAILS } from '../constants';
 import { readingFooter, scanText } from '../scanCopy';
 import { styles } from './ProcessingPanel.styles';
-import { isCancellable, STEP_COPY, STEPS } from './steps';
-import type { ProcessingStep } from './types';
+import { isCancellable, type ProcessingStep, STEP_COPY, STEPS } from './steps';
 
 export type ProcessingPanelProps = {
   step: ProcessingStep;

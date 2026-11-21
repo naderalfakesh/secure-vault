@@ -6,11 +6,12 @@ import { useToast } from '@/components/ui';
 import { backupCopy as copy } from '@/features/backup/backupCopy';
 import type { PickedBackup } from '@/features/backup/RestoreSheet';
 import { useSession } from '@/features/session/SessionProvider';
+import { useMountedRef } from '@/hooks/useMountedRef';
 import { backupService, describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';
+import { errorCode } from '@/utils/errors';
 
 import { SHEET_GONE_FALLBACK_MS } from '../constants';
-import { errorCode } from '../helpers';
 import { openPicker } from '../picker';
 
 /** Picking a backup file, the restore sheet it opens, and "Choose another file". */
@@ -18,7 +19,7 @@ export function useRestorePick() {
   const toast = useToast();
   const { withoutAutoLock, captureSession } = useSession();
   // The lock unmounts this screen while a restore may still be running.
-  const mounted = useRef(true);
+  const mounted = useMountedRef();
   const [restore, setRestore] = useState<PickedBackup | null>(null);
   // Each pick starts a fresh sheet; closing keeps the same one so its modal
   // can report that it has gone (the pick after "Choose another file" waits).
@@ -27,9 +28,7 @@ export function useRestorePick() {
   const goneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    mounted.current = true;
     return () => {
-      mounted.current = false;
       if (goneTimer.current) clearTimeout(goneTimer.current);
     };
   }, []);
@@ -100,7 +99,7 @@ export function useRestorePick() {
         });
       }
     }
-  }, [toast, withoutAutoLock, captureSession, openRestore]);
+  }, [toast, withoutAutoLock, captureSession, openRestore, mounted]);
 
   const closeRestore = useCallback(() => {
     if (restore) backupService.discardPickedFile(restore.uri);
@@ -113,7 +112,7 @@ export function useRestorePick() {
     if (!pickWhenGone.current) return;
     pickWhenGone.current = false;
     if (mounted.current) void pickBackup();
-  }, [pickBackup]);
+  }, [pickBackup, mounted]);
 
   const chooseAnother = useCallback(() => {
     if (pickWhenGone.current) return;

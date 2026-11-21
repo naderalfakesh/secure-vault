@@ -1,12 +1,14 @@
 import { Directory, File, FileMode } from 'expo-file-system';
 
+import { errorCode } from '@/utils/errors';
+
 /** How a save to the device ended; failures throw. */
-export type SaveOutcome = 'saved' | 'cancelled' | 'interrupted';
+type SaveOutcome = 'saved' | 'cancelled' | 'interrupted';
 
 // Read and written in slices, so a large backup never sits in memory whole.
 export const SAVE_CHUNK_BYTES = 1024 * 1024;
 
-export type SaveOptions = {
+type SaveOptions = {
   /** Opens the system picker; resolves with where the user chose to save. */
   pick?: () => Promise<Directory>;
   /** Waited on around the picker, e.g. to pause auto-lock while it is up. */
@@ -20,8 +22,8 @@ export type SaveOptions = {
 /** Whether the system picker was closed without a choice (expo-file-system's `PickerCancelledException`). */
 export function isPickerCancel(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
-  const { code, message } = error as { code?: unknown; message?: unknown };
-  if (code === 'ERR_PICKER_CANCELLED') return true;
+  if (errorCode(error) === 'ERR_PICKER_CANCELLED') return true;
+  const { message } = error as { message?: unknown };
   return typeof message === 'string' && /picker was cancel/i.test(message);
 }
 

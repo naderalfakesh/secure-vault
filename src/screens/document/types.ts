@@ -1,6 +1,6 @@
 import type { DocumentCategory } from '@/types';
 
-export type LoadFailureKind = 'missing' | 'unreadable';
+type LoadFailureKind = 'missing' | 'unreadable';
 
 export type LoadFailure = { kind: LoadFailureKind; detail?: string };
 

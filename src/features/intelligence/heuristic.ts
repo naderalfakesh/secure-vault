@@ -166,9 +166,14 @@ function titleCase(words: string): string {
     .join(' ');
 }
 
+type FoundDate = ReturnType<typeof findDates>[number];
+
 export function extractFields(text: string): ExtractedField[] {
+  return fieldsFrom(text, findDates(text));
+}
+
+function fieldsFrom(text: string, dates: readonly FoundDate[]): ExtractedField[] {
   const fields: ExtractedField[] = [];
-  const dates = findDates(text);
   const expiry = dates.find((d) => expiryKeywords.test(d.context));
   const issue = dates.find((d) => issueKeywords.test(d.context) && d.date !== expiry?.date);
   if (expiry) fields.push({ key: EXPIRY_FIELD, value: expiry.date, kind: 'date' });
@@ -191,14 +196,17 @@ export function extractFields(text: string): ExtractedField[] {
  * the year that matters: the expiry, else the issue date, else the first date
  * read, such as a receipt's. A birth date or a printed date never wins over them.
  */
-export function suggestTags(text: string, category?: DocumentCategory): string[] {
+function suggestTags(
+  category: DocumentCategory | undefined,
+  fields: readonly ExtractedField[],
+  dates: readonly FoundDate[],
+): string[] {
   const tags = new Set<string>();
   if (category) tags.add(category);
-  const fields = extractFields(text);
   const date =
     fields.find((field) => field.key === EXPIRY_FIELD)?.value ??
     fields.find((field) => field.key === 'issued')?.value ??
-    findDates(text)[0]?.date;
+    dates[0]?.date;
   const year = date?.slice(0, 4);
   if (year) tags.add(year);
   return [...tags].slice(0, 3);
@@ -213,11 +221,13 @@ export const heuristicIntelligence: DocumentIntelligence = {
     const text = ocrText.trim();
     if (!text) return { tags: [], fields: [], engine: 'heuristic' };
     const category = suggestCategory(text);
+    const dates = findDates(text);
+    const fields = fieldsFrom(text, dates);
     return {
       title: suggestTitle(text),
       category,
-      tags: suggestTags(text, category),
-      fields: extractFields(text),
+      tags: suggestTags(category, fields, dates),
+      fields,
       engine: 'heuristic',
     };
   },

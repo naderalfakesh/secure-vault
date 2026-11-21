@@ -2,7 +2,7 @@ import { t } from '@/i18n';
 import { formatDate } from '@/utils/format';
 
 /** What an imported file is, or null when SecureVault can't add it. */
-export type ImportKind = 'pdf' | 'image';
+type ImportKind = 'pdf' | 'image';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif']);
 const EXTENSIONS: Record<string, ImportKind> = {

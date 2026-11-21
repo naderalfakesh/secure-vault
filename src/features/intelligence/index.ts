@@ -4,12 +4,13 @@ import { heuristicIntelligence } from './heuristic';
 import { onDeviceModelIntelligence } from './onDeviceModel';
 import type { DocumentIntelligence, DocumentSuggestion } from './types';
 
-export type { DocumentIntelligence, DocumentSuggestion, IntelligenceEngine } from './types';
-export { EXPIRY_FIELD } from './types';
+export type { DocumentSuggestion } from './types';
 export type { ModelInfo } from '@modules/expo-document-ai';
 
 /** The platform's on-device model and whether it is ready, for Settings. */
 export const onDeviceModelInfo = modelInfo;
+
+let selected: Promise<DocumentIntelligence> | null = null;
 
 /**
  * Downloads the on-device model when the owner asks (Gemini Nano through
@@ -27,8 +28,6 @@ export async function downloadOnDeviceModel(): Promise<void> {
  * entry degrades to the heuristic engine, so the app is complete without a model.
  */
 const candidates: DocumentIntelligence[] = [onDeviceModelIntelligence, heuristicIntelligence];
-
-let selected: Promise<DocumentIntelligence> | null = null;
 
 /** Picks the best available engine once per launch. */
 export function selectIntelligence(): Promise<DocumentIntelligence> {

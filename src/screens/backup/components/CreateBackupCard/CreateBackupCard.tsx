@@ -7,7 +7,7 @@ import { textScale } from '@/theme/tokens';
 
 import { styles } from './CreateBackupCard.styles';
 
-export type CreateBackupCardProps = {
+type CreateBackupCardProps = {
   /** Backup work started before this screen opened, still running. */
   earlier: BackupOperation | null;
   lastBackup: Date | null;

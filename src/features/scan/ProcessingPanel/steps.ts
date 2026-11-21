@@ -1,7 +1,7 @@
 import type { ScanCopyKey } from '../scanCopy';
-import type { ProcessingStep } from './types';
+export const STEPS = ['ocr', 'suggest', 'encrypt', 'index'] as const;
 
-export const STEPS: ProcessingStep[] = ['ocr', 'suggest', 'encrypt', 'index'];
+export type ProcessingStep = (typeof STEPS)[number];
 
 export const STEP_COPY: Record<ProcessingStep, ScanCopyKey> = {
   ocr: 'step.ocr',

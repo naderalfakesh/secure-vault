@@ -12,14 +12,6 @@ export function photoName(fileName: string | null | undefined, now: number = Dat
   return fileName ?? `scan-${now}.jpg`;
 }
 
-/** Comma-separated tags as a list, blanks dropped. */
-export function parseTags(tags: string): string[] {
-  return tags
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
 /** A scan shows its pages; a photo or file its preview, when there is one. */
 export function thumbnailsFor(
   origin: Origin,

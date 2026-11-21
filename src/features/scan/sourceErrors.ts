@@ -1,4 +1,4 @@
-import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from '@/utils/errors';
+import { errorCode, KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from '@/utils/errors';
 import { isKeyLocked } from '@modules/expo-vault';
 
 import { scanText, type ScanCopyKey } from './scanCopy';
@@ -27,10 +27,9 @@ const sourceFallbacks: Record<Source, ScanCopyKey> = {
  */
 export function sourceFailureMessage(source: Source, error: unknown): string {
   if (isKeyLocked(error)) return KEY_LOCKED_MESSAGE;
-  const code =
-    typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : null;
+  const code = errorCode(error);
   if (code === 'KEY_INVALIDATED') return KEY_INVALIDATED_MESSAGE;
-  if (source === 'scan' && typeof code === 'string' && scannerMessages[code]) {
+  if (source === 'scan' && code && scannerMessages[code]) {
     return scanText(scannerMessages[code]);
   }
   return scanText(sourceFallbacks[source]);
