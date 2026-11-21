@@ -3,6 +3,8 @@ import { useSyncExternalStore } from 'react';
 import { Appearance } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
+import { SECURE_STORE_ENTRIES, SECURE_STORE_OPTIONS } from '@/utils/secureStore';
+
 /** The Appearance setting: follow the system, or pin light or dark. */
 export type AppearancePreference = 'system' | 'light' | 'dark';
 
@@ -10,10 +12,7 @@ export const APPEARANCE_OPTIONS: readonly AppearancePreference[] = ['system', 'l
 
 // A display preference, nothing about the vault. It lives outside the session
 // settings so the lock screen can use it before the vault is unlocked.
-const ENTRY = 'securevault.appearance';
-const storeOptions: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-};
+const ENTRY = SECURE_STORE_ENTRIES.appearance;
 
 let current: AppearancePreference = 'system';
 const listeners = new Set<() => void>();
@@ -39,14 +38,14 @@ export function applyAppearance(preference: AppearancePreference): void {
 /** Applies and remembers a preference. A failed write keeps it for this run. */
 export async function setAppearance(preference: AppearancePreference): Promise<void> {
   applyAppearance(preference);
-  await SecureStore.setItemAsync(ENTRY, preference, storeOptions).catch(() => {});
+  await SecureStore.setItemAsync(ENTRY, preference, SECURE_STORE_OPTIONS).catch(() => {});
 }
 
 /** Reads the stored preference at launch; anything unreadable means "system". */
 export async function loadAppearance(): Promise<AppearancePreference> {
   let stored: string | null = null;
   try {
-    stored = await SecureStore.getItemAsync(ENTRY, storeOptions);
+    stored = await SecureStore.getItemAsync(ENTRY, SECURE_STORE_OPTIONS);
   } catch {
     stored = null;
   }

@@ -4,24 +4,8 @@ import { Platform } from 'react-native';
 
 import { hasIndexFiles } from '@/data/database';
 import { SESSION_MARKER_DIRECTORY } from '@/features/session/settings';
+import { SECURE_STORE_ENTRIES, SECURE_STORE_OPTIONS } from '@/utils/secureStore';
 import vault from '@modules/expo-vault';
-
-/**
- * Every secure-store entry the app writes: the session's PIN record, settings
- * and lockout (`storage/sessionStorage.ts`), the last backup date (`lastBackup.ts`), and the
- * appearance setting (`appearance.ts`).
- */
-const SECURE_STORE_ENTRIES = [
-  'securevault.pin',
-  'securevault.settings',
-  'securevault.lockout',
-  'securevault.lastBackup',
-  'securevault.appearance',
-];
-
-const options: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-};
 
 /**
  * `kept`: nothing was removed (a first install, an update, or a later launch).
@@ -69,7 +53,7 @@ export async function reconcileInstall(): Promise<InstallCheck> {
     }
     const [key, pin] = await Promise.all([
       vault.hasVault(),
-      SecureStore.getItemAsync('securevault.pin', options),
+      SecureStore.getItemAsync(SECURE_STORE_ENTRIES.pin, SECURE_STORE_OPTIONS),
     ]);
     if (!key && pin === null) {
       vault.setInstallMarker();
@@ -79,7 +63,9 @@ export async function reconcileInstall(): Promise<InstallCheck> {
     // leaves a PIN without its key, and while the key is there the next
     // launch finds it and finishes the job.
     await Promise.all(
-      SECURE_STORE_ENTRIES.map((entry) => SecureStore.deleteItemAsync(entry, options)),
+      Object.values(SECURE_STORE_ENTRIES).map((entry) =>
+        SecureStore.deleteItemAsync(entry, SECURE_STORE_OPTIONS),
+      ),
     );
     await vault.deleteDeviceKey();
     vault.setInstallMarker();

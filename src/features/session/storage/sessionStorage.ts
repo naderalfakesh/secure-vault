@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { LockoutState } from '@/features/auth/lockout';
 import { EMPTY_LOCKOUT, sanitizeLockout, unreadableLockout } from '@/features/auth/lockout';
+import { SECURE_STORE_ENTRIES, SECURE_STORE_OPTIONS } from '@/utils/secureStore';
 
 import { DEFAULT_SETTINGS, sanitizeSettings, type SecuritySettings } from '../securitySettings';
 import { hasMarker, LOCKOUT_MARKER, markWritten, PIN_MARKER, removeMarker } from './markers';
@@ -18,13 +19,7 @@ import { hasMarker, LOCKOUT_MARKER, markWritten, PIN_MARKER, removeMarker } from
 export type StoredRead<T> =
   { state: 'present'; value: T } | { state: 'absent' } | { state: 'unreadable'; lost?: boolean };
 
-const SETTINGS_ENTRY = 'securevault.settings';
-const PIN_ENTRY = 'securevault.pin';
-const LOCKOUT_ENTRY = 'securevault.lockout';
-
-const options: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-};
+const { settings: SETTINGS_ENTRY, pin: PIN_ENTRY, lockout: LOCKOUT_ENTRY } = SECURE_STORE_ENTRIES;
 
 async function readJson<T>(
   entry: string,
@@ -32,7 +27,7 @@ async function readJson<T>(
   fallback: T,
 ): Promise<T> {
   try {
-    const raw = await SecureStore.getItemAsync(entry, options);
+    const raw = await SecureStore.getItemAsync(entry, SECURE_STORE_OPTIONS);
     return raw ? sanitize(JSON.parse(raw)) : fallback;
   } catch {
     return fallback;
@@ -42,7 +37,7 @@ async function readJson<T>(
 export const sessionStorage = {
   loadSettings: () => readJson(SETTINGS_ENTRY, sanitizeSettings, DEFAULT_SETTINGS),
   saveSettings: (settings: SecuritySettings) =>
-    SecureStore.setItemAsync(SETTINGS_ENTRY, JSON.stringify(settings), options),
+    SecureStore.setItemAsync(SETTINGS_ENTRY, JSON.stringify(settings), SECURE_STORE_OPTIONS),
   /**
    * The stored lockout, or null when the store could not be read. Content that
    * is not JSON is replaced with a base pause, so it is judged once, not anew
@@ -51,7 +46,7 @@ export const sessionStorage = {
   async loadLockout(): Promise<LockoutState | null> {
     let raw: string | null;
     try {
-      raw = await SecureStore.getItemAsync(LOCKOUT_ENTRY, options);
+      raw = await SecureStore.getItemAsync(LOCKOUT_ENTRY, SECURE_STORE_OPTIONS);
     } catch {
       return null;
     }
@@ -79,7 +74,7 @@ export const sessionStorage = {
     }
   },
   async saveLockout(state: LockoutState): Promise<void> {
-    await SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), options);
+    await SecureStore.setItemAsync(LOCKOUT_ENTRY, JSON.stringify(state), SECURE_STORE_OPTIONS);
     markWritten(LOCKOUT_MARKER);
   },
   /**
@@ -91,7 +86,7 @@ export const sessionStorage = {
   async readPinRecord(): Promise<StoredRead<string>> {
     let record: string | null;
     try {
-      record = await SecureStore.getItemAsync(PIN_ENTRY, options);
+      record = await SecureStore.getItemAsync(PIN_ENTRY, SECURE_STORE_OPTIONS);
     } catch {
       return { state: 'unreadable' };
     }
@@ -117,7 +112,7 @@ export const sessionStorage = {
     return read.state === 'present' ? read.value : null;
   },
   async savePinRecord(record: string): Promise<void> {
-    await SecureStore.setItemAsync(PIN_ENTRY, record, options);
+    await SecureStore.setItemAsync(PIN_ENTRY, record, SECURE_STORE_OPTIONS);
     markWritten(PIN_MARKER);
   },
   /**
@@ -129,7 +124,7 @@ export const sessionStorage = {
     removeMarker(LOCKOUT_MARKER);
     await Promise.all(
       [SETTINGS_ENTRY, PIN_ENTRY, LOCKOUT_ENTRY].map((entry) =>
-        SecureStore.deleteItemAsync(entry, options),
+        SecureStore.deleteItemAsync(entry, SECURE_STORE_OPTIONS),
       ),
     );
   },
