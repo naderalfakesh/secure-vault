@@ -1,6 +1,14 @@
 module.exports = {
   preset: 'jest-expo',
-  collectCoverageFrom: ['src/**/*.{ts,tsx}', 'app/**/*.tsx', '!app/**/_layout.tsx'],
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    'app/**/*.tsx',
+    '!app/**/_layout.tsx',
+    // Test doubles and helpers are not app code.
+    '!src/testing/**',
+    '!src/data/testing/**',
+    '!src/**/*.jest.ts',
+  ],
   moduleNameMapper: {
     '^@/data/database$': '<rootDir>/src/data/database.jest.ts',
   },
