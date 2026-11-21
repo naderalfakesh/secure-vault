@@ -1,18 +1,18 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import Constants from 'expo-constants';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking } from 'react-native';
 
-import vault from '@modules/expo-vault';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import AutoLockScreen from '../../app/settings/auto-lock';
 import appJson from '../../app.json';
-import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
 import { backupService } from '../services/BackupService';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -22,32 +22,17 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
-
 let session: ReturnType<typeof useSession>;
 
-function Gate({ screen }: { screen: 'settings' | 'auto-lock' }) {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  if (value.status !== 'unlocked') return <Text>{value.status}</Text>;
-  return screen === 'settings' ? <SettingsScreen /> : <AutoLockScreen />;
-}
-
 async function renderUnlocked(screen: 'settings' | 'auto-lock') {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate screen={screen} />
-      </ToastProvider>
-    </SessionProvider>,
+  const view = await renderUnlockedScreen(
+    screen === 'settings' ? <SettingsScreen /> : <AutoLockScreen />,
+    {
+      onSession: (value) => {
+        session = value;
+      },
+    },
   );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
-  });
   return view;
 }
 

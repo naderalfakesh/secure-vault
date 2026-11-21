@@ -1,15 +1,14 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import { Text } from 'react-native';
 
-import vault from '@modules/expo-vault';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 
 import ChangePinScreen from '../../app/settings/change-pin';
-import { ToastProvider } from '../components/ui';
 import { verifyPasscodeAsync } from '../features/auth/passcode';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
 import { sessionStorage } from '../features/session/settings';
 
 jest.mock('expo-router', () => ({
@@ -17,30 +16,13 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
-
 let session: ReturnType<typeof useSession>;
 
-function Gate() {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  return value.status === 'unlocked' ? <ChangePinScreen /> : <Text>{value.status}</Text>;
-}
-
 async function renderScreen() {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate />
-      </ToastProvider>
-    </SessionProvider>,
-  );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
+  const view = await renderUnlockedScreen(<ChangePinScreen />, {
+    onSession: (value) => {
+      session = value;
+    },
   });
   await waitFor(() => expect(view.getByText('Step 1 of 3')).toBeOnTheScreen());
   return view;

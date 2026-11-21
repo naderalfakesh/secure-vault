@@ -1,8 +1,9 @@
 import { act, render, waitFor } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
 
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import SetupPinScreen from '../../app/setup/pin';
@@ -11,8 +12,6 @@ import { documentService } from '../services/DocumentService';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
 
-const vaultMock = vault as unknown as { reset(): void };
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
 const KEPT = 'Your documents stay where they are. The PIN is a second way in.';
 const EMPTY = 'Your vault is empty. The PIN is your fallback when biometrics are unavailable.';
 

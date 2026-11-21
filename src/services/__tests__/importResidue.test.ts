@@ -2,6 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 import { followLinksOnDelete } from '@modules/expo-vault/src/ExpoVaultModule.mock';
 
@@ -11,12 +12,6 @@ import {
   IMAGE_PICKER_DIRECTORY,
   SCANNER_DIRECTORY,
 } from '../DocumentService';
-
-const vaultMock = vault as unknown as {
-  reset(): void;
-  plantLink(path: string, target: string): void;
-  linkTarget(path: string): string | null;
-};
 
 // The mock file system has no app container; give it the iOS layout so the
 // app's tmp folder is a sibling of Documents, as on a device.

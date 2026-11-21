@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { choosePinHint, isEasyPin, unlockSlideBody } from './onboardingCopy';
+import { choosePinHint, isEasyPin, unlockSlideBody } from '../onboardingCopy';
 
 function onAndroid<T>(run: () => T): T {
   const os = Platform.OS;

@@ -1,20 +1,23 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
-import { useEffect } from 'react';
-import { Alert, AppState, type AppStateStatus, Text } from 'react-native';
+import { Alert } from 'react-native';
 
+import { appState, resetAppState, setAppState } from '@/testing/appState';
+import { settle } from '@/testing/async';
 import { createBackup } from '@/testing/backup';
 import { at } from '@/testing/lists';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault, { type BackupProgress } from '@modules/expo-vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
 import type { SecuritySettings } from '../features/session/settings';
 import { backupService } from '../services/BackupService';
 
@@ -28,19 +31,9 @@ jest.mock('expo-router', () => ({
 
 const share = Sharing.shareAsync as jest.Mock;
 const pick = DocumentPicker.getDocumentAsync as jest.Mock;
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 
-const appState = AppState as unknown as {
-  currentState: AppStateStatus;
-  addEventListener: jest.Mock;
-};
-const listeners = new Set<(state: AppStateStatus) => void>();
 // Called from inside mocked work, which already runs in the press's act scope.
-const moveTo = (state: AppStateStatus) => {
-  appState.currentState = state;
-  for (const listener of [...listeners]) listener(state);
-};
+const moveTo = setAppState;
 
 const STOPPED = 'The backup was cancelled before it could be shared. Nothing left the vault.';
 const PICKED = 'file:///mock/cache/DocumentPicker/839E8D63.svbackup';
@@ -59,31 +52,18 @@ function pickReturns(name: string) {
 
 let session: ReturnType<typeof useSession>;
 
-// The lock gate as the root layout applies it: no settings screen while locked.
-function Gate({ screen }: { screen: 'backup' | 'settings' }) {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  if (value.status !== 'unlocked') return <Text>{value.status}</Text>;
-  return screen === 'backup' ? <BackupScreen /> : <SettingsScreen />;
-}
-
 async function renderUnlocked(
   autoLockSeconds: AutoLockSeconds = 0,
   screen: 'backup' | 'settings' = 'backup',
 ) {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate screen={screen} />
-      </ToastProvider>
-    </SessionProvider>,
+  const view = await renderUnlockedScreen(
+    screen === 'backup' ? <BackupScreen /> : <SettingsScreen />,
+    {
+      onSession: (value) => {
+        session = value;
+      },
+    },
   );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
-  });
   await act(async () => {
     await session.updateSettings({ autoLockSeconds });
   });
@@ -113,11 +93,6 @@ function pending<T>() {
 
 const rowLabelled = (view: Awaited<ReturnType<typeof renderUnlocked>>, title: string) =>
   view.getByLabelText(new RegExp(`^${title}`));
-
-const settleFor = (ms: number) =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
 
 // Presses inside one act that also covers the work the press starts: the
 // pause before the share sheet and any trip away.
@@ -165,14 +140,7 @@ describe('Backup hub and the lock gate', () => {
   beforeEach(() => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    listeners.clear();
-    appState.currentState = 'active';
-    appState.addEventListener.mockImplementation(
-      (_event: string, listener: (state: AppStateStatus) => void) => {
-        listeners.add(listener);
-        return { remove: () => listeners.delete(listener) };
-      },
-    );
+    resetAppState();
     share.mockClear();
     pick.mockReset();
     discard = jest.spyOn(backupService, 'discardBackup');
@@ -240,7 +208,7 @@ describe('Backup hub and the lock gate', () => {
     await act(async () => {
       session.lock();
     });
-    await settleFor(50);
+    await settle(50);
 
     expect(view.getByText('locked')).toBeOnTheScreen();
     expect(discard).toHaveBeenCalledWith(CONTAINER);
@@ -404,7 +372,7 @@ describe('Backup hub and the lock gate', () => {
           extras: [{ key: 'database', path: `${extras}/database` }],
         });
       });
-      await settleFor(50);
+      await settle(50);
 
       expect(backupService.activity()).toBeNull();
       for (const title of ['Restore from a backup…', 'Create a backup']) {
@@ -437,7 +405,7 @@ describe('Backup hub and the lock gate', () => {
       await act(async () => {
         exporting.settle({ entries: 19, bytes: 1024 });
       });
-      await settleFor(50);
+      await settle(50);
 
       expect(share).not.toHaveBeenCalled();
       expect(discard).toHaveBeenCalledWith(CONTAINER);
@@ -458,7 +426,7 @@ describe('Backup hub and the lock gate', () => {
       await act(async () => {
         importing.fail(Object.assign(new Error('bad'), { code: 'BACKUP_PASSPHRASE' }));
       });
-      await settleFor(50);
+      await settle(50);
 
       expect(rowLabelled(view, 'Restore from a backup…')).toBeEnabled();
       expect(session.notice).toEqual({
@@ -665,7 +633,7 @@ describe('Backup hub picker after "Choose another file"', () => {
     await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
     expect(pick).toHaveBeenCalledTimes(2);
     // The fallback that covers a missing dismissal does not pick a second time.
-    await settleFor(1100);
+    await settle(1100);
     expect(pick).toHaveBeenCalledTimes(2);
   });
 
@@ -681,7 +649,7 @@ describe('Backup hub picker after "Choose another file"', () => {
       await fireEvent.press(at(choose, -1));
     });
     expect(pick).toHaveBeenCalledTimes(1);
-    await settleFor(1100);
+    await settle(1100);
     expect(pick).toHaveBeenCalledTimes(2);
     await waitFor(() => expect(view.getByText(/19 entries/)).toBeOnTheScreen());
   });
@@ -727,8 +695,7 @@ describe('Backup hub picker after "Choose another file"', () => {
 });
 
 describe('Backup hub restore phases and outcomes', () => {
-  const emitProgress = (event: BackupProgress) =>
-    (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);
+  const emitProgress = (event: BackupProgress) => vaultMock.emitProgress(event);
 
   beforeEach(() => {
     vaultMock.reset();
@@ -796,7 +763,7 @@ describe('Backup hub restore phases and outcomes', () => {
     await act(async () => {
       importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
     });
-    await settleFor(20);
+    await settle(20);
     expect(backupService.activity()).toBeNull();
   });
 
@@ -813,13 +780,13 @@ describe('Backup hub restore phases and outcomes', () => {
 
     // The press's own act ends once its render is committed; the frame after it starts the module.
     await fireEvent.press(view.getByRole('button', { name: 'Restore and replace vault' }));
-    await settleFor(50);
+    await settle(50);
 
     expect(checkingShownAtStart).toBe(true);
     await act(async () => {
       importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
     });
-    await settleFor(20);
+    await settle(20);
   });
 
   it('honours a Cancel pressed before the native restore started, with nothing changed', async () => {
@@ -834,7 +801,7 @@ describe('Backup hub restore phases and outcomes', () => {
       await Promise.resolve();
     });
     await fireEvent.press(view.getByRole('button', { name: 'Cancel' }));
-    await settleFor(50);
+    await settle(50);
 
     expect(importBackup).not.toHaveBeenCalled();
     expect(view.getByText('Restore cancelled. Nothing was changed.')).toBeOnTheScreen();
@@ -873,7 +840,7 @@ describe('Backup hub restore phases and outcomes', () => {
     await act(async () => {
       importing.fail(Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' }));
     });
-    await settleFor(20);
+    await settle(20);
 
     expect(view.getByText('Restore cancelled. Nothing was changed.')).toBeOnTheScreen();
     expect(view.getByRole('button', { name: 'Restore and replace vault' })).toBeEnabled();
@@ -907,7 +874,7 @@ describe('Backup hub restore phases and outcomes', () => {
       emitProgress({ phase: 'import', done: 1, total: 20 });
       importing.settle({ entries: 19, extras: [{ key: 'database', path: `${extras}/database` }] });
     });
-    await settleFor(50);
+    await settle(50);
 
     expect(view.queryByText('Restore cancelled. Nothing was changed.')).toBeNull();
     expect(view.getByText('Vault restored: 19 entries')).toBeOnTheScreen();
@@ -940,7 +907,7 @@ describe('Backup hub restore phases and outcomes', () => {
     await act(async () => {
       importing.fail(Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' }));
     });
-    await settleFor(20);
+    await settle(20);
 
     expect(view.getByText('The restore didn’t finish')).toBeOnTheScreen();
     expect(
@@ -1112,7 +1079,7 @@ describe('Backup hub create flow', () => {
   it('shows a busy sheet that cannot be dismissed while encrypting', async () => {
     const exporting = pending<{ entries: number; bytes: number }>();
     jest.spyOn(vault, 'exportBackup').mockImplementation(() => {
-      (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress({
+      vaultMock.emitProgress({
         phase: 'export',
         done: 12,
         total: 48,
@@ -1138,7 +1105,7 @@ describe('Backup hub create flow', () => {
     await act(async () => {
       exporting.settle({ entries: 19, bytes: 1024 });
     });
-    await settleFor(600);
+    await settle(600);
     expect(share).toHaveBeenCalledTimes(1);
   });
 

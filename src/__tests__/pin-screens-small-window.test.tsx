@@ -3,6 +3,8 @@ import * as SecureStore from 'expo-secure-store';
 import { Dimensions } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import LockScreen from '../../app/lock';
@@ -16,9 +18,6 @@ jest.mock('expo-router', () => ({
   router: { back: jest.fn(), replace: jest.fn(), push: jest.fn() },
   Stack: { Screen: () => null },
 }));
-
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void; unlockWithBiometrics(): Promise<boolean> };
 
 /** Status bar plus navigation bar on a gesture-navigation phone. */
 const SYSTEM_BARS = 48;

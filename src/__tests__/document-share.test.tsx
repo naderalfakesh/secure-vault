@@ -1,21 +1,19 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import * as Sharing from 'expo-sharing';
-import { useEffect } from 'react';
-import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Platform } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
+import { moveAppStateTo, resetAppState } from '@/testing/appState';
+import { settle } from '@/testing/async';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import DocumentDetailScreen from '../../app/documents/[id]';
-import { ToastProvider } from '../components/ui';
+import type { useSession } from '../features/session/SessionProvider';
 import * as SessionModule from '../features/session/SessionProvider';
-import {
-  AUTO_LOCK_RETURN_GRACE_MS,
-  SessionProvider,
-  useSession,
-} from '../features/session/SessionProvider';
+import { AUTO_LOCK_RETURN_GRACE_MS } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 
@@ -33,29 +31,9 @@ jest.mock('expo-router', () => {
 
 const share = Sharing.shareAsync as jest.Mock;
 const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
-const appState = AppState as unknown as {
-  currentState: AppStateStatus;
-  addEventListener: jest.Mock;
-};
-
-const listeners = new Set<(state: AppStateStatus) => void>();
-const moveTo = (state: AppStateStatus) =>
-  act(async () => {
-    appState.currentState = state;
-    for (const listener of [...listeners]) listener(state);
-  });
+const moveTo = moveAppStateTo;
 
 let session: ReturnType<typeof useSession>;
-
-function Gate() {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  return value.status === 'unlocked' ? <DocumentDetailScreen /> : <Text>{value.status}</Text>;
-}
 
 async function renderUnlocked(size = 2048) {
   const document = await documentService.addDocument(
@@ -63,18 +41,11 @@ async function renderUnlocked(size = 2048) {
     { title: 'Passport', category: DocumentCategory.ID },
   );
   routeParams.id = document.id;
-  const view = await render(
-    <GestureHandlerRootView>
-      <SessionProvider>
-        <ToastProvider>
-          <Gate />
-        </ToastProvider>
-      </SessionProvider>
-    </GestureHandlerRootView>,
-  );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
+  const view = await renderUnlockedScreen(<DocumentDetailScreen />, {
+    onSession: (value) => {
+      session = value;
+    },
+    gestureRoot: true,
   });
   await waitFor(() => expect(view.getByRole('button', { name: 'Share a copy' })).toBeEnabled());
   return view;
@@ -83,11 +54,6 @@ async function renderUnlocked(size = 2048) {
 const pressAndSettle = (element: Parameters<typeof fireEvent.press>[0], ms = 50) =>
   act(async () => {
     void fireEvent.press(element);
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
-
-const settle = (ms: number) =>
-  act(async () => {
     await new Promise((resolve) => setTimeout(resolve, ms));
   });
 
@@ -110,12 +76,7 @@ describe('Document sharing and the lock gate', () => {
     // or the launch finds entries without a key and offers only Delete everything.
     await vault.createVault();
     await closeDocumentStore();
-    appState.currentState = 'active';
-    listeners.clear();
-    appState.addEventListener.mockImplementation((_event, listener) => {
-      listeners.add(listener);
-      return { remove: () => listeners.delete(listener) };
-    });
+    resetAppState();
     share.mockClear();
   });
 
@@ -134,16 +95,10 @@ describe('Document sharing and the lock gate', () => {
       { title: 'Passport', category: DocumentCategory.ID },
     );
     routeParams.id = document.id;
-    const view = await render(
-      <SessionProvider>
-        <ToastProvider>
-          <Gate />
-        </ToastProvider>
-      </SessionProvider>,
-    );
-    await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-    await act(async () => {
-      await session.setUp('123456');
+    const view = await renderUnlockedScreen(<DocumentDetailScreen />, {
+      onSession: (value) => {
+        session = value;
+      },
     });
 
     await waitFor(() =>

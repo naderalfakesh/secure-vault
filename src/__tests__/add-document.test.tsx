@@ -3,10 +3,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import { Text } from 'react-native';
 
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import {
   queueScan,
   setCameraAvailable,
@@ -16,7 +16,8 @@ import vault from '@modules/expo-vault';
 
 import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
   documentService,
@@ -242,35 +243,20 @@ describe('AddDocumentScreen file import', () => {
     let session: ReturnType<typeof useSession>;
 
     beforeEach(() => {
-      (vault as unknown as { reset(): void }).reset();
-      (SecureStore as unknown as { __reset(): void }).__reset();
+      vaultMock.reset();
+      secureStoreMock.__reset();
     });
 
     afterEach(() => {
-      (vault as unknown as { reset(): void }).reset();
-      (SecureStore as unknown as { __reset(): void }).__reset();
+      vaultMock.reset();
+      secureStoreMock.__reset();
     });
 
-    // The lock gate as the root layout applies it: no add screen while locked.
-    function Gate() {
-      const value = useSession();
-      useEffect(() => {
-        session = value;
-      });
-      return value.status === 'unlocked' ? <AddDocumentScreen /> : <Text>{value.status}</Text>;
-    }
-
     async function importUnlocked() {
-      const view = await render(
-        <SessionProvider>
-          <ToastProvider>
-            <Gate />
-          </ToastProvider>
-        </SessionProvider>,
-      );
-      await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-      await act(async () => {
-        await session.setUp('123456');
+      const view = await renderUnlockedScreen(<AddDocumentScreen />, {
+        onSession: (value) => {
+          session = value;
+        },
       });
       await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
       await waitFor(() => expect(view.getByLabelText('Title')).toBeOnTheScreen());

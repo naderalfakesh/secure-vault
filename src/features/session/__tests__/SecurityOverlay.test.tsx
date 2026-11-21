@@ -1,12 +1,12 @@
 import { act, render, waitFor, within } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 
-import vault from '@modules/expo-vault';
+import { moveAppStateTo, resetAppState } from '@/testing/appState';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 
-import { SecurityOverlay } from './SecurityOverlay';
-import { SessionProvider, useSession } from './SessionProvider';
+import { SecurityOverlay } from '../SecurityOverlay';
+import { SessionProvider, useSession } from '../SessionProvider';
 
 // The native overlay window, as a plain view the test can look inside.
 jest.mock('react-native-screens', () => {
@@ -24,18 +24,7 @@ jest.mock('expo-screen-capture', () => ({
   allowScreenCaptureAsync: jest.fn(async () => {}),
 }));
 
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
-const appState = AppState as unknown as {
-  currentState: AppStateStatus;
-  addEventListener: jest.Mock;
-};
-const listeners = new Set<(state: AppStateStatus) => void>();
-const moveTo = (state: AppStateStatus) =>
-  act(async () => {
-    appState.currentState = state;
-    for (const listener of [...listeners]) listener(state);
-  });
+const moveTo = moveAppStateTo;
 
 let session: ReturnType<typeof useSession>;
 
@@ -70,12 +59,7 @@ describe('Privacy cover', () => {
   beforeEach(() => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    listeners.clear();
-    appState.currentState = 'active';
-    appState.addEventListener.mockImplementation((_event, listener) => {
-      listeners.add(listener);
-      return { remove: () => listeners.delete(listener) };
-    });
+    resetAppState();
   });
 
   it('covers the vault while the app is inactive and lifts on return', async () => {

@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import { Pressable, Text, View } from 'react-native';
 
-import { auditAccessibility } from './accessibilityAudit';
+import { auditAccessibility } from '../accessibilityAudit';
 
 describe('accessibility audit', () => {
   it('flags an icon-only button without a label and a target under 44 pt', async () => {

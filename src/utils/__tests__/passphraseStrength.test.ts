@@ -1,4 +1,4 @@
-import { estimatePassphraseStrength } from './passphraseStrength';
+import { estimatePassphraseStrength } from '../passphraseStrength';
 
 describe('estimatePassphraseStrength', () => {
   it('rates empty, short, and repeated input as nothing or weak', () => {

@@ -5,7 +5,7 @@ import * as Reanimated from 'react-native-reanimated';
 import * as AppearanceSetting from '@/theme/appearance';
 import { darkColors, lightColors } from '@/theme/colors';
 
-import { HANDOFF_FADE_MS, HANDOFF_FALLBACK_MS, SplashHandoff } from './SplashHandoff';
+import { HANDOFF_FADE_MS, HANDOFF_FALLBACK_MS, SplashHandoff } from '../SplashHandoff';
 
 const hidden = { includeHiddenElements: true };
 

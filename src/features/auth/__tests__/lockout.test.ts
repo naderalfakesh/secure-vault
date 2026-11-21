@@ -12,7 +12,7 @@ import {
   secondsLeft,
   strictestLockout,
   unreadableLockout,
-} from './lockout';
+} from '../lockout';
 
 describe('lockout', () => {
   const now = 1_000_000;

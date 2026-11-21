@@ -3,10 +3,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import { AccessibilityInfo, Linking, Text } from 'react-native';
+import { AccessibilityInfo, Linking } from 'react-native';
 
+import { settle } from '@/testing/async';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import * as scannerMock from '@modules/expo-document-scanner/src/index.mock';
 import {
   queueScan,
@@ -18,7 +20,8 @@ import vault from '@modules/expo-vault';
 import AddDocumentScreen from '../../app/documents/add';
 import { ToastProvider } from '../components/ui';
 import { scanText } from '../features/scan/scanCopy';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
+import { SessionProvider } from '../features/session/SessionProvider';
 import {
   APPLE_INBOX_DIRECTORY,
   documentService,
@@ -76,11 +79,6 @@ function renderScreen() {
     </SessionProvider>,
   );
 }
-
-const settle = (ms = 20) =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
 
 async function scanInto(count: number) {
   const pages = plantScan(count);
@@ -774,34 +772,20 @@ describe('Add a document: the lock', () => {
   let session: ReturnType<typeof useSession>;
 
   beforeEach(() => {
-    (vault as unknown as { reset(): void }).reset();
-    (SecureStore as unknown as { __reset(): void }).__reset();
+    vaultMock.reset();
+    secureStoreMock.__reset();
   });
 
   afterEach(() => {
-    (vault as unknown as { reset(): void }).reset();
-    (SecureStore as unknown as { __reset(): void }).__reset();
+    vaultMock.reset();
+    secureStoreMock.__reset();
   });
 
-  function Gate() {
-    const value = useSession();
-    useEffect(() => {
-      session = value;
-    });
-    return value.status === 'unlocked' ? <AddDocumentScreen /> : <Text>{value.status}</Text>;
-  }
-
   async function renderUnlocked() {
-    const view = await render(
-      <SessionProvider>
-        <ToastProvider>
-          <Gate />
-        </ToastProvider>
-      </SessionProvider>,
-    );
-    await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-    await act(async () => {
-      await session.setUp('123456');
+    const view = await renderUnlockedScreen(<AddDocumentScreen />, {
+      onSession: (value) => {
+        session = value;
+      },
     });
     return view;
   }
@@ -872,7 +856,7 @@ it('keeps a settled toast-free flow when nothing is picked', async () => {
   const view = await renderScreen();
 
   await fireEvent.press(view.getByRole('button', { name: /Import a file/ }));
-  await settle();
+  await settle(20);
 
   expect(view.getByRole('button', { name: /Import a file/ })).toBeOnTheScreen();
   expect(view.queryByRole('alert')).toBeNull();
@@ -897,7 +881,7 @@ describe('Add a document: one source at a time', () => {
 
     await fireEvent.press(view.getByRole('button', { name: /Choose from Photos/ }));
     await fireEvent.press(view.getByRole('button', { name: /Scan with the camera/ }));
-    await settle();
+    await settle(20);
     expect(picker.launchImageLibraryAsync).not.toHaveBeenCalled();
 
     await act(async () => {

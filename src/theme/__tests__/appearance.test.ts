@@ -2,11 +2,13 @@ import * as SecureStore from 'expo-secure-store';
 import { Appearance } from 'react-native';
 import { UnistylesRuntime } from 'react-native-unistyles';
 
-import { getAppearance, loadAppearance, sanitizeAppearance, setAppearance } from './appearance';
+import { secureStoreMock } from '@/testing/secureStore';
+
+import { getAppearance, loadAppearance, sanitizeAppearance, setAppearance } from '../appearance';
 
 describe('appearance', () => {
   beforeEach(() => {
-    (SecureStore as unknown as { __reset: () => void }).__reset();
+    secureStoreMock.__reset();
     jest.restoreAllMocks();
   });
 

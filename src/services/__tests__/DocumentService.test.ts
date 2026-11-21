@@ -2,12 +2,11 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 
 import { closeDocumentStore, openDocumentStore } from '@/data/database';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import { DocumentCategory } from '../../types';
 import { documentService, PICKER_DIRECTORY, shareFileName } from '../DocumentService';
-
-const vaultMock = vault as unknown as { reset(): void };
 
 /** The vault mock keeps no files; stand in for the decrypted file the share copy is made from. */
 function decryptedCopyOf(id: string) {

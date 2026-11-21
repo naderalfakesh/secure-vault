@@ -5,7 +5,7 @@ import {
   isPasscodeRecord,
   parsePasscodeRecord,
   verifyPasscodeAsync,
-} from './passcode';
+} from '../passcode';
 
 const SALT = new Uint8Array(16).fill(7);
 

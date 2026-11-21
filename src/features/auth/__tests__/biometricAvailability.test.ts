@@ -5,7 +5,7 @@ import {
   biometricStepCopy,
   biometricUnavailableReason,
   readBiometricAvailability,
-} from './biometricAvailability';
+} from '../biometricAvailability';
 
 function onAndroid<T>(run: () => T): T {
   const os = Platform.OS;

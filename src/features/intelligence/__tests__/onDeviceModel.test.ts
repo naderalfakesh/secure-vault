@@ -6,13 +6,13 @@ import {
   resetIntelligenceSelection,
   selectIntelligence,
   suggestForText,
-} from './index';
+} from '../index';
 import {
   checkModelAnswer,
   MAX_TEXT_LENGTH,
   MODEL_INSTRUCTIONS,
   MODEL_TIMEOUT_MS,
-} from './onDeviceModel';
+} from '../onDeviceModel';
 
 const model = jest.requireMock('@modules/expo-document-ai') as {
   setModelInfo(info: { engine: string; status: string }): void;

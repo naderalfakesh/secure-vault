@@ -1,19 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative, sep } from 'path';
 
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
-import { Text } from 'react-native';
 
 import { at } from '@/testing/lists';
-import vault from '@modules/expo-vault';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 
 import SettingsScreen from '../../app/(tabs)/settings';
 import BackupScreen from '../../app/settings/backup';
-import { ToastProvider } from '../components/ui';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
@@ -23,34 +20,13 @@ jest.mock('expo-router', () => ({
 }));
 
 const ROOT = join(__dirname, '..', '..');
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 // A restore entry names itself first: "Restore from a backup…".
 const RESTORE_ENTRY = /^Restore/i;
 
-let session: ReturnType<typeof useSession>;
-
-function Gate({ screen }: { screen: 'settings' | 'backup' }) {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  if (value.status !== 'unlocked') return <Text>{value.status}</Text>;
-  return screen === 'settings' ? <SettingsScreen /> : <BackupScreen />;
-}
-
 async function renderUnlocked(screen: 'settings' | 'backup') {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate screen={screen} />
-      </ToastProvider>
-    </SessionProvider>,
+  const view = await renderUnlockedScreen(
+    screen === 'settings' ? <SettingsScreen /> : <BackupScreen />,
   );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
-  });
   return view;
 }
 

@@ -1,4 +1,4 @@
-import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE, plainErrorMessage } from './errors';
+import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE, plainErrorMessage } from '../errors';
 
 describe('plainErrorMessage', () => {
   it('turns a cancelled or lapsed device key prompt into the plain sentence', () => {

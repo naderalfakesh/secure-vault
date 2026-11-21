@@ -3,15 +3,15 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, type AppStateStatus, Text } from 'react-native';
 
+import { LOCKOUT_BASE_MS } from '@/features/auth/lockout';
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
-import { SessionProvider, useSession } from './SessionProvider';
-import { SESSION_MARKER_DIRECTORY, sessionStorage } from './settings';
-import { LOCKOUT_BASE_MS } from '../auth/lockout';
+import { SessionProvider, useSession } from '../SessionProvider';
+import { SESSION_MARKER_DIRECTORY, sessionStorage } from '../settings';
 
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 const PIN_ENTRY = 'securevault.pin';
 
 function Probe() {
@@ -342,9 +342,7 @@ describe('SessionProvider PIN and lockout markers (M1)', () => {
     const markers = decodeURIComponent(
       new Directory(Paths.document, SESSION_MARKER_DIRECTORY).uri.replace(/^file:\/\//, ''),
     ).replace(/\/$/, '');
-    expect((vault as unknown as { excludedFromBackup(): string[] }).excludedFromBackup()).toContain(
-      markers,
-    );
+    expect(vaultMock.excludedFromBackup()).toContain(markers);
   });
 
   it('falls back to the PIN record alone after a device restore brought no markers', async () => {

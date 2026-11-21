@@ -1,11 +1,15 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
+import { Platform, Text } from 'react-native';
 
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
+import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '@/features/auth/lockout';
 import { documentService } from '@/services/DocumentService';
+import { appState, moveAppStateTo, resetAppState } from '@/testing/appState';
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import {
@@ -15,18 +19,10 @@ import {
   type SessionCapture,
   SessionProvider,
   useSession,
-} from './SessionProvider';
-import type { SecuritySettings } from './settings';
-import { LOCKOUT_BASE_MS, LOCKOUT_THRESHOLD } from '../auth/lockout';
+} from '../SessionProvider';
+import type { SecuritySettings } from '../settings';
 
 type AutoLockSeconds = SecuritySettings['autoLockSeconds'];
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as {
-  reset(): void;
-  unlockWithBiometrics: () => Promise<boolean>;
-  stopActivity(at?: number): void;
-  keySessionsEnded(): number;
-};
 
 function Probe() {
   const session = useSession();
@@ -291,16 +287,7 @@ describe('SessionProvider', () => {
 });
 
 describe('SessionProvider session capture', () => {
-  const appState = AppState as unknown as {
-    currentState: AppStateStatus;
-    addEventListener: jest.Mock;
-  };
-  const listeners = new Set<(state: AppStateStatus) => void>();
-  const moveTo = (state: AppStateStatus) =>
-    act(async () => {
-      appState.currentState = state;
-      for (const listener of [...listeners]) listener(state);
-    });
+  const moveTo = moveAppStateTo;
 
   let session: ReturnType<typeof useSession>;
   function Capture() {
@@ -331,14 +318,7 @@ describe('SessionProvider session capture', () => {
   beforeEach(() => {
     vaultMock.reset();
     secureStoreMock.__reset();
-    listeners.clear();
-    appState.currentState = 'active';
-    appState.addEventListener.mockImplementation(
-      (_event: string, listener: (state: AppStateStatus) => void) => {
-        listeners.add(listener);
-        return { remove: () => listeners.delete(listener) };
-      },
-    );
+    resetAppState();
   });
 
   it('confirms the same unlocked session in the foreground', async () => {

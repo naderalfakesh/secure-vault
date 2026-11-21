@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Text } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
 
 import LockScreen from '../../app/lock';
 import { SessionProvider, useSession } from '../features/session/SessionProvider';
@@ -48,7 +49,6 @@ const { native, state } = jest.requireMock('@modules/expo-vault') as {
   };
   state: { keyOpen: boolean; answer: boolean };
 };
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
 
 function Status() {
   return <Text testID="status">{useSession().status}</Text>;

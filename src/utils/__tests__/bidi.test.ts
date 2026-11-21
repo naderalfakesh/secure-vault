@@ -1,4 +1,4 @@
-import { isolate } from './bidi';
+import { isolate } from '../bidi';
 
 describe('isolate', () => {
   it('wraps mixed-direction names in first strong isolate marks once', () => {

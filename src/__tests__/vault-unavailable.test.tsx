@@ -4,10 +4,9 @@ import * as SecureStore from 'expo-secure-store';
 import { Alert, Platform, Text } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
-
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 
 const stub = (label: string) =>
   function Stub() {

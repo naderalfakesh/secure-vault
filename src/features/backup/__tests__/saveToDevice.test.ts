@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { isPickerCancel, SAVE_CHUNK_BYTES, saveBackupToDevice } from './saveToDevice';
+import { isPickerCancel, SAVE_CHUNK_BYTES, saveBackupToDevice } from '../saveToDevice';
 
 // The in-memory file system keys created files by their raw name, so no spaces here.
 const NAME = 'SecureVault-backup-2026-10-23.svbackup';

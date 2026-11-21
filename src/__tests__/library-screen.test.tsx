@@ -1,35 +1,25 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useEffect } from 'react';
 import { AccessibilityInfo, Text } from 'react-native';
 
 import { closeDocumentStore } from '@/data/database';
+import { settle } from '@/testing/async';
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import LibraryScreen from '../../app/(tabs)/index';
-import { ToastProvider } from '../components/ui';
 import { useTabBarHidden } from '../features/navigation/tabBarVisibility';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
 import { documentService } from '../services/DocumentService';
 import { DocumentCategory } from '../types';
 import { isolate } from '../utils/bidi';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn() } }));
 
-const vaultMock = vault as unknown as { reset(): void };
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-
 let session: ReturnType<typeof useSession>;
 
-// The lock gate as the root layout applies it: no Library while locked.
-function Gate() {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  return value.status === 'unlocked' ? <LibraryScreen /> : <Text>{value.status}</Text>;
-}
 const CLOSED =
   'The document index could not be found, so it stays closed. Nothing was changed. Try again.';
 
@@ -38,17 +28,11 @@ function TabBarProbe() {
 }
 
 async function renderLibrary() {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate />
-        <TabBarProbe />
-      </ToastProvider>
-    </SessionProvider>,
-  );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
+  const view = await renderUnlockedScreen(<LibraryScreen />, {
+    onSession: (value) => {
+      session = value;
+    },
+    beside: <TabBarProbe />,
   });
   return view;
 }
@@ -59,11 +43,6 @@ async function add(title: string, category: DocumentCategory, ocrText?: string) 
     { title, category, ocrText },
   );
 }
-
-const settle = (ms = 250) =>
-  act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
-  });
 
 describe('Library', () => {
   beforeEach(async () => {
@@ -148,7 +127,7 @@ describe('Library', () => {
     await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
 
     await fireEvent.changeText(view.getByLabelText('Search documents'), 'march');
-    await settle();
+    await settle(250);
     expect(view.getByText('1 result')).toBeOnTheScreen();
     expect(view.getByTestId('snippet-match')).toHaveTextContent('March');
 
@@ -167,7 +146,7 @@ describe('Library', () => {
     await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
 
     await fireEvent.changeText(view.getByLabelText('Search documents'), 'entree janv');
-    await settle();
+    await settle(250);
 
     expect(view.getByText('1 result')).toBeOnTheScreen();
     expect(view.getAllByTestId('snippet-match').map((part) => part.props.children)).toEqual([
@@ -182,7 +161,7 @@ describe('Library', () => {
     await waitFor(() => expect(view.getByLabelText('Search documents')).toBeOnTheScreen());
 
     await fireEvent.changeText(view.getByLabelText('Search documents'), 'march');
-    await settle();
+    await settle(250);
 
     expect(view.getByText('1 result')).toBeOnTheScreen();
     expect(view.queryByTestId('snippet-match')).toBeNull();
@@ -205,7 +184,7 @@ describe('Library', () => {
     await fireEvent.press(view.getByRole('button', { name: 'See all' }));
     await fireEvent.press(view.getByRole('button', { name: /^Sort and filter/ }));
     await fireEvent.press(view.getByRole('radio', { name: 'Expiry date, soonest' }));
-    await settle();
+    await settle(250);
 
     expect(list).toHaveBeenCalledWith('expiry');
     expect(view.getAllByTestId(/^document-row-/).map((row) => row.props.testID)).toEqual([

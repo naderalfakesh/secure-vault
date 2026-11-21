@@ -5,12 +5,11 @@ import { useEffect } from 'react';
 import { Text } from 'react-native';
 
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import { useSession } from '../features/session/SessionProvider';
-
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void; unlockWithBiometrics(): Promise<boolean> };
 
 let session: ReturnType<typeof useSession>;
 

@@ -7,6 +7,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { closeDocumentStore } from '@/data/database';
 import { auditAccessibility, countControls } from '@/testing/accessibilityAudit';
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import LibraryScreen from '../../app/(tabs)/index';
@@ -47,8 +49,6 @@ jest.mock('expo-router', () => {
 });
 
 const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 
 /** An Arabic title, so every list and sentence is walked with it. */
 const ARABIC_TITLE = 'عقد الإيجار 2026.pdf';

@@ -1,11 +1,13 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect } from 'react';
-import { AppState, type AppStateStatus, Text } from 'react-native';
+import { Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { closeDocumentStore } from '@/data/database';
+import { appStateListeners, resetAppState } from '@/testing/appState';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import DocumentViewerScreen from '../../app/documents/[id]';
@@ -25,13 +27,6 @@ jest.mock('expo-router', () => {
 });
 
 const routeParams = (jest.requireMock('expo-router') as { __params: { id?: string } }).__params;
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
-const appState = AppState as unknown as {
-  currentState: AppStateStatus;
-  addEventListener: jest.Mock;
-};
-const listeners = new Set<(state: AppStateStatus) => void>();
 
 let session: ReturnType<typeof useSession>;
 
@@ -82,12 +77,7 @@ describe('Document viewer', () => {
     // or the launch finds entries without a key and offers only Delete everything.
     await vault.createVault();
     await closeDocumentStore();
-    listeners.clear();
-    appState.currentState = 'active';
-    appState.addEventListener.mockImplementation((_event, listener) => {
-      listeners.add(listener);
-      return { remove: () => listeners.delete(listener) };
-    });
+    resetAppState();
     (router.back as jest.Mock).mockClear();
   });
 
@@ -158,7 +148,7 @@ describe('Document viewer', () => {
     expect(view.getByText('X12344821')).toBeOnTheScreen();
 
     await act(async () => {
-      for (const listener of [...listeners]) listener('background');
+      for (const listener of [...appStateListeners]) listener('background');
     });
     expect(view.queryByText('X12344821')).toBeNull();
     expect(view.getByText('•••• 4821')).toBeOnTheScreen();

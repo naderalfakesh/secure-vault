@@ -1,4 +1,9 @@
-import { autoLockDescription, autoLockLabel, DEFAULT_SETTINGS, sanitizeSettings } from './settings';
+import {
+  autoLockDescription,
+  autoLockLabel,
+  DEFAULT_SETTINGS,
+  sanitizeSettings,
+} from '../settings';
 
 describe('security settings', () => {
   it('falls back to defaults for unknown values', () => {

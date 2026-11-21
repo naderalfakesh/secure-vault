@@ -6,7 +6,7 @@ import {
   deviceUnlockLabel,
   formatCountdown,
   wrongPinMessage,
-} from './lockCopy';
+} from '../lockCopy';
 
 function onAndroid(run: () => void) {
   const os = Platform.OS;

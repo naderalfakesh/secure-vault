@@ -1,4 +1,4 @@
-import type * as ScannerApi from './index';
+import type * as ScannerApi from '../index';
 
 type NativeStub = {
   isSupported?: () => boolean;
@@ -11,7 +11,7 @@ function loadWith(native: NativeStub, isDevice = true): typeof ScannerApi {
   jest.isolateModules(() => {
     jest.doMock('expo', () => ({ requireOptionalNativeModule: () => native }));
     jest.doMock('expo-device', () => ({ isDevice }));
-    api = jest.requireActual('./index');
+    api = jest.requireActual('../index');
   });
   if (!api) throw new Error('module did not load');
   return api;

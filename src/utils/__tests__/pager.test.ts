@@ -4,7 +4,7 @@ import {
   offsetForPage,
   pageForSwipe,
   pageFromOffset,
-} from './pager';
+} from '../pager';
 
 const pages = { pageWidth: 390, contentWidth: 390 * 4, pageCount: 4 };
 

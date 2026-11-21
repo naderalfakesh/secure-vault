@@ -1,4 +1,4 @@
-import { isKeyLocked, withKeyRecovery } from './withKeyRecovery';
+import { isKeyLocked, withKeyRecovery } from '../withKeyRecovery';
 
 function lockedError() {
   return Object.assign(new Error('Failed to encrypt file: User not authenticated'), {

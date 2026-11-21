@@ -1,7 +1,8 @@
 import { act, renderHook } from '@testing-library/react-native';
 
-import { LOCKOUT_BASE_MS } from '../lockout';
-import { useLockoutCountdown } from './useLockoutCountdown';
+import { LOCKOUT_BASE_MS } from '@/features/auth/lockout';
+
+import { useLockoutCountdown } from '../useLockoutCountdown';
 
 describe('useLockoutCountdown', () => {
   beforeEach(() => jest.useFakeTimers());

@@ -1,6 +1,7 @@
 import { Directory, File } from 'expo-file-system';
 
 import { at } from '@/testing/lists';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import {
@@ -21,7 +22,6 @@ jest.mock('../expoSqlite', () => ({
 }));
 jest.mock('../schema', () => ({ applyMigrations: jest.fn(async () => 0) }));
 
-const vaultMock = vault as unknown as { reset(): void };
 const openEncrypted = openEncryptedDatabase as jest.Mock;
 const keyLocked = () => Object.assign(new Error('User not authenticated'), { code: 'KEY_LOCKED' });
 

@@ -7,14 +7,9 @@ import { reconcileInstall } from '@/features/session/freshInstall';
 import { SessionProvider, useSession } from '@/features/session/SessionProvider';
 import { sessionStorage } from '@/features/session/settings';
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
-
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as {
-  reset(): void;
-  clearInstallMarker(): void;
-  hasInstallMarker(): boolean;
-};
 
 const OUR_ENTRIES = [
   'securevault.pin',

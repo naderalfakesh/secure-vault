@@ -2,13 +2,12 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import { hashPasscode } from '@/testing/passcode';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import LockScreen from '../../app/lock';
 import { SessionProvider } from '../features/session/SessionProvider';
-
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void; unlockWithBiometrics(): Promise<boolean> };
 
 describe('LockScreen', () => {
   beforeEach(() => {

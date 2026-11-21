@@ -3,12 +3,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { closeDocumentStore } from '@/data/database';
 import { createBackup } from '@/testing/backup';
 import { at } from '@/testing/lists';
+import { vaultMock } from '@/testing/vault';
 import vault, { type BackupProgress } from '@modules/expo-vault';
-import {
-  followLinksOnDelete,
-  type VaultMockExport,
-  type VaultMockImport,
-} from '@modules/expo-vault/src/ExpoVaultModule.mock';
+import { followLinksOnDelete } from '@modules/expo-vault/src/ExpoVaultModule.mock';
 import { withKeyRecovery } from '@modules/expo-vault/src/withKeyRecovery';
 
 import { DocumentCategory } from '../../types';
@@ -26,17 +23,8 @@ import {
 } from '../BackupService';
 import { documentService, PICKER_DIRECTORY } from '../DocumentService';
 
-const vaultMock = vault as unknown as {
-  reset(): void;
-  plantLink(path: string, target: string): void;
-  linkTarget(path: string): string | null;
-  lastExport: VaultMockExport | null;
-  lastImport: VaultMockImport | null;
-};
-
 /** A progress event as the native restore sends it, for a stubbed import. */
-const emitProgress = (event: BackupProgress) =>
-  (vault as unknown as { emitProgress(event: BackupProgress): void }).emitProgress(event);
+const emitProgress = (event: BackupProgress) => vaultMock.emitProgress(event);
 
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 
@@ -1119,9 +1107,7 @@ describe('BackupService', () => {
     it('keeps the folder out of device backups (iOS)', async () => {
       await backupService.keepPickedFile(pickCopy().uri);
 
-      expect(
-        (vault as unknown as { excludedFromBackup(): string[] }).excludedFromBackup(),
-      ).toContain(pathOf(source().uri).replace(/\/$/, ''));
+      expect(vaultMock.excludedFromBackup()).toContain(pathOf(source().uri).replace(/\/$/, ''));
     });
 
     it('replaces the copy an earlier pick left behind', async () => {

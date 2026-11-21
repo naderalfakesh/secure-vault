@@ -1,6 +1,6 @@
 import { tp } from '@/i18n';
 
-import { formatDate, formatExpiry, formatFileSize, formatRelativeDate, joinParts } from './format';
+import { formatDate, formatExpiry, formatFileSize, formatRelativeDate, joinParts } from '../format';
 
 describe('format', () => {
   it('formats sizes in the unit a person expects', () => {

@@ -318,6 +318,8 @@ export function createVaultMock(): SecureVault & {
   };
 }
 
+export type VaultMock = ReturnType<typeof createVaultMock>;
+
 const vaultMock = createVaultMock();
 
 /**

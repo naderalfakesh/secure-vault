@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 import { allowDocumentStore, closeDocumentStore } from '@/data/database';
 import { openTestDatabase } from '@/data/testing/betterSqlite';
 import { documentService } from '@/services/DocumentService';
-import vault from '@modules/expo-vault';
+import { vaultMock } from '@/testing/vault';
 
 import { useDocumentList } from '../useDocumentList';
 
@@ -13,7 +13,6 @@ jest.mock('@/data/testing/betterSqlite', () => {
   return { openTestDatabase: jest.fn(actual.openTestDatabase) };
 });
 
-const vaultMock = vault as unknown as { reset(): void };
 const opens = openTestDatabase as jest.Mock;
 const picked = { uri: '/tmp/passport.jpg', name: 'passport.jpg', type: 'image/jpeg', size: 2048 };
 

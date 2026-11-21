@@ -1,8 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
 
-import { clearLastBackup, loadLastBackup, recordLastBackup } from './lastBackup';
+import { secureStoreMock } from '@/testing/secureStore';
 
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
+import { clearLastBackup, loadLastBackup, recordLastBackup } from '../lastBackup';
 
 describe('the last backup made on this phone', () => {
   beforeEach(() => secureStoreMock.__reset());

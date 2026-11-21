@@ -6,7 +6,7 @@ import {
   heuristicIntelligence,
   suggestCategory,
   suggestTitle,
-} from './heuristic';
+} from '../heuristic';
 
 const passport = `REPUBLIC OF EXAMPLE
 PASSPORT

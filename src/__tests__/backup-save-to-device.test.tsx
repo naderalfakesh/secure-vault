@@ -1,16 +1,17 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent } from '@testing-library/react-native';
 import { Directory } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
-import { useEffect } from 'react';
-import { AppState, type AppStateStatus, Platform, Text } from 'react-native';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
 
+import { renderUnlockedScreen } from '@/testing/renderUnlocked';
+import { secureStoreMock } from '@/testing/secureStore';
+import { vaultMock } from '@/testing/vault';
 import vault from '@modules/expo-vault';
 
 import BackupScreen from '../../app/settings/backup';
-import { ToastProvider } from '../components/ui';
 import * as saveModule from '../features/backup/saveToDevice';
-import { SessionProvider, useSession } from '../features/session/SessionProvider';
+import type { useSession } from '../features/session/SessionProvider';
 import { backupService } from '../services/BackupService';
 
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }));
@@ -21,8 +22,6 @@ jest.mock('expo-router', () => ({
 }));
 
 const share = Sharing.shareAsync as jest.Mock;
-const secureStoreMock = SecureStore as unknown as { __reset(): void };
-const vaultMock = vault as unknown as { reset(): void };
 
 const CONTAINER = expect.stringMatching(
   /\/backup\/SecureVault%20backup%20\d{4}-\d{2}-\d{2}\.svbackup$/,
@@ -46,26 +45,11 @@ function foreground() {
   appState.addEventListener.mockImplementation(() => ({ remove: () => {} }));
 }
 
-function Gate() {
-  const value = useSession();
-  useEffect(() => {
-    session = value;
-  });
-  if (value.status !== 'unlocked') return <Text>{value.status}</Text>;
-  return <BackupScreen />;
-}
-
 async function renderUnlocked() {
-  const view = await render(
-    <SessionProvider>
-      <ToastProvider>
-        <Gate />
-      </ToastProvider>
-    </SessionProvider>,
-  );
-  await waitFor(() => expect(view.getByText('setup')).toBeOnTheScreen());
-  await act(async () => {
-    await session.setUp('123456');
+  const view = await renderUnlockedScreen(<BackupScreen />, {
+    onSession: (value) => {
+      session = value;
+    },
   });
   await act(async () => {
     await session.updateSettings({ autoLockSeconds: 0 });
