@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useCallback, useMemo, useRef, useState } from 'react';
+import { type PropsWithChildren, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { motion } from '@/theme/tokens';
 
@@ -10,6 +10,13 @@ export function ToastProvider({ children }: PropsWithChildren) {
   const [toast, setToast] = useState<ToastState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const counter = useRef(0);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const hide = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);

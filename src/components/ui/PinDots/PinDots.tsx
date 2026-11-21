@@ -16,7 +16,7 @@ import { styles } from './PinDots.styles';
 import type { PinDotsProps } from './types';
 
 /** PIN progress: 6 × 14 pt dots that announce "N of 6 digits entered". */
-export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDotsProps) {
+export function PinDots({ count = 6, filled, error = false, shake = 0, testID }: PinDotsProps) {
   const reduceMotion = useReducedMotion();
   const offset = useSharedValue(0);
 
@@ -42,6 +42,7 @@ export function PinDots({ count = 6, filled, error = false, shake = 0 }: PinDots
       accessible
       accessibilityLabel={label}
       accessibilityLiveRegion="polite"
+      testID={testID}
       style={[styles.dots, style]}
     >
       {Array.from({ length: count }).map((_, index) => (

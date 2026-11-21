@@ -1,14 +1,6 @@
 import type { Palette } from '@/theme/colors';
 
-import type { TextTone } from '../Text';
 import type { ListRowTint } from './types';
-
-export const tintFromTone: Partial<Record<TextTone, ListRowTint>> = {
-  accent: 'primary',
-  success: 'success',
-  warning: 'warning',
-  danger: 'danger',
-};
 
 export const tileColors: Record<ListRowTint, { fill: keyof Palette; glyph: keyof Palette }> = {
   primary: { fill: 'primary', glyph: 'onPrimary' },

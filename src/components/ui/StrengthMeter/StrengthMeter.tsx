@@ -13,7 +13,7 @@ import type { StrengthMeterProps } from './types';
 export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
   const { theme } = useUnistyles();
   const strength = estimatePassphraseStrength(passphrase);
-  const label = strength > 0 ? t(`ui.strength.${strength as 1 | 2 | 3 | 4}`) : '';
+  const label = strength === 0 ? '' : t(`ui.strength.${strength}`);
   const color = theme.colors[levelColor[strength]];
 
   return (

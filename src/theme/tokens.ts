@@ -12,9 +12,8 @@ export const spacing = {
   xxxl: 56,
 } as const;
 
-/** Screen margins: grouped content sits 16 from the edge, titles 20. */
+/** Title margin: titles sit 20 from the edge. */
 export const layout = {
-  screenMargin: 16,
   titleMargin: 20,
 } as const;
 
@@ -55,11 +54,8 @@ export const elevation = {
 } as const;
 
 export const motion = {
-  durationFast: 120,
   durationBase: 220,
-  durationSlow: 360,
   spring: { damping: 18, stiffness: 240, mass: 0.8 },
-  listStaggerMs: 40,
   /** Wrong-PIN shake: 3 swings of 8 pt over 300 ms, only without reduced motion. */
   shake: { distance: 8, swings: 3, durationMs: 300 },
   /** Toasts stay 4 s, or 8 s when they carry an action such as Undo. */
@@ -96,11 +92,4 @@ export const controlSize = {
   buttonMedium: 44,
   pinKey: 76,
   iconTile: 30,
-} as const;
-
-/** Icon grid: 24-pt glyphs drawn as 1.75 outline strokes with round caps. */
-export const iconography = {
-  size: 24,
-  small: 20,
-  stroke: 1.75,
 } as const;

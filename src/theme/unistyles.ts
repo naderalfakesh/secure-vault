@@ -1,11 +1,10 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 import { breakpoints } from './breakpoints';
-import { darkColors, lightColors, type Palette } from './colors';
+import { darkColors, lightColors } from './colors';
 import {
   controlSize,
   elevation,
-  iconography,
   layout,
   motion,
   radii,
@@ -16,7 +15,7 @@ import {
 import { typography } from './typography';
 
 export const lightTheme = {
-  colors: lightColors as Palette,
+  colors: lightColors,
   spacing,
   layout,
   radii,
@@ -26,7 +25,6 @@ export const lightTheme = {
   typography,
   touchTarget,
   controlSize,
-  iconography,
 } as const;
 
 export const darkTheme = {

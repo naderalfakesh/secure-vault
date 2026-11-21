@@ -16,6 +16,7 @@ export function Button({
   loading = false,
   loadingLabel,
   icon,
+  accessibilityState,
   ...props
 }: ButtonProps) {
   const { theme } = useUnistyles();
@@ -30,9 +31,9 @@ export function Button({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={shownLabel}
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
       hitSlop={size === 'md' ? 6 : 0}
       {...props}
+      accessibilityState={{ disabled: isDisabled, busy: loading, ...accessibilityState }}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.base(size, plain),

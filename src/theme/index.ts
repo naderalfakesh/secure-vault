@@ -13,7 +13,6 @@ export type { ColorName, Palette } from './colors';
 export {
   controlSize,
   elevation,
-  iconography,
   layout,
   motion,
   radii,

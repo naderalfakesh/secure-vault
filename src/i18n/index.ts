@@ -30,7 +30,8 @@ const languages: Record<string, Language> = {
 const RTL_LANGUAGES = new Set(['ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'ku', 'ps', 'sd', 'ur', 'yi']);
 
 export function isRTLLanguage(languageCode: string | null | undefined): boolean {
-  return Boolean(languageCode) && RTL_LANGUAGES.has(languageCode!.toLowerCase());
+  if (!languageCode) return false;
+  return RTL_LANGUAGES.has(languageCode.toLowerCase());
 }
 
 export type ResolvedLocale = {

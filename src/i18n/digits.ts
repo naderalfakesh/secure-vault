@@ -11,7 +11,7 @@ const EXTENDED_ARABIC_INDIC = '۰۱۲۳۴۵۶۷۸۹';
 export function displayDigit(digit: string, numberingSystem = appLocale().numberingSystem): string {
   const value = Number(digit);
   if (!/^\d$/.test(digit)) return digit;
-  if (numberingSystem === 'arab') return ARABIC_INDIC[value];
-  if (numberingSystem === 'arabext') return EXTENDED_ARABIC_INDIC[value];
+  if (numberingSystem === 'arab') return ARABIC_INDIC[value] ?? digit;
+  if (numberingSystem === 'arabext') return EXTENDED_ARABIC_INDIC[value] ?? digit;
   return digit;
 }

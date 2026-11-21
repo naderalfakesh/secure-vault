@@ -22,6 +22,7 @@ export function PassphraseField({
   error,
   onFocus,
   onBlur,
+  testID,
   ...props
 }: PassphraseFieldProps) {
   const { theme } = useUnistyles();
@@ -37,7 +38,10 @@ export function PassphraseField({
       <Text variant="footnote" tone="secondary" style={styles.label}>
         {label}
       </Text>
-      <View style={[styles.box(state), onGlass && styles.solid(state)]} testID="passphrase-box">
+      <View
+        style={[styles.box(state), onGlass && styles.solid(state)]}
+        testID={testID ? `${testID}-box` : 'passphrase-box'}
+      >
         <TextInput
           value={value}
           onChangeText={onChangeText}
@@ -50,6 +54,7 @@ export function PassphraseField({
           autoComplete="off"
           placeholderTextColor={theme.colors.textTertiary}
           {...props}
+          testID={testID}
           onFocus={(event) => {
             setFocused(true);
             onFocus?.(event);

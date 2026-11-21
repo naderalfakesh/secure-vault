@@ -9,5 +9,4 @@ export const common = {
   'common.tryAgain': 'Try again',
   'common.dismiss': 'Dismiss',
   'common.delete': 'Delete',
-  'common.notNow': 'Not now',
 } as const;

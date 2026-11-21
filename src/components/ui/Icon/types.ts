@@ -1,7 +1,7 @@
 import type { SFSymbol, SymbolWeight } from 'expo-symbols';
 import type { StyleProp, ViewStyle } from 'react-native';
 
-import type { IconPath } from '../iconPaths';
+import type { IconPath } from './iconPaths';
 import type { TextTone } from '../Text';
 import type { icons } from './icons';
 

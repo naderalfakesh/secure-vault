@@ -5,7 +5,7 @@
  * reads as the warmest thing on screen. Every text/background pair is AA in
  * both modes.
  */
-export const lightColors = {
+const light = {
   background: '#F5F6FA',
   surface: '#FFFFFF',
   surfaceMuted: '#EDEFF5',
@@ -31,7 +31,6 @@ export const lightColors = {
   paper: '#FBFAF6',
   viewerStage: '#0B0D14',
   scrim: 'rgba(16,20,42,0.32)',
-  glassFallback: 'rgba(255,255,255,0.74)',
   toastBg: '#1A2036',
   toastText: '#F1F3FA',
   toastAction: '#8EA2FF',
@@ -41,8 +40,11 @@ export const lightColors = {
   skeletonBase: '#EDEFF5',
 };
 
-export type ColorName = keyof typeof lightColors;
+/** The one list of colour names: both palettes are checked against it. */
+export type ColorName = keyof typeof light;
 export type Palette = Record<ColorName, string>;
+
+export const lightColors: Palette = light;
 
 export const darkColors: Palette = {
   background: '#0A0D1A',
@@ -71,7 +73,6 @@ export const darkColors: Palette = {
   paper: '#F3F1EA',
   viewerStage: '#0B0D14',
   scrim: 'rgba(0,0,0,0.55)',
-  glassFallback: 'rgba(30,36,60,0.72)',
   toastBg: '#1A2036',
   toastText: '#F1F3FA',
   toastAction: '#8EA2FF',

@@ -11,6 +11,7 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import { t } from '@/i18n';
 
+import { decorative } from '../a11y';
 import { Text } from '../Text';
 import { RING, RING_LENGTH, RING_RADIUS, RING_STROKE } from './constants';
 import { styles } from './Countdown.styles';
@@ -41,12 +42,7 @@ export function Countdown({ durationMs, still }: CountdownProps) {
   }));
 
   return (
-    <View
-      style={styles.ring}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-      testID="toast-countdown"
-    >
+    <View style={styles.ring} {...decorative} testID="toast-countdown">
       <Svg width={RING} height={RING} style={StyleSheet.absoluteFill}>
         <Circle
           cx={RING / 2}

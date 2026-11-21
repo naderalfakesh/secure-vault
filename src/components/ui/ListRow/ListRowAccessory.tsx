@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { decorative } from '../a11y';
 import { Icon } from '../Icon';
 import { Switch } from '../Switch';
 import type { ListRowAccessoryProps } from './types';
@@ -12,22 +13,19 @@ export function ListRowAccessory({
   pressable,
   destructive,
   disabled,
+  testID,
 }: ListRowAccessoryProps) {
   if (trailing !== undefined) return <>{trailing}</>;
   if (toggle) {
     // The row is the one accessible switch; the native one would be a second
     // stop, and a second touch target that could toggle twice with the row.
     return (
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        pointerEvents="none"
-      >
+      <View {...decorative} pointerEvents="none">
         <Switch
           value={toggle.value}
           onValueChange={toggle.onValueChange}
           disabled={disabled}
-          testID="list-row-switch"
+          testID={testID ? `${testID}-switch` : 'list-row-switch'}
         />
       </View>
     );

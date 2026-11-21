@@ -1,8 +1,12 @@
 import type { IconName } from '../Icon';
+import type { ROWS } from './constants';
+
+/** A digit, or "del" for the backspace key. */
+export type PinKey = Exclude<(typeof ROWS)[number][number], 'bio'>;
 
 export type PinPadProps = {
   /** Called with a digit, or with "del" for the backspace key. */
-  onKey: (key: string) => void;
+  onKey: (key: PinKey) => void;
   /** Omit when biometrics are unavailable; the key is then hidden. */
   onBiometric?: () => void;
   biometricIcon?: IconName;
@@ -11,6 +15,8 @@ export type PinPadProps = {
   disabled?: boolean;
   /** A PIN check is running: presses are ignored, but the pad keeps its look. */
   busy?: boolean;
+  /** Root id; defaults to "pin-pad". */
+  testID?: string;
 };
 
 export type PinPadMetrics = {

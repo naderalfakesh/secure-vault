@@ -1,7 +1,7 @@
 import Svg, { Path } from 'react-native-svg';
 
-import { iconPaths } from '../iconPaths';
 import { ICON_STROKE } from './constants';
+import { iconPaths } from './iconPaths';
 import type { IconGlyphProps } from './types';
 
 /** The bare outline glyph, drawn from the design's path. */

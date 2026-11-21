@@ -1,5 +1,6 @@
 import { View } from 'react-native';
 
+import { decorative } from '../a11y';
 import { LINES } from './constants';
 import { styles } from './PaperThumbnail.styles';
 import type { PaperThumbnailProps } from './types';
@@ -10,12 +11,13 @@ export function PaperThumbnail({
   height = 56,
   radius = 8,
   children,
+  testID,
 }: PaperThumbnailProps) {
   return (
     <View
       style={[styles.paper, { width, height, borderRadius: radius }]}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...decorative}
+      testID={testID}
     >
       {children ?? (
         <View style={styles.lines}>

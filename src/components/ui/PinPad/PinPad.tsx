@@ -21,13 +21,14 @@ export function PinPad({
   biometricLabel = t('ui.pinPad.biometric'),
   disabled = false,
   busy = false,
+  testID = 'pin-pad',
 }: PinPadProps) {
   const blocked = disabled || busy;
   const metrics = usePinPadMetrics();
   return (
     <View
       style={[styles.pad, { gap: metrics.rowGap }, disabled && styles.disabled]}
-      testID="pin-pad"
+      testID={testID}
     >
       {ROWS.map((row, rowIndex) => (
         <View key={rowIndex} style={[styles.row, { gap: metrics.columnGap }]}>

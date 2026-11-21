@@ -29,7 +29,10 @@ export function Group({
           {rows.map((row, index) => (
             <View key={row.key ?? index}>
               {index > 0 ? (
-                <View style={styles.separator(separatorInset)} testID="group-separator" />
+                <View
+                  style={styles.separator(separatorInset)}
+                  testID={testID ? `${testID}-separator` : 'group-separator'}
+                />
               ) : null}
               {row}
             </View>

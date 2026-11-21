@@ -1,7 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { AnimatedStyle } from 'react-native-reanimated';
 
-import type { IconPath } from '../iconPaths';
+import type { IconPath } from '../Icon';
 
 export type MarkProps = {
   /** Tile size: 64 on the lock screen, 80 on the privacy cover, 138 on the splash. */

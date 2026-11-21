@@ -18,20 +18,18 @@ export function ListRow({
   subtitle,
   icon,
   tint,
-  iconTone,
   value,
   toggle,
   checked,
   trailing,
   destructive,
-  tone = 'default',
   divider,
   onPress,
   disabled,
   ...props
 }: ListRowProps) {
   const inGroup = useInGroup();
-  const isDestructive = destructive ?? tone === 'danger';
+  const isDestructive = Boolean(destructive);
   // A switch row toggles from a tap anywhere on it, its label included, or
   // from a screen reader's activation of the row.
   const handlePress = toggle ? undefined : onPress;
@@ -53,7 +51,7 @@ export function ListRow({
       subtitle={subtitle}
       value={value}
       icon={icon}
-      tint={rowTint(tint, isDestructive, iconTone)}
+      tint={rowTint(tint, isDestructive)}
       titleTone={titleTone}
     >
       <ListRowAccessory
@@ -63,6 +61,7 @@ export function ListRow({
         pressable={isPressable}
         destructive={isDestructive}
         disabled={disabled}
+        testID={props.testID}
       />
     </ListRowContent>
   );
@@ -78,6 +77,8 @@ export function ListRow({
         onAccessibilityAction={switchActivation.onAccessibilityAction}
         onPress={switchActivation.onPress}
         disabled={Boolean(disabled)}
+        accessibilityHint={props.accessibilityHint}
+        nativeID={props.nativeID}
         testID={props.testID}
         style={({ pressed }) => [rowStyle, pressed && !disabled && styles.pressed]}
       >
@@ -95,6 +96,8 @@ export function ListRow({
         accessible
         accessibilityLabel={label}
         accessibilityState={disabled ? { disabled: true } : undefined}
+        accessibilityHint={props.accessibilityHint}
+        nativeID={props.nativeID}
         testID={props.testID}
         style={rowStyle}
       >

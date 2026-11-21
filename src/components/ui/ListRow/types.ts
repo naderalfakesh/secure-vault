@@ -13,8 +13,6 @@ export type ListRowProps = Omit<PressableProps, 'style' | 'children'> & {
   subtitle?: string;
   icon?: IconName;
   tint?: ListRowTint;
-  /** @deprecated Use `tint`. Kept so existing rows keep their colour. */
-  iconTone?: TextTone;
   /** Trailing value text, e.g. "After 1 minute". */
   value?: string;
   /** Trailing switch; pressing the row toggles it. */
@@ -25,8 +23,6 @@ export type ListRowProps = Omit<PressableProps, 'style' | 'children'> & {
   trailing?: ReactNode;
   /** Destructive title colour, e.g. "Delete everything". */
   destructive?: boolean;
-  /** @deprecated Use `destructive`. */
-  tone?: 'default' | 'danger';
   /** Separator below the row when it is not inside a Group. */
   divider?: boolean;
 };
@@ -37,6 +33,7 @@ export type ListRowAccessoryProps = Pick<
 > & {
   pressable: boolean;
   destructive: boolean;
+  testID?: string;
 };
 
 export type ListRowContentProps = Pick<ListRowProps, 'title' | 'subtitle' | 'value' | 'icon'> & {

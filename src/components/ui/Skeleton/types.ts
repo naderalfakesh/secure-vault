@@ -5,4 +5,5 @@ export type SkeletonProps = {
   height?: number;
   borderRadius?: number;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 };

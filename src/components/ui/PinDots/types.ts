@@ -5,4 +5,5 @@ export type PinDotsProps = {
   error?: boolean;
   /** Increment to play the shake. Reduced motion skips it. */
   shake?: number;
+  testID?: string;
 };

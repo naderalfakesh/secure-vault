@@ -2,7 +2,9 @@ import { SymbolView } from 'expo-symbols';
 import { I18nManager, Platform, View } from 'react-native';
 import { useUnistyles } from 'react-native-unistyles';
 
+import { decorative } from '../a11y';
 import { MIRRORED } from './constants';
+import { styles } from './Icon.styles';
 import { IconGlyph } from './IconGlyph';
 import { icons } from './icons';
 import type { Glyph, IconProps } from './types';
@@ -21,7 +23,7 @@ export function Icon({
   const { theme } = useUnistyles();
   const tint = color ?? theme.colors[toneToColor[tone]];
   const glyph: Glyph = icons[name];
-  const decorative = !accessibilityLabel;
+  const isDecorative = !accessibilityLabel;
 
   // Directional glyphs are named for a side ("chevron.right"), which neither
   // SF Symbols nor the SVG flips, so both platforms mirror them in a
@@ -36,9 +38,9 @@ export function Icon({
         size={size}
         tintColor={tint}
         weight={weight}
-        style={[{ width: size, height: size }, flip ? MIRRORED : null, style]}
+        style={[styles.box(size), flip ? MIRRORED : null, style]}
         accessibilityLabel={accessibilityLabel}
-        accessibilityElementsHidden={decorative}
+        accessibilityElementsHidden={isDecorative}
         fallback={svg}
       />
     );
@@ -46,11 +48,11 @@ export function Icon({
 
   return (
     <View
-      style={[{ width: size, height: size }, flip ? MIRRORED : null, style]}
+      style={[styles.box(size), flip ? MIRRORED : null, style]}
       accessibilityLabel={accessibilityLabel}
-      accessible={!decorative}
-      accessibilityElementsHidden={decorative}
-      importantForAccessibility={decorative ? 'no-hide-descendants' : 'yes'}
+      accessible={!isDecorative}
+      accessibilityElementsHidden={isDecorative}
+      importantForAccessibility={isDecorative ? decorative.importantForAccessibility : 'yes'}
     >
       {svg}
     </View>

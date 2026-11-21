@@ -2,7 +2,7 @@ import { render } from '@testing-library/react-native';
 import { I18nManager, Platform } from 'react-native';
 
 import { Icon, icons } from '../Icon';
-import { iconPaths } from '../iconPaths';
+import { iconPaths } from '../Icon/iconPaths';
 
 describe('Icon', () => {
   it('covers the design icon set', () => {

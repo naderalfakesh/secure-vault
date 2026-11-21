@@ -5,9 +5,10 @@ import { useUnistyles } from 'react-native-unistyles';
 import { markSvg } from '@/brand/folio';
 import { darkColors, lightColors } from '@/theme/colors';
 
+import { decorative } from '../a11y';
 import { IconGlyph } from '../Icon';
-import { TILE_CORNER } from './constants';
 import { markGlyphSize } from './helpers';
+import { styles } from './Mark.styles';
 import type { MarkProps } from './types';
 
 /**
@@ -32,20 +33,8 @@ export function Mark({
 
   return (
     <Animated.View
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius: Math.round(size * TILE_CORNER),
-          overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: art ? 'transparent' : colors.surfaceMuted,
-        },
-        style,
-      ]}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      style={[styles.tile(size, art ? 'transparent' : colors.surfaceMuted), style]}
+      {...decorative}
       testID={testID}
     >
       {art ? (

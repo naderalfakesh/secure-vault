@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 
-import { CollectionGrid, CollectionTile } from '../CollectionTile';
+import { CollectionGrid } from '../CollectionGrid';
+import { CollectionTile } from '../CollectionTile';
 
 describe('CollectionTile', () => {
   it('names the collection and its count', async () => {

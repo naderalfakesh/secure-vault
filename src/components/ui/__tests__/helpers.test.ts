@@ -38,14 +38,12 @@ describe('buttonFill', () => {
 
 describe('rowTint', () => {
   it('prefers the explicit tint', () => {
-    expect(rowTint('success', true, 'danger')).toBe('success');
+    expect(rowTint('success', true)).toBe('success');
   });
 
-  it('falls back to danger, the legacy tone, then primary', () => {
-    expect(rowTint(undefined, true, undefined)).toBe('danger');
-    expect(rowTint(undefined, false, 'warning')).toBe('warning');
-    expect(rowTint(undefined, false, 'secondary')).toBe('neutral');
-    expect(rowTint(undefined, false, undefined)).toBe('primary');
+  it('falls back to danger, then primary', () => {
+    expect(rowTint(undefined, true)).toBe('danger');
+    expect(rowTint(undefined, false)).toBe('primary');
   });
 });
 

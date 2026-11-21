@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react';
-
 import type { IconName } from '../Icon';
 
 export type CollectionTileProps = {
@@ -9,5 +7,3 @@ export type CollectionTileProps = {
   onPress?: () => void;
   testID?: string;
 };
-
-export type CollectionGridProps = { children: ReactNode };

@@ -9,11 +9,18 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { decorative } from '../a11y';
 import { PULSE_MIN_OPACITY, PULSE_MS, PULSE_RANGE } from './constants';
 import { styles } from './Skeleton.styles';
 import type { SkeletonProps } from './types';
 
-export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style }: SkeletonProps) {
+export function Skeleton({
+  width = '100%',
+  height = 16,
+  borderRadius = 8,
+  style,
+  testID,
+}: SkeletonProps) {
   const reduceMotion = useReducedMotion();
   const pulse = useSharedValue(0);
 
@@ -37,8 +44,8 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
 
   return (
     <Animated.View
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...decorative}
+      testID={testID}
       style={[styles.base, animatedStyle, { width, height, borderRadius }, style]}
     />
   );
