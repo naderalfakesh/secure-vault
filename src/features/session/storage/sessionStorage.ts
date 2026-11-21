@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { LockoutState } from '@/features/auth/lockout';
 import { EMPTY_LOCKOUT, sanitizeLockout, unreadableLockout } from '@/features/auth/lockout';
+import { AppError } from '@/utils/AppError';
 import { SECURE_STORE_ENTRIES, SECURE_STORE_OPTIONS } from '@/utils/secureStore';
 
 import { DEFAULT_SETTINGS, sanitizeSettings, type SecuritySettings } from '../securitySettings';
@@ -105,9 +106,7 @@ export const sessionStorage = {
   async loadPinRecord(): Promise<string | null> {
     const read = await sessionStorage.readPinRecord();
     if (read.state === 'unreadable') {
-      throw Object.assign(new Error('The PIN record could not be read.'), {
-        code: 'PIN_UNREADABLE',
-      });
+      throw new AppError('PIN_UNREADABLE', 'The PIN record could not be read.');
     }
     return read.state === 'present' ? read.value : null;
   },

@@ -1,6 +1,7 @@
 import { type Directory, File } from 'expo-file-system';
 
 import { exportDatabaseFile } from '@/data/database';
+import { AppError } from '@/utils/AppError';
 import vault from '@modules/expo-vault';
 
 import { removeNoFollow } from '../removeNoFollow';
@@ -74,8 +75,7 @@ export async function writeBackup(
   }
   if (failures.length > 0) {
     removeQuietly(target);
-    throw Object.assign(new Error('The backup staging files could not be removed.'), {
-      code: 'BACKUP_STAGING_INVALID',
+    throw new AppError('BACKUP_STAGING_INVALID', 'The backup staging files could not be removed.', {
       cause: failures[0],
     });
   }

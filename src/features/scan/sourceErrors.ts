@@ -1,4 +1,5 @@
-import { errorCode, KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from '@/utils/errors';
+import { resolveErrorMessage } from '@/utils/errorMessages';
+import { KEY_LOCKED_MESSAGE } from '@/utils/errors';
 import { isKeyLocked } from '@modules/expo-vault';
 
 import { scanText, type ScanCopyKey } from './scanCopy';
@@ -10,6 +11,13 @@ const scannerMessages: Record<string, ScanCopyKey> = {
   SCAN_IN_PROGRESS: 'sources.scanBusy',
   NO_ACTIVITY: 'sources.scanNotOpened',
 };
+
+/** The scanner's own codes, which only mean something for the scan source. */
+function scannerSentences(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(scannerMessages).map(([code, key]) => [code, scanText(key)]),
+  );
+}
 
 const sourceFallbacks: Record<Source, ScanCopyKey> = {
   scan: 'sources.scanNotOpened',
@@ -27,10 +35,10 @@ const sourceFallbacks: Record<Source, ScanCopyKey> = {
  */
 export function sourceFailureMessage(source: Source, error: unknown): string {
   if (isKeyLocked(error)) return KEY_LOCKED_MESSAGE;
-  const code = errorCode(error);
-  if (code === 'KEY_INVALIDATED') return KEY_INVALIDATED_MESSAGE;
-  if (source === 'scan' && code && scannerMessages[code]) {
-    return scanText(scannerMessages[code]);
-  }
-  return scanText(sourceFallbacks[source]);
+  return resolveErrorMessage(error, {
+    fallback: scanText(sourceFallbacks[source]),
+    codes: ['KEY_INVALIDATED'],
+    overrides: source === 'scan' ? scannerSentences() : undefined,
+    vetMessage: () => undefined,
+  });
 }

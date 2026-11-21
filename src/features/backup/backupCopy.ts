@@ -1,5 +1,6 @@
 import { t, tp } from '@/i18n';
 import { backup } from '@/i18n/en/backup';
+import { PartialRestoreError } from '@/services/backup/errors';
 import { describeBackupError, describeBackupErrorPlainly } from '@/services/BackupService';
 import { errorCode } from '@/utils/errors';
 import { formatDate } from '@/utils/format';
@@ -82,9 +83,9 @@ export function restoreOutcome(error: unknown): RestoreOutcome {
     case 'BACKUP_NO_SPACE':
       return { kind: 'close', message: describeBackupError(error) };
     case 'BACKUP_PARTIAL': {
-      const stoppedAt = (error as { stoppedAt?: { entry: number; total: number } | null })
-        .stoppedAt;
-      return { kind: 'partial', message: describeBackupError(error), stoppedAt: stoppedAt ?? null };
+      // A partial restore the native module reports itself carries no entry to name.
+      const stoppedAt = error instanceof PartialRestoreError ? error.stoppedAt : null;
+      return { kind: 'partial', message: describeBackupError(error), stoppedAt };
     }
     case 'BACKUP_INDEX':
       return { kind: 'index', message: describeBackupError(error) };

@@ -1,3 +1,5 @@
+import { AppError } from '@/utils/AppError';
+
 import type { RestoreOutcome } from '../backupCopy';
 import type { PickedBackup, Stage } from './types';
 
@@ -26,6 +28,6 @@ export function startingProgress(entries: number): Extract<Stage, { name: 'runni
 }
 
 /** The error a cancel before the native call stands for. */
-export function cancelledError(): Error {
-  return Object.assign(new Error('cancelled'), { code: 'BACKUP_CANCELLED' });
+export function cancelledError(): AppError {
+  return new AppError('BACKUP_CANCELLED', 'cancelled');
 }

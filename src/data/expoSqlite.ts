@@ -6,11 +6,12 @@ import {
 } from 'expo-sqlite';
 
 import { t } from '@/i18n';
+import { AppError } from '@/utils/AppError';
 
 import type { SqlDatabase, SqlValue } from './sql';
 
-function closedError(): Error {
-  return Object.assign(new Error('The document index was closed.'), { code: 'INDEX_CLOSED' });
+function closedError(): AppError {
+  return new AppError('INDEX_CLOSED', 'The document index was closed.');
 }
 
 /**
@@ -109,9 +110,7 @@ export async function openEncryptedDatabase(name: string, hexKey: string): Promi
     // only SQLCipher answers cipher_version. Checked before anything is written.
     const cipher = await db.getFirstAsync<{ cipher_version?: unknown }>('PRAGMA cipher_version');
     if (typeof cipher?.cipher_version !== 'string' || cipher.cipher_version === '') {
-      throw Object.assign(new Error(t('errors.index.noCipher')), {
-        code: 'SQLCIPHER_UNAVAILABLE',
-      });
+      throw new AppError('SQLCIPHER_UNAVAILABLE', t('errors.index.noCipher'));
     }
     await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
     // Any query fails with "file is not a database" when the key is wrong.

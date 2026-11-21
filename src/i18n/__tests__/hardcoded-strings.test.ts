@@ -41,6 +41,9 @@ describe('string table coverage', () => {
     expect(caught('const a = <Text variant="pinDigit">{displayDigit(key)}</Text>;')).toBe(false);
     expect(caught("const a = <Icon name={on ? 'eyeOff' : 'eye'} />;")).toBe(false);
     expect(caught("throw new Error('The stored key is malformed.');", 'a.ts')).toBe(false);
+    expect(
+      caught("throw new AppError('INDEX_CLOSED', 'The document index was closed.');", 'a.ts'),
+    ).toBe(false);
     expect(caught("console.error('Failed to load documents:', e);", 'a.ts')).toBe(false);
     expect(caught("const sql = 'SELECT id FROM documents WHERE id = ?';", 'a.ts')).toBe(false);
     expect(caught("const x = 'Untitled document'; // i18n-ignore: stored data", 'a.ts')).toBe(

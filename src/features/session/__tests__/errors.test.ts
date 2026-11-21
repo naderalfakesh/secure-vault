@@ -1,7 +1,7 @@
 import { t } from '@/i18n';
 import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 
-import { describeError, errorCode, KEY_NOT_UNLOCKED, keyNotUnlocked } from '../errors';
+import { describeError, KEY_NOT_UNLOCKED, keyNotUnlocked } from '../errors';
 
 describe('describeError', () => {
   it('says what a cancelled key prompt means where it happened', () => {
@@ -22,13 +22,5 @@ describe('describeError', () => {
     expect(describeError(new Error('The OS said no'), 'fallback')).toBe('The OS said no');
     expect(describeError(new Error(''), 'fallback')).toBe('fallback');
     expect(describeError('nope', 'fallback')).toBe('fallback');
-  });
-});
-
-describe('errorCode', () => {
-  it('reads the code of an object and nothing else', () => {
-    expect(errorCode({ code: 'X' })).toBe('X');
-    expect(errorCode(null)).toBeUndefined();
-    expect(errorCode('X')).toBeUndefined();
   });
 });

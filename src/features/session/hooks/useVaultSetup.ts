@@ -11,10 +11,11 @@ import { EMPTY_LOCKOUT, type LockoutState } from '@/features/auth/lockout';
 import { hashPasscodeAsync } from '@/features/auth/passcode';
 import { t } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
+import { errorCode } from '@/utils/errors';
 import vault from '@modules/expo-vault';
 
 import { KEY_PROBE_ENTRY } from '../constants';
-import { describeError, errorCode } from '../errors';
+import { describeError } from '../errors';
 import { launchStatus } from '../helpers';
 import { readLaunchState } from '../launchState';
 import { type SecuritySettings, sessionStorage } from '../settings';

@@ -10,11 +10,11 @@ import {
 
 import { type LockoutState, unreadableLockout } from '@/features/auth/lockout';
 import { t } from '@/i18n';
-import { KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
+import { errorCode, KEY_INVALIDATED_MESSAGE } from '@/utils/errors';
 import vault, { type BiometryType } from '@modules/expo-vault';
 
 import { KEY_PROBE_ENTRY } from '../constants';
-import { describeError, errorCode, keyNotUnlocked } from '../errors';
+import { describeError, keyNotUnlocked } from '../errors';
 import { reconcileInstall } from '../freshInstall';
 import { launchStatus } from '../helpers';
 import { readLaunchState } from '../launchState';

@@ -1,4 +1,9 @@
-import { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE, plainErrorMessage } from '../errors';
+import {
+  errorCode,
+  KEY_INVALIDATED_MESSAGE,
+  KEY_LOCKED_MESSAGE,
+  plainErrorMessage,
+} from '../errors';
 
 describe('plainErrorMessage', () => {
   it('turns a cancelled or lapsed device key prompt into the plain sentence', () => {
@@ -65,5 +70,14 @@ describe('plainErrorMessage', () => {
     expect(plainErrorMessage(new Error('Pick 1/2 pages first.'), fallback)).toBe(
       'Pick 1/2 pages first.',
     );
+  });
+});
+
+describe('errorCode', () => {
+  it('reads the code of an object and nothing else', () => {
+    expect(errorCode({ code: 'X' })).toBe('X');
+    expect(errorCode({ code: 7 })).toBeUndefined();
+    expect(errorCode(null)).toBeUndefined();
+    expect(errorCode('X')).toBeUndefined();
   });
 });

@@ -1,21 +1,10 @@
 import { isKeyLocked } from '@modules/expo-vault';
 
 import { t } from '../i18n';
+import { KEY_LOCKED_MESSAGE, resolveErrorMessage } from './errorMessages';
 
-/** The index's own sentence for a device key that was not unlocked (see `src/data/store/errors.ts`). */
-export const KEY_LOCKED_MESSAGE = t('errors.keyLocked');
-
-export const KEY_INVALIDATED_MESSAGE = t('errors.keyInvalidated');
-
-/**
- * The `code` a native module, the index or a service put on a thrown error,
- * or undefined when it carries none. The one place that reads it.
- */
-export function errorCode(error: unknown): string | undefined {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const { code } = error as { code?: unknown };
-  return typeof code === 'string' ? code : undefined;
-}
+export { errorCode } from './AppError';
+export { KEY_INVALIDATED_MESSAGE, KEY_LOCKED_MESSAGE } from './errorMessages';
 
 /** SQLite's own text for an index it cannot read (SQLITE_NOTADB): a wrong key or a damaged file. */
 const NOT_A_DATABASE = /\bfile is (encrypted or is )?not a database\b/i;
@@ -28,13 +17,14 @@ const NOT_A_DATABASE = /\bfile is (encrypted or is )?not a database\b/i;
  */
 export function plainErrorMessage(error: unknown, fallback: string): string {
   if (isKeyLocked(error)) return KEY_LOCKED_MESSAGE;
-  if (errorCode(error) === 'KEY_INVALIDATED') return KEY_INVALIDATED_MESSAGE;
-  if (error instanceof Error && NOT_A_DATABASE.test(error.message)) {
-    return t('errors.index.notOpened');
-  }
-  if (!(error instanceof Error) || !error.message) return fallback;
-  if (namesPath(error.message) || isNativeDiagnostic(error.message)) return fallback;
-  return error.message;
+  return resolveErrorMessage(error, {
+    fallback,
+    codes: ['KEY_INVALIDATED'],
+    vetMessage: (message) => {
+      if (NOT_A_DATABASE.test(message)) return t('errors.index.notOpened');
+      return namesPath(message) || isNativeDiagnostic(message) ? undefined : message;
+    },
+  });
 }
 
 /**

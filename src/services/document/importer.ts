@@ -3,6 +3,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import { t } from '@/i18n';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
+import { AppError } from '@/utils/AppError';
 import ExpoVaultModule from '@modules/expo-vault';
 
 import { removeNoFollow } from '../removeNoFollow';
@@ -178,12 +179,7 @@ async function getLocalFilePath(cacheUri: string, uri: string): Promise<string> 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const stalled = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () =>
-        reject(
-          Object.assign(new Error('The file took too long to read.'), {
-            code: 'IMPORT_COPY_TIMEOUT',
-          }),
-        ),
+      () => reject(new AppError('IMPORT_COPY_TIMEOUT', 'The file took too long to read.')),
       IMPORT_COPY_TIMEOUT_MS,
     );
   });

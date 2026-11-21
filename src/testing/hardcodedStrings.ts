@@ -50,7 +50,7 @@ function literalText(node: ts.Node): string | null {
   return null;
 }
 
-const EXEMPT_CALLEE = /^(Error|TypeError|RangeError)$|^console\.|^jest\.|^require$/;
+const EXEMPT_CALLEE = /^(Error|TypeError|RangeError|AppError)$|^console\.|^jest\.|^require$/;
 
 /** A literal that can't reach a person: errors, logs, imports, types, object keys. */
 function isExempt(node: ts.Node): boolean {
