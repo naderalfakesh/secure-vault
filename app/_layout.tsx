@@ -5,6 +5,7 @@ import { useUnistyles } from 'react-native-unistyles';
 import { AppProviders } from '@/features/navigation/AppProviders';
 import { HeaderBackButton } from '@/features/navigation/HeaderBackButton';
 import { holdNativeSplash } from '@/features/navigation/launchSplash';
+import { useStatusBarStyle } from '@/features/navigation/statusBarStyle';
 import { useRootGate } from '@/features/navigation/useRootGate';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SplashHandoff } from '@/features/session/SplashHandoff';
@@ -14,6 +15,7 @@ holdNativeSplash();
 function RootNavigator() {
   const { status, ready, released, endHandoff, animation } = useRootGate();
   const { theme } = useUnistyles();
+  const statusBarStyle = useStatusBarStyle();
   const unlocked = status === 'unlocked';
   const header = {
     headerShown: true,
@@ -35,7 +37,9 @@ function RootNavigator() {
 
   return (
     <>
-      <Stack screenOptions={{ headerShown: false, animation }}>
+      {/* iOS takes the status bar style from the screen's view controller, so
+        the <StatusBar> in the root layout only reaches Android. */}
+      <Stack screenOptions={{ headerShown: false, animation, statusBarStyle }}>
         {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
         <Stack.Protected guard={unlocked}>
           <Stack.Screen name="(tabs)" />
@@ -67,9 +71,10 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const statusBarStyle = useStatusBarStyle();
   return (
     <AppProviders>
-      <StatusBar style="auto" />
+      <StatusBar style={statusBarStyle} />
       <RootNavigator />
       <SecurityOverlay />
     </AppProviders>
