@@ -1,200 +1,167 @@
-<p align="center"><img src="assets/icon.png" alt="SecureVault app icon: a sheet of paper closed with a brass seal" width="96" /></p>
-
 # SecureVault
 
-**A document vault for passports, IDs, leases, and receipts, rebuilt from a 2025 prototype into a production-shaped React Native app with AES-256-GCM encryption under a hardware-bound key (Secure Enclave on iOS, Android Keystore), an encrypted search index, on-device scanning and text reading, and passphrase-protected backups.**
+**A private document vault for your phone: scan a passport, a lease or a receipt once, and find it in seconds — encrypted on the device, on iPhone and Android.**
 
-> SecureVault is a technical portfolio project. The screenshots show
-> synthetic sample documents made for this purpose; it is not a published
-> product.
+SecureVault is a portfolio project by [Nadir Alfakesh](https://naderalfakesh.com):
+one person taking a product from design to a tested, working app. Every
+document shown here is a fictional sample; it is not a published product.
+
+<p align="center">
+  <img src="docs/securevault-loop.gif" alt="Animated tour: importing a sample passport with suggested details, searching for a word inside a lease, the details found on the device, unlocking with Face ID, and switching to dark mode" width="760" />
+</p>
+
+<p align="center">
+  <a href="docs/securevault-promo.mp4"><strong>▶ Watch the 84-second walkthrough with sound</strong></a>
+</p>
+
+## At a glance
+
+- **A complete product, not a screen mock-up.** Set-up, scanning and import,
+  search, a page viewer, sharing, backup and settings all work end to end.
+- **Private by design.** There is no account and no server. Documents are
+  encrypted on the phone and open only with Face ID, a fingerprint or a PIN.
+- **It reads the page for you.** Add a document and the app suggests its
+  title, its collection and its dates, and warns you before something expires.
+- **Find anything.** Search looks inside the documents, not only at their
+  names.
+- **Tested like production software.** More than 1,100 automated tests run on
+  every change, plus separate tests for the encryption code on each platform.
+- **One codebase, two platforms.** The same React Native code ships to iOS and
+  Android, with native Swift and Kotlin where security needs it.
+
+## Screens
+
+| Welcome                                                                                                                 | Suggested details                                                                                                                                       | Library                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| <img src="docs/images/readme/welcome.png" alt="First intro screen: one place for the papers that matter" width="250" /> | <img src="docs/images/readme/suggestions.png" alt="New document form with a suggested title, collection and the dates found in the text" width="250" /> | <img src="docs/images/readme/library.png" alt="Library with documents expiring soon and recent documents" width="250" /> |
+
+| Search inside documents                                                                                                          | Details found on the device                                                                                                              | Dark mode                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| <img src="docs/images/readme/search.png" alt="Search for the word landlord finding a lease by the text inside it" width="250" /> | <img src="docs/images/readme/details.png" alt="Viewer with the details sheet showing the expiry date and tags of a lease" width="250" /> | <img src="docs/images/readme/dark-library.png" alt="Library in the dark theme" width="250" /> |
+
+## What you can do in it
+
+- **Set it up in a minute** — a short intro, a 6-digit PIN, then Face ID,
+  Touch ID or a fingerprint. Repeated wrong PINs lock the keypad for longer
+  each time.
+- **Add documents** — scan with the camera (several pages at once), take a
+  photo, or import a photo or a PDF.
+- **Let it fill in the details** — the text is read on the phone, and a
+  title, a collection, tags, dates and numbers are suggested for you to accept
+  or change.
+- **Find and view** — full-text search, collections, an "Expiring soon" row,
+  and a pinch-to-zoom page viewer.
+- **Share safely** — send a copy under the document's own name, optionally
+  after a second Face ID check, and undo a delete.
+- **Back it up** — one passphrase-protected backup file that restores on
+  either platform.
+- **Make it yours** — light, dark or automatic, auto-lock timing, and a
+  privacy cover that hides the vault in the app switcher and blocks screenshots.
+
+## How it is built
+
+For engineers: the short version of what is under the hood.
+
+| Area       | Choice                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| App        | React Native 0.88, React 19.3, Expo SDK 58, TypeScript 6 (strict), React Compiler            |
+| Navigation | Expo Router with typed routes and `Stack.Protected` guards around the lock gate              |
+| UI         | Unistyles 3 with light and dark themes and a small accessible design system                  |
+| Native     | Three local Expo Modules in Swift and Kotlin: the vault, the document scanner, document AI   |
+| Storage    | expo-sqlite with SQLCipher and FTS5 for the index; encrypted files in the vault module       |
+| Crypto     | AES-256-GCM in 1 MiB chunks; PBKDF2-HMAC-SHA256 for the PIN and backup keys                  |
+| Text       | Apple Vision (iOS) and ML Kit (Android), with Foundation Models or Gemini Nano where present |
+| Quality    | Jest, React Native Testing Library, XCTest, JUnit with Robolectric, ESLint, Prettier         |
+
+```mermaid
+flowchart LR
+    Screens["Expo Router screens"] --> Session["Session: lock gate, PIN, auto-lock"]
+    Screens --> Features["Feature hooks and components"]
+    Features --> Services["Document, backup and OCR services"]
+    Services --> Index["SQLCipher index with FTS5"]
+    Services --> Vault["expo-vault: Secure Enclave / Keystore, AES-256-GCM"]
+    Services --> AI["expo-document-ai: Vision, on-device models"]
+    Index --> Vault
+```
+
+Decisions worth a look:
+
+- **The key never leaves secure hardware's protection.** On iOS a random key
+  is sealed to a Secure Enclave key, so only this iPhone can open the vault
+  and only after Face ID, Touch ID or the passcode; on Android a
+  non-exportable Keystore key does the same job
+  ([ADR 0009](docs/adr/0009-hardware-bound-device-key.md)).
+- **Search without a plaintext index.** Titles, tags and extracted text live
+  in SQLCipher with FTS5; the index key is stored encrypted under the device
+  key ([ADR 0002](docs/adr/0002-encrypted-sqlite-index-and-key-hierarchy.md)).
+- **Suggestions that cannot invent facts.** Where the phone has an on-device
+  language model it proposes the details, and every date and number must
+  appear in the scanned text before the form shows it; elsewhere text patterns
+  do the job ([ADR 0008](docs/adr/0008-on-device-language-models.md)).
+- **No Google code on iOS.** Apple Vision reads text there
+  ([ADR 0011](docs/adr/0011-apple-vision-text-recognition-on-ios.md)).
+  Android uses ML Kit, which sends Google usage metrics but not images or
+  text; [docs/SECURITY.md](docs/SECURITY.md) says so plainly.
+- **Backups that fail safely.** A `.svbackup` file is checked in full before
+  the restore touches the vault; a wrong passphrase or a damaged file changes
+  nothing ([ADR 0007](docs/adr/0007-passphrase-protected-backup-container.md)).
+- **Accessible by default.** Dynamic Type up to 2×, 44 pt touch targets,
+  screen-reader labels and reduced-motion handling in the design system.
+
+**Tests:** `npm run validate` runs formatting, lint, strict type checks,
+144 Jest suites with 1,128 tests and Expo Doctor. The Jest suites run the real
+repository against SQLite with FTS5. The vault module's Swift and Kotlin code
+has its own tests (21 XCTest and 25 JUnit cases) that read shared test
+vectors written by an independent Node implementation of the file formats, so
+each platform is checked against bytes neither app wrote. CI runs all of it
+on every push to `main` and every pull request. More in the [security model](docs/SECURITY.md), the
+[modernization plan](docs/MODERNIZATION_PLAN.md), the
+[architecture decisions](docs/adr/) and the
+[verification notes](docs/verification/).
 
 [![CI](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/ci.yml)
 [![Native tests](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml/badge.svg)](https://github.com/naderalfakesh/secure-vault/actions/workflows/native-tests.yml)
 
-<p align="center">
-  <img src="docs/images/demo-ios.gif" alt="SecureVault on iOS: Face ID unlock, importing a sample passport with its suggested collection, dates and number, full-text search for a word inside a document, and the viewer" width="300" />
-</p>
-
-<p align="center"><sub>Face ID unlock, an import with on-device suggestions, full-text search, and the viewer. iOS simulator, fictional sample documents.</sub></p>
-
-| Library                                                                                                                  | Viewer, always on a dark stage                                                                                      | Add a document                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| <img src="docs/images/redesign-ios-library-light.png" alt="Library with recent documents and collections" width="260" /> | <img src="docs/images/redesign-ios-viewer-dark.png" alt="Viewer showing a sample car insurance page" width="260" /> | <img src="docs/images/redesign-ios-add-light.png" alt="Add a document: scan, photo, Photos or a file" width="260" /> |
-
-| Lock screen                                                                                                      | Backup hub (Android)                                                                                             | Dark mode (Android)                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| <img src="docs/images/redesign-ios-lock-dark.png" alt="Lock screen with a PIN keypad and Face ID" width="260" /> | <img src="docs/images/redesign-android-backup-light.png" alt="Backup hub with create and restore" width="260" /> | <img src="docs/images/redesign-android-library-dark.png" alt="Library in dark mode on Android" width="260" /> |
-
-## The rebuild
-
-The first SecureVault was a 2025 Expo SDK 53 prototype, preserved under the
-[`legacy-v1`](https://github.com/naderalfakesh/secure-vault/tree/legacy-v1)
-tag: a biometric prompt, a native AES-GCM module, and a JSON index that was
-decrypted whole on every launch. It worked as a demo and fell over as a
-product: no session, no PIN, no search index, one-shot photos, a backup only
-its own device could read.
-
-The rebuild kept the prototype's one good idea, a small Swift and Kotlin vault
-module with a platform-protected key, and replaced everything around it in nine
-phases: Expo SDK 57 and React Native 0.86 on the New Architecture, a real
-session model, an encrypted SQLite index with full-text search, the platform
-document scanners, on-device text reading with suggestions, a page viewer,
-and a portable backup format. Each phase ended with a green `npm run validate`,
-a native run, and a note under [`docs/verification/`](docs/verification/).
-The runs covered both platforms except Phase 2 (the design system), which ran
-on iOS only; Android was rebuilt in Phase 3. The
-[modernization plan](docs/MODERNIZATION_PLAN.md) records the sequence and
-[`docs/adr/`](docs/adr/) the decisions.
-
-## Features
-
-- Onboarding with illustrated slides in the app icon's style, a 6-digit PIN with escalating lockout, Face ID, Touch ID, or
-  the device credential, auto-lock with a solid privacy cover, and an optional second
-  biometric check before anything is shared
-- Every file encrypted with AES-256-GCM under a device key: on iOS a random
-  key sealed to a Secure Enclave key, so only this iPhone can open it and
-  only after Face ID, Touch ID or the passcode
-  ([ADR 0009](docs/adr/0009-hardware-bound-device-key.md)); on Android a
-  non-exportable Android Keystore key, held in secure hardware on phones
-  that have it.
-  Thumbnails and pages encrypted separately so lists stay fast
-- A SQLCipher index with FTS5 search over titles, tags, and extracted text;
-  the prototype's JSON index migrates on first open
-- VisionKit (iOS) and ML Kit (Android) document scanning with multi-page capture, plus
-  Photos and Files as secondary sources; PDFs rendered natively so one viewer
-  handles everything
-- On-device text reading with suggested titles, categories, tags, and typed
-  fields; expiry dates surface on Home as "Expiring soon". Where the phone
-  has an on-device language model (Apple Foundation Models on iOS 26 with
-  Apple Intelligence, Gemini Nano through Android AICore) it makes the
-  suggestions, and every date and number it proposes must appear in the
-  scanned text before the form shows it; elsewhere text patterns do the same
-  job ([ADR 0008](docs/adr/0008-on-device-language-models.md)). Text is read on
-  the device: by Apple's Vision framework on iOS, with no Google framework in
-  the build ([ADR 0011](docs/adr/0011-apple-vision-text-recognition-on-ios.md)),
-  and by Google ML Kit on Android (where pages are also scanned by the Google
-  Play services document scanner). On Android, ML Kit sends Google usage and
-  performance metrics, which include a per-installation identifier. Google
-  says ML Kit does not send your images or the text it reads. This cannot be
-  turned off (see `docs/SECURITY.md`)
-- A pinch-zoom page viewer with a thumbnail strip, sharing under the
-  document's own name with guaranteed cleanup, and delete with undo
-- Passphrase-protected `.svbackup` files that hold the documents and the
-  index and restore across platforms; a wrong passphrase fails before
-  anything is touched
-- Light and dark themes, Dynamic Type up to 2x, reduced-motion handling, and
-  44 pt touch targets throughout the design system
-
-The Android release build has been tested on a Pixel 9 (Android 17), see
-[the device note](docs/verification/device-pixel9-android.md). A physical
-iPhone, spoken VoiceOver and TalkBack passes, and the Maestro flow remain for
-release sign-off.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    Routes["Expo Router screens"] --> Session["Session provider: status, PIN, auto-lock"]
-    Routes --> Features["Feature hooks and components"]
-    Features --> Services["Document, backup, and OCR services"]
-    Services --> Repo["Document repository over SQLCipher + FTS5"]
-    Services --> Vault["expo-vault: Secure Enclave / Keystore, AES-256-GCM streams, PDF pages, backups"]
-    Services --> Intelligence["Document intelligence: on-device model or text patterns"]
-    Intelligence --> DocumentAi["expo-document-ai: Foundation Models / Gemini Nano"]
-    Features --> Scanner["expo-document-scanner: VisionKit / ML Kit"]
-    Repo --> Vault
-```
-
-Screens read one session status and only mount document routes while it is
-`unlocked`. Services own the two stores a document lives in: encrypted bytes
-in the vault module and searchable rows in the index. The vault module is
-the only code that touches keys; the index key is stored encrypted under the
-device key and the backup key derives from a passphrase, never from anything
-stored in plain. The
-[security model](docs/SECURITY.md) draws the full key hierarchy.
-
-## Technology
-
-| Area       | Choice                                                                                                                                                              |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime    | Expo SDK 58, React Native 0.88, React 19.3, New Architecture, React Compiler                                                                                        |
-| Navigation | Expo Router with typed routes and `Stack.Protected` guards                                                                                                          |
-| Styling    | Unistyles 3 with light and dark themes and a small accessible design system                                                                                         |
-| Native     | Three local Expo Modules in Swift and Kotlin: the vault, the document scanner, and on-device document AI                                                            |
-| Storage    | expo-sqlite with SQLCipher and FTS5; expo-secure-store for the PIN record and settings                                                                              |
-| Crypto     | AES-256-GCM in 1 MiB chunks, PBKDF2-HMAC-SHA256 for the PIN and backup keys                                                                                         |
-| Text       | Apple Vision (iOS) and ML Kit (Android) text recognition; Apple Foundation Models or Gemini Nano on the device, checked against the text, with a heuristic fallback |
-| Quality    | Strict TypeScript 6, Jest with React Native Testing Library and a real SQLite, XCTest and JUnit with shared vectors, ESLint, Prettier, Expo Doctor                  |
-
-## Quality
-
-CI runs `npm run check` on every push: formatting, lint, strict types, and
-the Jest suites. Expo Doctor runs in a workflow of its own, also weekly, so an
-Expo patch release flags drift without failing the build. The repository tests run against a real
-SQLite with FTS5; the vault module ships a Jest double so services and
-screens run unchanged.
-
-The vault module's own Swift and Kotlin code has native tests in a third
-workflow. Both suites read the same vectors in
-[`modules/expo-vault/tests/fixtures`](modules/expo-vault/tests/fixtures),
-written by an independent Node implementation of the three file formats
-(SVC1 streams, SVS1 string entries, SVB1 backups) from their spec. So each
-platform is checked against bytes neither app wrote: altered, reordered and
-cut chunks, wrong passphrases, unsupported headers, and backups damaged only
-in their last entry, which must be refused before the restore touches the
-vault. The Swift formats build as a plain Swift package and run with
-`swift test` on the Mac; the Kotlin tests run on the JVM with Robolectric.
-
-Native evidence covers iOS and Android development
-builds on the simulator and the emulator for every phase except Phase 2
-(iOS only), including a backup made on the iPhone simulator and restored on
-the Android emulator. The release APK passed the Android checks on a Pixel 9
-([device notes](docs/verification/device-pixel9-android.md)); the iPhone
-pass is still to do. The per-phase records live under
-[`docs/verification/`](docs/verification/).
-
-## Project structure
-
 ```text
 app/                     Expo Router routes: lock, setup, tabs, documents, settings
+src/screens/             One folder per screen: components, hooks, helpers
 src/components/ui/       Accessible design-system primitives
-src/features/            Session, auth, documents, intelligence, viewer
-src/services/            Document, backup, and OCR services
-src/data/                Repository, schema and migrations, SQLCipher adapter
-src/theme/               Colors, tokens, typography, Unistyles setup
-src/brand/               The sealed folio mark: one SVG for icons, splash and in-app mark
+src/features/            Session, auth, documents, scan, backup, viewer
+src/services/            Document, backup and OCR services
+src/data/                SQLCipher index: schema, migrations, repository
 modules/expo-vault/      Swift and Kotlin vault: keys, encrypted files, PDF pages, backups
 modules/expo-document-scanner/  VisionKit and ML Kit scanner
-modules/expo-document-ai/       Apple Vision text reading; Foundation Models and Gemini Nano suggestions
-scripts/brand/           Renders every icon and splash PNG (npm run assets:icons)
-plugins/                 Config plugins: biometric strings, SQLCipher OpenSSL
-docs/                    Plan, security model, ADRs, verification records, screenshots
+modules/expo-document-ai/       Apple Vision text reading and on-device models
+docs/                    Plan, security model, ADRs, verification notes
 ```
 
-## Run locally
+## Run it locally
 
-Prerequisites: Node.js 24 (`.nvmrc`), npm, Xcode 27 with CocoaPods for iOS, and
-Android Studio with an SDK and JDK 17 or 21 for Android (the JDK 25 that
-recent Android Studio builds bundle fails the Gradle prefab step). Expo Go is
-not a supported runtime; the app needs a development build for its native
-modules.
+Nothing to sign up for: the app has no backend.
 
 ```sh
 npm install
-npm run validate
 npx expo prebuild --clean
-npm run ios
-# or pick a simulator from `xcrun simctl list devices available`:
-# npm run ios -- --device "<simulator name>"
-# or
-npm run android
+npm run ios        # or: npm run android
 ```
 
-On the iOS simulator, enrol Face ID under Features before the first unlock;
-VisionKit's scanner needs a physical iPhone, and the simulator has no
-camera, so there the photo row is disabled and documents come from Photos or
-Files. On the Android emulator, set a screen lock first
-(`adb shell locksettings set-pin 1234`) because the vault key requires one.
+<details>
+<summary>Prerequisites, simulator notes and commands</summary>
+
+- Node.js 24 (`.nvmrc`) and npm.
+- iOS: Xcode 27 with CocoaPods. Pick a simulator with
+  `npm run ios -- --device "<simulator name>"`.
+- Android: Android Studio with an SDK and a JDK 17 or 21. Point `JAVA_HOME`
+  at one of those; the JDK 25 that recent Android Studio builds bundle fails
+  the Gradle prefab step.
+- Expo Go is not supported; the app needs a development build for its native
+  modules.
+
+On the iOS simulator, enrol Face ID under Features before the first unlock.
+The simulator has no camera, so the scan and photo rows are disabled there
+and documents come from Photos or Files. On the Android emulator, set a
+screen lock first (`adb shell locksettings set-pin 1234`) because the vault
+key requires one.
 
 | Command                           | Purpose                                                    |
 | --------------------------------- | ---------------------------------------------------------- |
@@ -205,15 +172,20 @@ Files. On the Android emulator, set a screen lock first
 | `npm run test:native:android`     | Run the vault's Kotlin tests (after `expo prebuild`)       |
 | `npm run validate`                | Run formatting, lint, strict types, tests, and Expo Doctor |
 
-## Historical context
+</details>
 
-The prototype's plan and its state before the rebuild are kept in
-[`docs/legacy-project-plan.md`](docs/legacy-project-plan.md) and the
-[legacy baseline](docs/verification/legacy-baseline.md). The
-current interface, screenshots, and native code are new work.
+## Background
 
-## Contributing and license
+SecureVault began in 2025 as an Expo SDK 53 prototype, preserved under the
+[`legacy-v1`](https://github.com/naderalfakesh/secure-vault/tree/legacy-v1)
+tag. This version is a full rebuild in nine phases with a new interface; it
+kept the prototype's one good idea, a small Swift and Kotlin vault module
+with a platform-protected key. The
+[legacy baseline](docs/verification/legacy-baseline.md) records the original
+audit. The Android release build has been tested on a Pixel 9
+([device note](docs/verification/device-pixel9-android.md)); a pass on a
+physical iPhone is still to do.
 
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md): fictional documents
-only, single-line conventional commits, and `npm run validate` before review.
-The code is available under the [MIT License](LICENSE).
+## License
+
+[MIT](LICENSE). Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
