@@ -100,8 +100,8 @@ module.exports = defineConfig([
   },
   {
     // ADR 0010: files stay small, and styles live in a sibling *.styles.ts.
-    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
-    ignores: ['**/__tests__/**', '**/*.test.{ts,tsx}'],
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}', 'modules/*/src/**/*.ts'],
+    ignores: ['**/__tests__/**', '**/*.test.{ts,tsx}', '**/*.mock.ts'],
     rules: {
       'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
     },
