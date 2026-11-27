@@ -1,11 +1,7 @@
 package expo.modules.vault
 
-import android.system.ErrnoException
-import android.system.Os
-import android.system.OsConstants
 import org.json.JSONObject
 import java.io.DataOutputStream
-import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -17,9 +13,6 @@ import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
 import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
-import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Passphrase-protected backup container, identical on iOS and Android:
@@ -52,31 +45,15 @@ object BackupContainer {
 
     /**
      * The one folder export plaintext may be staged in, `<cacheDir>/backup-staging`, or restore
-     * plaintext, `<cacheDir>/restore-staging`. The requested path is canonicalised (symlinks and
-     * `..` resolved) and compared exactly with the app's own cache location, so a sweep can never
-     * reach the cache root, the vault, or whatever a planted link points at. Only this type can be
-     * handed to [write], [read] and [sweep].
+     * plaintext, `<cacheDir>/restore-staging`. Only this type can be handed to [write], [read] and [sweep].
      */
     class StagingDirectory private constructor(val dir: File) {
         companion object {
             const val NAME = "backup-staging"
             const val RESTORE_NAME = "restore-staging"
 
-            fun resolve(requested: String, cacheDir: File, name: String = NAME): StagingDirectory {
-                if (!requested.startsWith("/")) throw StagingException("not an absolute path")
-                val candidate = File(requested)
-                // A link at the path is refused even when it points at the right place; a missing
-                // folder is fine (the sweep creates it), anything else there is not.
-                when (entryKind(candidate)) {
-                    EntryKind.DIRECTORY, EntryKind.MISSING -> Unit
-                    EntryKind.LINK, EntryKind.OTHER -> throw StagingException("not a directory")
-                }
-                val expected = File(cacheDir.canonicalFile, name)
-                if (candidate.canonicalPath != expected.path) {
-                    throw StagingException("not the app's $name cache folder")
-                }
-                return StagingDirectory(expected)
-            }
+            fun resolve(requested: String, cacheDir: File, name: String = NAME): StagingDirectory =
+                StagingDirectory(BackupStaging.resolveDir(requested, cacheDir, name))
         }
     }
 
@@ -98,125 +75,55 @@ object BackupContainer {
         class Staged(val produce: (File) -> Unit) : Source()
     }
 
-    private val MAGIC = "SVB1".toByteArray(Charsets.US_ASCII)
-    private const val VERSION = 1
-    private const val ITERATIONS = 600_000
-    private const val CHECK_KEY = "_check"
-    private val CHECK_VALUE = "SecureVault backup check".toByteArray(Charsets.UTF_8)
-    private const val KDF_NAME = "pbkdf2-hmac-sha256"
-    private const val CIPHER = "aes-256-gcm"
+    /** What the restore pass needs, worked out from the pre-pass before anything is removed. */
+    data class RestoreNeeds(
+        /** Upper bound of the largest `s` plaintext, which the restore pass holds in memory whole. */
+        val largestString: Long,
+        /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
+        val disk: Long,
+        /**
+         * Bytes the restore pass writes before the old vault is removed: the first restored entry's
+         * payload copy and its plaintext, at most twice its payload. They need free space of their own.
+         */
+        val scratch: Long,
+    )
 
-    /**
-     * Every iteration count a committed exporter has written (all of them write [ITERATIONS]).
-     * A reader refuses anything else before the key derivation runs, so a crafted header cannot
-     * make PBKDF2 run for hours. An exporter that changes the count must bump [VERSION].
-     */
-    val SUPPORTED_ITERATIONS = setOf(ITERATIONS)
+    /** Which pass of a restore a progress event belongs to; [wireName] is the phase name sent to JavaScript. */
+    enum class ReadPhase(val wireName: String) { VERIFY("verify"), RESTORE("import") }
 
-    /** The kinds a version-1 exporter writes; anything else is refused in the pre-pass. */
-    private val KINDS = setOf("c", "s", "f", "x")
+    val SUPPORTED_ITERATIONS = BackupFormat.SUPPORTED_ITERATIONS
 
-    /** The check entry, the database key string and the index extra: the smallest backup the app writes. */
-    private const val MIN_ENTRIES = 3
-
-    /** The `SVC1` magic and chunk-size field that open every payload; a plaintext is at most the rest. */
-    private const val STREAM_HEADER_BYTES = 8L
-
-    fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): SecretKey {
-        val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
-        val bytes = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
-        return SecretKeySpec(bytes, "AES")
-    }
+    fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): SecretKey =
+        BackupFormat.deriveKey(passphrase, salt, iterations)
 
     fun temporaryFile(directory: File): File = File.createTempFile("backup", null, directory)
 
-    /** What sits at a path, without following a link at the path itself. */
-    private enum class EntryKind { MISSING, DIRECTORY, LINK, OTHER }
+    fun sweep(staging: StagingDirectory) = BackupStaging.sweep(staging.dir)
 
-    /**
-     * lstat-based, so a symbolic link is reported as a link and never as what it points at.
-     * `android.system.Os` has been available since API 21; `java.nio.file` needs API 26, above the
-     * app's minimum. Any error other than "no such entry" is reported as OTHER so the caller refuses it.
-     */
-    private fun entryKind(file: File): EntryKind {
-        val mode = try {
-            Os.lstat(file.path).st_mode
-        } catch (e: ErrnoException) {
-            return if (e.errno == OsConstants.ENOENT) EntryKind.MISSING else EntryKind.OTHER
-        }
-        return when {
-            OsConstants.S_ISLNK(mode) -> EntryKind.LINK
-            OsConstants.S_ISDIR(mode) -> EntryKind.DIRECTORY
-            else -> EntryKind.OTHER
-        }
-    }
+    fun removeNoFollow(requested: String, roots: List<File>, exact: List<File> = emptyList()) =
+        BackupStaging.removeNoFollow(requested, roots, exact)
 
-    /**
-     * Empties the staging directory, creating it if needed. Backup and restore plaintext only ever lives there,
-     * so one sweep is the whole cleanup after a crash. Throws when the folder cannot be created or
-     * something in it could not be removed: staging must not start next to leftover plaintext.
-     */
-    fun sweep(staging: StagingDirectory) {
-        val dir = staging.dir
-        when (entryKind(dir)) {
-            EntryKind.DIRECTORY -> Unit
-            EntryKind.MISSING -> if (!dir.mkdirs()) throw StagingException("cannot be created")
-            EntryKind.LINK, EntryKind.OTHER -> throw StagingException("cannot be created")
-        }
-        // A folder that cannot be listed may still hold plaintext, so it fails like one that cannot be emptied.
-        val children = dir.listFiles() ?: throw StagingException("could not be emptied")
-        var emptied = true
-        children.forEach { if (!removeTree(it)) emptied = false }
-        if (!emptied) throw StagingException("could not be emptied")
-    }
+    fun readHeader(source: File): Header =
+        RandomAccessFile(source, "r").use { BackupFormat.readHeader(it) }
 
-    /**
-     * Deletes a tree without following symbolic links, so a link planted in staging cannot pull in
-     * its target: only a real directory is recursed into, and `File.delete` unlinks a link entry
-     * itself. Returns false if anything is still there afterwards.
-     */
-    private fun removeTree(file: File): Boolean {
-        var removed = true
-        if (entryKind(file) == EntryKind.DIRECTORY) file.listFiles()?.forEach { if (!removeTree(it)) removed = false }
-        return (file.delete() || entryKind(file) == EntryKind.MISSING) && removed
-    }
+    fun readMetas(source: File): List<Meta> = readLayout(source).map { it.meta }
 
-    /**
-     * Removes [requested] for the app's cache sweeps without following symbolic links (see
-     * [removeTree]). Its parent is canonicalised and must lie inside one of [roots], so neither
-     * `..` nor a linked ancestor can carry the removal out of them. Each of [exact] also
-     * qualifies, but only itself: the same name directly inside its canonical parent, never an
-     * entry below it, so a link planted in its place is unlinked and its target left alone. A
-     * missing entry is fine.
-     */
-    fun removeNoFollow(requested: String, roots: List<File>, exact: List<File> = emptyList()) {
-        if (!requested.startsWith("/")) throw RemovalException("not an absolute path")
-        val file = File(requested)
-        val name = file.name
-        val parent = file.parentFile ?: throw RemovalException("not inside the app's cache")
-        if (name.isEmpty() || name == "." || name == "..") throw RemovalException("not a single name")
-        val canonicalParent = parent.canonicalFile
-        val inside = roots.any { root ->
-            val base = root.canonicalPath
-            canonicalParent.path == base || canonicalParent.path.startsWith("$base/")
-        }
-        val named = exact.any { allowed ->
-            val allowedParent = allowed.parentFile ?: return@any false
-            allowed.name == name && canonicalParent.path == allowedParent.canonicalPath
-        }
-        if (!inside && !named) throw RemovalException("not inside the app's cache")
-        if (!removeTree(File(canonicalParent, name))) throw RemovalException("could not be removed")
-    }
+    fun readLayout(source: File): List<EntryInfo> = BackupFormat.readLayout(source)
+
+    fun restoreNeeds(layout: List<EntryInfo>): RestoreNeeds = BackupPreflight.restoreNeeds(layout)
+
+    fun reserveMemory(bytes: Long, copies: Int) = BackupPreflight.reserveMemory(bytes, copies)
+
+    fun writableBytes(usable: Long, allocatable: Long?, ownCache: Long): Long =
+        BackupPreflight.writableBytes(usable, allocatable, ownCache)
+
+    fun checkSpace(needed: Long, scratch: Long, free: Long, freed: Long) =
+        BackupPreflight.checkSpace(needed, scratch, free, freed)
 
     /**
      * Writes the container. Plaintext is staged one entry at a time inside [staging], which is swept
      * first (an earlier export may have been killed mid-entry) and left empty whether the write
      * succeeds or fails. Returns (entries, bytes).
-     *
-     * When the write fails, the cleanup sweep is best effort: the write's own error is what the
-     * caller sees (it may be a locked-key failure the bridge maps to its own code) and a cleanup
-     * error is attached as suppressed. After a successful write, a cleanup error fails the export,
-     * because a success must not be reported while plaintext may still be on disk.
      */
     fun write(destination: File, passphrase: String, staging: StagingDirectory, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         sweep(staging)
@@ -236,24 +143,29 @@ object BackupContainer {
 
     private fun writeEntries(destination: File, passphrase: String, staging: File, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
-        val key = deriveKey(passphrase, salt, ITERATIONS)
+        val key = deriveKey(passphrase, salt, BackupFormat.ITERATIONS)
         val created = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
             .apply { timeZone = TimeZone.getTimeZone("UTC") }
             .format(Date())
         val header = JSONObject()
-            .put("version", VERSION)
+            .put("version", BackupFormat.VERSION)
             .put("app", "SecureVault")
             .put("created", created)
-            .put("kdf", JSONObject().put("name", KDF_NAME).put("iterations", ITERATIONS)
-                .put("salt", android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP)))
-            .put("cipher", CIPHER)
+            .put(
+                "kdf",
+                JSONObject()
+                    .put("name", BackupFormat.KDF_NAME)
+                    .put("iterations", BackupFormat.ITERATIONS)
+                    .put("salt", android.util.Base64.encodeToString(salt, android.util.Base64.NO_WRAP)),
+            )
+            .put("cipher", BackupFormat.CIPHER)
             .put("entries", entries.size + 1)
             .toString().toByteArray(Charsets.UTF_8)
 
-        val check = Entry(CHECK_KEY, "c", Source.Staged { it.writeBytes(CHECK_VALUE) })
+        val check = Entry(BackupFormat.CHECK_KEY, "c", Source.Staged { it.writeBytes(BackupFormat.CHECK_VALUE) })
         val all = listOf(check) + entries
         DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
-            output.write(MAGIC)
+            output.write(BackupFormat.MAGIC)
             output.writeInt(header.size)
             output.write(header)
             all.forEachIndexed { index, entry ->
@@ -283,282 +195,7 @@ object BackupContainer {
         return Pair(entries.size, destination.length())
     }
 
-    fun readHeader(source: File): Header =
-        RandomAccessFile(source, "r").use { readHeader(it) }
-
-    /**
-     * Expects [input] at the start of the file. The header length is checked
-     * against the bytes left in the file before it is allocated (an allocation
-     * the device refuses is an OutOfMemoryError the module reports as
-     * BACKUP_RESOURCE). Then, in the same order as on iOS: the version must be
-     * an integer (above 1 is a newer format, below 1 a damaged header); every
-     * field the exporter writes must be present with its JSON type and the
-     * counts must fit their types (otherwise CorruptException); and the KDF
-     * name, cipher and iteration count must be the ones a committed exporter
-     * wrote (otherwise UnsupportedException). All of it runs before any key is
-     * derived.
-     */
-    private fun readHeader(input: RandomAccessFile): Header {
-        val magic = ByteArray(MAGIC.size)
-        try {
-            input.readFully(magic)
-        } catch (e: Exception) {
-            throw CorruptException("not a SecureVault backup")
-        }
-        if (!magic.contentEquals(MAGIC)) throw CorruptException("not a SecureVault backup")
-        val headerBytes = try {
-            val headerLength = input.readInt()
-            if (headerLength < 0 || headerLength > input.length() - input.filePointer) throw CorruptException("truncated")
-            ByteArray(headerLength).also { input.readFully(it) }
-        } catch (e: EOFException) {
-            throw CorruptException("truncated")
-        }
-        val json = try {
-            JSONObject(String(headerBytes, Charsets.UTF_8))
-        } catch (e: Exception) {
-            throw CorruptException("header")
-        }
-        val version = integral(json.opt("version")) ?: throw CorruptException("header")
-        if (version > VERSION) throw UnsupportedException("format $version")
-        if (version < VERSION) throw CorruptException("header")
-        val kdf = json.opt("kdf") as? JSONObject ?: throw CorruptException("header")
-        val kdfName = kdf.opt("name") as? String ?: throw CorruptException("header")
-        val cipher = json.opt("cipher") as? String ?: throw CorruptException("header")
-        val app = json.opt("app") as? String ?: throw CorruptException("header")
-        val created = json.opt("created") as? String ?: throw CorruptException("header")
-        val iterations = integral(kdf.opt("iterations")) ?: throw CorruptException("header")
-        if (iterations < 1 || iterations > Int.MAX_VALUE) throw CorruptException("header")
-        val entries = integral(json.opt("entries")) ?: throw CorruptException("header")
-        if (entries < MIN_ENTRIES || entries > Int.MAX_VALUE) throw CorruptException("header")
-        val encodedSalt = kdf.opt("salt") as? String ?: throw CorruptException("salt")
-        val salt = try {
-            android.util.Base64.decode(encodedSalt, android.util.Base64.DEFAULT)
-        } catch (e: IllegalArgumentException) {
-            throw CorruptException("salt")
-        }
-        if (salt.isEmpty()) throw CorruptException("salt")
-        if (kdfName != KDF_NAME) throw UnsupportedException("key derivation $kdfName")
-        if (cipher != CIPHER) throw UnsupportedException("cipher $cipher")
-        if (iterations.toInt() !in SUPPORTED_ITERATIONS) throw UnsupportedException("$iterations iterations")
-        return Header(
-            version = version.toInt(),
-            app = app,
-            created = created,
-            iterations = iterations.toInt(),
-            salt = salt,
-            entries = entries.toInt(),
-        )
-    }
-
-    /**
-     * A JSON number read as an integer the way Swift's `JSONDecoder` reads one into `Int`, so both
-     * platforms accept and refuse the same headers: `600000`, `600000.0` and `6e5` all count, a
-     * fraction, a string or a boolean does not, and nor does a number outside a 64-bit integer.
-     * The number class depends on the org.json build (Android's parses decimals as Double, the
-     * Maven one as BigDecimal), so every one is handled.
-     */
-    private fun integral(value: Any?): Long? = when (value) {
-        is Int, is Long, is Short, is Byte -> (value as Number).toLong()
-        is java.math.BigInteger -> if (value.bitLength() < 64) value.toLong() else null
-        is java.math.BigDecimal -> try {
-            value.toBigIntegerExact().let { if (it.bitLength() < 64) it.toLong() else null }
-        } catch (e: ArithmeticException) {
-            null
-        }
-        is Double, is Float -> (value as Number).toDouble().let {
-            if (it == Math.rint(it) && Math.abs(it) < LONG_LIMIT) it.toLong() else null
-        }
-        else -> null
-    }
-
-    /** 2^63: a whole double below it in magnitude converts to a Long without clamping. */
-    private const val LONG_LIMIT = 9.223372036854775807E18
-
-    /** Both fields must be JSON strings, as on iOS; `getString` would coerce numbers. */
-    private fun parseMeta(bytes: ByteArray, index: Int): Meta {
-        val json = try {
-            JSONObject(String(bytes, Charsets.UTF_8))
-        } catch (e: Exception) {
-            throw CorruptException("entry $index")
-        }
-        val key = json.opt("key") as? String ?: throw CorruptException("entry $index")
-        val kind = json.opt("kind") as? String ?: throw CorruptException("entry $index")
-        return Meta(key, kind)
-    }
-
-    /**
-     * Entry metadata only, read by seeking past each payload. No key is derived
-     * and nothing is decrypted, so a bad key or a truncated file is found before
-     * the vault is touched.
-     */
-    fun readMetas(source: File): List<Meta> = readLayout(source).map { it.meta }
-
-    /**
-     * The pre-pass: every entry's metadata and declared payload length, with the
-     * structure every version-1 exporter writes enforced before any key is derived.
-     * The first entry is the check entry and no other entry has its kind; every kind
-     * is one the exporter writes; no two other entries share a key (they come from
-     * one directory listing plus the index extra); and the file ends right after the
-     * last declared entry. Anything else is a CorruptException.
-     */
-    fun readLayout(source: File): List<EntryInfo> =
-        RandomAccessFile(source, "r").use { input ->
-            val header = readHeader(input)
-            // The count is untrusted: grow the list as entries are read, so a
-            // short file fails on its first missing byte instead of allocating.
-            val layout = ArrayList<EntryInfo>()
-            val keys = HashSet<String>()
-            repeat(header.entries) { index ->
-                val (meta, size) = readEntryHead(input, index)
-                if (meta.kind !in KINDS) throw CorruptException("entry $index kind")
-                if (index == 0) {
-                    if (meta.kind != "c" || meta.key != CHECK_KEY) throw CorruptException("check entry")
-                } else {
-                    if (meta.kind == "c") throw CorruptException("entry $index kind")
-                    if (!keys.add(meta.key)) throw CorruptException("duplicate entry")
-                }
-                input.seek(input.filePointer + size)
-                layout.add(EntryInfo(meta, size))
-            }
-            if (input.filePointer != input.length()) throw CorruptException("trailing data")
-            layout
-        }
-
-    /** What the restore pass needs, worked out from the pre-pass before anything is removed. */
-    data class RestoreNeeds(
-        /** Upper bound of the largest `s` plaintext, which the restore pass holds in memory whole. */
-        val largestString: Long,
-        /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
-        val disk: Long,
-        /**
-         * Bytes the restore pass writes before the old vault is removed: the first restored entry's
-         * payload copy and its plaintext, at most twice its payload. They need free space of their own.
-         */
-        val scratch: Long,
-    )
-
-    /**
-     * Every payload is re-encrypted into the vault (or moved out as an extra) at about its own
-     * size, and at the peak one entry's payload copy and plaintext sit in staging next to it.
-     * Only the first restored entry's two files exist before the old vault is removed.
-     * The index extra is counted twice: JavaScript moves it into the SQLite folder after the
-     * native restore, and its first open writes a WAL beside it while the old index is still
-     * there. Each length is already bounded by the bytes left in the file, so the sums fit a
-     * Long. An `s` plaintext is at most its payload minus the stream header.
-     */
-    fun restoreNeeds(layout: List<EntryInfo>): RestoreNeeds {
-        var total = 0L
-        var largest = 0L
-        var largestString = 0L
-        var index = 0L
-        var first: Long? = null
-        for (entry in layout) {
-            if (entry.meta.kind == "c") continue
-            if (first == null) first = entry.payloadLength
-            total += entry.payloadLength
-            largest = maxOf(largest, entry.payloadLength)
-            if (entry.meta.kind == "s") {
-                largestString = maxOf(largestString, maxOf(0L, entry.payloadLength - STREAM_HEADER_BYTES))
-            }
-            if (entry.meta.kind == "x" && entry.meta.key == "database") index += entry.payloadLength
-        }
-        return RestoreNeeds(largestString, total + 2 * largest + index, 2 * (first ?: 0L))
-    }
-
-    /**
-     * Trial allocation for an `s` entry: [copies] arrays of [bytes] each are allocated and
-     * dropped at once. The VM collects garbage before it throws, so this refuses only memory
-     * the process really cannot get; heap arithmetic would count garbage as used. It lowers the
-     * chance of a failure after the wipe but cannot rule one out, because memory can be taken
-     * between this check and the restore pass.
-     */
-    fun reserveMemory(bytes: Long, copies: Int) {
-        if (bytes <= 0) return
-        // The largest array the VM can make; a longer plaintext can never be read whole.
-        if (bytes > Int.MAX_VALUE - 8) throw ResourceException("an entry of $bytes bytes")
-        try {
-            val held = Array(copies) { ByteArray(bytes.toInt()) }
-            // Touch every array so the allocation cannot be dropped as unused.
-            held.forEach { it[it.size - 1] = 1 }
-        } catch (e: OutOfMemoryError) {
-            throw ResourceException("an entry of $bytes bytes")
-        }
-    }
-
-    /**
-     * What the restore may count as free: what is writable now ([usable]), and no more than
-     * StorageManager's allocatable figure once SecureVault's own cache ([ownCache]) is taken out
-     * of it. That figure leaves out the system's low-storage reserve and counts clearable
-     * caches; ours holds the picked backup and the staging folders the restore reads, so it is
-     * never counted as room. [allocatable] is null where there is no such figure.
-     */
-    fun writableBytes(usable: Long, allocatable: Long?, ownCache: Long): Long {
-        if (allocatable == null) return maxOf(0L, usable)
-        return maxOf(0L, minOf(usable, allocatable - ownCache))
-    }
-
-    /**
-     * The restore needs [needed] bytes; [free] are free now and the wipe gives back [freed]
-     * (the old vault's entries). [scratch] of them are written before the wipe, so they must fit
-     * in [free] alone. No margin is added: the bound is the formula, and a device that fills up
-     * during the pass still ends as a partial restore.
-     */
-    fun checkSpace(needed: Long, scratch: Long, free: Long, freed: Long) {
-        if (scratch > free) throw NoSpaceException(scratch, free)
-        val available = free + freed
-        if (needed > available) throw NoSpaceException(needed, available)
-    }
-
-    /**
-     * Reads one entry's metadata and payload length, leaving [input] at the
-     * payload. Both lengths are checked against the bytes left in the file.
-     */
-    private fun readEntryHead(input: RandomAccessFile, index: Int): Pair<Meta, Long> =
-        try {
-            val metaLength = input.readInt()
-            if (metaLength < 0 || metaLength > input.length() - input.filePointer) throw CorruptException("truncated")
-            val metaBytes = ByteArray(metaLength)
-            input.readFully(metaBytes)
-            val meta = parseMeta(metaBytes, index)
-            val size = input.readLong()
-            if (size < 0 || size > input.length() - input.filePointer) throw CorruptException("truncated")
-            Pair(meta, size)
-        } catch (e: EOFException) {
-            throw CorruptException("truncated")
-        }
-
-    /** Which pass of a restore a progress event belongs to; [wireName] is the phase name sent to JavaScript. */
-    enum class ReadPhase(val wireName: String) { VERIFY("verify"), RESTORE("import") }
-
-    /**
-     * Decrypts every entry in two passes. The first checks the passphrase
-     * against the check entry, then decrypts every other payload to nothing,
-     * so a backup that is damaged anywhere, including its last entry, is
-     * refused before [handle] runs. The second decrypts again and hands each
-     * plaintext file to [handle], which may move it; whatever [handle] leaves
-     * behind is removed when it returns, even by throwing. The second pass is not a
-     * transaction: once [handle] has started replacing the vault, a disk, I/O
-     * or key failure still leaves it partly restored; the caller reports that
-     * case separately.
-     *
-     * [validate] sees each entry's metadata on every pass; [validateAll] sees the
-     * whole list once, after the pre-pass and before the key is derived, for rules
-     * about which entries must be present. [preflight] sees the pre-pass layout once,
-     * after the verify pass and before the restore pass, so a device that cannot
-     * hold the restore refuses it with the vault untouched.
-     *
-     * Every payload copy and plaintext lives in [staging], which is swept before anything is read
-     * (a [StagingException] is thrown with the vault untouched) and again, best effort, when the
-     * read ends either way.
-     *
-     * [cancelled] is asked once the key is derived (the KDF itself cannot be interrupted), before
-     * every entry of the verify pass, and before the preflight and the restore pass. A true answer
-     * throws [CancelledException] before [handle] has run. The last check, after the preflight,
-     * is [commit] instead: it answers false for a cancel already asked and otherwise marks the
-     * point passed in the same step, so a cancel can never be accepted after it. Nothing is asked
-     * once the restore pass has started, because [handle] may already have begun replacing the
-     * vault.
-     */
+    /** Decrypts every entry in two passes: verify everything first, then hand plaintext to [handle]. */
     fun read(
         source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit = {},
@@ -641,28 +278,22 @@ object BackupContainer {
             } catch (e: Exception) {
                 throw PassphraseException()
             }
-            if (!plain.readBytes().contentEquals(CHECK_VALUE)) throw PassphraseException()
+            if (!plain.readBytes().contentEquals(BackupFormat.CHECK_VALUE)) throw PassphraseException()
         } finally {
             plain.delete()
         }
     }
 
-    /**
-     * One pass over the container: each entry's metadata is validated again,
-     * its payload is copied to a temporary file that [visit] may read but not
-     * keep, and progress is reported per entry. [beforeEntry] runs before each entry is read
-     * and may throw to end the pass.
-     */
     private fun walk(
         source: File, scratch: File, validate: (Meta) -> Unit,
         progress: (Int, Int) -> Unit, beforeEntry: () -> Unit = {}, visit: (Meta, File) -> Unit
     ) {
         RandomAccessFile(source, "r").use { input ->
-            val header = readHeader(input)
+            val header = BackupFormat.readHeader(input)
             for (index in 0 until header.entries) {
                 beforeEntry()
                 // Lengths and metadata are checked again in case the file changed since the pre-pass.
-                val (meta, size) = readEntryHead(input, index)
+                val (meta, size) = BackupFormat.readEntryHead(input, index)
                 validate(meta)
                 val payload = temporaryFile(scratch)
                 try {
