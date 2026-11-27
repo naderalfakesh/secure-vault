@@ -1,7 +1,10 @@
 import { FIELD_KEYS } from '@/types';
 import type { Document } from '@/types';
 
+import type { SqlValue } from '../sql';
 import type { DocumentOrder, DocumentRow } from './types';
+
+export type DocumentChanges = Partial<Pick<Document, 'title' | 'category' | 'tags' | 'ocrText'>>;
 
 // The expiry date, when the document has one, for sorting.
 export const EXPIRY_JOIN = `LEFT JOIN fields expiry ON expiry.document_id = d.id AND expiry.key = '${FIELD_KEYS.expires}' AND expiry.kind = 'date'`;
@@ -33,4 +36,44 @@ export function toDocument(row: DocumentRow): Document {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Builds the parameterized `UPDATE documents` statement for only the defined fields in `changes`. */
+export function buildDocumentUpdate(
+  id: string,
+  changes: DocumentChanges,
+  updatedAt: string,
+): { sql: string; params: SqlValue[] } {
+  const columns: string[] = [];
+  const values: SqlValue[] = [];
+  if (changes.title !== undefined) {
+    columns.push('title = ?');
+    values.push(changes.title);
+  }
+  if (changes.category !== undefined) {
+    columns.push('category = ?');
+    values.push(changes.category);
+  }
+  if (changes.ocrText !== undefined) {
+    columns.push('ocr_text = ?');
+    values.push(changes.ocrText);
+  }
+  return {
+    sql: `UPDATE documents SET ${[...columns, 'updated_at = ?'].join(', ')} WHERE id = ?`,
+    params: [...values, updatedAt, id],
+  };
+}
+
+/** Returns a new `Document` with only the defined fields in `changes` applied. */
+export function applyDocumentChanges(
+  existing: Document,
+  changes: DocumentChanges,
+  updatedAt: string,
+): Document {
+  const next: Document = { ...existing, updatedAt };
+  if (changes.title !== undefined) next.title = changes.title;
+  if (changes.category !== undefined) next.category = changes.category;
+  if (changes.tags !== undefined) next.tags = changes.tags;
+  if (changes.ocrText !== undefined) next.ocrText = changes.ocrText;
+  return next;
 }

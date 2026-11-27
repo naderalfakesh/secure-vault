@@ -4,7 +4,6 @@ import { isKeyLocked } from '@modules/expo-vault';
 import { DocumentRepository } from './DocumentRepository';
 import { migrateLegacyIndex } from './migrateLegacyIndex';
 import { applyMigrations } from './schema';
-import type { SqlDatabase } from './sql';
 import { DEFAULT_DATABASE_NAME } from './store/constants';
 import { emptiedError, erasingError, keyError, nameError } from './store/errors';
 import {
@@ -16,14 +15,9 @@ import {
 } from './store/files';
 import { currentDatabaseName, loadDatabaseKey, vaultEntries } from './store/key';
 import { markLegacyImported, readLegacyIndex } from './store/legacy';
+import type { DocumentStore, SqlAdapter } from './store/types';
 
-export type DocumentStore = { db: SqlDatabase; repository: DocumentRepository };
-
-/** The one part that needs a device: opening and deleting the encrypted SQLite file. */
-export type SqlAdapter = {
-  open(name: string, key: string): Promise<SqlDatabase>;
-  remove(name: string): Promise<void>;
-};
+export type { DocumentStore, SqlAdapter } from './store/types';
 
 export class DocumentDatabase {
   private opening: Promise<DocumentStore> | null = null;

@@ -3,14 +3,13 @@ import { Gesture } from 'react-native-gesture-handler';
 import {
   clamp,
   runOnJS,
-  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
-import { edgeSwipe, type SwipeDirection } from '@/utils/pager';
+import { edgeSwipe } from '@/utils/pager';
 
 import {
   DISMISS_ACTIVE_OFFSET_Y,
@@ -23,18 +22,8 @@ import {
   PINCH_MIN_SCALE,
   PINCH_RESET_MS,
 } from './constants';
-
-type Options = {
-  /** Prefix for the gestures' test ids. */
-  testID: string;
-  zoomed: boolean;
-  reportZoom: (zoomed: boolean) => void;
-  reportEdgeSwipe: (direction: SwipeDirection) => void;
-  onDismiss: () => void;
-  onTap: () => void;
-  dismissProgress: SharedValue<number>;
-  canSwipe: { left: boolean; right: boolean };
-};
+import { clampToBounds, doubleTapTranslation, pinchTranslation } from './helpers';
+import type { UseZoomGesturesOptions } from './types';
 
 /**
  * Pinch to zoom around the fingers, pan while zoomed, double-tap to toggle,
@@ -50,7 +39,7 @@ export function useZoomGestures({
   onTap,
   dismissProgress,
   canSwipe,
-}: Options) {
+}: UseZoomGesturesOptions) {
   const { width, height } = useWindowDimensions();
   const scale = useSharedValue(MIN_SCALE);
   const savedScale = useSharedValue(MIN_SCALE);
@@ -59,12 +48,6 @@ export function useZoomGestures({
   const savedTranslateX = useSharedValue(0);
   const savedTranslateY = useSharedValue(0);
   const dismissY = useSharedValue(0);
-
-  const clampToBounds = (value: number, size: number, currentScale: number) => {
-    'worklet';
-    const bound = ((currentScale - 1) * size) / 2;
-    return clamp(value, -bound, bound);
-  };
 
   const settle = () => {
     'worklet';
@@ -93,12 +76,9 @@ export function useZoomGestures({
     .onUpdate((event) => {
       const next = clamp(savedScale.get() * event.scale, PINCH_MIN_SCALE, MAX_SCALE);
       scale.set(next);
-      // Keep the point under the fingers fixed while scaling.
-      const focalX = event.focalX - width / 2;
-      const focalY = event.focalY - height / 2;
       const ratio = next / savedScale.get();
-      translateX.set(focalX - (focalX - savedTranslateX.get()) * ratio);
-      translateY.set(focalY - (focalY - savedTranslateY.get()) * ratio);
+      translateX.set(pinchTranslation(event.focalX, width, savedTranslateX.get(), ratio));
+      translateY.set(pinchTranslation(event.focalY, height, savedTranslateY.get(), ratio));
     })
     .onEnd(() => {
       settle();
@@ -170,14 +150,8 @@ export function useZoomGestures({
         return;
       }
       scale.set(withTiming(DOUBLE_TAP_SCALE));
-      const focalX = event.x - width / 2;
-      const focalY = event.y - height / 2;
-      translateX.set(
-        withTiming(clampToBounds(focalX * (1 - DOUBLE_TAP_SCALE), width, DOUBLE_TAP_SCALE)),
-      );
-      translateY.set(
-        withTiming(clampToBounds(focalY * (1 - DOUBLE_TAP_SCALE), height, DOUBLE_TAP_SCALE)),
-      );
+      translateX.set(withTiming(doubleTapTranslation(event.x, width, DOUBLE_TAP_SCALE)));
+      translateY.set(withTiming(doubleTapTranslation(event.y, height, DOUBLE_TAP_SCALE)));
       runOnJS(reportZoom)(true);
     });
 

@@ -20,3 +20,15 @@ export interface ZoomablePageProps {
   /** Prefix for the gestures' test ids. */
   testID?: string;
 }
+
+export type UseZoomGesturesOptions = {
+  /** Prefix for the gestures' test ids. */
+  testID: string;
+  zoomed: boolean;
+  reportZoom: (zoomed: boolean) => void;
+  reportEdgeSwipe: (direction: SwipeDirection) => void;
+  onDismiss: () => void;
+  onTap: () => void;
+  dismissProgress: SharedValue<number>;
+  canSwipe: { left: boolean; right: boolean };
+};

@@ -1,7 +1,16 @@
-import { type ExtractedField, FIELD_KEYS } from '@/types';
-import { DocumentCategory } from '@/types';
+import { type DocumentCategory, type ExtractedField, FIELD_KEYS } from '@/types';
 
+import {
+  CATEGORY_KEYWORDS,
+  EXPIRY_KEYWORDS,
+  ISSUE_KEYWORDS,
+  MINOR_WORDS,
+  NUMBER_KEYWORDS,
+} from './constants';
+import { findDates, type FoundDate } from './dates';
 import type { DocumentIntelligence, DocumentSuggestion } from './types';
+
+export { findDates } from './dates';
 
 /**
  * The always-available engine. Regular expressions and keyword lists are not
@@ -9,133 +18,9 @@ import type { DocumentIntelligence, DocumentSuggestion } from './types';
  * download, and they make the app complete on devices without on-device AI.
  */
 
-const categoryKeywords: [DocumentCategory, RegExp][] = [
-  [
-    DocumentCategory.ID,
-    /\b(passport|passeport|identity|id card|driver'?s? licen[cs]e|national id|residence permit|visa)\b/i,
-  ],
-  [
-    DocumentCategory.MEDICAL,
-    /\b(prescription|patient|diagnosis|clinic|hospital|vaccin|medical|pharmacy|dosage)\b/i,
-  ],
-  [
-    DocumentCategory.INSURANCE,
-    /\b(insurance|insurer|policy (?:no|number)|coverage|premium|claim)\b/i,
-  ],
-  [
-    DocumentCategory.FINANCE,
-    /\b(invoice|statement|iban|account (?:no|number)|balance|tax|salary|payslip|bank)\b/i,
-  ],
-  [
-    DocumentCategory.LEGAL,
-    /\b(agreement|contract|lease|tenant|landlord|notary|court|hereby|terms and conditions)\b/i,
-  ],
-  [
-    DocumentCategory.RECEIPTS,
-    /\b(receipt|total|subtotal|vat|cash|change due|thank you for (?:your purchase|shopping))\b/i,
-  ],
-];
-
-const expiryKeywords =
-  /\b(expir\w*|valid (?:until|through|thru|to)|date of expiry|exp\.?|best before|renew(?:al)? by)\b/i;
-// Lowercase inside a title-cased heading, never as its first word.
-const minorWords = new Set([
-  'a',
-  'an',
-  'and',
-  'at',
-  'by',
-  'for',
-  'in',
-  'of',
-  'on',
-  'or',
-  'the',
-  'to',
-]);
-const issueKeywords = /\b(issued?|date of issue|issue date)\b/i;
-// The value must hold a digit. Text read from a two-column card lists the
-// labels before the values ("Policy number Policyholder Vehicle ..."), and a
-// word after the label is the next label, not the number.
-const numberKeywords =
-  /\b(?:passport|document|policy|licen[cs]e|id|account|invoice|member(?:ship)?)\s*(?:no\.?|number|#|№)\s*[:.]?\s*(?=[A-Z0-9-]*\d)([A-Z0-9][A-Z0-9-]{4,})/i;
-
-const monthNames: Record<string, number> = {
-  jan: 1,
-  feb: 2,
-  mar: 3,
-  apr: 4,
-  may: 5,
-  jun: 6,
-  jul: 7,
-  aug: 8,
-  sep: 9,
-  sept: 9,
-  oct: 10,
-  nov: 11,
-  dec: 12,
-};
-
-const datePatterns: { regex: RegExp; toIso: (m: RegExpMatchArray) => string | null }[] = [
-  // 2026-09-07 or 2026/09/07
-  { regex: /\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/g, toIso: (m) => iso(m[1], m[2], m[3]) },
-  // 07/09/2026, 07.09.2026, 07-09-2026 (day first, the common passport layout)
-  { regex: /\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/g, toIso: (m) => iso(m[3], m[2], m[1]) },
-  // 07 Sep 2026, 7 September 2026, 07 SEP 26
-  {
-    regex: /\b(\d{1,2})\s+([A-Za-z]{3,9})\.?\s+(\d{2,4})\b/g,
-    toIso: (m) => iso(expandYear(m[3]), monthFromName(m[2]), m[1]),
-  },
-  // Sep 7, 2026 / September 07 2026
-  {
-    regex: /\b([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})\b/g,
-    toIso: (m) => iso(m[3], monthFromName(m[1]), m[2]),
-  },
-];
-
-function expandYear(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  if (value.length === 4) return value;
-  const n = Number(value);
-  return String(n < 70 ? 2000 + n : 1900 + n);
-}
-
-function monthFromName(name: string | undefined): string | undefined {
-  if (!name) return undefined;
-  const month =
-    monthNames[name.slice(0, 4).toLowerCase()] ?? monthNames[name.slice(0, 3).toLowerCase()];
-  return month ? String(month) : undefined;
-}
-
-function iso(year?: string, month?: string, day?: string): string | null {
-  if (!year || !month || !day) return null;
-  const y = Number(year);
-  const m = Number(month);
-  const d = Number(day);
-  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (date.getUTCMonth() !== m - 1) return null;
-  return date.toISOString().slice(0, 10);
-}
-
-/** Every date in the text with the text that preceded it, in order of appearance. */
-export function findDates(text: string): { date: string; context: string }[] {
-  const found: { index: number; date: string; context: string }[] = [];
-  for (const { regex, toIso } of datePatterns) {
-    for (const match of text.matchAll(regex)) {
-      const date = toIso(match);
-      const index = match.index ?? 0;
-      if (date && !found.some((f) => Math.abs(f.index - index) < 3)) {
-        found.push({ index, date, context: text.slice(Math.max(0, index - 40), index) });
-      }
-    }
-  }
-  return found.sort((a, b) => a.index - b.index).map(({ date, context }) => ({ date, context }));
-}
-
 export function suggestCategory(text: string): DocumentCategory | undefined {
   let best: { category: DocumentCategory; hits: number } | undefined;
-  for (const [category, regex] of categoryKeywords) {
+  for (const [category, regex] of CATEGORY_KEYWORDS) {
     const hits = text.match(new RegExp(regex.source, 'gi'))?.length ?? 0;
     if (hits > 0 && (!best || hits > best.hits)) best = { category, hits };
   }
@@ -161,12 +46,10 @@ function titleCase(words: string): string {
     .toLowerCase()
     .split(' ')
     .map((word, index) =>
-      index > 0 && minorWords.has(word) ? word : word.charAt(0).toUpperCase() + word.slice(1),
+      index > 0 && MINOR_WORDS.has(word) ? word : word.charAt(0).toUpperCase() + word.slice(1),
     )
     .join(' ');
 }
-
-type FoundDate = ReturnType<typeof findDates>[number];
 
 export function extractFields(text: string): ExtractedField[] {
   return fieldsFrom(text, findDates(text));
@@ -174,8 +57,8 @@ export function extractFields(text: string): ExtractedField[] {
 
 function fieldsFrom(text: string, dates: readonly FoundDate[]): ExtractedField[] {
   const fields: ExtractedField[] = [];
-  const expiry = dates.find((d) => expiryKeywords.test(d.context));
-  const issue = dates.find((d) => issueKeywords.test(d.context) && d.date !== expiry?.date);
+  const expiry = dates.find((d) => EXPIRY_KEYWORDS.test(d.context));
+  const issue = dates.find((d) => ISSUE_KEYWORDS.test(d.context) && d.date !== expiry?.date);
   if (expiry) fields.push({ key: FIELD_KEYS.expires, value: expiry.date, kind: 'date' });
   else {
     // Without a keyword, the latest future date is the best guess for an expiry.
@@ -186,7 +69,7 @@ function fieldsFrom(text: string, dates: readonly FoundDate[]): ExtractedField[]
     if (future) fields.push({ key: FIELD_KEYS.expires, value: future.date, kind: 'date' });
   }
   if (issue) fields.push({ key: FIELD_KEYS.issued, value: issue.date, kind: 'date' });
-  const number = text.match(numberKeywords)?.[1];
+  const number = text.match(NUMBER_KEYWORDS)?.[1];
   if (number) fields.push({ key: FIELD_KEYS.number, value: number.toUpperCase(), kind: 'text' });
   return fields;
 }

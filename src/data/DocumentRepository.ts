@@ -1,7 +1,15 @@
 import type { Document, DocumentCategory } from '@/types';
 
 import { toFtsQuery } from './repository/fts';
-import { COLUMNS, EXPIRY_JOIN, ORDER_BY, toDocument } from './repository/rows';
+import {
+  applyDocumentChanges,
+  buildDocumentUpdate,
+  COLUMNS,
+  type DocumentChanges,
+  EXPIRY_JOIN,
+  ORDER_BY,
+  toDocument,
+} from './repository/rows';
 import { OCR_COLUMN, parseSnippet, SNIPPET_TOKENS } from './repository/snippet';
 import type {
   DocumentOrder,
@@ -107,40 +115,16 @@ export class DocumentRepository {
    * the same transaction, so two overlapping edits of different fields both
    * survive and an `undefined` never clears stored text.
    */
-  async update(
-    id: string,
-    changes: Partial<Pick<Document, 'title' | 'category' | 'tags' | 'ocrText'>>,
-  ): Promise<Document | null> {
+  async update(id: string, changes: DocumentChanges): Promise<Document | null> {
     return this.db.transaction(async () => {
       const existing = await this.get(id);
       if (!existing) return null;
       const updatedAt = new Date().toISOString();
-      const columns: string[] = [];
-      const values: SqlValue[] = [];
-      if (changes.title !== undefined) {
-        columns.push('title = ?');
-        values.push(changes.title);
-      }
-      if (changes.category !== undefined) {
-        columns.push('category = ?');
-        values.push(changes.category);
-      }
-      if (changes.ocrText !== undefined) {
-        columns.push('ocr_text = ?');
-        values.push(changes.ocrText);
-      }
-      await this.db.run(
-        `UPDATE documents SET ${[...columns, 'updated_at = ?'].join(', ')} WHERE id = ?`,
-        [...values, updatedAt, id],
-      );
+      const { sql, params } = buildDocumentUpdate(id, changes, updatedAt);
+      await this.db.run(sql, params);
       if (changes.tags) await this.writeTags(id, changes.tags);
       await this.reindex(id);
-      const next: Document = { ...existing, updatedAt };
-      if (changes.title !== undefined) next.title = changes.title;
-      if (changes.category !== undefined) next.category = changes.category;
-      if (changes.tags !== undefined) next.tags = changes.tags;
-      if (changes.ocrText !== undefined) next.ocrText = changes.ocrText;
-      return next;
+      return applyDocumentChanges(existing, changes, updatedAt);
     });
   }
 

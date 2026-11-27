@@ -1,24 +1,21 @@
 import * as Crypto from 'expo-crypto';
-import { Directory, File, Paths } from 'expo-file-system';
+import { Directory } from 'expo-file-system';
 
 import { t } from '@/i18n';
 import { type Document, DocumentCategory, type PickedFile } from '@/types';
-import { AppError } from '@/utils/AppError';
 import ExpoVaultModule from '@modules/expo-vault';
 
 import { removeNoFollow } from '../removeNoFollow';
-import { pdfCoverName } from './cacheNames';
 import {
   FILE_PREFIX,
-  IMPORT_COPY_PREFIX,
-  IMPORT_COPY_TIMEOUT_MS,
   PAGE_MAX_PIXELS,
   PAGE_PREFIX,
   PREVIEW_PREFIX,
   THUMB_PREFIX,
   THUMBNAIL_MAX_PIXELS,
 } from './constants';
-import { cacheLocation, toPath, toUri } from './helpers';
+import { cacheLocation, toUri } from './helpers';
+import { getLocalFilePath, measureFileSize, renderPdfCover } from './localCopy';
 import { discardImportCopy, discardPickedCopy } from './residue';
 import type { RepositorySource } from './types';
 
@@ -47,7 +44,7 @@ export async function importDocument(
   let fileSize = 0;
   const sourcePath = await getLocalFilePath(cacheUri, file.uri);
   try {
-    fileSize += file.size || measure(sourcePath);
+    fileSize += file.size || measureFileSize(sourcePath);
     await ExpoVaultModule.putFile(fileKey, sourcePath);
     try {
       const thumbnailSource =
@@ -74,7 +71,7 @@ export async function importDocument(
       const pagePath = await getLocalFilePath(cacheUri, page.uri);
       try {
         pageKeys.push(pageKey);
-        fileSize += page.size || measure(pagePath);
+        fileSize += page.size || measureFileSize(pagePath);
         await ExpoVaultModule.putFile(pageKey, pagePath);
       } finally {
         discardImportCopy(cacheUri, pagePath);
@@ -106,17 +103,6 @@ export async function importDocument(
   // Kept until now so a failed save can be retried from the same pick.
   for (const source of files) discardPickedCopy(source.uri);
   return document;
-}
-
-/** First page of a PDF as a JPEG in the cache, or null when it cannot be rendered. */
-async function renderPdfCover(
-  cacheUri: string,
-  pdfPath: string,
-  id: string,
-): Promise<string | null> {
-  const { path } = cacheLocation(cacheUri, pdfCoverName(id));
-  const [cover] = await ExpoVaultModule.renderPdfPages(pdfPath, THUMBNAIL_MAX_PIXELS, path);
-  return cover ? toPath(cover.uri) : null;
 }
 
 /**
@@ -151,52 +137,5 @@ export async function previewForFile(
   } finally {
     // The save copies a content:// file again; the preview is the rendered page.
     if (path) discardImportCopy(cacheUri, path);
-  }
-}
-
-/** The size of a local file in bytes, or 0 when it cannot be read. */
-function measure(path: string): number {
-  try {
-    return new File(toUri(path)).size || 0;
-  } catch {
-    return 0;
-  }
-}
-
-/**
- * Copies a `content://` source into the cache so the native module can read a
- * path. No picker hands one over today (each copies into its own cache folder
- * first), but the scanner's page URIs come from Google Play services, whose
- * scheme the app does not control. The copy goes through expo-file-system,
- * which reads the provider with the content resolver: SDK 58's global fetch
- * refuses the scheme.
- */
-async function getLocalFilePath(cacheUri: string, uri: string): Promise<string> {
-  if (uri.startsWith('/') || uri.startsWith('file://')) {
-    return toPath(uri);
-  }
-  const tempFile = new File(Paths.cache, `${IMPORT_COPY_PREFIX}${Date.now()}`);
-  const copying = new File(uri).copy(tempFile);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const stalled = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new AppError('IMPORT_COPY_TIMEOUT', 'The file took too long to read.')),
-      IMPORT_COPY_TIMEOUT_MS,
-    );
-  });
-  try {
-    await Promise.race([copying, stalled]);
-    return toPath(tempFile.uri);
-  } catch (e) {
-    // A copy cut short by a read or write error is plaintext too. The copy
-    // cannot be cancelled, so a stalled one is removed again once it settles.
-    discardImportCopy(cacheUri, tempFile.uri);
-    copying.then(
-      () => discardImportCopy(cacheUri, tempFile.uri),
-      () => discardImportCopy(cacheUri, tempFile.uri),
-    );
-    throw e;
-  } finally {
-    clearTimeout(timer);
   }
 }
