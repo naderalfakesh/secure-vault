@@ -9,7 +9,6 @@ type State = {
   selectedCount: number;
 };
 
-/** What the Library says out loud as its state changes. */
 export function useLibraryAnnouncements({
   loading,
   showSkeleton,
@@ -18,8 +17,6 @@ export function useLibraryAnnouncements({
   selectedCount,
 }: State) {
   useAnnouncement(loading && showSkeleton ? t('library.loading') : null);
-  // The load error replaces the screen; iOS does not speak an alert role by itself.
   useAnnouncement(!loading && error ? t('library.loadFailed.title') : null);
-  // The live region on the count speaks on Android only; iOS is told directly.
   useAnnouncement(selecting ? t('library.selected', { count: selectedCount }) : null);
 }

@@ -19,11 +19,6 @@ import type { CountdownProps } from './types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-/**
- * Time left for an undo: a drawn arc that drains as the toast runs out, with
- * the seconds inside. With reduced motion the ring stays full and the label
- * does not tick.
- */
 export function Countdown({ durationMs, still }: CountdownProps) {
   const { theme } = useUnistyles();
   const seconds = Math.round(durationMs / 1000);
@@ -62,7 +57,6 @@ export function Countdown({ durationMs, still }: CountdownProps) {
           strokeWidth={RING_STROKE}
           strokeLinecap="round"
           strokeDasharray={`${RING_LENGTH} ${RING_LENGTH}`}
-          // Starts at twelve o'clock and drains clockwise.
           transform={`rotate(-90 ${RING / 2} ${RING / 2})`}
           animatedProps={arcProps}
           testID="toast-countdown-arc"

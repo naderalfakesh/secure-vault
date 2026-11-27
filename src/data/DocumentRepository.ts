@@ -30,10 +30,6 @@ export type {
   SnippetPiece,
 } from './repository/types';
 
-/**
- * All index reads and writes for documents. File bytes never pass through
- * here; the vault module owns those under the keys stored in each row.
- */
 export class DocumentRepository {
   constructor(private readonly db: SqlDatabase) {}
 
@@ -61,11 +57,6 @@ export class DocumentRepository {
     return counts;
   }
 
-  /**
-   * Full-text search with FTS5's own `snippet()` of the page text, so the
-   * highlighted words are exactly the tokens the index matched (prefixes and
-   * folded diacritics included). An empty query finds nothing.
-   */
   async searchWithSnippets(query: string, order: DocumentOrder = 'newest'): Promise<SearchHit[]> {
     const fts = toFtsQuery(query);
     if (!fts) return [];
@@ -110,11 +101,7 @@ export class DocumentRepository {
     return { ...doc, updatedAt };
   }
 
-  /**
-   * Writes only the fields `changes` carries with a value, reading the row in
-   * the same transaction, so two overlapping edits of different fields both
-   * survive and an `undefined` never clears stored text.
-   */
+  // Partial update in one transaction so concurrent edits to different fields don't clobber each other.
   async update(id: string, changes: DocumentChanges): Promise<Document | null> {
     return this.db.transaction(async () => {
       const existing = await this.get(id);
@@ -136,7 +123,6 @@ export class DocumentRepository {
     });
   }
 
-  /** Extra pages beyond the main file, in order. Page 0 is the document's own file key. */
   async setPages(id: string, fileKeys: string[]): Promise<void> {
     await this.db.transaction(async () => {
       await this.db.run('DELETE FROM pages WHERE document_id = ?', [id]);
@@ -177,7 +163,6 @@ export class DocumentRepository {
     );
   }
 
-  /** Documents whose date field `key` falls on or before `before`, soonest first. */
   async expiring(key: string, before: string): Promise<{ document: Document; date: string }[]> {
     const rows = await this.db.all<DocumentRow & { date: string }>(
       `SELECT ${COLUMNS}, f.value AS date FROM documents d

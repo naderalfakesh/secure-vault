@@ -22,7 +22,6 @@ type Options = {
   setBusy: Dispatch<SetStateAction<ViewerBusy>>;
 };
 
-/** The share warning, the decrypted copy and the system share sheet. */
 export function useDocumentShare({ document, pageCount, busy, setBusy }: Options) {
   const toast = useToast();
   const mounted = useMountedRef();
@@ -30,12 +29,8 @@ export function useDocumentShare({ document, pageCount, busy, setBusy }: Options
   const { stepUp, withoutAutoLock, captureSession, markShareInterrupted } = useSessionActions();
   const [shareStep, setShareStep] = useState<ShareSheetStep | null>(null);
   const [confirming, setConfirming] = useState(false);
-  // Bumped by every share and by Cancel: a copy whose run is no longer the
-  // current one was cancelled and is removed on arrival.
   const shareRun = useRef(0);
 
-  // Every share starts at the warning sheet; nothing is
-  // decrypted until it is confirmed.
   const openShare = useCallback(() => {
     if (!document || pageCount === 0 || busy === 'share') return;
     setShareStep('warning');
@@ -70,22 +65,19 @@ export function useDocumentShare({ document, pageCount, busy, setBusy }: Options
     const copy = await documentService.prepareShareFile(document.id).catch(() => null);
     clearTimeout(preparing);
     if (run !== shareRun.current) {
-      // Cancel already closed the sheet; the copy made meanwhile goes too.
       copy?.discard();
       return;
     }
     if (mounted.current) {
       setShareStep(null);
-      // The share sheet cannot open over a sheet that is still closing.
+      // iOS drops the system share sheet if opened while our confirmation Modal is still closing.
       await wait(SHEET_CLOSE_MS);
     }
-    // The decrypted copy must not reach a share sheet once the vault has
-    // locked or this screen is gone: the sheet would open over the lock screen.
+    // Re-check session before presenting so the share sheet never opens over the lock screen.
     if (!mounted.current || !(await session.confirm()) || !mounted.current) {
       copy?.discard();
       if (!session.current()) {
-        // The lock sweep may have run before the copy was written; sweep again
-        // unless a new session has already been unlocked.
+        // Lock sweep may have raced ahead of the write; sweep again unless a new session unlocked.
         if (!captureSession().current()) documentService.clearCache().catch(() => {});
         markShareInterrupted(document.id);
       }
@@ -99,17 +91,12 @@ export function useDocumentShare({ document, pageCount, busy, setBusy }: Options
     }
     try {
       const pause = sharePause();
-      // Android's chooser pauses the app and its JavaScript timers; a native
-      // timer deletes the copy once the time away could have locked the vault,
-      // so a target picked later from a chooser left open reads nothing.
+      // Android pauses JS timers while the chooser is open; schedule native expiry so a lingering chooser can't read the copy.
       const limit = settings.autoLockSeconds;
       if (Platform.OS === 'android' && limit >= 0) {
         copy.expireAfter(Math.max(pause.maxAwayMs ?? 0, limit * 1000));
       }
-      // The share sheet is system UI; the vault must not lock behind it.
-      // The pause ends with the session even when the sheet never settles
-      // (Android blocked the chooser, or iOS never reports a sheet the lock
-      // dismissed), so it cannot excuse a later session's time away.
+      // Pause auto-lock for system share UI, scoped to this session so a hung sheet cannot exempt a later session.
       await withoutAutoLock(
         () =>
           Promise.race([
@@ -123,7 +110,6 @@ export function useDocumentShare({ document, pageCount, busy, setBusy }: Options
       );
       if (!session.current()) markShareInterrupted(document.id);
     } catch {
-      // Sheet dismissed or sharing unavailable; the copy is discarded either way.
     } finally {
       copy.discard();
       if (mounted.current) setBusy(null);

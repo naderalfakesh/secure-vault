@@ -11,13 +11,6 @@ import { markGlyphSize } from './helpers';
 import { styles } from './Mark.styles';
 import type { MarkProps } from './types';
 
-/**
- * The SecureVault mark: the sealed folio, the app icon's drawing on its
- * rounded indigo tile (night blue in dark mode). It comes from the same SVG
- * as the splash image, so the splash handoff repaints the native splash
- * exactly. The muted variant, and any other glyph such as the lockout clock,
- * keeps the quiet outline style on a plain tile.
- */
 export function Mark({
   size = 72,
   muted = false,

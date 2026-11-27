@@ -11,11 +11,7 @@ export type AppTextProps = PropsWithChildren<
     variant?: TypographyVariant;
     tone?: TextTone;
     align?: 'left' | 'center' | 'right';
-    /**
-     * Shrink to keep every word whole instead of breaking it mid-word at the
-     * largest text sizes. On by default for the title variants; pass `false`
-     * for user content, such as a document name, that may be one long token.
-     */
+    /** Shrink to avoid mid-word breaks at large text sizes; pass false for user-entered tokens. */
     fit?: boolean;
   }
 >;

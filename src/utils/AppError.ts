@@ -1,8 +1,3 @@
-/**
- * Every `code` the app's own JavaScript puts on an error. Native modules send
- * more (see `errorMessages.ts`); those reach the app as plain errors, which
- * `errorCode` reads all the same.
- */
 export const APP_ERROR_CODES = [
   'BACKUP_BUSY',
   'BACKUP_CANCELLED',
@@ -28,7 +23,6 @@ export const APP_ERROR_CODES = [
 
 export type AppErrorCode = (typeof APP_ERROR_CODES)[number];
 
-/** An error the app raised itself: a code to branch on, a sentence, and the failure behind it. */
 export class AppError extends Error {
   readonly code: AppErrorCode;
 
@@ -39,10 +33,6 @@ export class AppError extends Error {
   }
 }
 
-/**
- * The `code` a native module, the index or a service put on a thrown error,
- * or undefined when it carries none. The one place that reads it.
- */
 export function errorCode(error: unknown): string | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
   const { code } = error as { code?: unknown };

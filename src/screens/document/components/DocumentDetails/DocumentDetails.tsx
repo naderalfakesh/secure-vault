@@ -23,7 +23,6 @@ type DocumentDetailsProps = {
   onDelete: () => void;
 };
 
-/** The details sheet's body: what was found, the actions and the file line. */
 export function DocumentDetails({
   document,
   fields,

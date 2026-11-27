@@ -6,20 +6,17 @@ import type { DocumentOrder, DocumentRow } from './types';
 
 export type DocumentChanges = Partial<Pick<Document, 'title' | 'category' | 'tags' | 'ocrText'>>;
 
-// The expiry date, when the document has one, for sorting.
 export const EXPIRY_JOIN = `LEFT JOIN fields expiry ON expiry.document_id = d.id AND expiry.key = '${FIELD_KEYS.expires}' AND expiry.kind = 'date'`;
 
 export const ORDER_BY: Record<DocumentOrder, string> = {
   newest: 'd.created_at DESC',
   oldest: 'd.created_at ASC',
-  // Undated documents go last, newest first among themselves.
   expiry: 'expiry.value IS NULL, expiry.value ASC, d.created_at DESC',
 };
 
-// Tags are joined with the ASCII unit separator so a tag can contain commas.
+// ASCII unit separator lets tags contain commas.
 const TAG_SEPARATOR = String.fromCharCode(31);
 
-// Tags come back in insertion order, which is the order the user typed them.
 export const COLUMNS = `d.*, (SELECT group_concat(tag, char(31)) FROM (SELECT tag FROM tags WHERE document_id = d.id ORDER BY rowid)) AS tags`;
 
 export function toDocument(row: DocumentRow): Document {
@@ -38,7 +35,6 @@ export function toDocument(row: DocumentRow): Document {
   };
 }
 
-/** Builds the parameterized `UPDATE documents` statement for only the defined fields in `changes`. */
 export function buildDocumentUpdate(
   id: string,
   changes: DocumentChanges,
@@ -64,7 +60,6 @@ export function buildDocumentUpdate(
   };
 }
 
-/** Returns a new `Document` with only the defined fields in `changes` applied. */
 export function applyDocumentChanges(
   existing: Document,
   changes: DocumentChanges,

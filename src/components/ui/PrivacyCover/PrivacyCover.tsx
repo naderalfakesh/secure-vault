@@ -7,11 +7,6 @@ import { Mark } from '../Mark';
 import { Text } from '../Text';
 import { styles } from './PrivacyCover.styles';
 
-/**
- * Solid privacy cover: the background colour,
- * the 80 pt mark, and the app name, so the app switcher shows nothing of the
- * vault. It is purely visual and hidden from assistive tech.
- */
 export function PrivacyCover() {
   return (
     <View style={styles.cover} pointerEvents="none" {...decorative} testID="privacy-cover">

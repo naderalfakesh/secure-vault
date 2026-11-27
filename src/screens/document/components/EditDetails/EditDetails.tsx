@@ -15,10 +15,8 @@ type EditDetailsProps = {
   onSave: () => void;
 };
 
-/** The edit form: title, collection and tags. */
 export function EditDetails({ draft, titleError, onChange, onSave }: EditDetailsProps) {
   const { theme } = useUnistyles();
-  // iOS does not speak an alert role when it appears.
   useAnnouncement(titleError ? t('viewer.edit.titleMissing') : null);
 
   return (

@@ -1,4 +1,3 @@
-/** Library and Delete and undo. */
 export const library = {
   'library.title': 'Library',
   'library.category.id': 'ID & Personal',

@@ -4,34 +4,27 @@ import type { BiometryType } from '@modules/expo-vault';
 
 import type { Stage } from './types';
 
-/** The second step: confirming, and saving what was confirmed. */
 export function isConfirmStep(stage: Stage): boolean {
   return stage === 'confirm' || stage === 'saving';
 }
 
 export type PinPromptInput = {
   stage: Stage;
-  /** The confirmation did not match the first PIN. */
   mismatch: boolean;
-  /** A key that guards documents only needs a PIN: "Add a PIN". */
   keepsDocuments: boolean;
   vaultEmpty: boolean;
   biometry: BiometryType;
-  /** A setup failure the owner has not moved past yet. */
   shownError: string | null;
 };
 
 export type PinPrompt = {
   title: string;
-  /** What the saving state says, also spoken. */
   saving: string;
-  /** The line under the title: an error, a warning or the step's hint. */
   message: string;
   alerting: boolean;
   failing: boolean;
 };
 
-/** What the Choose PIN screen says at each stage. */
 export function pinPrompt({
   stage,
   mismatch,

@@ -1,11 +1,6 @@
 import type { SourceRow } from './types';
 
-/**
- * The camera rows depend on the hardware: the platform scanner and a
- * plain photo when there is a camera; both disabled with the reason when there
- * is none, because the native camera picker aborts on a camera-less device.
- * Without the scanner but with a camera, only the photo row is offered.
- */
+// Disable camera rows on camera-less devices because the native camera picker aborts.
 export function sourceRows(
   scannerSupported: boolean,
   cameraAvailable: boolean,

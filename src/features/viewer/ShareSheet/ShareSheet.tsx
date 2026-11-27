@@ -8,10 +8,6 @@ import { confirmShareLabel, shareText } from '../shareCopy';
 import { styles } from './ShareSheet.styles';
 import type { ShareSheetProps } from './types';
 
-/**
- * The share warning and preparing step. Every share
- * starts here; the system share sheet opens only after this sheet closes.
- */
 export function ShareSheet({
   step,
   fileName,

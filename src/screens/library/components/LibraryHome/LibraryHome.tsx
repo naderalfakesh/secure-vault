@@ -19,7 +19,6 @@ type LibraryHomeProps = {
   onBrowse: (collections?: DocumentCategory[]) => void;
 };
 
-/** The Library at rest: expiring soon, recent, and collections. */
 export function LibraryHome({
   expiring,
   expiry,

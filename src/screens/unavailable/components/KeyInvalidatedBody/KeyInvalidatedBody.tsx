@@ -6,10 +6,6 @@ type KeyInvalidatedBodyProps = {
   eraseFailed: boolean;
 };
 
-/**
- * The key was invalidated or is gone while entries remain: nothing in the
- * vault can be decrypted again, and the plain sentence says so.
- */
 export function KeyInvalidatedBody({ error, eraseFailed }: KeyInvalidatedBodyProps) {
   return (
     <>

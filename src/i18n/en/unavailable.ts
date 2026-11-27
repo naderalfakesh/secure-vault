@@ -1,4 +1,3 @@
-/** Vault unavailable. */
 export const unavailable = {
   'unavailable.title': 'SecureVault can’t open right now',
   'unavailable.body':

@@ -11,7 +11,6 @@ export type DetailsFieldProps = {
   children: ReactNode;
 };
 
-/** A labelled group in the details form, with an optional hint under it. */
 export function DetailsField({ label, hint, children }: DetailsFieldProps) {
   return (
     <View style={styles.field}>

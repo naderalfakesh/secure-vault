@@ -1,4 +1,3 @@
-/** First run: intro, Choose PIN, biometrics step. */
 export const onboarding = {
   'onboarding.intro.1.title': 'One place for the papers that matter',
   'onboarding.intro.1.body':

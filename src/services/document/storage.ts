@@ -14,7 +14,6 @@ import { PAGE_MAX_PIXELS } from './constants';
 import { cacheLocation, shareFileName, toPath, toUri } from './helpers';
 import type { DocumentLookup, RepositorySource, ShareCopy } from './types';
 
-/** Decrypts the document into the cache and returns its file URI. */
 export async function decryptDocumentFile(
   lookup: DocumentLookup,
   cacheUri: string,
@@ -44,10 +43,6 @@ export async function decryptThumbnail(
   }
 }
 
-/**
- * Every page of a document as image URIs in the cache, main file first.
- * PDFs are rasterised natively so the viewer never needs a PDF renderer.
- */
 export async function decryptPages(
   lookup: DocumentLookup,
   cacheUri: string,
@@ -73,10 +68,6 @@ export async function decryptPages(
   return uris;
 }
 
-/**
- * A decrypted copy named after the document, ready for the share sheet.
- * Call `discard` once the sheet closes; `clearCache` sweeps it too.
- */
 export async function prepareShareCopy(
   lookup: DocumentLookup,
   id: string,
@@ -84,19 +75,14 @@ export async function prepareShareCopy(
   const doc = await lookup.getDocument(id);
   const source = await lookup.getDocumentFile(id);
   if (!doc || !source) return null;
-  // The extension matches the declared type's (public.jpeg, com.adobe.pdf),
-  // so expo-sharing on iOS shares this file as is instead of hard-linking it
-  // into a staging folder of its own that our discard would not reach.
+  // Match declared UTI extension (jpeg/pdf) so iOS expo-sharing doesn't hard-link into an unmanaged staging dir.
   const extension = doc.fileType === 'pdf' ? 'pdf' : 'jpeg';
-  // A folder per share: Android grants every share target read access to the
-  // copy's content URI, and those grants outlive the file. A fresh path means
-  // a later copy never answers to an earlier share's grants.
+  // Per-share UUID folder prevents reused Android content URI read grants from accessing future shares.
   const directory = new Directory(Paths.cache, SHARE_DIRECTORY, Crypto.randomUUID());
   directory.create({ intermediates: true, idempotent: true });
   const target = new File(directory, `${shareFileName(doc.title)}.${extension}`);
   const folder = toPath(directory.uri).replace(/\/+$/, '');
-  // Never followed through a link: expo-file-system's delete on Android
-  // empties a link's target before removing the link.
+  // Use removeTreeNoFollow because expo-file-system delete on Android follows symlinks.
   const remove = () => {
     try {
       ExpoVaultModule.removeTreeNoFollow(folder);
@@ -107,7 +93,6 @@ export async function prepareShareCopy(
   try {
     await new File(toUri(source)).copy(target);
   } catch (e) {
-    // A copy cut short is plaintext too.
     remove();
     throw e;
   }

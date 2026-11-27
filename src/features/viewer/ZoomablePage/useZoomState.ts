@@ -7,14 +7,8 @@ type Options = {
   onEdgeSwipe?: (direction: SwipeDirection) => void;
 };
 
-/**
- * The JS side of the page's zoom: whether it is zoomed, and the reports to
- * the pager when that changes.
- */
 export function useZoomState({ onZoomChange, onEdgeSwipe }: Options) {
-  // Mirrors the scale on the JS side so the zoomed pan only exists while
-  // zoomed. At rest it must not activate at all: an active pan claims the
-  // touch, and the pager underneath never sees the horizontal swipe.
+  // Mirrors scale on JS side so zoomedPan is disabled at rest and won't steal pager swipes.
   const [zoomed, setZoomed] = useState(false);
 
   const reportZoom = useCallback(

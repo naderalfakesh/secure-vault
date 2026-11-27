@@ -1,9 +1,3 @@
-/**
- * System fonts on purpose: SF Pro and Roboto scale with Dynamic Type and font
- * scaling without shipping font files. Sizes follow the iOS
- * text styles; the platform applies its own optical tracking, so only the
- * uppercase section label sets letter spacing.
- */
 import type { TextStyle } from 'react-native';
 
 export const typography = {
@@ -17,7 +11,6 @@ export const typography = {
   subheadline: { fontSize: 15, lineHeight: 20, fontWeight: '400' },
   footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  /** Uppercase section header. */
   label: {
     fontSize: 13,
     lineHeight: 18,
@@ -25,7 +18,6 @@ export const typography = {
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  /** PIN keypad digits; tabular so the keys never shift. */
   pinDigit: {
     fontSize: 32,
     lineHeight: 38,

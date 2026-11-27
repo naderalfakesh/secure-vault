@@ -16,11 +16,6 @@ type Options = {
   resettingPinRef: RefObject<boolean>;
 };
 
-/**
- * Auto-lock: remember when the app left the foreground and compare on return.
- * While system UI pauses it, the time away is excused only within that
- * pause's limits, so a pause that never ends cannot keep the vault open.
- */
 export function useForegroundReturn({
   statusRef,
   away,
@@ -33,11 +28,7 @@ export function useForegroundReturn({
   useEffect(() => {
     const clock = away.current;
     const timers = new Set<ReturnType<typeof setTimeout>>();
-    // A pause still pending once the time away passes both its own limit and
-    // auto-lock locks then, without waiting for the return: Android's chooser
-    // keeps the app away for as long as it stays up, and the copy it offers
-    // must not outlive the session. Locking sweeps the copy, so a target picked
-    // later reads nothing.
+    // Lock while still backgrounded once a pause outlives its bound and auto-lock so shared temp files are swept.
     const expireWhileAway = (entry: PauseEntry) => {
       const limit = autoLockRef.current;
       const awayAt = entry.awayAt;
@@ -45,7 +36,6 @@ export function useForegroundReturn({
       const timer = setTimeout(
         () => {
           timers.delete(timer);
-          // Back in the meantime, or the pause ended: that trip is judged as before.
           if (entry.awayAt !== awayAt || !clock.pauses.delete(entry)) return;
           judgeAway(Date.now() - awayAt);
           settleWaiters();
@@ -55,7 +45,6 @@ export function useForegroundReturn({
       timers.add(timer);
     };
     const onChange = (next: AppStateStatus) => {
-      // Vault unavailable: try once more on each return to the foreground.
       if (statusRef.current === 'unavailable') {
         if (next === 'active' && !resettingPinRef.current) void launch();
         return;
@@ -70,8 +59,7 @@ export function useForegroundReturn({
           const endedOnTheWayBack = clock.pauseEndedAway && idleMs < AUTO_LOCK_RETURN_GRACE_MS;
           clock.backgroundedAt = null;
           clock.pauseEndedAway = false;
-          // A picker result that lands just before the app is active again
-          // (Android) is part of coming back, not time away.
+          // Android picker results can arrive just before AppState transitions to active.
           if (!endedOnTheWayBack) judgeAway(idleMs);
         }
       } else if (statusRef.current === 'unlocked') {
@@ -93,13 +81,11 @@ export function useForegroundReturn({
             pauses.delete(entry);
             judgeAway(awayMs);
           } else if (outcome === 'left' && left !== null) {
-            // The user left the app under the chooser: the time since is away time.
             pauses.delete(entry);
             judgeAway(now - left);
           } else if (outcome === 'grace') {
             const timer = setTimeout(() => {
               timers.delete(timer);
-              // Still pending: the system UI never showed, or is gone without settling.
               if (pauses.delete(entry)) {
                 judgeAway(awayMs);
                 settleWaiters();
@@ -109,7 +95,6 @@ export function useForegroundReturn({
           }
         }
       }
-      // Waiting work resumes only after the return to the foreground was judged.
       settleWaiters();
     };
     const subscription = AppState.addEventListener('change', onChange);

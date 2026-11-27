@@ -7,7 +7,6 @@ export const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.xs,
     minHeight: 22,
   },
-  // Rules wrap at the largest text sizes instead of running off the sheet.
   ruleText: {
     flexShrink: 1,
   },

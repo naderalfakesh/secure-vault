@@ -5,7 +5,6 @@ import { Group, Skeleton } from '@/components/ui';
 import { styles } from './LibrarySkeleton.styles';
 import { SKELETON_WIDTHS } from '../../constants';
 
-/** Placeholder rows while a slow index loads; silent for assistive tech. */
 export function LibrarySkeleton() {
   return (
     <View style={styles.inset} accessibilityElementsHidden testID="library-loading">

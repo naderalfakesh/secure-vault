@@ -3,11 +3,7 @@ import type { AccessibilityActionEvent } from 'react-native';
 
 import { ACTIVATION_ECHO_MS } from './constants';
 
-/**
- * Press and accessibility-action handlers for a switch row. A screen
- * reader's activation may arrive both as the action and as a press, so a
- * press right after an action is dropped.
- */
+// Screen readers can fire both accessibilityAction and onPress; drop the trailing echo.
 export function useSwitchActivation(flip: () => void) {
   const lastActivation = useRef(0);
   return {

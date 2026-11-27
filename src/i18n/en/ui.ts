@@ -1,4 +1,3 @@
-/** Spoken names and defaults inside the design-system components. */
 export const ui = {
   'ui.pinDots.entered': '{filled} of {count} digits entered',
   'ui.pinPad.delete': 'Delete',

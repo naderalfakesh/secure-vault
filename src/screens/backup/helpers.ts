@@ -1,6 +1,5 @@
 import { errorCode } from '@/utils/errors';
 
-/** The picker refused because another pick is still closing. */
 export function pickerBusy(error: unknown): boolean {
   const { message } = (error ?? {}) as { message?: unknown };
   return (

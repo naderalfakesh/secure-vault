@@ -24,7 +24,6 @@ type SortSheetProps = {
   resultCount: number;
 };
 
-/** Choices apply as they are made; the button only closes, naming the result. */
 export function SortSheet({
   visible,
   onClose,
@@ -44,7 +43,6 @@ export function SortSheet({
       visible={visible}
       onClose={onClose}
       title={t('library.sortAndFilter')}
-      // The body is its own scroll view.
       scroll={false}
       headerAction={{ label: t('library.sheet.reset'), onPress: reset }}
     >

@@ -7,7 +7,6 @@ import { styles } from './SectionHeader.styles';
 
 type SectionHeaderProps = {
   title: string;
-  /** A count or note at the trailing edge. */
   trailing?: string;
   action?: { label: string; onPress: () => void };
 };
@@ -15,7 +14,6 @@ type SectionHeaderProps = {
 export function SectionHeader({ title, trailing, action }: SectionHeaderProps) {
   return (
     <View style={styles.header}>
-      {/* Capped and shrinkable, so the action beside it stays whole at AX5. */}
       <Text
         variant="title3"
         accessibilityRole="header"

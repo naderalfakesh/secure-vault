@@ -8,12 +8,6 @@ import { styles } from './OnboardingArt.styles';
 import { Scene } from './scenes';
 import type { OnboardingArtProps } from './types';
 
-/**
- * The onboarding illustrations, drawn in the app icon's style: indigo, paper
- * and the brass seal. Two layers rise in one after the other when the intro
- * first shows; with Reduce Motion they only fade. Decorative, so hidden from
- * assistive tech: the slide's title and body carry the meaning.
- */
 export function OnboardingArt({ scene, biometry = 'none', testID }: OnboardingArtProps) {
   const { theme } = useUnistyles();
   const reduceMotion = useReducedMotion();

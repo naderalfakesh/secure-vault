@@ -20,7 +20,6 @@ type Options = {
   loadProtectedState: () => Promise<void>;
 };
 
-/** The app PIN: unlocking with it and changing it, both judged against the lockout. */
 export function usePinAuth({
   statusRef,
   lockoutRef,
@@ -30,28 +29,21 @@ export function usePinAuth({
   ensureKeyAccess,
   loadProtectedState,
 }: Options) {
-  // One PIN attempt at a time, so two in flight cannot both count from the same state.
+  // Serialize PIN attempts so concurrent calls cannot count from the same lockout state.
   const attemptingRef = useRef(false);
 
   const checkPin = useCallback(
     async (pin: string): Promise<PinUnlockResult> => {
-      // The stored copy outlives a relaunch and the one in memory outlives a
-      // failed write; the attempt is judged against the stricter of the two.
       const stored = await loadCappedLockout();
       const now = Date.now();
       const current = currentLockout(lockoutRef.current, stored, now);
       applyLockout(current);
       if (isLocked(current, now)) return 'not-unlocked';
       try {
-        // The PIN record is in the secure store, readable without the device
-        // key; a store that refuses the read is not a wrong PIN.
         const record = await sessionStorage.loadPinRecord();
         const ok = record ? await verifyPasscodeAsync(pin, record) : false;
         if (ok) {
-          // The PIN opens the app; the device key still needs the OS gate if its
-          // authentication window has lapsed. iOS prompts on first Keychain read,
-          // Android needs an explicit prompt, so probe and re-arm when required.
-          // A key prompt the user cancelled is not a wrong PIN.
+          // Re-arm the OS key gate if its auth window lapsed (cancelled prompt is not a wrong PIN).
           if (!(await ensureKeyAccess())) return 'not-unlocked';
           await loadProtectedState();
           await clearLockout(applyLockout);
@@ -60,7 +52,7 @@ export function usePinAuth({
         }
         const next = recordFailure(current, now);
         applyLockout(next);
-        // A stored copy that could not be read may be stricter; leave it be.
+        // Preserve an unreadable stored lockout since it may be stricter.
         if (stored) await sessionStorage.saveLockout(next).catch(() => {});
         return 'wrong-pin';
       } catch (e) {
@@ -74,8 +66,6 @@ export function usePinAuth({
   const unlockWithPin = useCallback(
     async (pin: string): Promise<PinUnlockResult> => {
       setError(null);
-      // Nothing is judged before the startup read of the stored lockout landed,
-      // or while another attempt is still being judged.
       if (statusRef.current === 'loading' || attemptingRef.current) return 'not-unlocked';
       attemptingRef.current = true;
       try {
@@ -90,11 +80,6 @@ export function usePinAuth({
   const changePin = useCallback(
     async (currentPin: string, nextPin: string): Promise<PinChangeResult> => {
       setError(null);
-      // The current PIN is judged like one typed on the lock screen: against
-      // the same lockout, one attempt at a time, and a wrong one counts, so an
-      // unlocked session cannot guess without limit. The device unlock on the
-      // lock screen still ends the pause.
-      // A second call while one is judged changes nothing and resets nothing.
       if (attemptingRef.current) return 'busy';
       attemptingRef.current = true;
       try {
@@ -107,7 +92,6 @@ export function usePinAuth({
         if (!record || !(await verifyPasscodeAsync(currentPin, record))) {
           const next = recordFailure(current, now);
           applyLockout(next);
-          // A stored copy that could not be read may be stricter; leave it be.
           if (stored) await sessionStorage.saveLockout(next).catch(() => {});
           return 'wrong-pin';
         }

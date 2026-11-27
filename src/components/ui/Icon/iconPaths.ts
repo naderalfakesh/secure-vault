@@ -1,9 +1,3 @@
-/**
- * Outline glyphs on a 24 pt grid, drawn with a 1.75 stroke, round caps and
- * round joins. The design's set is copied exactly from the
- * design source (`Main.dc.html`, `renderVals().i`); the few extra glyphs the
- * app needs (marked below) are drawn on the same grid in the same style.
- */
 export const iconPaths = {
   mark: 'M7 3h7l5 5v4M19 16v3a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2M14 3v5h5M10.5 14.5a1.5 1.5 0 1 1 3 0v1.5h-3zM9.5 16h5v3.5h-5z',
   lock: 'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4',
@@ -55,13 +49,10 @@ export const iconPaths = {
   restore: 'M12 21V9M8 13l4-4 4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2',
   image: 'M4 4h16v16H4zM4 16l5-5 4 4 2-2 5 5M15 8.5a1.5 1.5 0 1 1 0 .01',
 
-  // Not in the design's set; drawn on the same grid for the app's extra uses.
-  /** The lock with its shackle swung open. */
   unlock:
     'M6 11h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 7.75-1.4',
   fingerprint:
     'M5 10a7 7 0 0 1 13.5-2.6M19 12c0 3-.5 5.5-1.5 7.5M8.5 19.5c.9-2 1.5-4.5 1.5-7.5a2 2 0 0 1 4 0c0 3.5-.6 6.5-1.8 9M5.5 16.5c.9-1.4 1.5-2.9 1.5-4.5a5 5 0 0 1 10 0c0 1.6-.1 3.1-.4 4.5',
-  /** Photo library: two stacked frames. */
   photos:
     'M8 3h12a1 1 0 0 1 1 1v12M4 7h12a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM3 17l4-4 3 3 2-2 5 5',
   text: 'M4 6h16M4 10h12M4 14h16M4 18h10',

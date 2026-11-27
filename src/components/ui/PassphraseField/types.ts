@@ -13,6 +13,5 @@ export type PassphraseFieldProps = Omit<
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  /** Error under the field; also turns the border danger. */
   error?: string | null;
 };

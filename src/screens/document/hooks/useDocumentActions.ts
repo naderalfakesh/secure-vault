@@ -18,11 +18,9 @@ type Options = {
   setDocument: (document: Document) => void;
   pages: readonly string[];
   setBusy: Dispatch<SetStateAction<ViewerBusy>>;
-  /** Closes the details sheet before the document goes. */
   closeDetails: () => void;
 };
 
-/** Copy text, Read again and Delete from the details sheet. */
 export function useDocumentActions({
   document,
   setDocument,
@@ -64,13 +62,11 @@ export function useDocumentActions({
     }
   }, [document, pages, toast, setBusy, setDocument]);
 
-  // No confirmation: the document leaves at once and the Library offers Undo.
   const remove = useCallback(async () => {
     if (!document) return;
     closeDetails();
     setBusy('delete');
     const removed = await deleteWithUndo([document]);
-    // A lock during the delete has already taken this screen away.
     if (!mounted.current) return;
     if (removed > 0) {
       goToLibrary();

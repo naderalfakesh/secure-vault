@@ -8,16 +8,7 @@ import { useRestore } from './hooks/useRestore';
 import { styles } from './RestoreSheet.styles';
 import type { RestoreSheetProps } from './types';
 
-/**
- * The restore sheet: Inspect → Checking → Restoring →
- * outcome. Checking leaves the vault untouched and may be cancelled; the
- * first Restoring event is the wipe boundary, after which there is no
- * control and nothing says the vault is unchanged.
- *
- * A restore is never stopped by the lock: it keeps running with the screen
- * gone so the vault is never left half replaced, and reports its outcome after
- * the next unlock. The service refuses any other backup work until it ends.
- */
+// Restores run to completion even if the vault locks so it is never left half-replaced.
 export function RestoreSheet({
   backup,
   onClose,
@@ -33,7 +24,6 @@ export function RestoreSheet({
   const running = stage.name === 'running';
   const wiped = running && stage.progress.wiped;
 
-  // The Cancel control and the point of no return are spoken when they appear.
   useAnnouncement(
     running && !wiped ? `${copy['restore.unchanged']} ${copy['restore.cancelAvailable']}` : null,
   );

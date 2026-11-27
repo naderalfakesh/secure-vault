@@ -15,17 +15,6 @@ import { useAddDocumentFlow } from './hooks/useAddDocumentFlow';
 const close = () => router.back();
 const openSettings = () => void Linking.openSettings().catch(() => {});
 
-/**
- * Scan and import.
- *
- * Picker, photo and scanner copies are plaintext. This screen owns them from
- * the moment a source hands them over: a removed page loses its copy at once,
- * and every way out without saving (Discard, Cancel, Back to the sources, a
- * late result after the screen closed, the screen closing, the lock gate
- * taking the screen away) removes them. A save in flight owns them instead:
- * the vault module still has to read them, and the service removes them when
- * it has. The lock and launch sweeps catch anything a kill leaves.
- */
 export function AddDocumentScreen() {
   const flow = useAddDocumentFlow();
   const { phase, files, thumbnails, details } = flow;

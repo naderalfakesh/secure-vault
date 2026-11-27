@@ -13,7 +13,6 @@ import type { Slide } from './types';
 
 const toPin = () => router.push('/setup/pin');
 
-/** The intro, steps 1–3. */
 export function OnboardingScreen() {
   const { biometry, vaultExists, vaultEmpty, setupHeld } = useSessionState();
   const slides = introSlides(unlockSlideBody(biometry));
@@ -21,8 +20,7 @@ export function OnboardingScreen() {
   const last = page === slides.length - 1;
   const currentSlide = slides[page];
 
-  // A key that guards documents only needs a PIN; it never sees "set up your
-  // vault". A held setup has a key too, and stays where it is.
+  // Existing populated vault without a PIN skips intro straight to PIN setup (unless setup is held).
   if (vaultExists && !vaultEmpty && !setupHeld) return <Redirect href="/setup/pin" />;
 
   const next = () => {

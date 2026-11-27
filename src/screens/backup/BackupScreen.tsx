@@ -11,17 +11,11 @@ import { CreateBackupCard, RestoreGroup } from './components';
 import { useLastBackup } from './hooks/useLastBackup';
 import { useRestorePick } from './hooks/useRestorePick';
 
-/**
- * Settings › Backup: create a backup, and the app's only
- * restore entry. Nothing outside this screen starts a restore, and no
- * route, link or file type opens it with a file; it reads no parameters.
- */
+// Sole restore entry point: no route param, deep link, or file association may trigger a restore.
 export function BackupScreen() {
   const [lastBackup, setLastBackup] = useLastBackup();
   const [creating, setCreating] = useState(false);
   const pick = useRestorePick();
-  // An export or restore, this screen's or one started before the last lock,
-  // holds the service's one slot; nothing else may start until it ends.
   const running = useBackupActivity();
   const blocked = running !== null;
   const earlier = !creating && pick.restore === null ? running : null;

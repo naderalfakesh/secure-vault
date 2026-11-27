@@ -4,7 +4,6 @@ import { useUnistyles } from 'react-native-unistyles';
 import { MIRRORED } from './constants';
 import type { SwitchProps } from './types';
 
-/** Platform switch; "on" is the success colour in both themes. */
 export function Switch({
   value,
   onValueChange,

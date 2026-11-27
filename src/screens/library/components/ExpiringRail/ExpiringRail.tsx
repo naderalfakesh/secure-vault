@@ -15,7 +15,6 @@ type ExpiringRailProps = {
   onOpen: (document: Document) => void;
 };
 
-/** Documents expiring soon, as cards in a horizontal rail. */
 export function ExpiringRail({ documents, expiry, onOpen }: ExpiringRailProps) {
   return (
     <View style={styles.section}>

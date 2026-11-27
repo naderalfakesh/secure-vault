@@ -16,11 +16,6 @@ type Options = {
   resettingPinRef: RefObject<boolean>;
 };
 
-/**
- * Auto-lock: time away from the app is judged against the limit on the way
- * back, and `withoutAutoLock` pauses it for system UI within that pause's
- * limits, so a pause that never ends cannot keep the vault open.
- */
 export function useAutoLock({
   statusRef,
   changeStatus,
@@ -30,7 +25,6 @@ export function useAutoLock({
   launch,
   resettingPinRef,
 }: Options) {
-  /** Locks when time away has passed the auto-lock limit. */
   const judgeAway = useCallback(
     (awayMs: number) => {
       if (statusRef.current === 'unlocked' && exceedsAutoLock(autoLockRef.current, awayMs)) {
@@ -53,29 +47,19 @@ export function useAutoLock({
           if (AppState.currentState === 'active' || awayAt === null) {
             clock.backgroundedAt = null;
           } else if (Date.now() - awayAt > entry.maxAwayMs) {
-            // Ended while still away after outliving its bound (Android delivers
-            // a chooser's Back or pick before the app is active again, and its
-            // paused timers never fired): the pause excuses nothing, so the whole
-            // trip since the app left under it is judged now, and again on
-            // return if auto-lock allows it so far.
+            // Pause outlived its bound while away: judge the full trip since backgrounding.
             clock.backgroundedAt = awayAt;
             clock.pauseEndedAway = false;
             judgeAway(Date.now() - awayAt);
           } else {
             const left = leftDuring(entry);
             if (left !== null) {
-              // Android: the user left the app under the chooser (Home, or a
-              // target opened over it), and its result only arrives with the
-              // return. The pause excused the time until then; from then on the
-              // user was simply away, judged without the return grace.
+              // Android: user left the app under the chooser; judge time away since then.
               clock.backgroundedAt = left;
               clock.pauseEndedAway = false;
               judgeAway(Date.now() - left);
             } else {
-              // Ended while still away within its bound (iOS handed the share to
-              // another app, or a picker result landed on the way back): the pause
-              // excused the time until now, and the rest of the time away is
-              // judged on return like any other.
+              // Pause ended within its bound while still away: start normal away timer now.
               clock.backgroundedAt = Date.now();
               clock.pauseEndedAway = true;
             }

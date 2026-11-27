@@ -11,10 +11,6 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { CLOSE_MS, SLIDE } from './constants';
 
-/**
- * The backdrop fade and the panel's slide for a sheet that is showing or
- * not. Reduced motion cross-fades instead of sliding.
- */
 export function useSheetMotion(visible: boolean) {
   const { theme } = useUnistyles();
   const reduceMotion = useReducedMotion();
@@ -23,7 +19,6 @@ export function useSheetMotion(visible: boolean) {
   useEffect(() => {
     const target = visible ? 1 : 0;
     if (reduceMotion) {
-      // Reduced motion: a cross-fade instead of the slide.
       progress.value = withTiming(target, { duration: theme.motion.durationBase });
       return;
     }

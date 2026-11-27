@@ -11,7 +11,6 @@ type NoTextNoticeProps = {
   onReadAgain: () => void;
 };
 
-/** No text was recognised: say so and offer to read the page again. */
 export function NoTextNotice({ reading, disabled, onReadAgain }: NoTextNoticeProps) {
   return (
     <View style={styles.noText}>

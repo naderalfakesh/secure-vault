@@ -6,7 +6,6 @@ import type { ExtractedField, Document } from '@/types';
 import { unreadableDetail } from '../helpers';
 import type { LoadFailure } from '../types';
 
-/** Loads the document, its decrypted pages and its recognised fields. */
 export function useViewerDocument(id: string | undefined) {
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);

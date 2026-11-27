@@ -9,11 +9,6 @@ import { useZoomGestures } from './useZoomGestures';
 import { useZoomState } from './useZoomState';
 import { styles } from './ZoomablePage.styles';
 
-/**
- * One page of the viewer. Pinch to zoom around the fingers, pan while zoomed,
- * double-tap to toggle, drag down at rest to dismiss. Adapted from the
- * image-toolset-modern viewer without its thumbnail morph.
- */
 export function ZoomablePage({
   uri,
   label,

@@ -3,14 +3,12 @@ import type { SourceProblem } from '@/features/scan/SourceList';
 
 import type { Origin, Phase } from './types';
 
-/** Where the add-document flow stands: the phase that shows and what it carries. */
 export type FlowState = {
   phase: Phase;
   origin: Origin;
   problem: SourceProblem | null;
   step: ProcessingStep;
   saveError: string | null;
-  /** Set once the files are in the vault and only the found values failed: no going back. */
   savedId: string | null;
 };
 

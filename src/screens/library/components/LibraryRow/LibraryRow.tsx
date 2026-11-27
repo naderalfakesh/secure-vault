@@ -6,7 +6,6 @@ import { documentMeta } from '@/features/documents/library';
 import { THUMBNAIL_HEIGHT } from './constants';
 import type { LibraryRowProps } from './types';
 
-/** A Library row: paper thumbnail, title, "Collection · date", optional match line. */
 export function LibraryRow({
   document,
   onPress,

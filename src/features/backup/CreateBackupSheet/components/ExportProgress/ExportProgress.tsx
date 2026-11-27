@@ -9,7 +9,6 @@ type ExportProgressProps = {
   percent: number;
 };
 
-/** The busy step: progress, and a sheet that cannot be dismissed. */
 export function ExportProgress({ done, total, percent }: ExportProgressProps) {
   return (
     <>

@@ -1,11 +1,9 @@
-/** Keeps a zoomed page's translation inside the viewport along one axis. */
 export function clampToBounds(value: number, size: number, currentScale: number): number {
   'worklet';
   const bound = ((currentScale - 1) * size) / 2;
   return Math.min(Math.max(value, -bound), bound);
 }
 
-/** Keeps the point under the fingers fixed while scaling around `focal`. */
 export function pinchTranslation(
   focal: number,
   size: number,
@@ -17,7 +15,6 @@ export function pinchTranslation(
   return offset - (offset - savedTranslation) * ratio;
 }
 
-/** Clamped translation when double-tapping to `targetScale` around `tapCoordinate`. */
 export function doubleTapTranslation(
   tapCoordinate: number,
   size: number,

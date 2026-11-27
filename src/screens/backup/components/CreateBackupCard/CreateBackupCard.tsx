@@ -8,7 +8,6 @@ import { textScale } from '@/theme/tokens';
 import { styles } from './CreateBackupCard.styles';
 
 type CreateBackupCardProps = {
-  /** Backup work started before this screen opened, still running. */
   earlier: BackupOperation | null;
   lastBackup: Date | null;
   disabled: boolean;
@@ -26,7 +25,6 @@ export function CreateBackupCard({
       <View style={styles.cardIcon}>
         <Icon name="archive" size={22} tone="accent" />
       </View>
-      {/* Capped: at AX5 its longest word did not fit and broke mid-word. */}
       <Text
         variant="title3"
         accessibilityRole="header"

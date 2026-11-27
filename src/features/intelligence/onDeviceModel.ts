@@ -11,15 +11,6 @@ import type { DocumentIntelligence, DocumentSuggestion } from './types';
 export { MAX_TEXT_LENGTH, MODEL_INSTRUCTIONS, MODEL_TIMEOUT_MS } from './constants';
 export { checkModelAnswer } from './modelValidation';
 
-/**
- * Apple's Foundation Model on iOS 26+, Gemini Nano on supported Android
- * phones. Both run on the device; the text never leaves it.
- *
- * The model proposes and the text decides: every value it returns is checked
- * against the document text before it reaches the form (see `modelValidation.ts`),
- * and the heuristic engine fills what the model left empty.
- */
-
 const engine: ModelEngine = Platform.OS === 'ios' ? 'apple-foundation-models' : 'gemini-nano';
 
 export const onDeviceModelIntelligence: DocumentIntelligence = {
@@ -27,7 +18,6 @@ export const onDeviceModelIntelligence: DocumentIntelligence = {
   async isAvailable() {
     return (await modelInfo()).status === 'available';
   },
-  /** Throws when the model fails or answers nonsense; `suggestForText` then uses the heuristic. */
   async suggest(ocrText: string): Promise<DocumentSuggestion> {
     const text = ocrText.trim();
     if (!text) return { tags: [], fields: [], engine };

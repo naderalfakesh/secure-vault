@@ -10,7 +10,6 @@ import { plainErrorMessage } from '@/utils/errors';
 import { draftFromDocument } from '../helpers';
 import type { Draft } from '../types';
 
-/** The edit form in the details sheet: title, collection and tags. */
 export function useDocumentEditor(
   document: Document | null,
   onSaved: (document: Document) => void,

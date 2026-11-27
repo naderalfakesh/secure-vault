@@ -2,11 +2,6 @@ import type { DocumentMetadata } from '@/types';
 
 import type { DocumentRepository } from './DocumentRepository';
 
-/**
- * Imports the prototype's single-JSON index into SQLite. Idempotent: rows that
- * already exist are skipped, so a crash halfway through is safe to retry.
- * Returns how many documents were imported.
- */
 export async function migrateLegacyIndex(
   legacy: DocumentMetadata | null,
   repository: DocumentRepository,

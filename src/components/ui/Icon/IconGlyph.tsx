@@ -4,7 +4,6 @@ import { ICON_STROKE } from './constants';
 import { iconPaths } from './iconPaths';
 import type { IconGlyphProps } from './types';
 
-/** The bare outline glyph, drawn from the design's path. */
 export function IconGlyph({ path, size, color, strokeWidth = ICON_STROKE }: IconGlyphProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

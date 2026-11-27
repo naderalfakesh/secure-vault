@@ -34,7 +34,6 @@ type Options = {
   >;
 };
 
-/** First run: the device key, the hashed PIN, and the hold for onboarding's last step. */
 export function useVaultSetup({
   statusRef,
   changeStatus,
@@ -52,8 +51,7 @@ export function useVaultSetup({
     async (pin: string, options: { holdForOnboarding?: boolean } = {}) => {
       setError(null);
       try {
-        // Launch may have been a while ago, or wrong: read the key and PIN
-        // again so setup never creates a key over a vault it cannot see.
+        // Re-read key/PIN before setup so we never create a new key over an existing vault.
         const fresh = await readLaunchState(lostPinResetRef.current);
         if (launchStatus(fresh.key, fresh.pin, fresh.orphaned) === 'unavailable') {
           setPinLost(fresh.pinLost);
@@ -61,8 +59,6 @@ export function useVaultSetup({
           changeStatus('unavailable');
           return false;
         }
-        // A vault with a PIN and entries is opened, never set up again. An
-        // emptied one may still hold a PIN an erase could not remove.
         if (fresh.key === 'present' && fresh.pin === 'present' && fresh.entries !== 0) {
           setVaultExists(true);
           changeStatus('locked');
@@ -70,15 +66,13 @@ export function useVaultSetup({
         }
         const exists = fresh.key === 'present';
         setVaultExists(exists);
-        // Only a brand-new vault gets a key; an existing one keeps what it has.
         if (!exists) await vault.createVault();
         const ok = await vault.unlockWithBiometrics();
         if (!ok) return false;
         try {
           await vault.put(KEY_PROBE_ENTRY, 'ok');
         } catch (probeError) {
-          // "Delete everything" keeps the device key; one the system invalidated
-          // can never encrypt again, and an empty vault loses nothing by a new one.
+          // Empty vault can safely replace an OS-invalidated device key.
           if (
             errorCode(probeError) !== 'KEY_INVALIDATED' ||
             (await vault.getAllKeys()).length > 0
@@ -89,16 +83,12 @@ export function useVaultSetup({
           if (!(await vault.unlockWithBiometrics())) return false;
           await vault.put(KEY_PROBE_ENTRY, 'ok');
         }
-        // Settings stored by an earlier setup are kept: a new PIN after a lost
-        // one (Add a PIN, which offers no biometrics step) must not turn Face ID
-        // back on when the owner declined it. "Delete everything" removed them,
-        // so a new vault starts from the defaults.
+        // Preserve prior settings (e.g. declined biometrics) when re-adding a lost PIN.
         const kept = await sessionStorage.loadSettings();
         await sessionStorage.savePinRecord(await hashPasscodeAsync(pin));
         lostPinResetRef.current = false;
         await sessionStorage.saveSettings(kept);
         await sessionStorage.saveLockout(EMPTY_LOCKOUT).catch(() => {});
-        // Only setup creates the index and its key, once the screens behind the gate mount.
         documentService.allowIndex();
         setSettings(kept);
         applyLockout(EMPTY_LOCKOUT);
@@ -136,7 +126,6 @@ export function useVaultSetup({
     changeStatus('unlocked');
   }, [statusRef, changeStatus]);
 
-  /** Drops a held setup, as "Delete everything" does. */
   const resetSetup = useCallback(() => {
     setupHeldRef.current = false;
     setSetupHeld(false);

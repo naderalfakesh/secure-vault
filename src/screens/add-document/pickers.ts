@@ -13,23 +13,17 @@ import { IMPORT_TYPES, JPEG_TYPE, PHOTO_QUALITY, SCANNED_TITLE } from './constan
 import { photoName, scanPageName } from './helpers';
 import type { SinglePick } from './types';
 
-/**
- * The sources, one function each. Every copy a source hands over is
- * plaintext: one the screen cannot take (it closed meanwhile, or the file is
- * unusable) is removed here before returning.
- */
+// Every picker copy is plaintext; unaccepted or unusable copies must be deleted before returning.
 
 type IsMounted = () => boolean;
 type CameraAllowed = () => Promise<boolean>;
 
-/** The scanner's pages, or null when there are none or the screen has closed. */
 export async function scanPages(
   cameraAllowed: CameraAllowed,
   isMounted: IsMounted,
 ): Promise<PickedFile[] | null> {
   if (!isCameraAvailable()) return null;
-  // VisionKit uses the app's camera access; ML Kit's scanner runs in
-  // Play services and needs none.
+  // VisionKit requires app camera permission on iOS; ML Kit runs inside Play Services and needs none.
   if (Platform.OS === 'ios' && !(await cameraAllowed())) return null;
   const pages = await scanDocuments();
   if (pages.length === 0) return null;
@@ -46,7 +40,6 @@ export async function scanPages(
 
 type ImportOutcome = { picked: SinglePick } | { problem: SourceProblem } | null;
 
-/** A PDF or image from Files, or the reason it cannot be used. */
 export async function importFile(isMounted: IsMounted): Promise<ImportOutcome> {
   const result = await DocumentPicker.getDocumentAsync({
     type: IMPORT_TYPES,
@@ -61,8 +54,6 @@ export async function importFile(isMounted: IsMounted): Promise<ImportOutcome> {
     return { problem: { kind: 'unsupported', name: asset.name } };
   }
   const type = importMimeType(asset.name, asset.mimeType, kind);
-  // A PDF's first page is rendered so it can be previewed and read
-  // like a photo; one that cannot be rendered cannot be viewed either.
   const previewUri = await documentService.previewForFile(asset.uri, type);
   if (!isMounted()) {
     if (previewUri) documentService.discardPreview(previewUri);
@@ -70,7 +61,6 @@ export async function importFile(isMounted: IsMounted): Promise<ImportOutcome> {
     return null;
   }
   if (!previewUri) {
-    // An encrypted PDF gets its own sentence; a damaged one the general one.
     const locked = kind === 'pdf' && (await isEncryptedPdf(asset.uri));
     documentService.discardPickedCopy(asset.uri);
     return { problem: { kind: locked ? 'protected' : 'unsupported', name: asset.name } };
@@ -84,7 +74,6 @@ export async function importFile(isMounted: IsMounted): Promise<ImportOutcome> {
   };
 }
 
-/** A photo from the camera or the photo picker; its preview is its own copy. */
 export async function pickPhoto(
   source: 'camera' | 'library',
   cameraAllowed: CameraAllowed,
@@ -94,7 +83,7 @@ export async function pickPhoto(
     if (!isCameraAvailable()) return null;
     if (!(await cameraAllowed())) return null;
   }
-  // The system photo picker needs no photo library access.
+  // System photo picker runs out-of-process and requires no photo library permission.
   const result =
     source === 'camera'
       ? await ImagePicker.launchCameraAsync({ quality: PHOTO_QUALITY })

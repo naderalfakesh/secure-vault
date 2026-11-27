@@ -1,6 +1,3 @@
-// The session's settings: the model, its copy, and the secure-store records
-// it shares with the PIN and the lockout. Each lives in its own module; this
-// one keeps the public import path.
 export {
   AUTO_LOCK_OPTIONS,
   type AutoLockSeconds,

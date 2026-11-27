@@ -9,7 +9,6 @@ import { levelColor, SEGMENTS, TRACK } from './constants';
 import { styles } from './StrengthMeter.styles';
 import type { StrengthMeterProps } from './types';
 
-/** Four-segment passphrase strength. An on-device estimate, never a rule. */
 export function StrengthMeter({ passphrase, testID }: StrengthMeterProps) {
   const { theme } = useUnistyles();
   const strength = estimatePassphraseStrength(passphrase);

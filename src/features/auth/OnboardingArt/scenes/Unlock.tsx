@@ -4,7 +4,6 @@ import { FaceGlyph, FingerprintGlyph, KeypadGlyph } from '../glyphs';
 import { Backdrop, Floor, Seal } from '../parts';
 import type { UnlockProps } from '../types';
 
-/** Slide 3: the face, fingerprint or screen lock in a scan frame, and the seal giving way. */
 export function Unlock({ colors, layer, biometry }: UnlockProps) {
   if (layer === 'back') {
     return (
@@ -21,7 +20,6 @@ export function Unlock({ colors, layer, biometry }: UnlockProps) {
           stroke={colors.border}
           strokeWidth={1.5}
         />
-        {/* The PIN is always there as a backup */}
         {[0, 1, 2, 3, 4, 5].map((index) => (
           <Circle
             key={index}

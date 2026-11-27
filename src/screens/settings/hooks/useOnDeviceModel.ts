@@ -11,14 +11,13 @@ import { t } from '@/i18n';
 
 import { modelName } from '../helpers';
 
-/** The suggestion engine in use, the on-device model's state, and its download. */
 export function useOnDeviceModel() {
   const toast = useToast();
   const [engine, setEngine] = useState<string>('');
   const [model, setModel] = useState<ModelInfo | null>(null);
   const [modelRefresh, setModelRefresh] = useState(0);
   const [downloading, setDownloading] = useState(false);
-  // Only Gemini Nano is downloaded by the app; Apple's model comes with Apple Intelligence.
+  // Only Gemini Nano is app-downloadable; Apple Intelligence models are OS-managed.
   const canDownload = model?.status === 'downloadable' && model.engine === 'gemini-nano';
 
   const downloadModel = useCallback(async () => {

@@ -19,10 +19,6 @@ import { getLocalFilePath, measureFileSize, renderPdfCover } from './localCopy';
 import { discardImportCopy, discardPickedCopy } from './residue';
 import type { RepositorySource } from './types';
 
-/**
- * Stores one document from one or more source files. The first file is the
- * document's main file and thumbnail source; further files become pages.
- */
 export async function importDocument(
   cacheUri: string,
   repositorySource: RepositorySource,
@@ -39,8 +35,6 @@ export async function importDocument(
   const now = new Date().toISOString();
   const fileType: Document['fileType'] = file.type?.includes('pdf') ? 'pdf' : 'image';
 
-  // What the document takes, all pages counted. A scan or a photo often
-  // comes without a size, so it is measured from the copy being encrypted.
   let fileSize = 0;
   const sourcePath = await getLocalFilePath(cacheUri, file.uri);
   try {
@@ -53,15 +47,12 @@ export async function importDocument(
         await ExpoVaultModule.putThumbnail(thumbnailKey, thumbnailSource, THUMBNAIL_MAX_PIXELS);
       }
     } catch {
-      // A missing thumbnail only costs a placeholder in the list.
+      // Non-fatal; list falls back to placeholder.
     }
   } finally {
-    // A retry copies the content:// file again, so its copy never outlives this call.
     discardImportCopy(cacheUri, sourcePath);
   }
 
-  // A save that fails part way leaves nothing behind, so a retry from the
-  // same pick makes one document, never a second.
   const pageKeys: string[] = [];
   let inserted = false;
   let document: Document;
@@ -93,22 +84,17 @@ export async function importDocument(
     inserted = true;
     if (pageKeys.length > 0) await repository.setPages(id, pageKeys);
   } catch (e) {
-    // Rollback of an import the user never saw; the original error is what gets reported.
     if (inserted) await repository.remove(id).catch(() => false);
     for (const key of [fileKey, thumbnailKey, ...pageKeys]) {
       await ExpoVaultModule.deleteFile(key).catch(() => {});
     }
     throw e;
   }
-  // Kept until now so a failed save can be retried from the same pick.
+  // Keep picked copies until commit so a failed save can be retried from the same pick.
   for (const source of files) discardPickedCopy(source.uri);
   return document;
 }
 
-/**
- * An image to show and read before a picked file is saved: the file itself
- * for photos, the rendered first page for PDFs, null when neither works.
- */
 export async function previewForFile(
   cacheUri: string,
   uri: string,
@@ -117,7 +103,6 @@ export async function previewForFile(
   if (!mimeType.includes('pdf')) return uri;
   let path: string | null = null;
   const folderName = `${PREVIEW_PREFIX}${Date.now()}`;
-  // A render that fails or yields no page leaves no empty preview folder behind.
   const removeFolder = () => {
     try {
       removeNoFollow(new Directory(cacheUri, folderName));
@@ -135,7 +120,6 @@ export async function previewForFile(
     removeFolder();
     return null;
   } finally {
-    // The save copies a content:// file again; the preview is the rendered page.
     if (path) discardImportCopy(cacheUri, path);
   }
 }

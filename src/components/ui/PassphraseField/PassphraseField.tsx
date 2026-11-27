@@ -10,11 +10,6 @@ import { Text } from '../Text';
 import { styles } from './PassphraseField.styles';
 import type { PassphraseFieldProps } from './types';
 
-/**
- * Secure passphrase entry. Any script is accepted; the text
- * aligns to the start and takes its direction from what is typed. Nothing is
- * corrected, capitalised, or spell-checked.
- */
 export function PassphraseField({
   label,
   value,
@@ -29,8 +24,6 @@ export function PassphraseField({
   const [visible, setVisible] = useState(false);
   const [focused, setFocused] = useState(false);
   const state = error ? 'error' : focused ? 'focused' : 'idle';
-  // On a glass sheet the field is a solid surface with a hairline edge, so
-  // the glass behind it never tints the field or bleeds around its corners.
   const onGlass = useOnGlass();
 
   return (

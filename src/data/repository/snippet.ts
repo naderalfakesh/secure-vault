@@ -1,21 +1,14 @@
 import type { SnippetPiece } from './types';
 
-// snippet() wraps each matched token in these, which never occur in read text.
+// Control chars wrap FTS5 snippet matches; OCR_COLUMN=3 matches documents_fts column order.
 const MATCH_START = String.fromCharCode(2);
 const MATCH_END = String.fromCharCode(3);
-// documents_fts columns: id, title, tags, ocr_text. Only the page text gets a
-// snippet; the title and tags are already on the row.
 export const OCR_COLUMN = 3;
 export const SNIPPET_TOKENS = 12;
 
 const ELLIPSIS = '…';
 
-/**
- * Whether snippet() cut a word at the start or end of its window. The tokenizer
- * splits words at hyphens, apostrophes and the like, so a window can open on
- * "IC" of "ELECTRON-IC". The text between the ellipses is copied from `source`
- * unchanged, so the character next to it there tells.
- */
+// Detects when FTS5 snippet() split a token mid-word (e.g. at hyphens) by checking source neighbors.
 export function cutWords(raw: string, source: string | null | undefined) {
   const body = raw.replaceAll(MATCH_START, '').replaceAll(MATCH_END, '');
   const leading = body.startsWith(ELLIPSIS);
@@ -30,11 +23,6 @@ export function cutWords(raw: string, source: string | null | undefined) {
   };
 }
 
-/**
- * Splits snippet() output into plain and matched pieces; null when nothing in
- * it matched. With the page text, a word cut at either end of the window is
- * dropped, so the snippet starts and ends on whole words.
- */
 export function parseSnippet(raw: string | null, source?: string | null): SnippetPiece[] | null {
   if (!raw || !raw.includes(MATCH_START)) return null;
   const pieces: SnippetPiece[] = [];

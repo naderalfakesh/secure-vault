@@ -5,7 +5,6 @@ import { LINES } from './constants';
 import { styles } from './PaperThumbnail.styles';
 import type { PaperThumbnailProps } from './types';
 
-/** Scanned-paper placeholder: the warmest colour on screen. */
 export function PaperThumbnail({
   width = 44,
   height = 56,

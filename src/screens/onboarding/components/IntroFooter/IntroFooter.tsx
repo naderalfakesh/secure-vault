@@ -12,7 +12,6 @@ type IntroFooterProps = {
   onNext: () => void;
 };
 
-/** The step dots, read as "step n of m", over Continue (Set up on the last slide). */
 export function IntroFooter({ slides, page, onNext }: IntroFooterProps) {
   const last = page === slides.length - 1;
   return (

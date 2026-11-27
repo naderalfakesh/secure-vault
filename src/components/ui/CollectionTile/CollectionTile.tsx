@@ -8,7 +8,6 @@ import { Text } from '../Text';
 import { styles } from './CollectionTile.styles';
 import type { CollectionTileProps } from './types';
 
-/** Collection tile: tinted icon tile, name, and document count. */
 export function CollectionTile({ name, count, icon, onPress, testID }: CollectionTileProps) {
   return (
     <Pressable

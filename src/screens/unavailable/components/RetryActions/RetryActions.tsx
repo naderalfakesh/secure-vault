@@ -9,7 +9,6 @@ type RetryActionsProps = {
   onResetPin: () => void;
 };
 
-/** "Try again", and "Add a new PIN" first when only the PIN record is gone. */
 export function RetryActions({
   pinLost,
   trying,

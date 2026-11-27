@@ -12,7 +12,6 @@ type ViewerFailureProps = {
   onBack: () => void;
 };
 
-/** A document that is gone or cannot be read, with the way back. */
 export function ViewerFailure({ failure, onBack }: ViewerFailureProps) {
   const missing = failure.kind === 'missing';
   return (

@@ -11,17 +11,14 @@ import { styles } from './DetailsHeader.styles';
 
 type DetailsHeaderProps = {
   document: Document;
-  /** The recognised expiry date, if any. */
   expires: ExtractedField | undefined;
   onEdit: () => void;
 };
 
-/** The title, collection and expiry chips, and Edit. */
 export function DetailsHeader({ document, expires, onEdit }: DetailsHeaderProps) {
   return (
     <View style={styles.detailsHeader}>
       <View style={styles.detailsTitle}>
-        {/* A document name can be one long token: it wraps instead. */}
         <Text variant="title2" accessibilityRole="header" fit={false}>
           {isolate(document.title)}
         </Text>

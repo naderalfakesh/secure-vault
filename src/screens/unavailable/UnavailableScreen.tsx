@@ -6,18 +6,7 @@ import { KeyInvalidatedBody, ReadFailedBody, RetryActions, UnavailableLayout } f
 import { useEraseVault } from './hooks/useEraseVault';
 import { useRetryActions } from './hooks/useRetryActions';
 
-/**
- * The device key or the PIN record could not be read. The
- * way on is to read them again: no erase, restore or settings, and nothing is
- * written. The session also tries again on its own each time the app returns
- * to the foreground. When the PIN record is gone although it was written and
- * the device key is there, the device key's own gate also opens setup, to add
- * a new PIN to the vault as it is. When that gate opens but the key itself
- * was invalidated (Android, screen lock or biometrics changed) with entries
- * left, or the key is gone while entries remain, nothing in the vault can be
- * decrypted again: the plain sentence and "Delete everything" are then the
- * only way on, behind a native confirmation.
- */
+// Fail-closed recovery screen: no writes, restore, or settings until key/PIN state resolves (or explicit erase if invalidated).
 export function UnavailableScreen() {
   const { pinLost, keyInvalidated, error, biometry } = useSessionState();
   const stuck = keyInvalidated;

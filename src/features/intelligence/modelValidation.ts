@@ -18,7 +18,6 @@ function asString(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
-/** The JSON object in the answer, even when a model wraps it in prose or a code fence. */
 function parseObject(answer: string): Record<string, unknown> {
   const start = answer.indexOf('{');
   const end = answer.lastIndexOf('}');
@@ -30,7 +29,6 @@ function parseObject(answer: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-/** The parts of a model answer that the text supports. Throws on an answer that is not JSON. */
 export function checkModelAnswer(answer: string, text: string) {
   const raw = parseObject(answer);
   const datesInText = new Set(findDates(text).map((found) => found.date));

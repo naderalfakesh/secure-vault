@@ -9,7 +9,6 @@ type StatusIconProps = {
   tone: 'danger' | 'secondary';
 };
 
-/** A glyph in a round tinted well, above a state's title. */
 export function StatusIcon({ icon, tone }: StatusIconProps) {
   return (
     <View style={styles.well(tone === 'danger' ? 'dangerMuted' : 'surfaceMuted')}>

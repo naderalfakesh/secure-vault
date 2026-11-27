@@ -8,10 +8,6 @@ import { cacheLocation, toPath } from './helpers';
 import { discardTemp } from './residue';
 import type { DeletedDocument, DocumentLookup, RepositorySource } from './types';
 
-/**
- * Decrypts a document and its pages into the cache, so it can be put back
- * after it is deleted; null when there is no such document.
- */
 export async function copyForUndo(
   lookup: DocumentLookup,
   cacheUri: string,
@@ -40,21 +36,15 @@ export async function copyForUndo(
   return { document, fields, files };
 }
 
-/** Drops the decrypted copies once undo is no longer possible. */
 export function discardDeleted(cacheUri: string, deleted: DeletedDocument): void {
   for (const file of deleted.files) discardTemp(cacheUri, toPath(file.uri), '');
 }
 
-/**
- * Removes a document's encrypted files from the vault, then its row. Every
- * file is attempted; when any stays behind the row is kept and the error says
- * so, because `deleteFile` can be repeated and a second delete finishes the job.
- */
 export async function removeDocument(repository: DocumentRepository, id: string): Promise<boolean> {
   const doc = await repository.get(id);
   if (!doc) return false;
 
-  // The main file goes last: while it exists the document is still whole enough to retry.
+  // Delete main file last and keep DB row on partial failure so a retry can finish cleanly.
   const keys = [...(await repository.getPages(id)), doc.thumbnailKey, doc.fileKey];
   const failures: unknown[] = [];
   for (const key of keys) {
@@ -74,11 +64,7 @@ export async function removeDocument(repository: DocumentRepository, id: string)
   return repository.remove(id);
 }
 
-/**
- * Every vault entry and encrypted file, for "Delete everything". Each call's
- * failure is ignored: the native `delete` rejects for a missing entry, so only
- * the listing afterwards can say whether anything is left.
- */
+// Native delete rejects for missing keys; ignore per-key errors during full wipe.
 export async function removeVaultEntries(): Promise<void> {
   for (const key of await ExpoVaultModule.getAllKeys()) {
     await ExpoVaultModule.delete(key).catch(() => {});

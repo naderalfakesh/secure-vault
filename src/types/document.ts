@@ -24,10 +24,8 @@ export interface Document {
   updatedAt: string;
 }
 
-/** A detail read from a document's text, e.g. its expiry date or number. */
 export type ExtractedField = { key: string; value: string; kind: 'text' | 'date' | 'number' };
 
-/** The field keys the app itself reads; the index sorts and the rail filters by `expires`. */
 export const FIELD_KEYS = { expires: 'expires', issued: 'issued', number: 'number' } as const;
 
 export interface DocumentMetadata {

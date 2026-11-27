@@ -25,10 +25,8 @@ function RootNavigator() {
     headerShadowVisible: false,
   };
 
-  // Keyed, and a child of the same fragment in both returns, so the overlay
-  // is the same instance before and after the session is ready. Remounted, it
-  // read the scheme again after the pinned Appearance had been applied and
-  // flipped from the system colours to the pinned ones just before its fade.
+  // Keyed in the same fragment position across both branches so SplashHandoff never remounts
+  // and re-reads the pinned scheme right before fading.
   const handoff = <SplashHandoff key="splash-handoff" released={released} onDone={endHandoff} />;
 
   if (!ready) {
@@ -37,10 +35,8 @@ function RootNavigator() {
 
   return (
     <>
-      {/* iOS takes the status bar style from the screen's view controller, so
-        the <StatusBar> in the root layout only reaches Android. */}
+      {/* iOS reads statusBarStyle from the screen's VC; root <StatusBar> only affects Android. */}
       <Stack screenOptions={{ headerShown: false, animation, statusBarStyle }}>
-        {/* Every document route lives behind the lock gate; there is no way to deep link past it. */}
         <Stack.Protected guard={unlocked}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="documents/[id]" options={{ ...header, title: '' }} />
@@ -50,17 +46,13 @@ function RootNavigator() {
           <Stack.Screen name="settings/backup" />
           <Stack.Screen name="settings/change-pin" options={header} />
         </Stack.Protected>
-        {/* The lock screen needs a URL of its own. At `/` it shared the address of
-          (tabs)/index, so the guard's redirect to it resolved back to the guarded
-          tabs and expo-router 58 redirected forever. */}
+        {/* Dedicated route required: sharing `/` with guarded (tabs)/index causes an expo-router redirect loop. */}
         <Stack.Protected guard={status === 'locked'}>
           <Stack.Screen name="lock" />
         </Stack.Protected>
         <Stack.Protected guard={status === 'setup'}>
           <Stack.Screen name="setup" />
         </Stack.Protected>
-        {/* The key or the PIN record could not be read. Its own group and URL,
-          so no other screen, setup included, resolves while it is up. */}
         <Stack.Protected guard={status === 'unavailable'}>
           <Stack.Screen name="unavailable" options={{ gestureEnabled: false }} />
         </Stack.Protected>

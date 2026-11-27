@@ -4,7 +4,6 @@ import { Icon } from '@/components/ui';
 
 import { styles } from './KeyBadge.styles';
 
-/** The key above "Add a PIN", for a vault that keeps its documents. */
 export function KeyBadge() {
   return (
     <View style={styles.badge}>

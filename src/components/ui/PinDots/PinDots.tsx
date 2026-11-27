@@ -15,7 +15,6 @@ import { styles } from './PinDots.styles';
 import type { PinDotsProps } from './types';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 
-/** PIN progress: 6 × 14 pt dots that announce "N of 6 digits entered". */
 export function PinDots({ count = 6, filled, error = false, shake = 0, testID }: PinDotsProps) {
   const reduceMotion = useReducedMotion();
   const offset = useSharedValue(0);
@@ -32,9 +31,7 @@ export function PinDots({ count = 6, filled, error = false, shake = 0, testID }:
 
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
   const label = t('ui.pinDots.entered', { filled, count });
-  // Android speaks the live region itself; iOS needs the announcement. An
-  // empty row is not announced, so a reset after a wrong PIN leaves the
-  // error sentence to speak.
+  // Skip announcing empty resets so a wrong-PIN error announcement is not cut off on iOS.
   useAnnouncement(label, filled > 0);
 
   return (

@@ -12,13 +12,11 @@ type AppProvidersProps = {
   children: ReactNode;
 };
 
-/** The app-wide providers around the root navigator. */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={rootStyle}>
-        {/* Real insets from the first frame, so the lock mark does not move by a
-          status bar while the splash fades out over it. */}
+        {/* Seed real insets on frame 1 so the lock mark doesn't shift under the splash. */}
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <SessionProvider>
             <ToastProvider>{children}</ToastProvider>

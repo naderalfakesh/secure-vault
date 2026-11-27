@@ -4,11 +4,6 @@ import type { DocumentOrder } from '@/data/DocumentRepository';
 import { documentService } from '@/services/DocumentService';
 import type { Document } from '@/types';
 
-/**
- * The whole vault in the index's order, for orders other than newest first:
- * oldest added and soonest expiry (from the fields table). Null until the
- * index answers, so the list keeps its previous order meanwhile.
- */
 export function useIndexOrder(order: DocumentOrder, documents: readonly Document[]) {
   const [ordered, setOrdered] = useState<{ order: DocumentOrder; documents: Document[] } | null>(
     null,

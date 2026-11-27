@@ -7,23 +7,12 @@ import type { BiometryType } from '@modules/expo-vault';
 
 import { biometryName } from './lockCopy';
 
-/**
- * Why biometrics can or cannot be used. `denied` is iOS only: the user
- * said no to SecureVault using Face ID. Android has no per-app biometric
- * permission, so there it is never reported. `noPasscode`: the phone has no
- * passcode or screen lock, so no biometric can be set up yet.
- */
 type BiometricState = 'available' | 'notEnrolled' | 'noPasscode' | 'denied' | 'unavailable';
 
 export type BiometricAvailability = { state: BiometricState; kind: BiometryType };
 
 const UNAVAILABLE: BiometricAvailability = { state: 'unavailable', kind: 'none' };
 
-/**
- * Reads the biometric state from expo-local-authentication. On iOS a refused
- * Face ID permission looks like "not available" while the hardware type is
- * still reported, which is how it is told apart from a phone without it.
- */
 export async function readBiometricAvailability(): Promise<BiometricAvailability> {
   const ios = Platform.OS === 'ios';
   try {
@@ -34,7 +23,6 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
       LocalAuthentication.getEnrolledLevelAsync(),
     ]);
     const { FACIAL_RECOGNITION, FINGERPRINT } = LocalAuthentication.AuthenticationType;
-    // Android does not say which biometric is enrolled; "biometrics" keeps the copy honest.
     const kind: BiometryType = !ios
       ? 'biometrics'
       : types.includes(FACIAL_RECOGNITION)
@@ -42,9 +30,7 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
         : types.includes(FINGERPRINT)
           ? 'touchId'
           : 'biometrics';
-    // expo-local-authentication counts weak (class 2) biometrics as enrolled,
-    // but the Android vault key accepts strong ones only, so weak face unlock
-    // can never open it: nothing to offer there.
+    // Android vault key requires strong (Class 3) biometrics; ignore weak (Class 2) enrollment.
     if (!ios && enrolled && level < LocalAuthentication.SecurityLevel.BIOMETRIC_STRONG) {
       return { state: 'unavailable', kind };
     }
@@ -53,6 +39,7 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
       return { state: 'noPasscode', kind };
     }
     if (hasHardware) return { state: 'notEnrolled', kind };
+    // iOS refused Face ID permission reports !hasHardware while still listing hardware types.
     if (ios && types.length > 0) return { state: 'denied', kind };
     return { state: 'unavailable', kind };
   } catch {
@@ -60,7 +47,6 @@ export async function readBiometricAvailability(): Promise<BiometricAvailability
   }
 }
 
-/** The subtitle of a disabled biometric row, or null when there is nothing to explain. */
 export function biometricUnavailableReason(availability: BiometricAvailability): string | null {
   const name = biometryName(availability.kind);
   if (availability.state === 'notEnrolled') {
@@ -79,7 +65,6 @@ export function biometricUnavailableReason(availability: BiometricAvailability):
   return null;
 }
 
-/** Copy for the onboarding biometrics step. */
 export function biometricStepCopy(kind: BiometryType): {
   title: string;
   body: string;
@@ -104,11 +89,6 @@ export function biometricStepCopy(kind: BiometryType): {
   };
 }
 
-/**
- * The current availability, read again whenever the app returns to the
- * foreground (the user may have enrolled or allowed it in the Settings app).
- * Null until the first read lands.
- */
 export function useBiometricAvailability(): BiometricAvailability | null {
   const [availability, setAvailability] = useState<BiometricAvailability | null>(null);
   const refresh = useCallback(() => {

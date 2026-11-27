@@ -7,13 +7,10 @@ import { t } from '@/i18n';
 import { styles } from './SetupPinHeader.styles';
 
 type SetupPinHeaderProps = {
-  /** Add a PIN for an existing key has no back and no step count. */
   keepsDocuments: boolean;
-  /** Step 2 of 2: confirming the PIN. */
   confirming: boolean;
 };
 
-/** Back on the left, "Step n of 2" in the middle, as Change PIN lays out its steps. */
 export function SetupPinHeader({ keepsDocuments, confirming }: SetupPinHeaderProps) {
   return (
     <View style={styles.header}>

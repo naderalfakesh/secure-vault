@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
 
-/**
- * Height of the software keyboard. A modal's window does not resize for the
- * keyboard on Android, so the sheet lifts itself above it instead.
- */
+// Android Modal windows don't resize for the software keyboard, so sheets offset manually.
 export function useKeyboardHeight(): number {
   const [height, setHeight] = useState(0);
   useEffect(() => {

@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-// Wider than the 4-pt steps so the pill label sits optically centred in its glass.
 const PILL_PADDING = 22;
 
 export const styles = StyleSheet.create((theme) => ({

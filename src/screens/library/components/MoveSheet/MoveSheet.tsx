@@ -15,7 +15,6 @@ type MoveSheetProps = {
   onMove: (category: DocumentCategory) => void;
 };
 
-/** Moves the selected documents to another collection. */
 export function MoveSheet({ visible, count, busy, onClose, onMove }: MoveSheetProps) {
   return (
     <Sheet

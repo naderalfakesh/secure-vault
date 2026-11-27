@@ -19,17 +19,14 @@ import { useHeldCopies } from './useHeldCopies';
 import { useReadPages } from './useReadPages';
 import { useSaveDocument } from './useSaveDocument';
 
-/** The scan and import flow: which phase shows, and every move between phases. */
 export function useAddDocumentFlow() {
   const { withoutAutoLock } = useSessionActions();
-  // Hardware answers that do not change while the screen is open.
   const [scannerSupported] = useState(isScannerSupported);
   const [cameraAvailable] = useState(isCameraAvailable);
 
   const [flow, dispatch] = useReducer(flowReducer, initialFlowState);
   const { phase, origin, problem, step, saveError, savedId } = flow;
-  // One source at a time: a second tap while a pick is still settling (a large
-  // PDF rendering, say) would otherwise replace copies this screen still holds.
+  // Serialize source picks so a slow pick (e.g. PDF render) cannot overwrite held plaintext copies.
   const picking = useRef(false);
 
   const mountedRef = useMountedRef();
@@ -62,7 +59,6 @@ export function useAddDocumentFlow() {
     clearDetails,
   });
 
-  /** Drops every copy this screen holds and goes back to the sources. */
   const discardAll = useCallback(() => {
     cancelRead();
     discardCopies();
@@ -70,7 +66,6 @@ export function useAddDocumentFlow() {
     dispatch({ type: 'returnedToSources' });
   }, [cancelRead, discardCopies, clearDetails]);
 
-  /** A single photo or file: straight to reading. */
   const acceptSingle = useCallback(
     ({ file, previewUri, suggestedTitle }: SinglePick) => {
       holdSingle(file, previewUri);
@@ -138,7 +133,6 @@ export function useAddDocumentFlow() {
       documentService.discardPickedCopy(page.uri);
       const rest = withoutPage(heldRef.current, index);
       setFiles(rest);
-      // No pages left: back to the sources.
       if (rest.length === 0) discardAll();
     },
     [heldRef, setFiles, discardAll],
@@ -152,13 +146,10 @@ export function useAddDocumentFlow() {
   const continueToRead = useCallback(() => {
     const first = heldRef.current[0];
     if (!first) return;
-    // A scan's preview is its own first page: nothing extra to remove later.
     setPreview(first.uri);
     void read(first.uri, SCANNED_TITLE);
   }, [heldRef, read, setPreview]);
 
-  // A scan goes back to its pages (they were already chosen in review); a
-  // photo or file goes back to the sources and loses its copies.
   const backFromDetails = useCallback(() => {
     if (origin === 'scan') {
       cancelRead();

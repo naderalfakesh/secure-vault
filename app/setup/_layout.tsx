@@ -2,7 +2,6 @@ import { Stack } from 'expo-router';
 import { useReducedMotion } from 'react-native-reanimated';
 
 export default function SetupLayout() {
-  // Reduced motion: the setup steps cross-fade instead of sliding.
   const reduceMotion = useReducedMotion();
   return (
     <Stack

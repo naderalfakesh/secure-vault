@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-// Lifts the message above the viewer's bottom bar so it reads as centred in the stage.
 const LIFT_ABOVE_BARS = 120;
 
 export const styles = StyleSheet.create((theme) => ({

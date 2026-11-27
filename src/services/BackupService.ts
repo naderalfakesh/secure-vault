@@ -1,4 +1,3 @@
-// The backup service lives in `./backup`; this path stays for its callers.
 export {
   BACKUP_DIRECTORY,
   BACKUP_STAGING_DIRECTORY,

@@ -14,5 +14,4 @@ export interface OcrResult {
   blocks: OcrBlock[];
 }
 
-/** Reads the blocks of text in the image at a `file://` URI, in reading order. */
 export type TextReader = (uri: string) => Promise<OcrBlock[]>;

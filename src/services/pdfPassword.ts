@@ -1,7 +1,6 @@
 import { File, FileMode } from 'expo-file-system';
 
-// The trailer that names an encryption dictionary sits at the end of a PDF,
-// or at the start of a linearised one; neither needs more than this.
+// PDF /Encrypt trailers live in the first (linearised) or last 64 KB.
 const WINDOW_BYTES = 64 * 1024;
 const ENCRYPT_ENTRY = /\/Encrypt[\s/<\d]/;
 
@@ -13,12 +12,6 @@ function latin1(bytes: Uint8Array): string {
   return text;
 }
 
-/**
- * Whether a PDF the platform could not render is encrypted, which for an
- * import means it asks for a password: its trailer has an `/Encrypt` entry.
- * Only the first and last 64 KB are read. Any read failure answers false, so
- * the caller falls back to its general sentence.
- */
 export async function isEncryptedPdf(uri: string): Promise<boolean> {
   let handle: ReturnType<File['open']> | null = null;
   try {
@@ -36,7 +29,7 @@ export async function isEncryptedPdf(uri: string): Promise<boolean> {
     try {
       handle?.close();
     } catch {
-      // Released with the process at the latest.
+      // Ignored; handle closes with process exit.
     }
   }
 }

@@ -7,7 +7,6 @@ import { styles } from './SelectionBar.styles';
 import { selectionBarBottom } from '../../helpers';
 
 type SelectionBarProps = {
-  /** The bottom safe-area inset. */
   insetBottom: number;
   count: number;
   busy: boolean;
@@ -15,7 +14,6 @@ type SelectionBarProps = {
   onDelete: () => void;
 };
 
-/** Takes the tab bar's place while selecting: Move to… and Delete only. */
 export function SelectionBar({ insetBottom, count, busy, onMove, onDelete }: SelectionBarProps) {
   const disabled = count === 0 || busy;
   return (
@@ -28,7 +26,6 @@ export function SelectionBar({ insetBottom, count, busy, onMove, onDelete }: Sel
         onPress={onMove}
       />
       <Button
-        // Nothing selected: a plain disabled "Delete", never "Delete 0".
         label={count > 0 ? t('library.deleteCount', { count }) : t('common.delete')}
         accessibilityLabel={
           count > 0

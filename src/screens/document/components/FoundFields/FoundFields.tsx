@@ -11,12 +11,10 @@ import { fieldTitle, maskNumber } from '../../helpers';
 type FoundFieldsProps = {
   fields: readonly ExtractedField[];
   tags: readonly string[];
-  /** Numbers are shown in full instead of masked. */
   revealNumber: boolean;
   onToggleReveal: () => void;
 };
 
-/** What the scanner recognised, and the document's tags. */
 export function FoundFields({ fields, tags, revealNumber, onToggleReveal }: FoundFieldsProps) {
   if (fields.length === 0 && tags.length === 0) return null;
   return (

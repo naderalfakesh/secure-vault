@@ -2,12 +2,6 @@ import { controlSize } from '@/theme/tokens';
 
 import type { PinPadMetrics } from './types';
 
-/**
- * Keypad size for a window height. The design's 76 pt keys fit a regular
- * phone; on short windows (a 411 × 648 dp Android phone, split screen) the
- * keys and gaps step down so the pad never covers the title and the dots.
- * The smallest step stays well above the 44 pt minimum target.
- */
 export function pinPadMetrics(windowHeight: number): PinPadMetrics {
   if (windowHeight >= 780)
     return { key: controlSize.pinKey, rowGap: 16, columnGap: 26, compact: false };

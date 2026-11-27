@@ -1,4 +1,3 @@
-/** Failure sentences that reach the screen through an error's message. */
 export const errors = {
   'errors.keyLocked': 'The device key was not unlocked, so your documents stay closed. Try again.',
   'errors.keyInvalidated':

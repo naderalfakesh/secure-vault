@@ -1,4 +1,3 @@
-/** Scan and import. */
 export const scan = {
   'scan.sources.title': 'Add a document',
   'scan.sources.footer':
@@ -16,7 +15,6 @@ export const scan = {
   'scan.sources.cameraDenied':
     'Camera access is off for SecureVault. Turn it on in Settings to scan, or add a photo or file instead.',
   'scan.sources.openSettings': 'Open Settings',
-  /** Plain sentences for a source that failed; the platform's own text is never shown. */
   'scan.sources.scanUnavailable':
     'The document scanner isn’t available on this phone right now. Take a photo or import a file instead.',
   'scan.sources.scanFailed': 'The scan didn’t finish. Try again, or take a photo instead.',
@@ -26,14 +24,9 @@ export const scan = {
   'scan.sources.cameraFailed': 'The camera couldn’t open. Try again in a moment.',
   'scan.sources.libraryFailed': 'Photos couldn’t open. Try again in a moment.',
   'scan.sources.filesFailed': 'That file couldn’t be opened. Try again, or choose another file.',
-  /** `{name}` is the isolated file name. */
   'scan.import.unsupported': '{name} can’t be added. Choose a PDF or an image (JPEG, PNG, HEIC).',
-  /** A PDF that asks for a password to open; `{name}` is the isolated file name. */
   'scan.import.protected': '{name} is password-protected. Remove the password and import it again.',
-  /**
-   * Reserved for the import size limit. The limit is not
-   * decided, so nothing shows this and no file is refused for its size.
-   */
+  // Reserved; import size limit is not yet enforced.
   'scan.import.tooLarge': 'This file is larger than [LIMIT]. Split it or choose a smaller file.',
   'scan.review.discard': 'Discard',
   'scan.review.continue': 'Continue',
@@ -45,10 +38,8 @@ export const scan = {
   'scan.review.doneMoving': 'Done',
   'scan.processing.reading': 'Reading the document',
   'scan.processing.saving': 'Saving the document',
-  /** iOS: Apple Vision reads the text (ADR 0011). */
   'scan.processing.footerVision':
     'Text is read on this device by Apple’s Vision framework, which is part of iOS.',
-  /** Android: Google ML Kit reads the text and sends Google metrics (docs/SECURITY.md). */
   'scan.processing.footerMlKit':
     'Text is read on this device. Google ML Kit sends Google usage and performance metrics. Google says it doesn’t send your images or their text.',
   'scan.processing.cancel': 'Cancel',
@@ -59,7 +50,6 @@ export const scan = {
   'scan.processing.failed': 'Could not save the document.',
   'scan.processing.retry': 'Try again',
   'scan.processing.backToDetails': 'Back to details',
-  /** The files are saved and only the found values failed: leave without them. */
   'scan.processing.openDocument': 'Open document',
   'scan.step.ocr': 'Reading the text',
   'scan.step.suggest': 'Suggesting details',
@@ -84,9 +74,7 @@ export const scan = {
   'scan.saved.plain': 'Saved to your vault',
   'scan.saved.view': 'View',
   'scan.close': 'Cancel',
-  /** Title for a scan or camera photo until the text suggests a better one. */
   'scan.scan.defaultTitle': 'Scanned document',
-  /** A picked photo whose only name is a media id; `{date}` is today. */
   'scan.defaultPhotoTitle': 'Photo {date}',
   'scan.page': 'Page {number}',
   'scan.pagePosition': 'Page {number} of {count}',
@@ -95,15 +83,12 @@ export const scan = {
   'scan.field.expires': 'Expires',
   'scan.field.issued': 'Issued',
   'scan.field.number': 'No.',
-  /** A found value as a chip: "Expires 3 Jan 2027". */
   'scan.field.value': '{name} {value}',
   'scan.field.maskedNumber': '{name} •••• {last4}',
-  /** Announced as a step starts while Cancel still shows. */
   'scan.processing.stepCancellable': '{step}. Cancel is available.',
   'scan.step.state.done': 'done',
   'scan.step.state.active': 'in progress',
   'scan.step.state.waiting': 'not started',
-  /** A processing step for a screen reader: "Encrypting, in progress". */
   'scan.step.label': '{step}, {state}',
   'scan.removePage': 'Remove page {number}',
   'scan.untitled': 'Untitled document',

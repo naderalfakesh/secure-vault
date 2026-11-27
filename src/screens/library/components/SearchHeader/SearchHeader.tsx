@@ -11,7 +11,6 @@ type SearchHeaderProps = {
   onQueryChange: (query: string) => void;
   focused: boolean;
   onFocusChange: (focused: boolean) => void;
-  /** The list replaces the home sections: the title and trust line give way. */
   listMode: boolean;
   documentCount: number;
   onLeaveList: () => void;
@@ -19,7 +18,6 @@ type SearchHeaderProps = {
   onSort: () => void;
 };
 
-/** Title with Select and Sort, the search field, and the trust line. */
 export function SearchHeader({
   query,
   onQueryChange,

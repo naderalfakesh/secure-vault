@@ -5,13 +5,11 @@ import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 import { t } from '@/i18n';
 
-/** "Use Face ID" or "Not now": either way biometric unlock is settled and setup finishes. */
 export function useBiometricsChoice() {
   const { finishSetup, updateSettings } = useSessionActions();
   const mounted = useMountedRef();
   const [busy, setBusy] = useState(false);
 
-  // A settings write that fails leaves the screen usable, so the owner can try again.
   const settle = async (biometricUnlock: boolean) => {
     try {
       await updateSettings({ biometricUnlock });
@@ -32,10 +30,7 @@ export function useBiometricsChoice() {
         disableDeviceFallback: true,
       });
       allowed = result.success;
-    } catch {
-      // A prompt that could not be shown is a no; the PIN still works.
-    }
-    // Only a passed check turns it on: the prompt's own "Not now" means no.
+    } catch {}
     await settle(allowed);
   };
 

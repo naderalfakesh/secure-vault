@@ -4,7 +4,6 @@ import type { BiometryType } from '@modules/expo-vault';
 
 export type OnboardingScene = 'papers' | 'sealed' | 'unlock';
 
-/** Each scene is drawn in two layers that rise in one after the other. */
 export type Layer = 'back' | 'front';
 
 export type Palette = ReturnType<typeof useUnistyles>['theme']['colors'];

@@ -9,12 +9,10 @@ import type { Slide } from '../../types';
 
 type IntroSlideProps = {
   slide: Slide;
-  /** One page of the pager: the window's width. */
   width: number;
   biometry: SessionState['biometry'];
 };
 
-/** The illustration over the slide's title and body. */
 export function IntroSlide({ slide, width, biometry }: IntroSlideProps) {
   return (
     <View style={[styles.slide, { width }]}>

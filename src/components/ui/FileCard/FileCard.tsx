@@ -8,7 +8,6 @@ import { Text } from '../Text';
 import { styles } from './FileCard.styles';
 import type { FileCardProps } from './types';
 
-/** A file about to be shared or restored. */
 export function FileCard({ name, meta, icon = 'archive', testID }: FileCardProps) {
   return (
     <View

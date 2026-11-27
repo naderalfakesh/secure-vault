@@ -9,7 +9,6 @@ import { TABS } from './constants';
 
 export type LibraryTabBarProps = BottomTabBarProps;
 
-/** Library · central Scan button · Settings. */
 export function LibraryTabBar({ state, emitter, navigateToTab }: LibraryTabBarProps) {
   const hidden = useTabBarHidden();
   if (hidden) return null;

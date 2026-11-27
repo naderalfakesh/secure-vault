@@ -15,15 +15,10 @@ type PassphraseFormProps = {
   onPassphraseChange: (value: string) => void;
   confirmation: string;
   onConfirmationChange: (value: string) => void;
-  /** Where the return key sends the backup. */
   preferred: Destination;
   onCreate: (destination: Destination) => void;
 };
 
-/**
- * Passphrase with an on-device strength estimate that never blocks, the
- * repeat, the two rules that are enforced, and where the backup goes.
- */
 export function PassphraseForm({
   passphrase,
   onPassphraseChange,

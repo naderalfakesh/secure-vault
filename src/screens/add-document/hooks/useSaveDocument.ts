@@ -13,25 +13,18 @@ import type { DetailsAction, DetailsState } from '../detailsReducer';
 import type { FlowAction } from '../flowReducer';
 import type { SaveNotice } from '../types';
 
-/** Thrown when the vault locked before the save wrote anything. */
 class SaveStopped extends Error {}
 
 type SaveDocumentOptions = {
   heldRef: RefObject<PickedFile[]>;
-  /** Set while a save owns the copies. */
   savingRef: RefObject<boolean>;
   mountedRef: RefObject<boolean>;
   details: DetailsState;
-  /** The saved document's id once its files are in the vault. */
   savedId: string | null;
   dispatchDetails: Dispatch<DetailsAction>;
   dispatch: Dispatch<FlowAction>;
 };
 
-/**
- * Encrypts the pages into the vault, then stores the found values. A failed
- * save stays inline with Try again, which only repeats what failed.
- */
 export function useSaveDocument({
   heldRef,
   savingRef,
@@ -43,7 +36,7 @@ export function useSaveDocument({
 }: SaveDocumentOptions) {
   const toast = useToast();
   const { captureSession, postNotice } = useSessionActions();
-  // Set once the files are in the vault, so Try again only repeats what failed.
+  // Cached once files are encrypted into the vault so "Try again" only retries failed metadata writes.
   const saved = useRef<Document | null>(null);
 
   const resetSave = useCallback(() => {
@@ -64,11 +57,8 @@ export function useSaveDocument({
 
     const session = captureSession();
     const startedUnlocked = session.current();
-    // The lock ends the session before the gate takes this screen away, so a
-    // save that settles in between would show a toast the lock then clears.
+    // Lock ends the session before navigation unmounts this screen; avoid toasts the lock immediately clears.
     const lockedMeanwhile = () => startedUnlocked && !session.current();
-    // Outcomes of a save that outlived this screen or its session go to a
-    // toast while the session lasts, and to the next unlock otherwise.
     const report = (notice: SaveNotice) => {
       if (!lockedMeanwhile() && (mountedRef.current || session.current())) toast.show(notice);
       else postNotice(notice);
@@ -77,7 +67,7 @@ export function useSaveDocument({
     dispatch({ type: 'saveStarted' });
     try {
       await documentService.initialize();
-      // Nothing is written once the vault has locked, as with deletes.
+      // Abort before writing if the vault locked during initialize().
       if (startedUnlocked && !session.current()) throw new SaveStopped();
 
       let document = saved.current;
@@ -112,14 +102,13 @@ export function useSaveDocument({
           ? scanText('processing.failed')
           : plainErrorMessage(e, scanText('processing.failed'));
       if (mountedRef.current && !lockedMeanwhile()) {
-        // Inline, with Try again; the pages stay for the retry.
         dispatch({ type: 'saveFailed', message });
       } else {
         report({ message, tone: 'danger' });
       }
     } finally {
       savingRef.current = false;
-      // A failed save keeps the copies for a retry only while the screen is here.
+      // Discard plaintext copies if unmount skipped cleanup while this save owned them.
       if (!mountedRef.current) {
         for (const picked of pages) documentService.discardPickedCopy(picked.uri);
       }
@@ -136,7 +125,6 @@ export function useSaveDocument({
     postNotice,
   ]);
 
-  /** Leaves for the saved document without the values that failed. */
   const openSaved = useCallback(() => {
     if (!savedId) return;
     router.back();

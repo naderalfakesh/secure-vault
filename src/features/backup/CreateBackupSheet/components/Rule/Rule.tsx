@@ -10,7 +10,6 @@ type RuleProps = {
   label: string;
 };
 
-/** One enforced passphrase rule, with whether it is met. */
 export function Rule({ met, label }: RuleProps) {
   return (
     <View

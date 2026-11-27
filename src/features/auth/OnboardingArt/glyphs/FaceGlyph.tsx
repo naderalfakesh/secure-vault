@@ -2,7 +2,6 @@ import { G, Line, Path } from 'react-native-svg';
 
 import type { GlyphProps } from '../types';
 
-/** Face ID: eyes, nose and smile. */
 export function FaceGlyph({ color }: GlyphProps) {
   return (
     <G stroke={color} strokeWidth={4} strokeLinecap="round" fill="none">

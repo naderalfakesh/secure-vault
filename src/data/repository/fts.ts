@@ -1,8 +1,4 @@
-/**
- * Turns free text into an FTS5 query: each word becomes a quoted prefix term
- * joined with AND, so "pass 20" matches "Passport 2030" and user input can
- * never change the query's structure.
- */
+// Quote each term as an FTS5 prefix match so user input cannot alter query syntax.
 export function toFtsQuery(input: string): string {
   return input
     .split(/\s+/)

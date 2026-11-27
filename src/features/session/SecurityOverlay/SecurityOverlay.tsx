@@ -7,16 +7,7 @@ import { useSessionState } from '../SessionProvider';
 import { usePrivacyCover } from './usePrivacyCover';
 import { useScreenCaptureBlock } from './useScreenCaptureBlock';
 
-/**
- * Privacy cover: hides the app behind a solid cover (never a blur, which can
- * leak the shapes of documents) while it is inactive (app switcher, incoming
- * call) and blocks screenshots and screen recording while unlocked. Both
- * follow the "Privacy cover" setting; the lock screen itself needs neither.
- *
- * On iOS the cover is drawn in a full-window overlay, which react-native-screens
- * adds to the key window when it mounts, so it sits above native modals and
- * sheets that are already presented, not beneath them.
- */
+// Solid cover (never a blur, which leaks shapes); FullWindowOverlay keeps iOS cover above modals.
 export function SecurityOverlay() {
   const { status, settings } = useSessionState();
   useScreenCaptureBlock(settings.privacyScreen && status === 'unlocked');

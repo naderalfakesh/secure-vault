@@ -1,10 +1,3 @@
-/**
- * SecureVault palette. Indigo carries trust and the
- * locked state, brass marks only what needs attention (expiry, warnings, the
- * point of no return), and the neutrals stay slightly cool so scanned paper
- * reads as the warmest thing on screen. Every text/background pair is AA in
- * both modes.
- */
 const light = {
   background: '#F5F6FA',
   surface: '#FFFFFF',
@@ -30,7 +23,6 @@ const light = {
   onDanger: '#FFFFFF',
   paper: '#FBFAF6',
   viewerStage: '#0B0D14',
-  // The viewer stage is dark in both themes, so what sits on it does not change.
   onStage: '#FFFFFF',
   onStageDim: '#B3BAD1',
   stageAccent: '#8EA2FF',
@@ -49,7 +41,6 @@ const light = {
   skeletonBase: '#EDEFF5',
 };
 
-/** The one list of colour names: both palettes are checked against it. */
 export type ColorName = keyof typeof light;
 export type Palette = Record<ColorName, string>;
 
@@ -77,7 +68,6 @@ export const darkColors: Palette = {
   onSuccess: '#04170C',
   danger: '#FF7D92',
   dangerMuted: '#45182A',
-  // Text on a danger fill is dark in dark mode, not white.
   onDanger: '#2A0710',
   paper: '#F3F1EA',
   viewerStage: '#0B0D14',

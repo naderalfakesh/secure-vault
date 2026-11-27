@@ -10,7 +10,6 @@ type BiometricsBadgeProps = {
   kind: BiometryType;
 };
 
-/** The face or fingerprint the step offers to turn on. */
 export function BiometricsBadge({ kind }: BiometricsBadgeProps) {
   return (
     <View style={styles.badge}>

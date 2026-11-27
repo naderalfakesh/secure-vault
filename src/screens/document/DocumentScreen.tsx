@@ -57,11 +57,9 @@ export function DocumentScreen() {
   const closeDetails = useCallback(() => setDetails(false), []);
   const actions = useDocumentActions({ document, setDocument, pages, setBusy, closeDetails });
 
-  // A slow page gets a placeholder and a spinner, not a blank stage.
   const slow = useDelayed(loading, PLACEHOLDER_DELAY_MS);
   useAnnouncement(slow ? t('viewer.opening', { number: page + 1 }) : null);
 
-  // From the details sheet: close it first, one sheet at a time.
   const shareFromDetails = useCallback(() => {
     setDetails(false);
     setTimeout(() => {
@@ -73,9 +71,7 @@ export function DocumentScreen() {
 
   return (
     <View style={styles.root}>
-      {/* iOS takes the status bar style from the screen's view controller
-        (UIViewControllerBasedStatusBarAppearance), so the native stack sets it;
-        StatusBar covers Android. */}
+      {/* iOS reads statusBarStyle from the screen's VC (UIViewControllerBasedStatusBarAppearance); StatusBar handles Android. */}
       <Stack.Screen options={{ headerShown: false, statusBarStyle: 'light' }} />
       <StatusBar style="light" />
 

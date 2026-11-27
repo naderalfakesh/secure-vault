@@ -7,10 +7,7 @@ import { Button, EmptyState } from '../ui';
 import { styles } from './ErrorBoundary.styles';
 import type { ErrorBoundaryProps, ErrorBoundaryState } from './types';
 
-/**
- * Last line of defense above every provider. It never logs the error object
- * itself, because a document title or OCR text could be inside it.
- */
+// Never log the error object: it may contain document titles or OCR text.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   override state: ErrorBoundaryState = { error: null };
 

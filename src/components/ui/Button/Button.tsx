@@ -7,7 +7,6 @@ import { styles } from './Button.styles';
 import { buttonFill, isPlainVariant } from './helpers';
 import type { ButtonProps } from './types';
 
-/** Capsule button. Disabled buttons change colour, not just opacity. */
 export function Button({
   label,
   variant = 'primary',
@@ -22,7 +21,6 @@ export function Button({
   const { theme } = useUnistyles();
   const isDisabled = Boolean(disabled) || loading;
   const plain = isPlainVariant(variant);
-  // A busy button keeps its colours so the spinner reads as progress, not as "off".
   const fill = buttonFill(variant, Boolean(disabled), loading);
   const foreground = theme.colors[fill.foreground];
   const shownLabel = loading ? (loadingLabel ?? label) : label;

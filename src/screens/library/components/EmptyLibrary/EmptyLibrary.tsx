@@ -10,7 +10,6 @@ type EmptyLibraryProps = {
   onAdd: () => void;
 };
 
-/** First run (or after Delete everything): one clear action, nothing else. */
 export function EmptyLibrary({ bottomSpace, onAdd }: EmptyLibraryProps) {
   return (
     <View style={[styles.center, { paddingBottom: bottomSpace }]}>

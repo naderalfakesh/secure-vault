@@ -1,15 +1,8 @@
 import { isLongEnough, isVaried, passphraseLength } from '@/services/backup/passphrase';
 
-/** 0 = empty, 1 Weak, 2 Fair, 3 Good, 4 Strong (labels: `ui.strength.*`). */
+// Advisory meter only (0 empty .. 4 Strong); enforcement lives in services/backup/passphrase.
 export type PassphraseStrength = 0 | 1 | 2 | 3 | 4;
 
-/**
- * A rough, on-device estimate for the strength meter, never a gate: the only
- * rules the backup enforces are the minimum length and not one repeated
- * character (`services/backup/passphrase`). Works on code points, so any script counts, and the estimate is
- * the length times the bits of the character classes used, with repeats
- * discounted.
- */
 export function estimatePassphraseStrength(passphrase: string): PassphraseStrength {
   if (passphraseLength(passphrase) === 0) return 0;
   if (!isLongEnough(passphrase) || !isVaried(passphrase)) return 1;

@@ -1,5 +1,3 @@
-// Where a finished backup goes. Android offers the system save screen first,
-// for a phone without a Files app; iOS's share sheet has Save to Files.
 export type Destination = 'share' | 'save';
 
 export type Stage =
@@ -10,6 +8,5 @@ export type Stage =
 export type CreateBackupSheetProps = {
   visible: boolean;
   onClose: () => void;
-  /** The backup reached the share sheet or was saved, and the vault stayed unlocked. */
   onShared: (date: Date) => void;
 };

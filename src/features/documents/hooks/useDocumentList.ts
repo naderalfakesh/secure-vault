@@ -13,22 +13,15 @@ async function load(): Promise<Loaded> {
     await documentService.initialize();
     return { documents: await documentService.getAllDocuments(), error: null };
   } catch (e: unknown) {
-    // "Delete everything" leaves the index closed until setup: an empty list, not a failure.
     if (errorCode(e) === 'VAULT_EMPTIED') return { documents: [], error: null };
-    // No stale rows under a failed index: their files may be gone.
     return { documents: [], error: plainErrorMessage(e, t('library.loadFailed.fallback')) };
   }
 }
 
-/**
- * The document list. It loads on mount and reloads silently after any write
- * the service reports; `refresh` reloads with the loading state.
- */
 export function useDocumentList() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Bumped by the service after any write, so the list reloads silently.
   const [version, setVersion] = useState(0);
   const mountedRef = useMountedRef();
 

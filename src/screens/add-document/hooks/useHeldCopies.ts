@@ -3,21 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { documentService } from '@/services/DocumentService';
 import type { PickedFile } from '@/types';
 
-/**
- * The plaintext copies the screen holds and the preview it shows. Leaving
- * the screen removes them, unless a save in flight owns them: the vault
- * module still has to read them, and the service removes them when it has.
- */
 export function useHeldCopies() {
   const [files, setFilesState] = useState<PickedFile[]>([]);
   const [preview, setPreviewState] = useState<string | null>(null);
 
-  // The copies this screen holds, kept in step with the state synchronously so
-  // a cleanup in the same tick sees the latest set.
+  // Mirrored synchronously in a ref so same-tick unmount cleanup sees every held plaintext copy.
   const heldRef = useRef<PickedFile[]>([]);
-  // A PDF's rendered first page; a photo's preview is its own picked copy.
   const shown = useRef<string | null>(null);
-  // A save in flight owns the copies: the vault module still has to read them.
+  // True while a save owns the plaintext copies; unmount skips deleting them so DocumentService can finish.
   const savingRef = useRef(false);
 
   const setFiles = useCallback((next: PickedFile[]) => {
@@ -39,7 +32,6 @@ export function useHeldCopies() {
     [],
   );
 
-  /** Removes every copy and the preview. */
   const discardCopies = useCallback(() => {
     for (const picked of heldRef.current) documentService.discardPickedCopy(picked.uri);
     if (shown.current) documentService.discardPreview(shown.current);
@@ -47,10 +39,8 @@ export function useHeldCopies() {
     setPreview(null);
   }, [setFiles, setPreview]);
 
-  /** Holds one photo or file and its preview in place of anything held before. */
   const holdSingle = useCallback(
     (picked: PickedFile, previewUri: string) => {
-      // Never replace copies without removing them.
       for (const old of heldRef.current) {
         if (old.uri !== picked.uri) documentService.discardPickedCopy(old.uri);
       }

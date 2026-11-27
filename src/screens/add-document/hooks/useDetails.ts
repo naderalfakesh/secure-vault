@@ -4,7 +4,6 @@ import type { DocumentCategory } from '@/types';
 
 import { detailsReducer, initialDetails } from '../detailsReducer';
 
-/** The details form's state, with the handlers the form calls. */
 export function useDetails() {
   const [details, dispatch] = useReducer(detailsReducer, '', initialDetails);
 

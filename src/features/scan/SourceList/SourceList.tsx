@@ -10,14 +10,12 @@ import type { Source, SourceProblem } from './types';
 export type SourceListProps = {
   scannerSupported: boolean;
   cameraAvailable: boolean;
-  /** Camera access refused: the camera rows give way to the callout. */
   cameraDenied: boolean;
   problem: SourceProblem | null;
   onPick: (source: Source) => void;
   onOpenSettings: () => void;
 };
 
-/** Where a document comes from, with what went wrong last time above the rows. */
 export function SourceList({
   scannerSupported,
   cameraAvailable,

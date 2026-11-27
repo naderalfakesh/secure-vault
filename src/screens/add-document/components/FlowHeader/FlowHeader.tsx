@@ -12,12 +12,8 @@ export type FlowHeaderProps = {
   trailing?: ReactNode;
 };
 
-/** The bar above each phase: a control either side of a centred title. */
 export function FlowHeader({ leading, title, trailing }: FlowHeaderProps) {
   const stacked = useLargeText();
-  // A bar title: it stops growing at 1.6× and shrinks to keep its words whole.
-  // At the largest text sizes it gets a row of its own under the controls, so
-  // the controls never squeeze it to nothing.
   const titleText = title ? (
     <Text
       variant="headline"

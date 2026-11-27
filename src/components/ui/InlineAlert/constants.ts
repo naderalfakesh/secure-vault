@@ -3,7 +3,6 @@ import type { Palette } from '@/theme/colors';
 import type { IconName } from '../Icon';
 import type { InlineAlertTone } from './types';
 
-/** Fill, ink and default icon for each tone. */
 export const looks: Record<
   InlineAlertTone,
   { fill: keyof Palette; ink: keyof Palette; icon: IconName }

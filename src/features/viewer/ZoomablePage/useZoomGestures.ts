@@ -25,11 +25,6 @@ import {
 import { clampToBounds, doubleTapTranslation, pinchTranslation } from './helpers';
 import type { UseZoomGesturesOptions } from './types';
 
-/**
- * Pinch to zoom around the fingers, pan while zoomed, double-tap to toggle,
- * drag down at rest to dismiss. Returns the composed gesture and the page's
- * animated transform.
- */
 export function useZoomGestures({
   testID,
   zoomed,
@@ -84,8 +79,7 @@ export function useZoomGestures({
       settle();
     });
 
-  // At rest a vertical drag dismisses; horizontal movement is left to the
-  // pager underneath, which is why this gesture fails on a horizontal start.
+  // Fail on horizontal start so the pager underneath receives horizontal swipes at rest.
   const dismissPan = Gesture.Pan()
     .withTestId(`${testID}-dismiss`)
     .enabled(!zoomed)
@@ -107,8 +101,6 @@ export function useZoomGestures({
       }
     });
 
-  // Zoomed in, a one-finger drag pans the page in any direction. Started
-  // against a side edge and pulled past it, it zooms out and turns the page.
   const zoomedPan = Gesture.Pan()
     .withTestId(`${testID}-pan`)
     .enabled(zoomed)
@@ -125,7 +117,6 @@ export function useZoomGestures({
     .onEnd((event, success) => {
       const s = scale.get();
       if (s <= MIN_SCALE) return;
-      // A drag cut short, say by a second finger starting a pinch, never pages.
       const direction =
         success && edgeSwipe(savedTranslateX.get(), event.translationX, ((s - 1) * width) / 2);
       if (direction && canSwipe[direction]) {

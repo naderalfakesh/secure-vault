@@ -14,9 +14,7 @@ import { foundFieldLabel, scanText } from '../scanCopy';
 import { styles } from './DetailsForm.styles';
 
 export type DetailsFormProps = {
-  /** Page images (the rendered first page for a PDF); at most three are drawn. */
   thumbnails: readonly string[];
-  /** Shown when there is no image to draw, e.g. the file name. */
   fallbackName: string;
   title: string;
   onTitle: (title: string) => void;
@@ -31,7 +29,6 @@ export type DetailsFormProps = {
   onSave: () => void;
 };
 
-/** Confirm details: the suggestions are guesses the user can drop. */
 export function DetailsForm({
   thumbnails,
   fallbackName,

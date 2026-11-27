@@ -8,14 +8,10 @@ import { styles } from './StagePlaceholder.styles';
 
 type StagePlaceholderProps = {
   loading: boolean;
-  /** Loading has taken long enough to show the placeholder page. */
   slow: boolean;
 };
 
-/** The stage before the pages arrive, or when there are none to show. */
 export function StagePlaceholder({ loading, slow }: StagePlaceholderProps) {
-  // `slow` only happens while loading: nothing yet, then the spinner, and
-  // once loading is over with no pages, the unavailable line.
   const { theme } = useUnistyles();
   const unavailable = !loading;
   const spinner = loading && slow;

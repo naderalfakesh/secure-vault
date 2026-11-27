@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 
 import type { SessionStatus } from '@/features/session/SessionProvider';
 
-/** Returning users get the biometric prompt once, as soon as the screen appears. */
 export function useBiometricPrompt(
   status: SessionStatus,
   hasBiometrics: boolean,

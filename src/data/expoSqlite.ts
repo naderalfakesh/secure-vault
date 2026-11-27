@@ -14,12 +14,7 @@ function closedError(): AppError {
   return new AppError('INDEX_CLOSED', 'The document index was closed.');
 }
 
-/**
- * Close waits for every call in flight, so no statement of ours is open when
- * SQLite closes, and turns new calls away (except inside a running
- * transaction): expo-sqlite runs calls in parallel, and one that reached the
- * native side after the close would use a freed connection.
- */
+// Drains in-flight queries on close so expo-sqlite never hits a freed native connection.
 class ExpoSqlDatabase implements SqlDatabase {
   private readonly pending = new Set<Promise<unknown>>();
   private transactions = 0;
@@ -61,8 +56,7 @@ class ExpoSqlDatabase implements SqlDatabase {
     return this.track(async () => {
       this.transactions += 1;
       try {
-        // withTransactionAsync lets the task keep using this connection; the
-        // exclusive variant hands out a separate transaction object instead.
+        // withTransactionAsync keeps using this connection; exclusive mode hands out a separate handle.
         let result: T | undefined;
         await this.db.withTransactionAsync(async () => {
           result = await work();
@@ -74,12 +68,7 @@ class ExpoSqlDatabase implements SqlDatabase {
     });
   }
 
-  /**
-   * Memoized, so a failed close is never sent again and the store reports the
-   * same failure until the app restarts. expo-sqlite 58 keeps a connection that
-   * failed to close cached, so a retry could work, but a stuck erase is safer
-   * than one that runs against a connection still in use.
-   */
+  // Memoized so a failed close is never retried against a connection still in use.
   close() {
     this.closing ??= (async () => {
       this.state = 'closing';
@@ -91,29 +80,20 @@ class ExpoSqlDatabase implements SqlDatabase {
   }
 }
 
-/**
- * Opens the SQLCipher database. The key is 32 random bytes as hex, generated
- * once and kept encrypted by the vault module; `PRAGMA key` must be the first
- * statement on the connection. Rejects with SQLCIPHER_UNAVAILABLE, and closes
- * the connection, when the build's SQLite is not SQLCipher.
- */
 export async function openEncryptedDatabase(name: string, hexKey: string): Promise<SqlDatabase> {
   if (!/^[0-9a-f]{64}$/i.test(hexKey)) {
     throw new Error('Database key must be 32 bytes as hex.');
   }
-  // expo-sqlite 58 finalizes only the statements it prepared before closing,
-  // so FTS5's own statements are no longer freed twice (expo/expo#50121).
   const db = await openDatabaseAsync(name);
   try {
     await db.execAsync(`PRAGMA key = "x'${hexKey}'";`);
-    // Plain SQLite ignores PRAGMA key and would write the index unencrypted;
-    // only SQLCipher answers cipher_version. Checked before anything is written.
+    // Plain SQLite ignores PRAGMA key; verify SQLCipher via cipher_version before writing anything.
     const cipher = await db.getFirstAsync<{ cipher_version?: unknown }>('PRAGMA cipher_version');
     if (typeof cipher?.cipher_version !== 'string' || cipher.cipher_version === '') {
       throw new AppError('SQLCIPHER_UNAVAILABLE', t('errors.index.noCipher'));
     }
     await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-    // Any query fails with "file is not a database" when the key is wrong.
+    // Force a page read so a wrong key fails immediately.
     await db.getFirstAsync('SELECT count(*) FROM sqlite_master');
   } catch (error) {
     await db.closeAsync().catch(() => {});
@@ -126,11 +106,10 @@ export async function deleteEncryptedDatabase(name: string): Promise<void> {
   try {
     await deleteDatabaseAsync(name);
   } catch {
-    // Nothing to delete on a device that never opened the index.
+    // Nothing to delete when the index was never opened.
   }
 }
 
-/** Where expo-sqlite keeps the database file, as a plain path. */
 export function databaseFilePath(name: string): string {
   const directory = String(defaultDatabaseDirectory)
     .replace(/^file:\/\//, '')

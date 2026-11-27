@@ -8,11 +8,10 @@ import { isConfirmStep, pinPrompt } from './helpers';
 import { useSetupPinFlow } from './hooks/useSetupPinFlow';
 import { styles } from './SetupPinScreen.styles';
 
-/** Choose PIN (choose, confirm, mismatch) and Add a PIN for an existing key. */
 export function SetupPinScreen() {
   const { vaultExists, vaultEmpty, biometry } = useSessionState();
   const { compact } = usePinPadMetrics();
-  // After "Delete everything" the key stays but no documents do.
+  // "Delete everything" keeps the device key with 0 documents, so require !vaultEmpty too.
   const keepsDocuments = vaultExists && !vaultEmpty;
   const entry = useSetupPinFlow(keepsDocuments);
   const { stage } = entry;
@@ -25,13 +24,11 @@ export function SetupPinScreen() {
     biometry,
     shownError: entry.shownError,
   });
-  // iOS ignores live regions: speak the saving state and every error.
   useAnnouncement(stage === 'saving' ? saving : alerting ? message : null);
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <SetupPinHeader keepsDocuments={keepsDocuments} confirming={isConfirmStep(stage)} />
-      {/* On a short window or at large text the prompt scrolls above the keypad. */}
       <ScrollView
         style={styles.bodyScroll}
         contentContainerStyle={styles.body}

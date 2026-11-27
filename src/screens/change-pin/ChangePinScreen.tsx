@@ -20,14 +20,12 @@ export function ChangePinScreen() {
   const { pin, error: flash, shake, press } = entry;
 
   const { lockedOut, alert, title, subtitle } = pinPrompt(stage, lockLeft, message, error);
-  // iOS ignores live regions: speak errors, and the lockout once when it begins.
   useAnnouncement(lockedOut ? LOCKOUT_BODY : alert ? subtitle : null);
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
       <Stack.Screen options={{ headerShown: false }} />
       <StepBar stage={stage} />
-      {/* On a short window or at large text the prompt scrolls above the keypad. */}
       <ScrollView
         style={styles.bodyScroll}
         contentContainerStyle={styles.body(compact)}

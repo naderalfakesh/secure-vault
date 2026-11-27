@@ -20,17 +20,10 @@ export type ReviewPagesProps = {
   pages: readonly PickedFile[];
   onRemove: (index: number) => void;
   onMove: (index: number, delta: -1 | 1) => void;
-  /** Re-opens the scanner; absent when it cannot run here. */
   onAddPages?: () => void;
 };
 
-/**
- * Scanned pages before anything is read or saved: remove
- * a page, move one by holding it and using Move earlier / Move later, or add
- * more. Screen readers get the same three as actions on each page.
- */
 export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPagesProps) {
-  // The page being moved, followed as it changes place.
   const [moving, setMoving] = useState<number | null>(null);
   const count = pages.length;
   const active = moving !== null && moving < count ? moving : null;
@@ -40,7 +33,6 @@ export function ReviewPages({ pages, onRemove, onMove, onAddPages }: ReviewPages
     if (target < 0 || target >= count) return;
     onMove(index, delta);
     if (active === index) setMoving(target);
-    // The label changes under the reader's focus; say where the page went.
     AccessibilityInfo.announceForAccessibility(movedTo(target, count));
   };
 

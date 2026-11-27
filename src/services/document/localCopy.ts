@@ -8,7 +8,6 @@ import { IMPORT_COPY_PREFIX, IMPORT_COPY_TIMEOUT_MS, THUMBNAIL_MAX_PIXELS } from
 import { cacheLocation, toPath, toUri } from './helpers';
 import { discardImportCopy } from './residue';
 
-/** First page of a PDF as a JPEG in the cache, or null when it cannot be rendered. */
 export async function renderPdfCover(
   cacheUri: string,
   pdfPath: string,
@@ -19,7 +18,6 @@ export async function renderPdfCover(
   return cover ? toPath(cover.uri) : null;
 }
 
-/** The size of a local file in bytes, or 0 when it cannot be read. */
 export function measureFileSize(path: string): number {
   try {
     return new File(toUri(path)).size || 0;
@@ -28,14 +26,7 @@ export function measureFileSize(path: string): number {
   }
 }
 
-/**
- * Copies a `content://` source into the cache so the native module can read a
- * path. No picker hands one over today (each copies into its own cache folder
- * first), but the scanner's page URIs come from Google Play services, whose
- * scheme the app does not control. The copy goes through expo-file-system,
- * which reads the provider with the content resolver: SDK 58's global fetch
- * refuses the scheme.
- */
+// Copy Android content:// URIs via expo-file-system (ContentResolver); RN fetch rejects content://.
 export async function getLocalFilePath(cacheUri: string, uri: string): Promise<string> {
   if (uri.startsWith('/') || uri.startsWith('file://')) {
     return toPath(uri);
@@ -53,8 +44,7 @@ export async function getLocalFilePath(cacheUri: string, uri: string): Promise<s
     await Promise.race([copying, stalled]);
     return toPath(tempFile.uri);
   } catch (e) {
-    // A copy cut short by a read or write error is plaintext too. The copy
-    // cannot be cancelled, so a stalled one is removed again once it settles.
+    // Uncancellable copy may still finish after timeout; clean up both now and on settle.
     discardImportCopy(cacheUri, tempFile.uri);
     copying.then(
       () => discardImportCopy(cacheUri, tempFile.uri),

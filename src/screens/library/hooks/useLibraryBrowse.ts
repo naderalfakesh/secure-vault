@@ -10,11 +10,9 @@ import type { DocumentCategory } from '@/types';
 
 import type { LibrarySheet } from '../types';
 
-/** What the person is looking at: the query, filter, sort and open sheet. */
 export function useLibraryBrowse() {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
-  // "See all" or a collection tile opens the list without a query.
   const [browsing, setBrowsing] = useState(false);
   const [filter, setFilter] = useState<LibraryFilter>(NO_FILTER);
   const [sort, setSort] = useState<SortOrder>('newest');
@@ -36,7 +34,6 @@ export function useLibraryBrowse() {
   const openSortSheet = useCallback(() => setSheet('sort'), []);
   const openMoveSheet = useCallback(() => setSheet('move'), []);
 
-  /** Search, a collection or "See all" replace the home sections with a list. */
   const listing = focused || query.trim().length > 0 || browsing || isFiltering(filter);
 
   return {

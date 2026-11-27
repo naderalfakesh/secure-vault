@@ -8,16 +8,12 @@ import { t } from '@/i18n';
 import type { BiometryType } from '@modules/expo-vault';
 
 export type LockMessageInput = {
-  /** Seconds left in a lockout; 0 when there is none. */
   lockLeft: number;
-  /** The last PIN was wrong. */
   wrong: boolean;
-  /** The session's error, if any. */
   error: string | null;
   attemptsLeft: number;
   hasBiometrics: boolean;
   biometry: BiometryType;
-  /** Digits entered so far. */
   pinLength: number;
 };
 
@@ -28,7 +24,6 @@ type LockMessage = {
   subtitle: string;
 };
 
-/** What the lock screen says: a lockout first, then a wrong PIN, an error, or the prompt. */
 export function lockMessage({
   lockLeft,
   wrong,

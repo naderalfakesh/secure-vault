@@ -5,7 +5,6 @@ import { Icon } from '../Icon';
 import { Switch } from '../Switch';
 import type { ListRowAccessoryProps } from './types';
 
-/** The trailing element: custom, a switch, a checkmark, a chevron, or nothing. */
 export function ListRowAccessory({
   trailing,
   toggle,
@@ -17,8 +16,7 @@ export function ListRowAccessory({
 }: ListRowAccessoryProps) {
   if (trailing !== undefined) return <>{trailing}</>;
   if (toggle) {
-    // The row is the one accessible switch; the native one would be a second
-    // stop, and a second touch target that could toggle twice with the row.
+    // Row owns the accessible switch role; hiding the native switch avoids a duplicate focus stop and double-toggle.
     return (
       <View {...decorative} pointerEvents="none">
         <Switch

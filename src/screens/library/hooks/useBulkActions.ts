@@ -7,7 +7,6 @@ import { t, tp } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
 import type { Document, DocumentCategory } from '@/types';
 
-/** Moves `ids` one by one and counts the ones that failed. */
 async function moveAll(ids: readonly string[], category: DocumentCategory): Promise<number> {
   let failed = 0;
   for (const id of ids) {
@@ -23,13 +22,10 @@ async function moveAll(ids: readonly string[], category: DocumentCategory): Prom
 type Options = {
   documents: readonly Document[];
   selected: ReadonlySet<string>;
-  /** Called once the selection has been dealt with. */
   onDone: () => void;
-  /** Called once a move has finished, whatever the outcome. */
   onMoved: () => void;
 };
 
-/** Move to… and Delete for the selected documents. */
 export function useBulkActions({ documents, selected, onDone, onMoved }: Options) {
   const toast = useToast();
   const deleteWithUndo = useDeleteWithUndo();

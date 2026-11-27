@@ -12,7 +12,6 @@ const scannerMessages: Record<string, ScanCopyKey> = {
   NO_ACTIVITY: 'sources.scanNotOpened',
 };
 
-/** The scanner's own codes, which only mean something for the scan source. */
 function scannerSentences(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(scannerMessages).map(([code, key]) => [code, scanText(key)]),
@@ -26,13 +25,7 @@ const sourceFallbacks: Record<Source, ScanCopyKey> = {
   files: 'sources.filesFailed',
 };
 
-/**
- * One plain sentence for a source on the Add sheet that failed. Native
- * rejections ("Call to function 'ExpoDocumentScanner.scanDocuments' has been
- * rejected. → Caused by: java.lang.NullPointerException") are diagnostics,
- * so their text is never shown: the scanner's own codes get their sentence,
- * the vault's key errors theirs, and anything else the source's fallback.
- */
+// Suppress raw native exception diagnostics via vetMessage; map only known codes or fallback.
 export function sourceFailureMessage(source: Source, error: unknown): string {
   if (isKeyLocked(error)) return KEY_LOCKED_MESSAGE;
   return resolveErrorMessage(error, {

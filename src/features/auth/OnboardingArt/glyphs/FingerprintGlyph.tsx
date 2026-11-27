@@ -2,7 +2,6 @@ import { G, Path } from 'react-native-svg';
 
 import type { GlyphProps } from '../types';
 
-/** Touch ID and Android biometrics: a fingerprint. */
 export function FingerprintGlyph({ color }: GlyphProps) {
   return (
     <G stroke={color} strokeWidth={3.5} strokeLinecap="round" fill="none">

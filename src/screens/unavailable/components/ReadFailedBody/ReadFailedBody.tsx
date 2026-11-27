@@ -10,7 +10,6 @@ type ReadFailedBodyProps = {
   error: string | null;
 };
 
-/** The key or the PIN record could not be read; a lost PIN record names the gate that adds a new one. */
 export function ReadFailedBody({ pinLost, biometry, error }: ReadFailedBodyProps) {
   return (
     <>

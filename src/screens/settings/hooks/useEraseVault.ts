@@ -11,15 +11,12 @@ import { documentService } from '@/services/DocumentService';
 import { totalCount } from '../helpers';
 import type { EraseRequest, SettingsBusy } from '../types';
 
-/** Delete everything: the sheet with its document count, the confirmation, and the erase. */
 export function useEraseVault() {
   const toast = useToast();
   const { eraseVault } = useSessionActions();
-  // The Delete everything sheet, with the number of documents it erases.
   const [erase, setErase] = useState<EraseRequest | null>(null);
   const [busy, setBusy] = useState<SettingsBusy>(null);
-  // An export or restore, possibly started before the last lock, is still
-  // running in the Backup hub; nothing may erase the vault under it.
+  // Block vault erase while a background backup export/restore holds the BackupService slot.
   const running = useBackupActivity();
   const blocked = busy !== null || running !== null;
 
@@ -45,8 +42,7 @@ export function useEraseVault() {
         toast.show(
           pinCleared
             ? { message: t('settings.erase.done') }
-            : // The erase finished, but the old PIN record survived both delete attempts.
-              { message: t('settings.erase.pinNotCleared'), tone: 'danger' },
+            : { message: t('settings.erase.pinNotCleared'), tone: 'danger' },
         );
       } catch (e) {
         toast.show({

@@ -11,12 +11,6 @@ type BackupCopyKey = keyof typeof backup extends infer K
     : never
   : never;
 
-/**
- * The Backup hub, create and restore strings,
- * read from the string table's `backup` namespace by their short names.
- * The outcome sentences themselves come from `describeBackupError`, which the
- * notices after a lock use too.
- */
 export const backupCopy = Object.fromEntries(
   (Object.keys(backup) as (keyof typeof backup)[]).map((key) => [
     key.slice('backup.'.length),
@@ -24,29 +18,22 @@ export const backupCopy = Object.fromEntries(
   ]),
 ) as Record<BackupCopyKey, string>;
 
-/**
- * The module counts the passphrase check entry as entry 1 of every pass;
- * people only see their own entries, as the file card and the outcome toast
- * count them ("32 entries", never "of 33").
- */
+// Native module counts the passphrase check entry as entry 1; hide it from user-facing counts.
 function withoutCheckEntry(done: number, total: number): { done: number; total: number } {
   return { done: Math.max(done - 1, 0), total: Math.max(total - 1, 0) };
 }
 
-/** "Checking 18 of 48" / "Restoring 7 of 48"; just "Checking…" until the first entry is done. */
 export function restoreProgressLabel(phase: 'verify' | 'import', done: number, total: number) {
   const shown = withoutCheckEntry(done, total);
   if (shown.done <= 0) return t(`backup.restore.progress.${phase}Start`);
   return t(`backup.restore.progress.${phase}`, shown);
 }
 
-/** "Stopped at entry 2 of 32": the entry being restored, the check entry not counted. */
 export function stoppedAtLabel(stoppedAt: { entry: number; total: number }): string {
   const shown = withoutCheckEntry(stoppedAt.entry, stoppedAt.total);
   return t('backup.restore.stoppedAt', { entry: Math.max(shown.done, 1), total: shown.total });
 }
 
-/** "48 entries · made 12 Oct 2026", or without the date when the header has none. */
 export function backupFileMeta(entries: number, created?: string | null): string {
   const count = tp('format.entries', entries);
   const made = created ? formatDate(created) : '';
@@ -57,17 +44,11 @@ export function lastCreatedLine(date: Date): string {
   return t('backup.hub.lastCreated', { date: formatDate(date.toISOString()) });
 }
 
-/** What the restore sheet shows after a restore that did not succeed. */
 export type RestoreOutcome =
-  /** Back to the inspect step: the field keeps the passphrase and Restore stays enabled. */
   | { kind: 'inspect'; message: string; tone: 'danger' | 'info'; field: boolean }
-  /** The file itself is the problem: offer another one. */
   | { kind: 'chooseFile'; message: string }
-  /** Nothing to retry on this device: only Close. */
   | { kind: 'close'; message: string }
-  /** After the wipe: the vault is partly replaced. */
   | { kind: 'partial'; message: string; stoppedAt: { entry: number; total: number } | null }
-  /** The documents are back but the index is not. */
   | { kind: 'index'; message: string };
 
 export function restoreOutcome(error: unknown): RestoreOutcome {
@@ -83,15 +64,13 @@ export function restoreOutcome(error: unknown): RestoreOutcome {
     case 'BACKUP_NO_SPACE':
       return { kind: 'close', message: describeBackupError(error) };
     case 'BACKUP_PARTIAL': {
-      // A partial restore the native module reports itself carries no entry to name.
       const stoppedAt = error instanceof PartialRestoreError ? error.stoppedAt : null;
       return { kind: 'partial', message: describeBackupError(error), stoppedAt };
     }
     case 'BACKUP_INDEX':
       return { kind: 'index', message: describeBackupError(error) };
     default:
-      // KEY_LOCKED before the wipe, the staging and busy refusals: worth another try.
-      // Never the platform's own text, which can name cache paths.
+      // Never expose raw platform text, which can include cache paths.
       return {
         kind: 'inspect',
         message: describeBackupErrorPlainly(error, backupCopy['restore.stoppedBehindLock']),

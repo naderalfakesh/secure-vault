@@ -10,7 +10,6 @@ import { tileColors } from './constants';
 import { styles } from './ListRowContent.styles';
 import type { ListRowContentProps } from './types';
 
-/** The row's icon tile, title, subtitle, and value. */
 export function ListRowContent({
   title,
   subtitle,
@@ -21,13 +20,9 @@ export function ListRowContent({
   children,
 }: ListRowContentProps) {
   const { theme } = useUnistyles();
-  // At the accessibility sizes the value moves under the title, so neither
-  // is squeezed into a sliver of the row.
   const stacked = useLargeText();
   const tile = tileColors[tint];
 
-  // Row text stops at 2.4× (between AX2 and AX3) so a single word such as
-  // "Immediately" always fits the row and wraps whole, never mid-word.
   const valueText = (
     <Text
       variant="body"

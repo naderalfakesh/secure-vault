@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 
 import type { SessionNotice, ShareInterruption } from '../types';
 
-/** Messages for work that ended behind the lock, and the share the lock cut short. */
 export function useSessionNotices() {
   const [notice, setNotice] = useState<SessionNotice | null>(null);
   const [shareInterrupted, setShareInterrupted] = useState<ShareInterruption | null>(null);
@@ -19,7 +18,6 @@ export function useSessionNotices() {
     [],
   );
 
-  /** Forgets both, as "Delete everything" does. */
   const resetNotices = useCallback(() => {
     setNotice(null);
     setShareInterrupted(null);

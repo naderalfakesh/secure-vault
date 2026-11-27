@@ -14,10 +14,6 @@ import { exportFailure } from '../helpers';
 import type { CreateBackupSheetProps, Destination, Stage } from '../types';
 import { saveToDevice, shareBackup } from './handOff';
 
-/**
- * The create flow: the two passphrase fields, the export with its progress,
- * then the hand-off to the share sheet or the save screen.
- */
 export function useCreateBackup({ visible, onClose, onShared }: CreateBackupSheetProps) {
   const toast = useToast();
   const { withoutAutoLock, captureSession, postNotice } = useSessionActions();
@@ -25,14 +21,10 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
   const [confirmation, setConfirmation] = useState('');
   const [stage, setStage] = useState<Stage>({ name: 'form' });
   const [open, setOpen] = useState(visible);
-  // The lock unmounts the hub while an export may still be running.
   const mounted = useMountedRef();
-  // Try again after a failed export goes where the first attempt was going.
   const lastDestination = useRef<Destination>('share');
   const preferred: Destination = CAN_SAVE() ? 'save' : 'share';
 
-  // Each opening starts with empty fields. `open` follows `visible` until the
-  // export hands off, when the sheet closes itself before the share sheet.
   if (visible !== open) {
     setOpen(visible);
     if (visible) {
@@ -51,7 +43,6 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
       setStage({ name: 'busy', done: 0, total: 1 });
       let cancelled = false;
       try {
-        // The service removes the container once this returns or throws.
         await backupService.exportBackup(
           passphrase,
           async (backup) => {
@@ -63,8 +54,7 @@ export function useCreateBackup({ visible, onClose, onShared }: CreateBackupShee
             setConfirmation('');
             setStage({ name: 'form' });
             onClose();
-            // Let the sheet's modal finish dismissing; presenting the share sheet
-            // over a dismissing modal leaves iOS with neither on screen.
+            // Presenting a share sheet over a dismissing iOS modal leaves neither on screen.
             await wait(SHEET_DISMISS_MS);
             if (!mounted.current || !(await session.confirm()) || !mounted.current) {
               cancelled = true;

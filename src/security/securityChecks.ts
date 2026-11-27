@@ -40,16 +40,10 @@ function pathExists(path: string): boolean {
   }
 }
 
-/**
- * Best-effort device integrity signals. The result is advisory: callers show a
- * warning and never block the vault, so development builds and unusual devices
- * stay usable.
- */
 export async function detectDeviceCompromise(): Promise<SecurityCheckResult> {
   const indicators: string[] = [];
 
-  // Simulators and emulators expose host paths such as /bin/bash, so the
-  // artifact scan only means something on a physical device.
+  // Simulators/emulators expose host paths like /bin/bash, so only scan physical devices.
   if (Device.isDevice) {
     const pathsToCheck = Platform.OS === 'android' ? ANDROID_ROOT_PATHS : IOS_JAILBREAK_PATHS;
     for (const path of pathsToCheck) {

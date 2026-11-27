@@ -19,10 +19,6 @@ function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-/**
- * Short relative date for list rows: "Today", "Yesterday", a weekday within
- * the last week, "9 Oct" this year, "9 Oct 2025" before that.
- */
 export function formatRelativeDate(
   iso: string,
   now: Date = new Date(),
@@ -41,7 +37,6 @@ export function formatRelativeDate(
   });
 }
 
-/** Brass expiry line: "Expires in 82 days", "Expires today", "Expired 3 Jan 2026". */
 export function formatExpiry(
   dateIso: string,
   now: Date = new Date(),
@@ -58,7 +53,6 @@ export function formatExpiry(
   return t('format.expiresOn', { date: long });
 }
 
-/** Short parts on one line, e.g. "Identity · 2 pages · Today"; empty parts drop out. */
 export function joinParts(parts: readonly (string | null | undefined | false)[]): string {
   return parts.filter(Boolean).join(t('format.separator'));
 }

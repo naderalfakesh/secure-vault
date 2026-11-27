@@ -15,11 +15,6 @@ import { ui } from './ui';
 import { unavailable } from './unavailable';
 import { viewer } from './viewer';
 
-/**
- * The English string table, the source for every other language. Each
- * namespace lives in its own file; keys are fully qualified, so the spread never hides one namespace's key behind another's
- * (`src/i18n/__tests__/i18n.test.ts` checks that).
- */
 export const namespaces = {
   common,
   format,

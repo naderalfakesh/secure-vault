@@ -44,7 +44,6 @@ type AppThemes = {
 type AppBreakpoints = typeof breakpoints;
 
 declare module 'react-native-unistyles' {
-  // Module augmentation requires interfaces; the empty bodies are the pattern Unistyles documents.
   /* eslint-disable @typescript-eslint/no-empty-object-type */
   export interface UnistylesThemes extends AppThemes {}
   export interface UnistylesBreakpoints extends AppBreakpoints {}
@@ -58,7 +57,6 @@ StyleSheet.configure({
   },
   breakpoints,
   settings: {
-    // Follow the OS by default; the Appearance setting can pin light or dark.
     adaptiveThemes: true,
   },
 });

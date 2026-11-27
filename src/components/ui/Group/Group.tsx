@@ -6,7 +6,6 @@ import { styles } from './Group.styles';
 import { GroupContext } from './GroupContext';
 import type { GroupProps } from './types';
 
-/** Grouped surface with hairline separators between its rows. */
 export function Group({
   header,
   footer,

@@ -9,10 +9,6 @@ import { Text } from '../Text';
 import { styles } from './SearchField.styles';
 import type { SearchFieldProps } from './types';
 
-/**
- * 44 pt pill search field: leading search glyph, a clear button
- * once there is text, and "Cancel" while focused.
- */
 export function SearchField({
   value,
   onChangeText,
@@ -56,7 +52,6 @@ export function SearchField({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('ui.search.clear')}
-            // 18 pt glyph + 13 pt on each side = a 44 pt target.
             hitSlop={13}
             onPress={() => {
               onChangeText('');

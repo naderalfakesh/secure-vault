@@ -5,7 +5,6 @@ import type { InspectOutcome, PickedBackup } from '../../types';
 
 type InspectStepProps = {
   backup: PickedBackup;
-  /** Why the last attempt came back here, if it did. */
   outcome: InspectOutcome | null;
   passphrase: string;
   onPassphraseChange: (value: string) => void;
@@ -13,7 +12,6 @@ type InspectStepProps = {
   onClose: () => void;
 };
 
-/** The file, the warning, and the passphrase that unlocks it. */
 export function InspectStep({
   backup,
   outcome,

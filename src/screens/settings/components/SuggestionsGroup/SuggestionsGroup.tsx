@@ -5,7 +5,6 @@ import { t } from '@/i18n';
 import { modelName, suggestionsSubtitle } from '../../helpers';
 
 type SuggestionsGroupProps = {
-  /** The engine in use; empty while it is being chosen. */
   engine: string;
   model: ModelInfo | null;
   downloading: boolean;
@@ -13,7 +12,6 @@ type SuggestionsGroupProps = {
   onDownload: () => void;
 };
 
-/** Which engine suggests document details, with the on-device model's download. */
 export function SuggestionsGroup({
   engine,
   model,

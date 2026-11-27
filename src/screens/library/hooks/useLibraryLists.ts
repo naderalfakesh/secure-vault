@@ -16,15 +16,12 @@ type Sources = {
   documents: readonly Document[];
   expiry: ExpiryDates;
   railCutoff: string;
-  /** The search's hits while searching, else null. */
   hits: readonly SearchHit[] | null;
-  /** The vault in the index's order, when the sort needs one. */
   ordered: readonly Document[] | null;
   filter: LibraryFilter;
   sort: SortOrder;
 };
 
-/** Everything the Library lists, derived from the vault and the person's choices. */
 export function useLibraryLists({
   documents,
   expiry,

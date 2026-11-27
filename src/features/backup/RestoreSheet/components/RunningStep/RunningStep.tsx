@@ -12,10 +12,6 @@ type RunningStepProps = {
   onCancel: () => void;
 };
 
-/**
- * Checking, then Restoring. Checking leaves the vault untouched and may be
- * cancelled; once the vault is wiped there is no control.
- */
 export function RunningStep({ backup, progress, cancelling, onCancel }: RunningStepProps) {
   const { wiped } = progress;
   return (

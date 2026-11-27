@@ -1,11 +1,6 @@
 import type { SqlDatabase } from './sql';
 
-/**
- * Schema versions are applied in order and recorded in `user_version`, so a
- * future change is one more entry, never an edit of a shipped one.
- */
 const migrations: string[] = [
-  // v1: documents, pages, tags, extracted fields, and a full-text (FTS5) index.
   `
   CREATE TABLE documents (
     id TEXT PRIMARY KEY NOT NULL,

@@ -14,10 +14,6 @@ type LockHeaderProps = {
   subtitle: string;
 };
 
-/**
- * The mark, title and subtitle. It takes what the keypad leaves; on a short
- * window or at large text it scrolls instead of sliding under the keys.
- */
 export function LockHeader({ compact, lockedOut, alerting, title, subtitle }: LockHeaderProps) {
   return (
     <ScrollView
@@ -28,7 +24,6 @@ export function LockHeader({ compact, lockedOut, alerting, title, subtitle }: Lo
       testID="lock-header"
     >
       <Mark size={MARK_SIZE} muted={lockedOut} glyph={lockedOut ? 'clock' : 'mark'} />
-      {/* Capped, and fitted so no word breaks: at AX5 it was clipped mid-word. */}
       <Text
         variant="title2"
         align="center"

@@ -7,11 +7,6 @@ import type { Document } from '@/types';
 import { SEARCH_DEBOUNCE_MS } from '../constants';
 import type { SearchResults } from '../types';
 
-/**
- * Full-text search over titles, tags and the text read on this device. The
- * index sorts the results and marks the matched words. `results` is null
- * while the current query has no answer yet.
- */
 export function useLibrarySearch(
   query: string,
   order: DocumentOrder,

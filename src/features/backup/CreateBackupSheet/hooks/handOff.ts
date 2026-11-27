@@ -9,7 +9,6 @@ import { backupCopy as copy } from '../../backupCopy';
 import { saveBackupToDevice } from '../../saveToDevice';
 import { SAVE_INTERRUPTED, SHARE_INTERRUPTED } from '../constants';
 
-/** What the hand-off of a finished container needs from the session and the screen. */
 type HandOffContext = {
   backup: BackupResult;
   session: SessionCapture;
@@ -18,12 +17,6 @@ type HandOffContext = {
   showToast: (options: ToastOptions) => void;
 };
 
-/**
- * Writes the container to a folder the person picks. Every outcome that is not
- * a save is reported here; resolves with the save time only when it was saved.
- * The same encrypted container the share sheet hands out; the service removes
- * the staged copy once the export callback returns or throws.
- */
 export async function saveToDevice({
   backup,
   session,
@@ -39,7 +32,6 @@ export async function saveToDevice({
       ended: session.ended(),
     });
   } catch {
-    // The provider's own text can name paths or accounts: one sentence instead.
     if (session.current()) {
       showToast({ message: copy['create.saveFailed'], tone: 'danger' });
     } else {
@@ -58,17 +50,13 @@ export async function saveToDevice({
   return new Date();
 }
 
-/**
- * Opens the system share sheet for the container. Resolves with the time it
- * was shared, or null when the session ended first.
- */
 export async function shareBackup({
   backup,
   session,
   withoutAutoLock,
   postNotice,
 }: HandOffContext): Promise<Date | null> {
-  // A share that never settles must not keep the export, and its slot, open.
+  // Race against session end so an abandoned share sheet can't hold the export slot open.
   await Promise.race([
     withoutAutoLock(
       () =>
@@ -82,7 +70,6 @@ export async function shareBackup({
     session.ended(),
   ]);
   if (!session.current()) {
-    // It may have been shared already, so this says less than EXPORT_STOPPED.
     postNotice({ message: SHARE_INTERRUPTED });
     return null;
   }

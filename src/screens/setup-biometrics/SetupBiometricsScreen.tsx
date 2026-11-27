@@ -12,12 +12,7 @@ import { stepBiometry } from './helpers';
 import { useBiometricsChoice } from './hooks/useBiometricsChoice';
 import { styles } from './SetupBiometricsScreen.styles';
 
-/**
- * Enable biometrics, after the PIN is saved. "Use Face
- * ID" asks the OS for a biometric check, which on iOS is also where the Face
- * ID permission is asked; only a passed check turns biometric unlock on.
- * Whatever the answer, and after "Not now", the vault opens. Settings shows the reason later if biometrics stay unavailable.
- */
+// Triggering biometrics here also prompts iOS Face ID permission; only a passed check enables biometric unlock.
 export function SetupBiometricsScreen() {
   const { status, setupHeld, biometry } = useSessionState();
   const availability = useBiometricAvailability();
@@ -25,10 +20,9 @@ export function SetupBiometricsScreen() {
   const kind = stepBiometry(availability, biometry);
   const copy = biometricStepCopy(kind);
 
-  // Both buttons finish setup; Android's back button is not a third way out.
+  // Block Android back so setup only exits through the two explicit actions.
   useBlockHardwareBack();
 
-  // Only a setup that saved its PIN and is waiting on this step reaches it.
   if (status === 'setup' && !setupHeld) return <Redirect href="/setup" />;
 
   return (

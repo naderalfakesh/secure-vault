@@ -12,23 +12,14 @@ import { isCancellable, type ProcessingStep, STEP_COPY, STEPS } from './steps';
 
 export type ProcessingPanelProps = {
   step: ProcessingStep;
-  /** Page images to show above the steps (at most three are drawn). */
   thumbnails: readonly string[];
-  /** Shown while reading; there is no cancel once encrypting starts. */
   onCancel: () => void;
-  /** A failed save: shown inline with Try again, the pages kept. */
   error?: string | null;
   onRetry?: () => void;
   onBack?: () => void;
-  /** The document is saved; leave for it without the values that failed. */
   onOpen?: () => void;
 };
 
-/**
- * Reading the text → Suggesting details → Encrypting → Saving to your vault.
- * Each step is announced politely; Cancel disappears when encrypting starts
- * and "This can't be stopped." is announced in its place.
- */
 export function ProcessingPanel({
   step,
   thumbnails,
@@ -42,8 +33,6 @@ export function ProcessingPanel({
   const cancellable = isCancellable(step);
   const failed = Boolean(error);
   const current = STEPS.indexOf(step);
-  // The step is announced as it starts; while Cancel shows, the announcement
-  // says so, and once encrypting starts the callout below takes over.
   useAnnouncement(
     failed
       ? null

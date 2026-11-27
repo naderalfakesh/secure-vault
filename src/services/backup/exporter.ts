@@ -18,11 +18,6 @@ import { backupFileName } from './format';
 import { passphraseProblem } from './passphrase';
 import type { BackupResult, ProgressListener } from './types';
 
-/**
- * Writes a backup container into the cache's `backup` folder: every vault
- * entry plus a copy of the encrypted index. Nothing of the index copy or the
- * staging folder is left when it returns or throws.
- */
 export async function writeBackup(
   passphrase: string,
   onProgress?: ProgressListener,
@@ -35,7 +30,6 @@ export async function writeBackup(
     directory = freshBackupDirectory();
     staging = stagingDirectory();
   } catch (error) {
-    // Nothing was written yet; the platform error names a cache path.
     throw stagingError('BACKUP_STAGING_INVALID', error);
   }
   const name = backupFileName();
@@ -53,18 +47,12 @@ export async function writeBackup(
     );
   } catch (error) {
     unsubscribe();
-    // The export's own error is what the caller sees (it may be KEY_LOCKED),
-    // so this cleanup cannot replace it; the next export retries whatever it
-    // leaves, and the lock sweep the staging folder. A failure mid-write
-    // leaves a half-written container; it is ciphertext but useless, so it
-    // goes too.
+    // Preserve original export error (e.g. KEY_LOCKED); sweep handles any leftover cleanup failure.
     for (const leftover of [target, databaseCopy, staging]) removeQuietly(leftover);
     throw error;
   }
   unsubscribe();
-  // Each removal is tried even when the other fails. A finished backup is
-  // not handed out while either may remain; the platform error names a
-  // cache path, so it travels only as the cause.
+  // Attempt all removals and refuse to hand out the backup if staging cleanup failed.
   const failures: unknown[] = [];
   for (const leftover of [databaseCopy, staging]) {
     try {
@@ -82,12 +70,10 @@ export async function writeBackup(
   return { uri: target.uri, name, entries: summary.entries, bytes: summary.bytes };
 }
 
-/** Removes a backup file once it has been handed off. */
 export function discardBackup(uri: string): void {
   try {
-    // A link planted in its place is unlinked, never followed.
     removeNoFollow(new File(uri));
   } catch {
-    // Swept with the rest of the cache on lock.
+    // Swept on next lock.
   }
 }

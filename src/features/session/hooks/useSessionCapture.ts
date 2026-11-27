@@ -10,7 +10,6 @@ type Options = {
   away: RefObject<AwayClock>;
 };
 
-/** Captures the current unlocked session so long work can tell whether it ended. */
 export function useSessionCapture({ statusRef, generationRef, waitersRef, away }: Options) {
   return useCallback((): SessionCapture => {
     const generation = statusRef.current === 'unlocked' ? generationRef.current : -1;

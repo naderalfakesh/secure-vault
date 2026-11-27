@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { usePinEntry } from '@/features/auth/hooks/usePinEntry';
 import type { PinUnlockResult } from '@/features/session/SessionProvider';
 
-/** The keypad entry on the lock screen, checking each full PIN with the session. */
 export function usePinUnlock(unlockWithPin: (pin: string) => Promise<PinUnlockResult>) {
   const [checking, setChecking] = useState(false);
   const [wrong, setWrong] = useState(false);

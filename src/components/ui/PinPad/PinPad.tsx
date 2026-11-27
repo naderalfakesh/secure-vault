@@ -10,10 +10,6 @@ import { styles } from './PinPad.styles';
 import type { PinPadProps } from './types';
 import { usePinPadMetrics } from './usePinPadMetrics';
 
-/**
- * 3 × 4 PIN keypad: 76 pt round keys (smaller on short windows), the biometric key bottom
- * start, backspace bottom end. Digits never mirror in right-to-left layouts.
- */
 export function PinPad({
   onKey,
   onBiometric,
@@ -57,7 +53,6 @@ export function PinPad({
                 ) : key === 'bio' ? (
                   <Icon name={biometricIcon} size={30} tone="accent" />
                 ) : (
-                  // Digits grow with the text size only as far as the key holds them.
                   <Text variant="pinDigit" maxFontSizeMultiplier={1.3}>
                     {displayDigit(key)}
                   </Text>

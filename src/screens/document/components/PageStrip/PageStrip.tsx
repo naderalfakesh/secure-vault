@@ -11,7 +11,6 @@ type PageStripProps = {
   onPageChange: (index: number) => void;
 };
 
-/** Thumbnails of every page; the one on the stage is marked. */
 export function PageStrip({ pages, page, onPageChange }: PageStripProps) {
   return (
     <ScrollView

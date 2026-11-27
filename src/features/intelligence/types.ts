@@ -5,7 +5,6 @@ export interface DocumentSuggestion {
   category?: DocumentCategory;
   tags: string[];
   fields: ExtractedField[];
-  /** Which engine produced the suggestion; shown honestly in Settings. */
   engine: IntelligenceEngine;
 }
 
@@ -14,6 +13,5 @@ export type IntelligenceEngine = 'apple-foundation-models' | 'gemini-nano' | 'he
 export interface DocumentIntelligence {
   readonly engine: IntelligenceEngine;
   isAvailable(): Promise<boolean>;
-  /** Never throws: a failing engine returns an empty suggestion. */
   suggest(ocrText: string): Promise<DocumentSuggestion>;
 }

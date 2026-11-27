@@ -1,4 +1,3 @@
-// The document service lives in `./document`; this path stays for its callers.
 export {
   APPLE_INBOX_DIRECTORY,
   documentService,

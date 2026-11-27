@@ -1,7 +1,6 @@
 import { t } from '@/i18n';
 import { formatDate } from '@/utils/format';
 
-/** What an imported file is, or null when SecureVault can't add it. */
 type ImportKind = 'pdf' | 'image';
 
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif']);
@@ -14,7 +13,6 @@ const EXTENSIONS: Record<string, ImportKind> = {
   heif: 'image',
 };
 
-/** Types that say only "some bytes"; the extension knows more. */
 const GENERIC_TYPES = new Set([
   'application/octet-stream',
   'binary/octet-stream',
@@ -23,17 +21,11 @@ const GENERIC_TYPES = new Set([
   '*/*',
 ]);
 
-/** The reported type when it says what the file is, otherwise null. */
 function specificType(mimeType: string | null | undefined): string | null {
   const type = mimeType?.toLowerCase().trim();
   return type && !GENERIC_TYPES.has(type) ? type : null;
 }
 
-/**
- * A PDF or a JPEG, PNG or HEIC image. A
- * specific reported type wins; the extension decides when no type, or only a
- * generic binary type, is reported.
- */
 export function importKind(name: string, mimeType: string | null | undefined): ImportKind | null {
   const type = specificType(mimeType);
   if (type) {
@@ -45,7 +37,6 @@ export function importKind(name: string, mimeType: string | null | undefined): I
   return EXTENSIONS[name.slice(dot + 1).toLowerCase()] ?? null;
 }
 
-/** The MIME type a kind is saved under when the picker reported none. */
 export function mimeTypeFor(name: string, kind: ImportKind): string {
   if (kind === 'pdf') return 'application/pdf';
   const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
@@ -54,7 +45,6 @@ export function mimeTypeFor(name: string, kind: ImportKind): string {
   return 'image/jpeg';
 }
 
-/** The type a picked file is saved under: the reported one when specific. */
 export function importMimeType(
   name: string,
   mimeType: string | null | undefined,
@@ -63,7 +53,6 @@ export function importMimeType(
   return specificType(mimeType) ?? mimeTypeFor(name, kind);
 }
 
-/** Moves the item at `index` one place earlier (-1) or later (+1); out of range is a no-op. */
 export function movePage<T>(pages: readonly T[], index: number, delta: -1 | 1): T[] {
   const target = index + delta;
   if (index < 0 || index >= pages.length || target < 0 || target >= pages.length) {
@@ -79,11 +68,7 @@ export function stripExtension(name: string): string {
   return name.replace(/\.[^/.]+$/, '');
 }
 
-/**
- * Names that are a media store id, not a name: "7233", "1000012345",
- * "image:7233", "msf:1000012345", "content://media/external/images/media/7233",
- * a bare UUID, or the app's own "scan-<time>" placeholder.
- */
+// Picker/media-store IDs and placeholders that should fall back to a date-based title.
 const ID_ONLY = [
   /^\d+$/,
   /^[a-z_]+:\d+$/i,
@@ -92,11 +77,6 @@ const ID_ONLY = [
   /^scan-\d+(-\d+)?$/,
 ];
 
-/**
- * The title a picked photo or file starts with: its name without the
- * extension, or "Photo 23 Oct 2026" when the only name there is an id. Text
- * reading replaces it when it suggests a title.
- */
 export function suggestedTitleFor(name: string | null | undefined, now: Date = new Date()): string {
   const trimmed = (name ?? '').trim();
   const stem = /^content:\/\//i.test(trimmed) ? trimmed : stripExtension(trimmed).trim();

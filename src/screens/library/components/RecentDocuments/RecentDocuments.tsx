@@ -15,7 +15,6 @@ type RecentDocumentsProps = {
   onSeeAll: () => void;
 };
 
-/** The last few documents added, with "See all". */
 export function RecentDocuments({
   documents,
   onOpen,

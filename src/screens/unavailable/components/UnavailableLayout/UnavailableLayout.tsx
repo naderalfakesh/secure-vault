@@ -7,13 +7,10 @@ import { t } from '@/i18n';
 import { styles } from './UnavailableLayout.styles';
 
 type UnavailableLayoutProps = {
-  /** The explanation under the title. */
   children: ReactNode;
-  /** The way on: the buttons at the bottom. */
   footer: ReactNode;
 };
 
-/** The lock tile and title over the explanation, with the actions at the bottom. */
 export function UnavailableLayout({ children, footer }: UnavailableLayoutProps) {
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>

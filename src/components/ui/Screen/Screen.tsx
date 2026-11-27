@@ -4,11 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { styles } from './Screen.styles';
 import type { ScreenProps } from './types';
 
-/**
- * Themed page container; every route renders inside one. The background sits
- * on a core View so Unistyles can repaint it on theme changes; SafeAreaView is
- * a third-party view and only handles the insets.
- */
+// Background lives on core View (not SafeAreaView) so Unistyles repaints it on theme changes.
 export function Screen({
   children,
   edges = ['top', 'left', 'right'],

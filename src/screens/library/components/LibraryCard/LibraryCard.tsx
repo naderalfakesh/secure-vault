@@ -8,7 +8,6 @@ import { isolate } from '@/utils/bidi';
 import { THUMBNAIL_HEIGHT } from './constants';
 import type { LibraryCardProps } from './types';
 
-/** A card on the Expiring soon rail, with the decrypted thumbnail. */
 export function LibraryCard({ document, expiry, onPress }: LibraryCardProps) {
   const uri = useThumbnail(document.id);
 

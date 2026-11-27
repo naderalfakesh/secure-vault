@@ -20,7 +20,6 @@ export const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     ...theme.elevation.floating,
   },
-  // Glass draws its own edge; the solid fill and the hairline go, the float shadow stays.
   glassBar: {
     backgroundColor: 'transparent',
     borderWidth: 0,

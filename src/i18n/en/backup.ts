@@ -1,4 +1,3 @@
-/** Backup hub, create and restore. */
 export const backup = {
   'backup.hub.title': 'Backup',
   'backup.hub.back': 'Settings',
@@ -31,7 +30,6 @@ export const backup = {
   'backup.create.mismatch': 'The passphrases don’t match yet.',
   'backup.create.sameEverywhere': 'Type it exactly the same way when you restore, on any phone.',
   'backup.create.button': 'Create backup',
-  /** Android: the system save screen first, the share sheet second. */
   'backup.create.save': 'Save to device',
   'backup.create.share': 'Share',
   'backup.create.busy.title': 'Creating backup',
@@ -67,7 +65,6 @@ export const backup = {
 
   'backup.restore.progress.verify': 'Checking {done} of {total}',
   'backup.restore.progress.import': 'Restoring {done} of {total}',
-  /** Before the first entry of a pass is done, when "0 of N" would read as stuck. */
   'backup.restore.progress.verifyStart': 'Checking…',
   'backup.restore.progress.importStart': 'Restoring…',
   'backup.restore.fileMeta': '{entries} · made {date}',
@@ -87,7 +84,6 @@ export const backup = {
     'SecureVault locked before the backup was saved. The temporary copy was removed.',
   'backup.create.exportStopped':
     'The backup was cancelled before it could be shared. Nothing left the vault.',
-  /** The localisable middle of the file name; the brand and `.svbackup` stay fixed. */
   'backup.fileName': 'backup {date}',
   'backup.passphrase.tooShort': 'Use at least {count} characters.',
   'backup.passphrase.oneCharacter': 'Use more than one character.',

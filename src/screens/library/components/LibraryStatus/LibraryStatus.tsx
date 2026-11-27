@@ -10,7 +10,6 @@ type LibraryStatusProps =
   | { status: 'loading'; showSkeleton: boolean }
   | { status: 'empty'; bottomSpace: number; onAdd: () => void };
 
-/** The states that replace the whole Library: failed, loading, empty. */
 export function LibraryStatus(props: LibraryStatusProps) {
   return (
     <Screen>

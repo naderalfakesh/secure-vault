@@ -32,8 +32,7 @@ export function Chip({
       ? 'transparent'
       : theme.colors[scheme.fill];
   const text = variant === 'tag' ? `# ${label}` : label;
-  // "# " in a left-to-right isolate with the tag in its own: a tag of digits
-  // only would otherwise read "2026 #" in a right-to-left layout.
+  // Isolate "# " and the tag in LRI so numeric tags don't reorder to "2026 #" in RTL.
   const shown = variant === 'tag' ? `${LRI}# ${isolate(label)}${PDI}` : label;
   const spoken = accessibilityLabel ?? (count === undefined ? text : `${text}, ${count}`);
   const leading: IconName | undefined = icon ?? (on ? 'check' : undefined);

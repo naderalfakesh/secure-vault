@@ -10,7 +10,6 @@ type EasyPinChoiceProps = {
   onChooseAnother: () => void;
 };
 
-/** An easy PIN is only a soft warning: keep it, or choose another. */
 export function EasyPinChoice({ onUseAnyway, onChooseAnother }: EasyPinChoiceProps) {
   return (
     <View style={styles.easy}>

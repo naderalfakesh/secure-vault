@@ -12,7 +12,6 @@ type StepBarProps = {
   stage: Stage;
 };
 
-/** Cancel on the left, "Step n of 3" in the middle. */
 export function StepBar({ stage }: StepBarProps) {
   return (
     <View style={styles.topBar}>

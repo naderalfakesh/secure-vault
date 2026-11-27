@@ -1,4 +1,3 @@
-/** Settings, Auto-lock and How your data is protected. */
 export const settings = {
   'settings.title': 'Settings',
   'settings.group.security': 'Security',
@@ -93,13 +92,8 @@ export const settings = {
     'Backups are encrypted with a key made from your passphrase. SecureVault doesn’t keep the passphrase.',
   'settings.protection.fact.account':
     'There is no account, and SecureVault itself collects no analytics.',
-  /** iOS only: text is read with Apple Vision (ADR 0011). Kept in step with docs/SECURITY.md. */
   'settings.protection.fact.textVision':
     'SecureVault reads document text on this phone with Apple’s Vision framework, which is part of iOS. The text isn’t sent anywhere.',
-  /**
-   * Android only: the Google ML Kit disclosure (owner decision: ML Kit stays on
-   * Android; iOS scans with VisionKit and reads with Vision). Kept in step with docs/SECURITY.md.
-   */
   'settings.protection.fact.mlkit':
     'SecureVault uses Google ML Kit to read document text on this phone. It also uses the Google Play services document scanner. ML Kit sends Google usage and performance metrics, which include an ID for this install. Google says ML Kit doesn’t send your images or the text it reads. This can’t be turned off.',
   'settings.protection.limit.pin':

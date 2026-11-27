@@ -1,4 +1,3 @@
-/** The keypad, top to bottom: the biometric key bottom start, backspace bottom end. */
 export const ROWS = [
   ['1', '2', '3'],
   ['4', '5', '6'],

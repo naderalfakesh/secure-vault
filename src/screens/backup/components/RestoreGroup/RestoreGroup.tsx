@@ -3,13 +3,11 @@ import { backupCopy as copy } from '@/features/backup/backupCopy';
 import type { BackupOperation } from '@/services/BackupService';
 
 type RestoreGroupProps = {
-  /** Backup work started before this screen opened, still running. */
   earlier: BackupOperation | null;
   disabled: boolean;
   onPick: () => void;
 };
 
-/** The app's one restore entry. */
 export function RestoreGroup({ earlier, disabled, onPick }: RestoreGroupProps) {
   return (
     <Group header={copy['hub.restore.header']} footer={copy['hub.footnote']}>

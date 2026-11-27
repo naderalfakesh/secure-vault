@@ -1,31 +1,17 @@
-/**
- * The SecureVault mark, the sealed folio: a sheet of paper closed with a brass
- * seal. One drawing feeds the app icons and splash images
- * (`scripts/brand/make-icons.mjs`, which Node runs straight from this file)
- * and the mark the app draws itself, so the splash handoff matches the native
- * splash pixel for pixel. Everything is SVG markup on a 1024 canvas.
- *
- * Plain functions and string literals only: Node strips the types, so this
- * file must not import anything.
- */
-
+// Imported directly by Node (scripts/brand/make-icons.mjs) via type-stripping; keep zero imports.
 export type FolioScheme = 'light' | 'dark';
 
 type Tile = { top: string; bottom: string; glow: number };
 
-// The app's own palette (src/theme/colors.ts): indigo for trust, brass for the seal.
 const tiles: Record<FolioScheme, Tile> = {
   light: { top: '#4361E6', bottom: '#18206A', glow: 0.16 },
   dark: { top: '#1C2346', bottom: '#090C18', glow: 0.06 },
 };
 
-/** The seal's brass, shared with the onboarding illustrations. */
 export const brass = { light: '#F3C463', dark: '#B07A1E', ink: '#5A3A06', shine: '#FFF2CF' };
 
-/** The seal in grayscale, for the tinted iOS icon. */
 const steel = { light: '#D6D6D6', dark: '#8C8C8C', ink: '#2E2E2E', shine: '#F5F5F5' };
 
-/** The passport-cover indigo of the illustrations, the icon tile's middle tone. */
 export const booklet = '#2B3FA8';
 
 type Paper = { paper: string; back: string; fold: string; lines: [string, string] };
@@ -39,7 +25,6 @@ const papers: Record<FolioScheme | 'tinted', Paper> = {
 const sheet = { x: 296, y: 232, w: 400, h: 520, fold: 112, r: 44 };
 const seal = { cx: 650, cy: 694, r: 132 };
 
-/** The front sheet with its folded corner. */
 function sheetPath(): string {
   const { x, y, w, h, fold, r } = sheet;
   return [
@@ -64,10 +49,7 @@ function keyhole(fill: string): string {
   );
 }
 
-/**
- * The folio itself. `shadow` adds soft drop shadows; the app's own mark and
- * the splash images leave them out, as react-native-svg draws no filters.
- */
+// react-native-svg skips filter elements, so in-app mark and splash pass shadow=false.
 function folio(tone: Paper, shadow: boolean, metal: typeof brass = brass): string {
   const { x, y } = sheet;
   const drop = shadow ? ' filter="url(#drop)"' : '';
@@ -96,7 +78,6 @@ function folio(tone: Paper, shadow: boolean, metal: typeof brass = brass): strin
   );
 }
 
-/** The indigo (or night) background, square or with the mark's round corners. */
 function tile({ top, bottom, glow }: Tile, rounded: boolean): string {
   const corner = rounded ? ' rx="230"' : '';
   return (
@@ -111,7 +92,6 @@ function tile({ top, bottom, glow }: Tile, rounded: boolean): string {
   );
 }
 
-/** Scales a drawing about the centre, for safe zones and padding. */
 export function scaled(body: string, scale: number): string {
   const offset = (1024 * (1 - scale)) / 2;
   return `<g transform="translate(${offset} ${offset}) scale(${scale})">${body}</g>`;
@@ -121,20 +101,16 @@ export function svg(body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">${body}</svg>`;
 }
 
-/** iOS icons: opaque squares, the system rounds the corners. */
 export function iconBody(variant: FolioScheme | 'tinted'): string {
   if (variant === 'tinted') {
-    // Grayscale on black; iOS colours it with the user's tint.
     return `<rect width="1024" height="1024" fill="black"/>${folio(papers.tinted, false, steel)}`;
   }
   return tile(tiles[variant], false) + folio(papers[variant], true);
 }
 
-/** Android's adaptive icon layers. */
 export const adaptive = {
   foreground: (): string => folio(papers.light, true),
   background: (): string => tile(tiles.light, false),
-  /** One shape for the themed icon: the sheet, with the seal set apart by a gap. */
   monochrome: (): string =>
     '<defs><mask id="cut">' +
     '<rect width="1024" height="1024" fill="black"/>' +
@@ -147,12 +123,10 @@ export const adaptive = {
     '<rect width="1024" height="1024" fill="white" mask="url(#cut)"/>',
 };
 
-/** The mark: the rounded tile filling the canvas, without shadows. */
 export function markBody(scheme: FolioScheme): string {
   return tile(tiles[scheme], true) + folio(papers[scheme], false);
 }
 
-/** The mark as a complete SVG document, for react-native-svg's `SvgXml`. */
 export function markSvg(scheme: FolioScheme): string {
   return svg(markBody(scheme));
 }

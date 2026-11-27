@@ -2,7 +2,6 @@ import { Group, ListRow } from '@/components/ui';
 import { t } from '@/i18n';
 
 type DetailsActionsProps = {
-  /** Offer Copy text: the document has recognised text. */
   hasText: boolean;
   shareDisabled: boolean;
   deleteDisabled: boolean;
@@ -11,7 +10,6 @@ type DetailsActionsProps = {
   onDelete: () => void;
 };
 
-/** Copy text, Share a copy and Delete. */
 export function DetailsActions({
   hasText,
   shareDisabled,

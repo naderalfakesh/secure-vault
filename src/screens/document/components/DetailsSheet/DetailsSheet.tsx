@@ -8,14 +8,12 @@ import { styles } from './DetailsSheet.styles';
 
 type DetailsSheetProps = {
   visible: boolean;
-  /** The edit form is showing instead of the details. */
   editing: boolean;
   onClose: () => void;
   onCancelEdit: () => void;
   children: ReactNode;
 };
 
-/** The sheet behind Details and More: the document's details or its edit form. */
 export function DetailsSheet({
   visible,
   editing,
@@ -28,10 +26,8 @@ export function DetailsSheet({
       visible={visible}
       onClose={onClose}
       title={editing ? t('viewer.edit.title') : undefined}
-      // The details body is its own scroll view.
       scroll={false}
       headerAction={editing ? { label: t('viewer.edit.cancel'), onPress: onCancelEdit } : undefined}
-      // Editing has its own Cancel, so the close button would be a second way out.
       closeButton={!editing}
     >
       <ScrollView

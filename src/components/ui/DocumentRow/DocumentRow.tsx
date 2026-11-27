@@ -9,7 +9,6 @@ import { Text } from '../Text';
 import { styles } from './DocumentRow.styles';
 import type { DocumentRowProps } from './types';
 
-/** Library row: paper thumbnail, title, meta, optional snippet. */
 export function DocumentRow({
   title,
   meta,
@@ -48,7 +47,6 @@ export function DocumentRow({
       ) : null}
       <PaperThumbnail>{thumbnail}</PaperThumbnail>
       <View style={styles.body}>
-        {/* Capped: uncapped at AX5 a word such as "Vaccination" broke mid-word. */}
         <Text variant="headline" maxFontSizeMultiplier={textScale.rowTitleMax}>
           {isolate(title)}
         </Text>

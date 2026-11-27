@@ -1,10 +1,5 @@
 import type { Glyph } from './types';
 
-/**
- * One outline icon vocabulary for the app: the design's SVG
- * set on a 24 pt grid, with SF Symbols on iOS where they match, so screens
- * never branch on platform.
- */
 export const icons = {
   lock: { d: 'lock', sf: 'lock' },
   unlock: { d: 'unlock', sf: 'lock.open' },
@@ -60,6 +55,5 @@ export const icons = {
   insurance: { d: 'umbrella', sf: 'umbrella' },
   receipt: { d: 'receipt', sf: 'receipt' },
   other: { d: 'tray', sf: 'tray' },
-  /** The SecureVault mark: a folded-corner document with a padlock. */
   mark: { d: 'mark' },
 } satisfies Record<string, Glyph>;

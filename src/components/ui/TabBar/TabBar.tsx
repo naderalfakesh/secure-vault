@@ -11,15 +11,9 @@ import { Tab } from './Tab';
 import { styles } from './TabBar.styles';
 import type { TabBarProps } from './types';
 
-/**
- * Floating tab bar: Library · central Scan button · Settings.
- * On iOS 26+ the capsule is Liquid Glass; on Android, older iOS, and
- * with Reduce Transparency on it is the solid surface with a hairline.
- */
 export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBarProps) {
   const insets = useSafeAreaInsets();
   const glass = useGlass();
-  // A capsule at any height: larger text makes the bar taller.
   const [height, setHeight] = useState(TAB_BAR_HEIGHT);
   const [first, ...rest] = tabs;
   if (!first) return null;
@@ -27,7 +21,6 @@ export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBar
   return (
     <View
       accessibilityRole="tablist"
-      // 26 pt above the edge on a home-indicator iPhone; clear of any system bar elsewhere.
       onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
       style={[
         styles.bar,
@@ -41,7 +34,7 @@ export function TabBar({ tabs, onScan, scanLabel = t('ui.tabBar.scan') }: TabBar
       {glass ? <GlassBackground style={{ borderRadius: height / 2 }} /> : null}
       <Tab item={first} />
       <Pressable
-        // An action, but it sits in the tab list, so it is a tab that is never selected.
+        // Scan sits inside the tablist container, so it uses role="tab" (never selected).
         accessibilityRole="tab"
         accessibilityLabel={scanLabel}
         accessibilityHint={t('ui.tabBar.scanHint')}

@@ -4,7 +4,6 @@ import { t } from '@/i18n';
 
 import type { Slide } from './types';
 
-/** The three intro slides; the last one's body names this phone's unlock. */
 export function introSlides(unlockBody: string, os: typeof Platform.OS = Platform.OS): Slide[] {
   return [
     {

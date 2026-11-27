@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 
-/** True once `active` has stayed true for `delayMs`. */
 export function useDelayed(active: boolean, delayMs: number): boolean {
   const [elapsed, setElapsed] = useState(false);
   useEffect(() => {

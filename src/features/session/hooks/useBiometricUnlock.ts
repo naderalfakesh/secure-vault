@@ -17,10 +17,6 @@ type Options = {
   withoutAutoLock: SessionActions['withoutAutoLock'];
 };
 
-/**
- * The device key's own gate (biometrics or the device passcode): unlocking
- * with it, re-arming it after a PIN, and asking again for a sensitive action.
- */
 export function useBiometricUnlock({
   setError,
   loadProtectedState,
@@ -33,9 +29,7 @@ export function useBiometricUnlock({
       await vault.get(KEY_PROBE_ENTRY);
       return true;
     } catch (probeError) {
-      // The vault's key recovery has already shown the Android prompt for a
-      // locked key (or declined to from the background). Prompting again here
-      // would open a second prompt right after the user cancelled the first.
+      // Key recovery already prompted for a locked key; don't open a second prompt after cancel.
       if (isKeyLocked(probeError)) {
         setError(KEY_NOT_UNLOCKED);
         return false;

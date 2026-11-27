@@ -34,7 +34,6 @@ export const styles = StyleSheet.create((theme) => {
     glassPanel: {
       backgroundColor: 'transparent',
     },
-    // The glass takes the panel's corners.
     glassShape: {
       borderTopLeftRadius: floating ? theme.radii.sheet : theme.radii.sheetAttached,
       borderTopRightRadius: floating ? theme.radii.sheet : theme.radii.sheetAttached,

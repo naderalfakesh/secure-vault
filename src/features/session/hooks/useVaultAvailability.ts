@@ -29,10 +29,6 @@ type Options = {
   setError: Dispatch<SetStateAction<string | null>>;
 };
 
-/**
- * Whether there is a vault and whether it can be read: the launch read, the
- * retry after `unavailable`, and the way on after a lost PIN record.
- */
 export function useVaultAvailability({
   statusRef,
   changeStatus,
@@ -45,11 +41,9 @@ export function useVaultAvailability({
   const [vaultEmpty, setVaultEmpty] = useState(false);
   const [pinLost, setPinLost] = useState(false);
   const [keyInvalidated, setKeyInvalidated] = useState(false);
-  // Set once the device key's gate opened for a lost PIN record; in memory only.
   const lostPinResetRef = useRef(false);
-  // True while that gate's prompt is up, so a foreground return does not relaunch under it.
   const resettingPinRef = useRef(false);
-  // One launch read at a time, so a retry and a foreground return never race.
+  // Deduplicate concurrent launch reads (e.g. retry vs foreground return).
   const launchingRef = useRef<Promise<SessionStatus> | null>(null);
 
   const activeRef = useRef(true);
@@ -60,7 +54,6 @@ export function useVaultAvailability({
     };
   }, []);
 
-  // The latest rendered `pinLost`, so `resetLostPin` keeps one identity.
   const pinLostRef = useRef(pinLost);
   useEffect(() => {
     pinLostRef.current = pinLost;
@@ -69,7 +62,6 @@ export function useVaultAvailability({
   const launch = useCallback((): Promise<SessionStatus> => {
     launchingRef.current ??= (async () => {
       try {
-        // iOS: a reinstall's leftover Keychain items go before anything reads them.
         await reconcileInstall();
         const {
           key,
@@ -90,14 +82,8 @@ export function useVaultAvailability({
           const exists = key === 'present';
           setVaultExists(exists);
           setVaultEmpty(exists && entries === 0);
-          // The lock screen needs to know whether biometric unlock is on. The
-          // settings sit in the same store as the PIN record, readable before
-          // the device key; a failed read keeps the defaults.
           if (next === 'locked') setSettings(await sessionStorage.loadSettings());
         }
-        // A key without a PIN record is either the 2025 prototype's vault or an
-        // interrupted setup. Both go through setup again, and setUp keeps the
-        // existing key so nothing already encrypted is lost.
         if (activeRef.current) changeStatus(next);
         return next;
       } finally {
@@ -123,13 +109,10 @@ export function useVaultAvailability({
     resettingPinRef.current = true;
     try {
       if (!(await vault.unlockWithBiometrics())) {
-        // The PIN is what was lost, so there is none to enter instead.
         setError(keyNotUnlocked.resetPin);
         return false;
       }
-      // An invalidated key is reported at once, with no second prompt. With
-      // entries left nothing can be decrypted again, so setup would stop on
-      // them; an empty vault goes on, and setup replaces the key.
+      // Probe immediately so KEY_INVALIDATED fails fast without a second prompt.
       try {
         await vault.get(KEY_PROBE_ENTRY);
       } catch (probeError) {
@@ -140,7 +123,6 @@ export function useVaultAvailability({
         }
       }
       lostPinResetRef.current = true;
-      // Read everything again: only a lost PIN with its key present goes on to setup.
       const next = await launch();
       if (next !== 'setup') lostPinResetRef.current = false;
       return next === 'setup';
@@ -152,7 +134,6 @@ export function useVaultAvailability({
     }
   }, [statusRef, launch, setError]);
 
-  /** After "Delete everything": an empty vault with nothing lost or invalidated. */
   const markErased = useCallback(() => {
     setVaultEmpty(true);
     setPinLost(false);

@@ -9,10 +9,6 @@ import { ListRowContent } from './ListRowContent';
 import type { ListRowProps } from './types';
 import { useSwitchActivation } from './useSwitchActivation';
 
-/**
- * Settings-style row: leading icon tile, title, optional
- * subtitle, and a trailing chevron, value, switch, checkmark, or nothing.
- */
 export function ListRow({
   title,
   subtitle,
@@ -30,8 +26,6 @@ export function ListRow({
 }: ListRowProps) {
   const inGroup = useInGroup();
   const isDestructive = Boolean(destructive);
-  // A switch row toggles from a tap anywhere on it, its label included, or
-  // from a screen reader's activation of the row.
   const handlePress = toggle ? undefined : onPress;
   const switchActivation = useSwitchActivation(() => {
     if (toggle && !disabled) toggle.onValueChange(!toggle.value);
@@ -87,9 +81,7 @@ export function ListRow({
     );
   }
 
-  // A row with nothing to do (an info row such as "Version") is not a
-  // pressable at all, so it reads as text rather than an unnamed control.
-  // A disabled row keeps its button role and states that it is disabled.
+  // Non-interactive rows stay plain Views so screen readers announce text instead of a button.
   if (!handlePress && !isRadio) {
     return (
       <View

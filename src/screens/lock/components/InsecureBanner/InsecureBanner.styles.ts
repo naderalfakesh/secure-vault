@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 export const styles = StyleSheet.create((theme) => ({
-  // Only as tall as its content, and shrinks (then scrolls) when space is short.
   scroll: {
     flexGrow: 0,
     flexShrink: 1,

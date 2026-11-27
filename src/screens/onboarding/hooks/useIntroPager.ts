@@ -5,7 +5,6 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import { offsetForPage, pageFromOffset } from '@/utils/pager';
 
-/** The page the intro shows, kept in step with the horizontal pager. */
 export function useIntroPager(pageCount: number) {
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
@@ -13,7 +12,7 @@ export function useIntroPager(pageCount: number) {
   const [page, setPage] = useState(0);
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    // Right to left, the first slide rests at the right end of the scroll view.
+    // RTL scroll views place page 0 at the right edge.
     setPage(
       pageFromOffset({
         offsetX: event.nativeEvent.contentOffset.x,
@@ -26,7 +25,6 @@ export function useIntroPager(pageCount: number) {
 
   const goTo = (next: number) => {
     setPage(next);
-    // Reduced motion shows one step at a time without the slide.
     if (!reduceMotion)
       scrollRef.current?.scrollTo({ x: offsetForPage(next, width, pageCount), animated: true });
   };

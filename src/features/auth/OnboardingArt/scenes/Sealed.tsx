@@ -3,14 +3,12 @@ import { Circle, G, Path, Rect } from 'react-native-svg';
 import { Backdrop, Floor, Seal } from '../parts';
 import type { LayerProps } from '../types';
 
-/** Slide 2: a document turned to ciphertext inside the phone, closed with the seal. */
 export function Sealed({ colors, layer }: LayerProps) {
   if (layer === 'back') {
     return (
       <G>
         <Backdrop colors={colors} />
         <Floor cx={160} cy={216} rx={70} />
-        {/* Phone */}
         <Rect
           x={108}
           y={28}
@@ -22,7 +20,6 @@ export function Sealed({ colors, layer }: LayerProps) {
           strokeWidth={2}
         />
         <Rect x={146} y={38} width={28} height={7} rx={3.5} fill={colors.borderStrong} />
-        {/* A page on its way in */}
         <G transform="rotate(-10 58 98)">
           <Rect
             x={38}
@@ -52,7 +49,6 @@ export function Sealed({ colors, layer }: LayerProps) {
   const dots = [0, 1, 2, 3, 4, 5, 6, 7];
   return (
     <G>
-      {/* The page inside: the first lines readable, the rest ciphertext */}
       <Rect
         x={122}
         y={60}

@@ -2,7 +2,6 @@ import { Children, type ReactNode } from 'react';
 
 import { textScale } from '@/theme/tokens';
 
-/** The plain text of `children`, or null when it holds anything but text. */
 export function plainText(children: ReactNode): string | null {
   let text = '';
   for (const child of Children.toArray(children)) {
@@ -12,13 +11,7 @@ export function plainText(children: ReactNode): string | null {
   return text;
 }
 
-/**
- * Props that keep every word of `text` whole. Wrapping alone breaks a
- * word that is wider than the line ("Libra/ry" at AX5), so the text gets one
- * line per word at most and `adjustsFontSizeToFit` shrinks it until it fits
- * them: a word broken across lines would need more lines than that. Null for
- * empty text.
- */
+// Caps numberOfLines to word count + adjustsFontSizeToFit so long words shrink instead of splitting mid-word at AX5.
 export function wholeWordFit(
   text: string,
   numberOfLines?: number,

@@ -18,7 +18,6 @@ import type { RestoreSheetProps, Stage } from '../types';
 
 type UseRestoreOptions = Pick<RestoreSheetProps, 'backup' | 'onRestored'>;
 
-/** The passphrase, the restore with its progress and cancel, and how it ended. */
 export function useRestore({ backup, onRestored }: UseRestoreOptions) {
   const toast = useToast();
   const { captureSession, postNotice } = useSessionActions();
@@ -26,10 +25,9 @@ export function useRestore({ backup, onRestored }: UseRestoreOptions) {
   const [stage, setStage] = useState<Stage>(() => initialStage(backup));
   const [cancelling, setCancelling] = useState(false);
   const mounted = useMountedRef();
-  // Set between the Restore press and the native call, so a Cancel in that frame counts.
   const startingRef = useRef<{ cancelled: boolean } | null>(null);
 
-  // A closed sheet stays mounted until its modal is gone; it keeps no passphrase.
+  // Clear passphrase immediately since a closed modal stays mounted while animating out.
   if (!backup && passphrase) setPassphrase('');
 
   const restore = useCallback(async () => {
@@ -38,11 +36,7 @@ export function useRestore({ backup, onRestored }: UseRestoreOptions) {
     const stillHere = () => mounted.current && session.current();
     setCancelling(false);
     setStage(startingProgress(backup.entries));
-    // The module starts only once Checking is on screen. Drawing it right
-    // after the tap is the JavaScript thread's busiest moment, and the iOS
-    // check of a small backup is over in about 100 ms: started first, it ended
-    // under that render, its Checking events arrived together afterwards, and
-    // Cancel could only reach it past its last cancel point.
+    // Yield one frame so Checking renders before a fast small-backup verify finishes on iOS.
     const starting = { cancelled: false };
     startingRef.current = starting;
     await nextFrame();
@@ -58,7 +52,6 @@ export function useRestore({ backup, onRestored }: UseRestoreOptions) {
       const entries = await backupService.restoreBackup(backup.uri, passphrase, (event) => {
         if (!mounted.current) return;
         setStage({ name: 'running', progress: event });
-        // The module refused the cancel: the restore goes on to its own outcome.
         if (!event.cancelling) setCancelling(false);
       });
       backupService.discardPickedFile(backup.uri);

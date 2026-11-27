@@ -8,14 +8,12 @@ import { eraseSubject } from '../../helpers';
 import type { EraseRequest } from '../../types';
 
 type EraseSheetProps = {
-  /** Null closes the sheet. */
   erase: EraseRequest | null;
   onClose: () => void;
   onBackupFirst: () => void;
   onErase: () => void;
 };
 
-/** Delete everything: what it erases, a way to back up first, then the confirmation. */
 export function EraseSheet({ erase, onClose, onBackupFirst, onErase }: EraseSheetProps) {
   return (
     <Sheet visible={erase !== null} onClose={onClose}>
@@ -39,12 +37,7 @@ export function EraseSheet({ erase, onClose, onBackupFirst, onErase }: EraseShee
             {t('settings.erase.backupFirst')}
           </Text>
         </Pressable>
-        <Button
-          label={t('settings.erase')}
-          variant="destructive"
-          // The native alert opens over the sheet; the sheet closes once confirmed.
-          onPress={onErase}
-        />
+        <Button label={t('settings.erase')} variant="destructive" onPress={onErase} />
         <Button label={t('common.cancel')} variant="plain" onPress={onClose} />
       </View>
     </Sheet>

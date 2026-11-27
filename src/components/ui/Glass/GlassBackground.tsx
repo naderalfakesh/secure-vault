@@ -3,10 +3,6 @@ import { StyleSheet, useUnistyles } from 'react-native-unistyles';
 
 import type { GlassBackgroundProps } from './types';
 
-/**
- * The glass layer behind a chrome surface: fills its parent, follows the
- * app's own light or dark choice, and takes the parent's corner radii.
- */
 export function GlassBackground({ style }: GlassBackgroundProps) {
   const { rt } = useUnistyles();
   return (

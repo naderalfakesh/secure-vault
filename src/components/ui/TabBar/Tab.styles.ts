@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native-unistyles';
 
 export const styles = StyleSheet.create((theme) => ({
-  // Tabs share the room either side of Scan, so larger text is not cut short.
   tab: (selected: boolean) => ({
     flex: 1,
     minHeight: 56,

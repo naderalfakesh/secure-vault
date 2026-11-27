@@ -6,7 +6,6 @@ import { useSessionActions, useSessionState } from '@/features/session/SessionPr
 import { AUTO_LOCK_OPTIONS, autoLockChoice } from '@/features/session/settings';
 import { t } from '@/i18n';
 
-/** Auto-lock: a radio list, counted from leaving the app. */
 export function AutoLockScreen() {
   const { settings } = useSessionState();
   const { updateSettings } = useSessionActions();

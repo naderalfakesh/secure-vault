@@ -16,7 +16,6 @@ type ViewerBottomBarProps = {
   onDetails: () => void;
 };
 
-/** The page strip for a multi-page document, and the Details pill. */
 export function ViewerBottomBar({
   insetBottom,
   pages,

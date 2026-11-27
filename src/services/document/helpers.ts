@@ -11,17 +11,15 @@ export function toUri(pathOrUri: string): string {
   return pathOrUri.startsWith('file://') ? pathOrUri : `file://${pathOrUri}`;
 }
 
-/** iOS reports tmp under /private/var and the other folders under /var, the same place. */
+// iOS reports tmp under /private/var and other folders under /var.
 export function canonicalPath(path: string): string {
   return path.replace(/^\/private\/var\//, '/var/');
 }
 
-/** Decoded, alias-free form of a file URI or path, for comparisons only. */
 export function comparablePath(uriOrPath: string): string {
   return canonicalPath(decodeURIComponent(toPath(uriOrPath)));
 }
 
-/** The name of the entry at `path` when it sits directly inside `folder`, otherwise null. */
 export function childName(path: string, folder: string): string | null {
   const prefix = folder.replace(/\/?$/, '/');
   if (!path.startsWith(prefix)) return null;
@@ -30,7 +28,6 @@ export function childName(path: string, folder: string): string | null {
   return name;
 }
 
-/** Where `filename` goes directly in the cache folder at `cacheUri`, as a URI and a path. */
 export function cacheLocation(cacheUri: string, filename: string) {
   const uri = `${cacheUri}${filename}`;
   return { uri, path: toPath(uri) };
@@ -40,11 +37,6 @@ export function isCachePath(cacheUri: string, path: string) {
   return path.startsWith(toPath(cacheUri));
 }
 
-/**
- * Matches the names iOS gives a copy whose name is taken in the Inbox: a
- * space or a hyphen and a number before the extension ("scan 2.pdf" for
- * "scan.pdf").
- */
 export function renamedCopyPattern(name: string): RegExp {
   const dot = name.lastIndexOf('.');
   const [base, extension] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
@@ -52,7 +44,6 @@ export function renamedCopyPattern(name: string): RegExp {
   return new RegExp(`^${literal(base)}[ -]\\d+${literal(extension)}$`);
 }
 
-/** Whether an entry directly in the cache is decrypted or imported scratch that `clearCache` removes. */
 export function isClearableCacheEntry(name: string): boolean {
   return (
     CACHE_PREFIXES.some((prefix) => name.startsWith(prefix)) ||
@@ -63,12 +54,10 @@ export function isClearableCacheEntry(name: string): boolean {
   );
 }
 
-/** The last day, YYYY-MM-DD in UTC, of a window of `days` from `now`. */
 export function expiryCutoff(days: number, now: number): string {
   return new Date(now + days * DAY_MS).toISOString().slice(0, 10);
 }
 
-/** File-system safe name for a shared copy, e.g. "Passport (2026)" stays readable. */
 export function shareFileName(title: string): string {
   const cleaned = title
     .replace(/[\\/:*?"<>|]+/g, ' ')

@@ -24,7 +24,6 @@ type ListFiltersProps = {
   onSort: () => void;
 };
 
-/** Above the list: collection chips, the result count and the sort button. */
 export function ListFilters({
   filter,
   onFilterChange,
@@ -34,7 +33,6 @@ export function ListFilters({
   sort,
   onSort,
 }: ListFiltersProps) {
-  // Collections with documents, and any chosen one even once it is empty.
   const shown = allCategories.filter(
     (category) => counts[category] > 0 || filter.collections.includes(category),
   );

@@ -9,7 +9,6 @@ import { THUMBNAIL_HEIGHT } from './constants';
 import { styles } from './DocumentCard.styles';
 import type { DocumentCardProps } from './types';
 
-/** Document card: paper thumbnail, title, brass expiry line. */
 export function DocumentCard({
   title,
   expiry,

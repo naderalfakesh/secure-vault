@@ -81,7 +81,6 @@ export function LibraryScreen() {
   const listMode = browse.listing || selecting;
   const bottomSpace = tabBarClearance(insets.bottom);
 
-  // States that replace the whole screen.
   if (!loading && error) {
     return <LibraryStatus status="failed" error={error} onRetry={refresh} />;
   }
@@ -131,7 +130,6 @@ export function LibraryScreen() {
             )
           }
           empty={
-            // No verdict while the first answer to a search is on its way.
             search.searching && search.results === null ? undefined : (
               <NoMatches
                 query={search.searching ? search.text : ''}

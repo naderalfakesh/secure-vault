@@ -3,7 +3,6 @@ import type { DocumentSuggestion } from '@/features/intelligence';
 import type { ExtractedField } from '@/types';
 import { DocumentCategory } from '@/types';
 
-/** The details form: what reading suggested, as the user corrected it. */
 export type DetailsState = {
   title: string;
   titleMissing: boolean;
@@ -24,7 +23,6 @@ export type DetailsAction =
   | { type: 'tags'; tags: string }
   | { type: 'removeField'; key: string };
 
-/** Empty details, with the title the source suggests. */
 export function initialDetails(title = ''): DetailsState {
   return {
     title,
@@ -44,7 +42,6 @@ export function detailsReducer(state: DetailsState, action: DetailsAction): Deta
     case 'read':
       return { ...state, ocrText: action.ocrText };
     case 'suggest': {
-      // Only what the suggestion found replaces what is there.
       const { suggestion } = action;
       return {
         ...state,
@@ -56,7 +53,6 @@ export function detailsReducer(state: DetailsState, action: DetailsAction): Deta
       };
     }
     case 'title':
-      // Typing a title clears the error; clearing it again waits for the next save.
       return {
         ...state,
         title: action.title,

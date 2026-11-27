@@ -14,15 +14,12 @@ import { errorCode } from '@/utils/errors';
 import { SHEET_GONE_FALLBACK_MS } from '../constants';
 import { openPicker } from '../picker';
 
-/** Picking a backup file, the restore sheet it opens, and "Choose another file". */
 export function useRestorePick() {
   const toast = useToast();
   const { withoutAutoLock, captureSession } = useSessionActions();
-  // The lock unmounts this screen while a restore may still be running.
   const mounted = useMountedRef();
   const [restore, setRestore] = useState<PickedBackup | null>(null);
-  // Each pick starts a fresh sheet; closing keeps the same one so its modal
-  // can report that it has gone (the pick after "Choose another file" waits).
+  // Keep the same sheet key on close so its modal fires onDismissed before "Choose another file" opens the picker.
   const [sheetKey, setSheetKey] = useState(0);
   const pickWhenGone = useRef(false);
   const goneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,10 +35,6 @@ export function useRestorePick() {
     setRestore(picked);
   }, []);
 
-  // Picks a file, moves the picker's copy out of the purgeable cache, reads
-  // its header, and only then asks for the passphrase. The kept copy is
-  // removed once the restore is done or the sheet closes, and by the lock
-  // sweep otherwise. A cancelled picker says nothing.
   const pickBackup = useCallback(async () => {
     const session = captureSession();
     let picked: string | null = null;
@@ -50,7 +43,6 @@ export function useRestorePick() {
     try {
       result = await withoutAutoLock(openPicker);
     } catch {
-      // Never the module's text: a plain sentence, and the next tap tries again.
       if (mounted.current && session.current()) {
         toast.show({ message: copy['picker.failed'], tone: 'danger' });
       }
@@ -62,7 +54,7 @@ export function useRestorePick() {
       documentService.discardSystemImportCopy(asset.name);
       picked = asset.uri;
       pickedName = asset.name;
-      // Out of the purgeable cache before anything reads it; the cache copy goes.
+      // Move out of the OS purgeable cache before reading the header.
       const uri = await backupService.keepPickedFile(asset.uri);
       picked = uri;
       const info = await backupService.inspectBackup(uri);
@@ -81,8 +73,6 @@ export function useRestorePick() {
       if (mounted.current && session.current()) {
         const code = errorCode(e);
         if (code === 'BACKUP_UNSUPPORTED' && picked) {
-          // A backup from a newer version: said in the restore sheet, like
-          // every other restore outcome. The picker's copy is already gone.
           openRestore({
             uri: picked,
             name: pickedName,
@@ -93,7 +83,6 @@ export function useRestorePick() {
           return;
         }
         toast.show({
-          // A file that is not a backup at all: a toast, no sheet.
           message: code === 'BACKUP_INVALID' ? copy['picker.notBackup'] : describeBackupError(e),
           tone: 'danger',
         });
@@ -123,7 +112,6 @@ export function useRestorePick() {
 
   const restored = useCallback(() => {
     setRestore(null);
-    // The reloaded list is the outcome; the vault stays unlocked.
     router.navigate('/');
   }, []);
 

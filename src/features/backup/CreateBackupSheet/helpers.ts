@@ -13,7 +13,6 @@ export function exportFailure(error: unknown): string {
     : copy['create.failed'];
 }
 
-/** The two enforced rules, and whether the repeat matches. */
 export function passphraseChecks(passphrase: string, confirmation: string) {
   return {
     longEnough: isLongEnough(passphrase),
@@ -22,7 +21,6 @@ export function passphraseChecks(passphrase: string, confirmation: string) {
   };
 }
 
-/** Whole percent of the export done; zero outside the busy step. */
 export function exportPercent(stage: Stage): number {
   return stage.name === 'busy' && stage.total > 0
     ? Math.round((stage.done / stage.total) * 100)

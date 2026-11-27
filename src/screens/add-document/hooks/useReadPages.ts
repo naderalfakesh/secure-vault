@@ -10,21 +10,15 @@ type ReadPagesOptions = {
   mountedRef: RefObject<boolean>;
   dispatchDetails: Dispatch<DetailsAction>;
   dispatch: Dispatch<FlowAction>;
-  /** Empties the form (and any earlier save) before a read fills it. */
   clearDetails: (suggestedTitle?: string) => void;
 };
 
-/**
- * Reads the text of the first page and suggests details, so the user
- * corrects instead of types. Both steps are best effort and cancellable.
- */
 export function useReadPages({
   mountedRef,
   dispatchDetails,
   dispatch,
   clearDetails,
 }: ReadPagesOptions) {
-  // Bumped whenever a read is cancelled or superseded; a late read result is dropped.
   const readRun = useRef(0);
 
   useEffect(
@@ -58,9 +52,7 @@ export function useReadPages({
           if (!current()) return;
           dispatchDetails({ type: 'suggest', suggestion });
         }
-      } catch {
-        // The form still works without suggestions.
-      }
+      } catch {}
       if (current()) dispatch({ type: 'detailsReady' });
     },
     [mountedRef, dispatchDetails, dispatch, clearDetails],

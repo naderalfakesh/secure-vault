@@ -12,13 +12,6 @@ import type { SheetProps } from './types';
 import { useKeyboardHeight } from './useKeyboardHeight';
 import { useSheetMotion } from './useSheetMotion';
 
-/**
- * Bottom sheet for choices, confirmations, and progress. On iOS
- * it floats 8 pt in from the edges; on Android it is attached to the bottom.
- * On iOS 26+ the panel is Liquid Glass; on Android, older iOS, and with
- * Reduce Transparency on it is the solid elevated surface. The privacy cover
- * still covers it: it is drawn in a full-window overlay above every modal.
- */
 export function Sheet({
   visible,
   onClose,

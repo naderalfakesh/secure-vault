@@ -2,7 +2,6 @@ import { Circle, G } from 'react-native-svg';
 
 import type { GlyphProps } from '../types';
 
-/** No biometrics: the device passcode or screen lock keypad. */
 export function KeypadGlyph({ color }: GlyphProps) {
   return (
     <G fill={color}>

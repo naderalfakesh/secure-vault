@@ -9,7 +9,6 @@ import { Text } from '../Text';
 import { styles } from './SheetHeader.styles';
 import type { SheetHeaderProps } from './types';
 
-/** The header row: a leading text action, the title, and the close button. */
 export function SheetHeader({
   title,
   headerAction,
@@ -19,7 +18,6 @@ export function SheetHeader({
 }: SheetHeaderProps) {
   const hasHeaderControls = Boolean(headerAction || (dismissable && closeButton));
   const stacked = useLargeText();
-  // A bar title: it stops growing at 1.6× and shrinks to keep its words whole.
   const titleText = title ? (
     <Text
       variant="headline"
@@ -66,8 +64,6 @@ export function SheetHeader({
           </View>
         </View>
       )}
-      {/* At the largest text sizes the title gets a row of its own, the
-        full width of the sheet, instead of the gap between the controls. */}
       {stacked && titleText ? <View style={styles.stackedTitle}>{titleText}</View> : null}
     </>
   );

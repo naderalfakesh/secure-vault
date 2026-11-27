@@ -32,12 +32,10 @@ function deviceLocales(): Locale[] {
 
 let current: ResolvedLocale = resolveLocale(deviceLocales());
 
-/** The locale the app speaks right now. */
 export function appLocale(): ResolvedLocale {
   return current;
 }
 
-/** Tests only: speak as if the phone preferred these locales. */
 export function setAppLocaleForTesting(locales: readonly DeviceLocale[]): void {
   current = resolveLocale(locales);
 }
@@ -53,15 +51,12 @@ function lookup(key: StringKey): string {
   return LANGUAGES[current.language]?.table[key] ?? en[key];
 }
 
-/** The string for `key`, with `{name}` placeholders filled from `params`. */
 export function t(key: StringKey, params?: StringParams): string {
   return interpolate(lookup(key), params);
 }
 
-/** A lookup for one namespace of the table, taking the keys without their prefix. */
 export function scopedText<Scope extends string>(scope: Scope) {
   return (key: KeysUnder<Scope>, params?: StringParams): string =>
-    // TypeScript cannot prove that `${Scope}.${Rest}` is again a key; KeysUnder only ever yields suffixes of real keys.
     t(`${scope}.${key}` as StringKey, params);
 }
 
@@ -81,11 +76,6 @@ function pluralCategory(count: number): string {
   return count === 1 ? 'one' : 'other';
 }
 
-/**
- * The plural form of `key` for `count` ("{count} pages", "1 page"). The
- * locale's plural rules pick the form, so Arabic's six forms work once its
- * table has them; a form a table lacks falls back to `.other`.
- */
 export function tp(key: PluralKey, count: number, params?: StringParams): string {
   const table = LANGUAGES[current.language]?.table ?? en;
   const form = `${key}.${pluralCategory(count)}` as StringKey;

@@ -3,12 +3,7 @@ import { Platform } from 'react-native';
 import { t } from '@/i18n';
 import type { KeyProtection } from '@modules/expo-vault';
 
-/**
- * The key sentence. It names the Secure Enclave or secure hardware only when
- * the vault module reports that this device's key is held there (ADR 0009);
- * before that answer, or without such hardware, it names the Keychain or the
- * Keystore and claims nothing more.
- */
+// Only claim Secure Enclave / StrongBox / TEE when the vault module confirms it.
 function keyFact(protection: KeyProtection | null): string {
   switch (protection) {
     case 'secure-enclave':
@@ -32,11 +27,6 @@ function keyFact(protection: KeyProtection | null): string {
   }
 }
 
-/**
- * "How your data is protected". Every sentence is checked against
- * docs/SECURITY.md; where the design copy said more than the code does, the
- * sentence was narrowed (see docs/verification/redesign-onboarding.md).
- */
 export function protectionFacts(protection: KeyProtection | null = null): string[] {
   const facts = [
     t('settings.protection.fact.encrypted'),
@@ -45,16 +35,10 @@ export function protectionFacts(protection: KeyProtection | null = null): string
     t('settings.protection.fact.backup'),
     t('settings.protection.fact.account'),
   ];
-  // iOS reads text with Apple Vision, part of the system (ADR 0011).
   if (Platform.OS === 'ios') facts.push(t('settings.protection.fact.textVision'));
   return facts;
 }
 
-/**
- * The Google ML Kit disclosure, Android only: a notice rather than a
- * protection, so the screen shows it with an info icon. iOS uses no ML Kit
- * and gets null.
- */
 export function mlKitDisclosure(): string | null {
   return Platform.OS === 'android' ? t('settings.protection.fact.mlkit') : null;
 }

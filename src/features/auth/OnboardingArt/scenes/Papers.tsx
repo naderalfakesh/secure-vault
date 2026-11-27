@@ -5,14 +5,12 @@ import { booklet, brass } from '@/brand/folio';
 import { Backdrop, Floor } from '../parts';
 import type { LayerProps } from '../types';
 
-/** Slide 1: a passport, an ID card and a receipt, and a search that finds them. */
 export function Papers({ colors, layer }: LayerProps) {
   if (layer === 'back') {
     return (
       <G>
         <Backdrop colors={colors} />
         <Floor cx={160} cy={206} rx={96} />
-        {/* Passport */}
         <G transform="rotate(-12 116 122)">
           <Rect x={70} y={58} width={92} height={128} rx={10} fill={booklet} />
           <Circle cx={116} cy={108} r={19} fill="none" stroke={brass.light} strokeWidth={3} />
@@ -26,7 +24,6 @@ export function Papers({ colors, layer }: LayerProps) {
           <Rect x={92} y={144} width={48} height={5} rx={2.5} fill={brass.light} opacity={0.85} />
           <Rect x={100} y={156} width={32} height={4} rx={2} fill={brass.light} opacity={0.6} />
         </G>
-        {/* ID card */}
         <G transform="rotate(9 210 112)">
           <Rect
             x={150}
@@ -51,7 +48,6 @@ export function Papers({ colors, layer }: LayerProps) {
   }
   return (
     <G>
-      {/* Receipt */}
       <Path
         d="M126 92 H194 V196 L186.5 190 L178 196 L169.5 190 L161 196 L152.5 190 L144 196 L135.5 190 L126 196 Z"
         fill={colors.paper}
@@ -77,7 +73,6 @@ export function Papers({ colors, layer }: LayerProps) {
       />
       <Rect x={138} y={168} width={22} height={6} rx={3} fill={colors.textTertiary} opacity={0.6} />
       <Rect x={168} y={168} width={16} height={6} rx={3} fill={colors.textTertiary} opacity={0.6} />
-      {/* Search */}
       <Floor cx={226} cy={212} rx={46} />
       <Rect
         x={178}

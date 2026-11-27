@@ -3,7 +3,6 @@ import { StyleSheet } from 'react-native-unistyles';
 export const styles = StyleSheet.create((theme) => ({
   ink: {
     color: theme.colors.onStage,
-    // A title that wraps stays centred over its page line.
     textAlign: 'center',
   },
   dim: {

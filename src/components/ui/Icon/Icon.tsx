@@ -25,9 +25,7 @@ export function Icon({
   const glyph: Glyph = icons[name];
   const isDecorative = !accessibilityLabel;
 
-  // Directional glyphs are named for a side ("chevron.right"), which neither
-  // SF Symbols nor the SVG flips, so both platforms mirror them in a
-  // right-to-left layout. The keypad's backspace is not directional and never flips.
+  // Neither SF Symbols nor SVGs auto-flip side-named glyphs (e.g. chevron.right), so mirror manually in RTL.
   const flip = glyph.mirror && I18nManager.isRTL;
   const svg = <IconGlyph path={glyph.d} size={size} color={tint} strokeWidth={strokeWidth} />;
 

@@ -1,4 +1,3 @@
-/** Counts, sizes and dates used inside other sentences. */
 export const format = {
   'format.documents.one': '{count} document',
   'format.documents.other': '{count} documents',
@@ -17,6 +16,5 @@ export const format = {
   'format.expiresInDays.one': 'Expires in {count} day',
   'format.expiresInDays.other': 'Expires in {count} days',
   'format.expiresOn': 'Expires {date}',
-  /** A list of short parts on one line: "Identity · 2 pages · Today". */
   'format.separator': ' · ',
 } as const;

@@ -5,7 +5,6 @@ import type { Palette } from '../types';
 
 export type BackdropProps = { colors: Palette };
 
-/** The muted disc behind each scene, with a few dots around it. */
 export function Backdrop({ colors }: BackdropProps) {
   return (
     <G>

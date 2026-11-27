@@ -8,7 +8,6 @@ import { useSessionActions, useSessionState } from '@/features/session/SessionPr
 
 import type { Stage } from '../types';
 
-/** Choose, (maybe) accept an easy PIN, confirm, then save the PIN with the session. */
 export function useSetupPinFlow(keepsDocuments: boolean) {
   const { error } = useSessionState();
   const { setUp } = useSessionActions();
@@ -16,8 +15,6 @@ export function useSetupPinFlow(keepsDocuments: boolean) {
   const [stage, setStage] = useState<Stage>('create');
   const [first, setFirst] = useState('');
   const [mismatch, setMismatch] = useState(false);
-  // A setup failure stays in the session until the next attempt; once the
-  // owner starts a new PIN it is old news and gives way to the step's hint.
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const shownError = error !== dismissedError ? error : null;
 
@@ -37,7 +34,6 @@ export function useSetupPinFlow(keepsDocuments: boolean) {
       if (stage === 'create') {
         setFirst(entered);
         setMismatch(false);
-        // A soft warning only: the owner may keep an easy PIN.
         setStage(isEasyPin(entered) ? 'easy' : 'confirm');
         if (!isEasyPin(entered)) helpers.clear();
         return;
@@ -49,8 +45,6 @@ export function useSetupPinFlow(keepsDocuments: boolean) {
       }
       setStage('saving');
       setDismissedError(null);
-      // The biometrics step follows a new or emptied vault when there is
-      // something to turn on; Add a PIN goes straight back to the documents.
       const offerBiometrics = !keepsDocuments && biometrics?.state === 'available';
       setUp(entered, { holdForOnboarding: offerBiometrics }).then((ok) => {
         if (ok && offerBiometrics) {

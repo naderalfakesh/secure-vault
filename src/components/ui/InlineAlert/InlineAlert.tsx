@@ -8,7 +8,6 @@ import { looks } from './constants';
 import { styles } from './InlineAlert.styles';
 import type { InlineAlertProps } from './types';
 
-/** Inline callout: colour, icon, and text together, never colour alone. */
 export function InlineAlert({
   tone = 'info',
   title,

@@ -14,7 +14,6 @@ type LockFooterProps = {
   onUnlock: () => void;
 };
 
-/** The device's own unlock, under the keypad. */
 export function LockFooter({
   compact,
   lockedOut,
@@ -25,7 +24,7 @@ export function LockFooter({
   return (
     <View style={styles.footer(compact)}>
       {lockedOut ? (
-        // The pause covers the PIN only; the device's own unlock stays open.
+        // PIN lockout does not block device biometric/passcode unlock.
         <Button
           label={deviceUnlockLabel(biometry)}
           variant="tinted"
@@ -33,7 +32,6 @@ export function LockFooter({
           onPress={onUnlock}
         />
       ) : (
-        // The device prompt takes biometrics or the passcode; the label says both.
         <Button label={deviceUnlockLabel(biometry)} variant="plain" size="md" onPress={onUnlock} />
       )}
     </View>

@@ -5,25 +5,20 @@ import { formatRelativeDate, joinParts } from '@/utils/format';
 
 import { allCategories, categoryLabel } from './categories';
 
-/** Recent: the five most recently updated documents. */
 const RECENT_LIMIT = 5;
-/** The Expiring soon rail looks this far ahead. */
 export const EXPIRING_WINDOW_DAYS = 90;
 
 export type SortOrder = 'newest' | 'oldest' | 'title' | 'expiry';
 
-/** A sort's name in the Sort and filter sheet. */
 export function sortLabel(order: SortOrder): string {
   return t(`library.sort.${order}`);
 }
 
-/** The short label on the sort button above the results. */
 export function sortButtonLabel(order: SortOrder): string {
   return t(`library.sortButton.${order}`);
 }
 
 export type LibraryFilter = {
-  /** Empty means every collection. */
   collections: readonly DocumentCategory[];
   onlyWithExpiry: boolean;
 };
@@ -34,7 +29,6 @@ export function isFiltering(filter: LibraryFilter): boolean {
   return filter.collections.length > 0 || filter.onlyWithExpiry;
 }
 
-/** Expiry dates by document id, `YYYY-MM-DD`. */
 export type ExpiryDates = ReadonlyMap<string, string>;
 
 export function applyFilter(
@@ -49,17 +43,13 @@ export function applyFilter(
   );
 }
 
-/**
- * Title A–Z in the reader's language. The other orders come from the index
- * (`DocumentOrder`); SQLite cannot compare titles outside ASCII.
- */
+// SQLite cannot collate non-ASCII titles; re-sort in JS with localeCompare.
 export function sortByTitle(documents: readonly Document[]): Document[] {
   return [...documents].sort((a, b) =>
     a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
   );
 }
 
-/** The index order behind a sort; Title A–Z reads the newest-first list and re-sorts it. */
 export function indexOrder(order: SortOrder): DocumentOrder {
   return order === 'title' ? 'newest' : order;
 }
@@ -79,7 +69,6 @@ export function countByCollection(
   return counts;
 }
 
-/** "Legal · PDF · Yesterday". Page counts are not in the list query yet. */
 export function documentMeta(document: Document, now: Date = new Date()): string {
   return joinParts([
     categoryLabel(document.category),
@@ -88,7 +77,6 @@ export function documentMeta(document: Document, now: Date = new Date()): string
   ]);
 }
 
-/** "3 results in Legal", "12 documents", "1 result in Legal and Finance". */
 export function resultLine(count: number, searching: boolean, filter: LibraryFilter): string {
   const noun = searching ? tp('library.results', count) : tp('format.documents', count);
   const scope = collectionScope(filter.collections);

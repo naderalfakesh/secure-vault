@@ -4,7 +4,6 @@ import { View } from 'react-native';
 import { styles } from './CollectionGrid.styles';
 import type { CollectionGridProps } from './types';
 
-/** Two-column grid of collection tiles. */
 export function CollectionGrid({ children }: CollectionGridProps) {
   const tiles = Children.toArray(children);
   const rows: ReactNode[][] = [];

@@ -13,7 +13,6 @@ type CollectionsSectionProps = {
   onOpen: (category: DocumentCategory) => void;
 };
 
-/** A tile for every collection that holds documents. */
 export function CollectionsSection({ counts, onOpen }: CollectionsSectionProps) {
   return (
     <View style={styles.section}>

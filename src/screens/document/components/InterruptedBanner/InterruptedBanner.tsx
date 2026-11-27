@@ -6,13 +6,11 @@ import { shareText } from '@/features/viewer/shareCopy';
 import { styles } from './InterruptedBanner.styles';
 
 type InterruptedBannerProps = {
-  /** Distance from the top of the screen. */
   top: number;
   onShareAgain: () => void;
   onDismiss: () => void;
 };
 
-/** A share the lock cut short: say so and offer it again. */
 export function InterruptedBanner({ top, onShareAgain, onDismiss }: InterruptedBannerProps) {
   return (
     <View style={[styles.bannerSlot, { top }]} pointerEvents="box-none">

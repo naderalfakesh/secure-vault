@@ -10,7 +10,6 @@ export const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.xs,
     minHeight: 22,
   },
-  // Wraps at the largest text sizes instead of running off the sheet.
   matchText: {
     flexShrink: 1,
   },

@@ -9,7 +9,6 @@ import { TOP_BAR_GAP } from '../../constants';
 
 type ViewerTopBarProps = {
   insetTop: number;
-  /** The document's title, once it has loaded. */
   title: string | null;
   pageLine: string;
   shareDisabled: boolean;
@@ -19,7 +18,6 @@ type ViewerTopBarProps = {
   onMore: () => void;
 };
 
-/** Back, the title and page line, Share and More over the stage. */
 export function ViewerTopBar({
   insetTop,
   title,

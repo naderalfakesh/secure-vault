@@ -15,12 +15,10 @@ type SecurityGroupProps = {
   settings: SecuritySettings;
   updateSettings: SessionActions['updateSettings'];
   biometry: SessionState['biometry'];
-  /** Null until the device has answered. */
   biometrics: BiometricAvailability | null;
   onLock: () => void;
 };
 
-/** Unlock, auto-lock, privacy cover, share confirmation, PIN and Lock now. */
 export function SecurityGroup({
   settings,
   updateSettings,

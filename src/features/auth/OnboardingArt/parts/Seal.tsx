@@ -6,9 +6,7 @@ import { SEAL_SHADOW_OPACITY, SEAL_UNIT, SHADOW_INK } from '../constants';
 
 export type SealProps = { id: string; cx: number; cy: number; r: number };
 
-/** The brass seal with its keyhole, the icon's centrepiece, at (cx, cy). */
 export function Seal({ id, cx, cy, r }: SealProps) {
-  // Measured against the icon's seal; every part scales from there.
   const k = r / SEAL_UNIT;
   return (
     <G>

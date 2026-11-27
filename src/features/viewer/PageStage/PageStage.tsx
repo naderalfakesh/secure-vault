@@ -20,23 +20,15 @@ import { DISMISS_FADE } from './constants';
 import { styles } from './PageStage.styles';
 
 export interface PageStageProps {
-  /** Decrypted page images, main file first. */
   pages: string[];
   title: string;
-  /** The page on screen; changing it scrolls there. */
   index: number;
   onIndexChange: (index: number) => void;
   onZoomChange?: (zoomed: boolean) => void;
-  /** A tap on the page: the viewer shows or hides its chrome. */
   onTap: () => void;
-  /** A downward drag at rest scale. */
   onDismiss: () => void;
 }
 
-/**
- * The viewer's page area: a horizontal pager of zoomable pages on the dark
- * stage, which stays dark in both themes so paper reads true.
- */
 export function PageStage({
   pages,
   title,
@@ -53,19 +45,15 @@ export function PageStage({
   const dismissProgress = useSharedValue(0);
   const reduceMotion = useReducedMotion();
 
-  // An index set from outside (the page strip) scrolls the pager there.
   useEffect(() => {
     if (shown.current === index || index >= pages.length) return;
     shown.current = index;
-    // Reduced motion jumps to the page instead of sliding there.
     list.current?.scrollToIndex({ index, animated: !reduceMotion });
   }, [index, pages.length, reduceMotion]);
 
   const onMomentumEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      // Offsets are measured from the left edge; in a right-to-left layout the
-      // first page sits at the right end, so the index counts from there.
       const next = pageFromOffset({
         offsetX: contentOffset.x,
         pageWidth: layoutMeasurement.width || width,
@@ -87,7 +75,6 @@ export function PageStage({
     [onZoomChange],
   );
 
-  // A zoomed page dragged past its edge has zoomed itself out; turn the page.
   const onEdgeSwipe = useCallback(
     (from: number, direction: SwipeDirection) => {
       const next = pageForSwipe(from, direction, pages.length);
@@ -109,8 +96,6 @@ export function PageStage({
         testID="page-stage-pager"
         horizontal
         pagingEnabled
-        // A zoomed page pans instead of paging; it turns the page itself when
-        // dragged past its edge.
         scrollEnabled={!zoomed}
         showsHorizontalScrollIndicator={false}
         initialScrollIndex={index < pages.length ? index : 0}

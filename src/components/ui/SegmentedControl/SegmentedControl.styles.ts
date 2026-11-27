@@ -1,6 +1,5 @@
 import { StyleSheet } from 'react-native-unistyles';
 
-// The track inset around the segments; its hit slop (see below) reaches over it.
 const TRACK_PADDING = 3;
 
 export const styles = StyleSheet.create((theme) => ({
@@ -11,8 +10,6 @@ export const styles = StyleSheet.create((theme) => ({
     borderRadius: vertical ? theme.radii.lg : theme.radii.pill,
     backgroundColor: theme.colors.surfaceMuted,
   }),
-  // 38 pt segments; their hit slop reaches over the 3 pt track to 44 pt.
-  // Stacked rows are full 44 pt targets of their own.
   segment: (selected: boolean, vertical: boolean) => ({
     flex: vertical ? undefined : 1,
     minHeight: vertical ? theme.touchTarget : theme.touchTarget - 6,

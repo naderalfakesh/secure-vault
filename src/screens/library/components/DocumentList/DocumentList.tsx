@@ -9,7 +9,6 @@ import { styles } from './DocumentList.styles';
 
 type DocumentListProps = {
   documents: readonly Document[];
-  /** Matched words per document, while searching. */
   snippets?: ReadonlyMap<string, SnippetPiece[] | null>;
   header?: ReactElement;
   empty?: ReactElement;
@@ -21,7 +20,6 @@ type DocumentListProps = {
   onStartSelecting: (document: Document) => void;
 };
 
-/** Search results, a collection or "See all", as one grouped list. */
 export function DocumentList({
   documents,
   snippets,

@@ -6,7 +6,6 @@ import { t } from '@/i18n';
 
 import { styles } from './LibraryTitle.styles';
 
-/** The large "Library" title; at large text its actions wrap below it. */
 export function LibraryTitle({ children }: { children?: ReactNode }) {
   return (
     <View style={styles.row}>

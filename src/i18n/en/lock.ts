@@ -1,4 +1,3 @@
-/** Lock screen and lockout. */
 export const lock = {
   'lock.title': 'SecureVault is locked',
   'lock.enterPin': 'Enter your PIN',

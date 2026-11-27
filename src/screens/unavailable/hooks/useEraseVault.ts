@@ -4,7 +4,6 @@ import { confirmErase, eraseEverything } from '@/features/session/eraseEverythin
 import { useSessionActions } from '@/features/session/SessionProvider';
 import { useMountedRef } from '@/hooks/useMountedRef';
 
-/** "Delete everything", the only way on once nothing in the vault can be decrypted. */
 export function useEraseVault() {
   const mounted = useMountedRef();
   const { eraseVault } = useSessionActions();
@@ -16,7 +15,6 @@ export function useEraseVault() {
       setErasing(true);
       setEraseFailed(false);
       try {
-        // Setup follows; an old PIN record that survived is replaced there.
         await eraseEverything(eraseVault);
       } catch {
         if (mounted.current) setEraseFailed(true);

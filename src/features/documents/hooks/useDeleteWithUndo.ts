@@ -9,13 +9,11 @@ import { isolate } from '@/utils/bidi';
 
 const quoted = (title: string) => t('library.delete.quoted', { title: isolate(title) });
 
-/** The title when exactly one document was deleted. */
 function singleTitle(deleted: readonly DeletedDocument[]): string | null {
   const [only, second] = deleted;
   return only && !second ? only.document.title : null;
 }
 
-/** Puts the deleted documents back and says how it went. */
 async function undoDelete(
   deleted: readonly DeletedDocument[],
   toast: ReturnType<typeof useToast>,
@@ -48,10 +46,6 @@ async function undoDelete(
   });
 }
 
-/**
- * Delete without a confirmation, then offer Undo with a countdown, using the
- * service's undo window.
- */
 export function useDeleteWithUndo() {
   const toast = useToast();
   const { captureSession, postNotice } = useSessionActions();
@@ -62,7 +56,7 @@ export function useDeleteWithUndo() {
       const deleted: DeletedDocument[] = [];
       const failed: Document[] = [];
       for (const document of documents) {
-        // Each delete decrypts an undo copy; none may be written once the vault locked.
+        // Stop before decrypting further undo copies once the vault has locked.
         if (!session.current()) break;
         try {
           const result = await documentService.deleteDocumentWithUndo(document.id);
@@ -73,9 +67,7 @@ export function useDeleteWithUndo() {
       }
 
       if (!session.current()) {
-        // The lock sweep may have run before the last undo copy was written;
-        // sweep again unless a new session has already been unlocked. Undo is
-        // gone with the copies, so the outcome waits for the next unlock.
+        // Re-sweep cache in case the last undo copy landed after the lock sweep.
         if (!captureSession().current()) documentService.clearCache().catch(() => {});
         const kept = documents.length - deleted.length;
         if (deleted.length === 0) {

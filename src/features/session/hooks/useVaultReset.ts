@@ -15,7 +15,6 @@ type Options = {
   changeStatus: (next: SessionStatus) => void;
 };
 
-/** Forgets the PIN, settings, and lockout after the vault was emptied; returns to setup. */
 export function useVaultReset({
   setSettings,
   applyLockout,
@@ -26,8 +25,7 @@ export function useVaultReset({
   changeStatus,
 }: Options) {
   return useCallback(async () => {
-    // expo-secure-store 58 rejects a delete the Keychain refuses; one retry
-    // covers a transient refusal, and the caller tells the user otherwise.
+    // Retry once for transient expo-secure-store Keychain delete refusals.
     const cleared = await sessionStorage
       .clear()
       .catch(() => sessionStorage.clear())

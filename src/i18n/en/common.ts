@@ -1,4 +1,3 @@
-/** Words and controls shared by many screens and the design-system components. */
 export const common = {
   'common.appName': 'SecureVault',
   'common.cancel': 'Cancel',

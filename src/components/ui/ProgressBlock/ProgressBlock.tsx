@@ -8,10 +8,7 @@ import { progressPercent } from './helpers';
 import { styles } from './ProgressBlock.styles';
 import type { ProgressBlockProps } from './types';
 
-/** Determinate progress: label, optional detail, 6 pt bar. */
 export function ProgressBlock({ label, detail, progress, testID }: ProgressBlockProps) {
-  // A polite live region on Android; iOS ignores live regions, so it hears
-  // the line when it appears and then at most every few seconds.
   useThrottledAnnouncement(label);
   const percent = progressPercent(progress);
 

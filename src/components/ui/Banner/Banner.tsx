@@ -9,7 +9,6 @@ import { Text } from '../Text';
 import { styles } from './Banner.styles';
 import type { BannerProps } from './types';
 
-/** Persistent elevated notice, e.g. the share-interrupted banner. */
 export function Banner({
   icon = 'info',
   lead,

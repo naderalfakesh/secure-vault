@@ -6,15 +6,11 @@ import { styles } from './PinMessage.styles';
 
 export type PinMessageProps = {
   message: string;
-  /** An error or the easy-PIN warning. */
   alerting: boolean;
-  /** An error: red and assertive. */
   failing: boolean;
-  /** The easy-PIN warning, in the warning tone. */
   warning: boolean;
 };
 
-/** The hint, warning or error under the title, read out as one line. */
 export function PinMessage({ message, alerting, failing, warning }: PinMessageProps) {
   return (
     <View

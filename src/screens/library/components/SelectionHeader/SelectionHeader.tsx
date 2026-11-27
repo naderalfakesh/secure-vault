@@ -12,7 +12,6 @@ type SelectionHeaderProps = {
   onDone: () => void;
 };
 
-/** Replaces the title and search while selecting. */
 export function SelectionHeader({ count, allSelected, onToggleAll, onDone }: SelectionHeaderProps) {
   return (
     <View style={styles.bar}>

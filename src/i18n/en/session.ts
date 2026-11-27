@@ -1,4 +1,3 @@
-/** Unlock, setup and PIN-change failures reported by the session. */
 export const session = {
   'session.biometricFailed': 'That did not match. Try again or enter your PIN.',
   'session.biometricUnavailable': 'Biometrics are not available right now. Enter your PIN.',

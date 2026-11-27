@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const PIN_LENGTH = 6;
-// Brief beat after the last digit so the final dot fills before we react.
+// Brief delay so the final filled dot renders before reacting.
 const SUBMIT_DELAY_MS = 120;
-// How long the dots stay red on a wrong entry before clearing.
 const ERROR_FLASH_MS = 600;
 
 interface PinEntryHelpers {
-  /** Clear the entered digits (and any error) immediately, e.g. when advancing a stage. */
   clear: () => void;
-  /** Flash the dots red, then clear; `after` runs once the flash ends. */
   fail: (after?: () => void) => void;
 }
 
@@ -18,11 +15,6 @@ interface UsePinEntryOptions {
   onComplete: (pin: string, helpers: PinEntryHelpers) => void;
 }
 
-/**
- * The keypad entry state machine shared by every PIN screen (create, unlock,
- * change). Owns the digit buffer plus the error flash; callers decide what a
- * completed code means via `onComplete`.
- */
 export function usePinEntry({ length = PIN_LENGTH, onComplete }: UsePinEntryOptions) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
