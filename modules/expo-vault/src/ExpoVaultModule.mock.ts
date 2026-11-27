@@ -6,15 +6,9 @@ import type { BackupFile, BackupProgress, SecureVault } from './ExpoVaultModule'
 const trimSlashes = (path: string) => path.replace(/\/+$/, '');
 const pathOf = (uri: string) => trimSlashes(decodeURIComponent(uri.replace(/^file:\/\//, '')));
 const isBelow = (path: string, folder: string) => path.startsWith(`${folder}/`);
-// The native roots: the app cache, and on iOS tmp (the mock container's `/mock/tmp`).
 const removalRoots = () => [pathOf(Paths.cache.uri), '/mock/tmp'];
-// Removable as a whole, never below: the picked backup's folder in documents.
 const exactRemovals = () => [`${pathOf(Paths.document.uri)}/restore-source`];
 
-/**
- * In-memory stand-in for the native vault, used by Jest. It keeps the same
- * promise-based surface so services and hooks run unchanged in tests.
- */
 export interface VaultMockExport {
   destPath: string;
   stagingDir: string;
@@ -28,37 +22,24 @@ export interface VaultMockImport {
 
 export function createVaultMock(): SecureVault & {
   reset(): void;
-  /** Paths the last `importBackup` call was given. */
   lastImport: VaultMockImport | null;
-  /** Paths the last `exportBackup` call was given, for tests of the staging contract. */
   lastExport: VaultMockExport | null;
-  /**
-   * Marks the folder at `path` as a symbolic link to `target`. The mock file
-   * system has no links, so it stands in as an empty folder; see
-   * `followLinksOnDelete` for what the file system API does with it.
-   */
   plantLink(path: string, target: string): void;
   linkTarget(path: string): string | null;
   links(): string[];
-  /** Folders `excludeFromBackup` flagged, as iOS would. */
   excludedFromBackup(): string[];
-  /** Sends a progress event to the listeners, as the native module does mid-call. */
   emitProgress(progress: BackupProgress): void;
-  /** Removes the iOS install flag, as deleting the app does; `reset` sets it again. */
   clearInstallMarker(): void;
-  /** Records an Android activity stop at `at` (epoch ms), as Home or another app over it does. */
   stopActivity(at?: number): void;
-  /** How many times the key session was ended, as a lock does. */
   keySessionsEnded(): number;
 } {
   let strings = new Map<string, string>();
   let files = new Map<string, string>();
   let created = false;
-  // Tests start as an install that has run before, so reinstall handling stays out of their way.
+  // Default to already-installed so reinstall recovery stays inactive unless tested.
   let installMarker = true;
   let stoppedAt = 0;
   let keySessionsEnded = 0;
-  // Backups are kept in memory keyed by their path, protected by the passphrase.
   const backups = new Map<
     string,
     {
@@ -70,15 +51,11 @@ export function createVaultMock(): SecureVault & {
   >();
   const listeners = new Set<(progress: BackupProgress) => void>();
   const links = new Map<string, string>();
-  // Folders flagged for exclusion from device backups, as iOS records them.
   const excluded = new Set<string>();
-  // The native cancel state of the running import, read after its checking pass, which also
-  // passes the last cancel point; a cancel is tied to its run id like the native one.
   let restoreState: 'open' | 'cancel' | 'committed' = 'open';
   let currentRun: string | null = null;
   let lastEndedRun: string | null = null;
   let pendingCancel: string | null = null;
-  // Read through a call: a cancel lands while the import awaits.
   const isCancelRequested = () => restoreState === 'cancel';
   const emit = (progress: BackupProgress) => listeners.forEach((listener) => listener(progress));
 
@@ -190,8 +167,6 @@ export function createVaultMock(): SecureVault & {
         }
         const total = backup.strings.size + backup.files.size + backup.extras.length + 1;
         emit({ phase: 'verify', done: total, total });
-        // Natively the request is read between entries; here once, after the checking pass,
-        // where the last cancel point is passed in the same step.
         await Promise.resolve();
         if (isCancelRequested()) {
           throw Object.assign(new Error('The restore was cancelled before anything was changed.'), {
@@ -205,7 +180,6 @@ export function createVaultMock(): SecureVault & {
           key: file.key,
           path: `${extraDir}/${file.key}`,
         }));
-        // Natively each extra is written where it is reported; the index installer moves it from there.
         for (const extra of extras) {
           const written = new File(`file://${extra.path}`);
           written.parentDirectory.create({ intermediates: true, idempotent: true });
@@ -266,7 +240,6 @@ export function createVaultMock(): SecureVault & {
       const key = trimSlashes(path);
       const parent = key.slice(0, key.lastIndexOf('/'));
       const name = key.slice(parent.length + 1);
-      // The mock never resolves links in the parent, so `.` and `..` segments are refused outright.
       if (
         !name ||
         key.split('/').some((segment) => segment === '.' || segment === '..') ||
@@ -275,7 +248,6 @@ export function createVaultMock(): SecureVault & {
       ) {
         throw new Error("The cache entry cannot be removed: not inside the app's cache");
       }
-      // A link is unlinked, never followed, here or anywhere below.
       for (const link of [...links.keys()]) {
         if (link === key || isBelow(link, key)) links.delete(link);
       }
@@ -328,11 +300,7 @@ export type VaultMock = ReturnType<typeof createVaultMock>;
 
 const vaultMock = createVaultMock();
 
-/**
- * Makes `Directory.delete` behave as expo-file-system does on Android for a
- * planted link, at the folder itself or anywhere below it: it empties the
- * link's target before removing the link.
- */
+/** Emulates Android expo-file-system's symlink-following behavior on Directory.delete. */
 export function followLinksOnDelete(
   mock: { links(): string[]; linkTarget(path: string): string | null } = vaultMock,
 ) {
@@ -351,6 +319,4 @@ export function followLinksOnDelete(
 
 export default vaultMock;
 
-// The module's pure helpers stay real, so code under test imports them from
-// the module's entry point as the app does.
 export { isKeyLocked, withKeyRecovery } from './withKeyRecovery';

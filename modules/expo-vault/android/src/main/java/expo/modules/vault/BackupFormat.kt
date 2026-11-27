@@ -18,23 +18,14 @@ internal object BackupFormat {
     const val KDF_NAME = "pbkdf2-hmac-sha256"
     const val CIPHER = "aes-256-gcm"
 
-    /**
-     * Every iteration count a committed exporter has written (all of them write [ITERATIONS]).
-     * A reader refuses anything else before the key derivation runs, so a crafted header cannot
-     * make PBKDF2 run for hours. An exporter that changes the count must bump [VERSION].
-     */
+    /** Reject unknown iteration counts before PBKDF2 to prevent DoS via crafted headers. */
     val SUPPORTED_ITERATIONS = setOf(ITERATIONS)
 
-    /** The kinds a version-1 exporter writes; anything else is refused in the pre-pass. */
     private val KINDS = setOf("c", "s", "f", "x")
-
-    /** The check entry, the database key string and the index extra: the smallest backup the app writes. */
     private const val MIN_ENTRIES = 3
-
-    /** The `SVC1` magic and chunk-size field that open every payload; a plaintext is at most the rest. */
     const val STREAM_HEADER_BYTES = 8L
 
-    /** 2^63: a whole double below it in magnitude converts to a Long without clamping. */
+    /** 2^63: largest whole double convertible to Long without clamping. */
     private const val LONG_LIMIT = 9.223372036854775807E18
 
     fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): SecretKey {
@@ -43,18 +34,6 @@ internal object BackupFormat {
         return SecretKeySpec(bytes, "AES")
     }
 
-    /**
-     * Expects [input] at the start of the file. The header length is checked
-     * against the bytes left in the file before it is allocated (an allocation
-     * the device refuses is an OutOfMemoryError the module reports as
-     * BACKUP_RESOURCE). Then, in the same order as on iOS: the version must be
-     * an integer (above 1 is a newer format, below 1 a damaged header); every
-     * field the exporter writes must be present with its JSON type and the
-     * counts must fit their types (otherwise CorruptException); and the KDF
-     * name, cipher and iteration count must be the ones a committed exporter
-     * wrote (otherwise UnsupportedException). All of it runs before any key is
-     * derived.
-     */
     fun readHeader(input: RandomAccessFile): BackupContainer.Header {
         val magic = ByteArray(MAGIC.size)
         try {
@@ -111,19 +90,10 @@ internal object BackupFormat {
         )
     }
 
-    /**
-     * The pre-pass: every entry's metadata and declared payload length, with the
-     * structure every version-1 exporter writes enforced before any key is derived.
-     * The first entry is the check entry and no other entry has its kind; every kind
-     * is one the exporter writes; no two other entries share a key (they come from
-     * one directory listing plus the index extra); and the file ends right after the
-     * last declared entry. Anything else is a CorruptException.
-     */
     fun readLayout(source: File): List<BackupContainer.EntryInfo> =
         RandomAccessFile(source, "r").use { input ->
             val header = readHeader(input)
-            // The count is untrusted: grow the list as entries are read, so a
-            // short file fails on its first missing byte instead of allocating.
+            // Grow dynamically so an untrusted header.entries count cannot OOM on a truncated file.
             val layout = ArrayList<BackupContainer.EntryInfo>()
             val keys = HashSet<String>()
             repeat(header.entries) { index ->
@@ -144,10 +114,6 @@ internal object BackupFormat {
             layout
         }
 
-    /**
-     * Reads one entry's metadata and payload length, leaving [input] at the
-     * payload. Both lengths are checked against the bytes left in the file.
-     */
     fun readEntryHead(input: RandomAccessFile, index: Int): Pair<BackupContainer.Meta, Long> =
         try {
             val metaLength = input.readInt()
@@ -166,11 +132,7 @@ internal object BackupFormat {
             throw BackupContainer.CorruptException("truncated")
         }
 
-    /**
-     * A JSON number read as an integer the way Swift's `JSONDecoder` reads one into `Int`, so both
-     * platforms accept and refuse the same headers: `600000`, `600000.0` and `6e5` all count, a
-     * fraction, a string or a boolean does not, and nor does a number outside a 64-bit integer.
-     */
+    /** Match Swift JSONDecoder Int semantics (accept whole doubles/exponents, reject strings/booleans/fractions). */
     private fun integral(value: Any?): Long? = when (value) {
         is Int, is Long, is Short, is Byte -> (value as Number).toLong()
         is java.math.BigInteger -> if (value.bitLength() < 64) value.toLong() else null
@@ -185,7 +147,7 @@ internal object BackupFormat {
         else -> null
     }
 
-    /** Both fields must be JSON strings, as on iOS; `getString` would coerce numbers. */
+    /** Require JSON strings without coercion (`getString` would coerce numbers). */
     private fun parseMeta(bytes: ByteArray, index: Int): BackupContainer.Meta {
         val json = try {
             JSONObject(String(bytes, Charsets.UTF_8))

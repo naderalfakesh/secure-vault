@@ -15,12 +15,10 @@ const nothingRead: RecognizedText = { width: 0, height: 0, lines: [] };
 let reading: (path: string) => Promise<RecognizedText> = () => Promise.resolve(nothingRead);
 let readPaths: string[] = [];
 
-/** Jest double: the model this "device" reports. Unavailable by default. */
 export function setModelInfo(next: ModelInfo) {
   info = next;
 }
 
-/** Jest double: what the model answers, as raw text or a rejection. */
 export function setModelAnswer(next: string | Error | ((text: string) => Promise<string>)) {
   answer = (_instructions, text) =>
     typeof next === 'function'
@@ -30,7 +28,6 @@ export function setModelAnswer(next: string | Error | ((text: string) => Promise
         : Promise.resolve(next);
 }
 
-/** Jest double: every request the model received. */
 export function modelCalls() {
   return calls;
 }
@@ -54,12 +51,10 @@ export function extractDetails(instructions: string, text: string): Promise<stri
   return answer(instructions, text);
 }
 
-/** Jest double: what a download does (resolves by default). */
 export function setDownload(next: () => Promise<void>) {
   download = next;
 }
 
-/** Jest double: how many downloads were started. */
 export function downloadCount() {
   return downloads;
 }
@@ -69,12 +64,10 @@ export function downloadModel(): Promise<void> {
   return download();
 }
 
-/** Jest double: what Apple Vision reads (nothing by default), or a failure. */
 export function setRecognizedText(next: RecognizedText | Error) {
   reading = () => (next instanceof Error ? Promise.reject(next) : Promise.resolve(next));
 }
 
-/** Jest double: every path handed to Apple Vision. */
 export function recognizedPaths() {
   return readPaths;
 }

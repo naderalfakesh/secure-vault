@@ -10,17 +10,11 @@ import android.os.Handler
 import android.os.Looper
 import java.io.File
 
-/**
- * Android lifecycle tracking for share-chooser pauses, timed share-copy expiry,
- * and privacy-preserving clipboard timestamps.
- */
 internal class ShareExpiryController {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var shareExpiry: Pair<String, Runnable>? = null
 
-    // Wall-clock time an activity of the app was last stopped (Home, Recents, another app
-    // opened over it), 0 before any. The share chooser is translucent, so it leaves the
-    // activity paused, never stopped: a stop while a share pause runs means the user left.
+    // Translucent share chooser only pauses the activity; onActivityStopped indicates the user left.
     @Volatile
     var lastStoppedAt: Long = 0L
         private set
@@ -51,10 +45,6 @@ internal class ShareExpiryController {
         watchedApplication = null
     }
 
-    /**
-     * Deletes a share copy's folder after [delayMs], even while the chooser pauses JS timers.
-     * Only a folder directly inside `<cacheDir>/share` qualifies. One expiry at a time.
-     */
     fun schedule(cacheDir: File, path: String, delayMs: Double) {
         val shareRoot = File(cacheDir, "share")
         val parent = File(path).parentFile?.canonicalPath
@@ -67,14 +57,12 @@ internal class ShareExpiryController {
             try {
                 BackupContainer.removeNoFollow(path, listOf(shareRoot))
             } catch (_: Exception) {
-                // The lock and launch sweeps remove the share folder too.
             }
         }
         shareExpiry = path to expire
         mainHandler.postDelayed(expire, delayMs.toLong().coerceAtLeast(0L))
     }
 
-    /** Cancels the expiry for [path] once its share ended; another path's is kept. */
     fun cancel(path: String) {
         val pending = shareExpiry
         if (pending != null && pending.first == path) {
@@ -83,7 +71,6 @@ internal class ShareExpiryController {
         }
     }
 
-    /** When the primary clip was set, without reading its contents, or null when unknown. */
     fun clipboardStamp(context: Context?): String? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context == null) return null
         val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return null

@@ -3,10 +3,7 @@ import Foundation
 import LocalAuthentication
 
 enum SealedKeyError: LocalizedError, Equatable {
-  /// The stored item is not an SVK1 container this code can read.
   case corrupt(String)
-  /// The Secure Enclave refused the operation: a cancelled prompt, a locked
-  /// device, or a key the enclave no longer holds.
   case enclave(String)
 
   var errorDescription: String? {
@@ -17,23 +14,8 @@ enum SealedKeyError: LocalizedError, Equatable {
   }
 }
 
-/// SVK1: the vault key sealed to a P-256 key that lives in the Secure Enclave.
-///
-/// The enclave cannot hold an AES key, so the vault key is wrapped with ECIES:
-/// a fresh ephemeral P-256 key agrees with the enclave key's public half,
-/// HKDF-SHA256 turns the shared secret into a wrapping key, and AES-256-GCM
-/// seals the 32-byte vault key. Opening it needs the enclave to run the key
-/// agreement, which only this device's enclave can do, and only after the
-/// user-presence check bound to the enclave key.
-///
-/// Layout, one Keychain item:
-///
-///     "SVK1" | u16 BE length | enclave key blob | ephemeral public key (X9.63, 65 bytes)
-///            | AES-GCM nonce (12) | sealed vault key (32) | tag (16)
-///
-/// The enclave key blob is the enclave's own encrypted handle to the private
-/// key; it means nothing on another device. The magic and the ephemeral key
-/// are authenticated as additional data.
+/// SVK1: wraps the 32-byte AES vault key with ECIES (ephemeral P-256 + Secure Enclave P-256 + HKDF-SHA256 + AES-GCM).
+/// Layout: "SVK1" | u16 BE enclaveBlobLen | enclaveBlob | 65B X9.63 ephemeralPub | 12B nonce | 32B key | 16B tag (AAD = magic + ephemeralPub).
 enum SealedKey {
   static let magic = Data("SVK1".utf8)
   static let vaultKeyBytes = 32
@@ -41,8 +23,6 @@ enum SealedKey {
   private static let sealedBytes = 12 + vaultKeyBytes + 16
   private static let info = Data("SecureVault SVK1 vault key".utf8)
 
-  /// Seals `vaultKey` to `recipient`, carrying `enclaveKey` (the recipient's
-  /// enclave blob) so one item holds everything `open` needs.
   static func seal(_ vaultKey: SymmetricKey, to recipient: P256.KeyAgreement.PublicKey, enclaveKey: Data) throws -> Data {
     guard vaultKey.bitCount == vaultKeyBytes * 8 else { throw SealedKeyError.corrupt("vault key size") }
     guard !enclaveKey.isEmpty, enclaveKey.count <= Int(UInt16.max) else { throw SealedKeyError.corrupt("enclave key size") }
@@ -63,7 +43,6 @@ enum SealedKey {
     return out
   }
 
-  /// The parts of an SVK1 item, checked for shape only.
   struct Parts {
     let enclaveKey: Data
     let ephemeral: P256.KeyAgreement.PublicKey
@@ -91,8 +70,6 @@ enum SealedKey {
     return Parts(enclaveKey: enclaveKey, ephemeral: ephemeral, ephemeralPublic: ephemeralPublic, sealed: sealed)
   }
 
-  /// Opens an SVK1 item. `agree` runs the key agreement with the private key
-  /// the item names; for the app that is the Secure Enclave.
   static func open(
     _ data: Data,
     agree: (_ enclaveKey: Data, _ ephemeral: P256.KeyAgreement.PublicKey) throws -> SharedSecret
@@ -113,12 +90,9 @@ enum SealedKey {
   }
 }
 
-/// The Secure Enclave side of SVK1. Unavailable on the simulator and on
-/// devices without an enclave; callers then keep the plain Keychain item.
 enum EnclaveKey {
   static var isAvailable: Bool { SecureEnclave.isAvailable }
 
-  /// Creates an enclave key under `accessControl` and seals `vaultKey` to it.
   static func seal(_ vaultKey: SymmetricKey, accessControl: SecAccessControl) throws -> Data {
     let key: SecureEnclave.P256.KeyAgreement.PrivateKey
     do {
@@ -129,8 +103,6 @@ enum EnclaveKey {
     return try SealedKey.seal(vaultKey, to: key.publicKey, enclaveKey: key.dataRepresentation)
   }
 
-  /// Opens a sealed vault key. With an evaluated `context` the enclave asks
-  /// nothing; with a fresh one it shows the user-presence prompt once.
   static func open(_ sealed: Data, context: LAContext?) throws -> SymmetricKey {
     try SealedKey.open(sealed) { enclaveKey, ephemeral in
       do {

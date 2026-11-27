@@ -18,15 +18,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Streaming AES-256-GCM container shared with the iOS implementation.
- *
- * Layout: magic "SVC1", chunk size (Int32 BE), then per chunk an Int32 BE
- * length followed by nonce (12) + ciphertext + tag (16). The chunk index is
- * the only additional authenticated data: an altered or repositioned chunk
- * fails its tag. There is no end marker, so a stream cut on a chunk boundary
- * reads as a shorter file, and a same-index chunk from another file under the
- * same key is not detected. Files written by the 2025 prototype have no header
- * and keep their IV in SharedPreferences; [legacyIv] handles those.
+ * Streaming AES-256-GCM ("SVC1" | be32 chunkSize | chunks of be32 len + 12B IV + ciphertext + 16B tag, AAD = be32 chunkIndex).
+ * No end marker (chunk-boundary truncation reads shorter). Pre-SVC1 files use SharedPreferences legacyIv.
  */
 object VaultCrypto {
     private val MAGIC = "SVC1".toByteArray(Charsets.US_ASCII)
@@ -36,15 +29,10 @@ object VaultCrypto {
 
     class CorruptException(reason: String) : Exception("Vault file is corrupt: $reason")
 
-    /** A failed encryption leaves no partial ciphertext at [destination]. */
     fun encryptFile(source: File, destination: File, key: SecretKey) {
         FileInputStream(source).use { input -> encrypt(input, destination, key) }
     }
 
-    /**
-     * Reads [input] to its end in chunks and writes the container to [destination].
-     * An I/O failure on either side removes whatever was written before it.
-     */
     fun encrypt(input: InputStream, destination: File, key: SecretKey) {
         removingOnFailure(destination) {
             DataOutputStream(FileOutputStream(destination).buffered()).use { output ->
@@ -70,12 +58,10 @@ object VaultCrypto {
         }
     }
 
-    /** Streams from memory, so no plaintext file is written next to the vault. */
     fun encryptBytes(bytes: ByteArray, destination: File, key: SecretKey) {
         encrypt(ByteArrayInputStream(bytes), destination, key)
     }
 
-    /** Returns true when the file uses the chunked container. */
     fun isChunked(file: File): Boolean {
         if (file.length() < MAGIC.size) return false
         FileInputStream(file).use { input ->
@@ -85,7 +71,6 @@ object VaultCrypto {
         }
     }
 
-    /** A failed decryption leaves no partial plaintext at [destination]. */
     fun decryptFile(source: File, destination: File, key: SecretKey, legacyIv: ByteArray?) {
         if (!isChunked(source)) {
             val iv = legacyIv ?: throw IllegalStateException("Legacy file without IV")
@@ -106,11 +91,6 @@ object VaultCrypto {
         }
     }
 
-    /**
-     * Authenticates every chunk and keeps none of the plaintext, so a damaged
-     * file is found without writing anything. Legacy files need their IV and
-     * are not accepted here.
-     */
     fun verifyFile(source: File, key: SecretKey) {
         if (!isChunked(source)) throw IllegalStateException("Legacy file without IV")
         DataInputStream(FileInputStream(source).buffered()).use { input ->
@@ -127,16 +107,11 @@ object VaultCrypto {
         }
     }
 
-    /**
-     * Reads the header, then opens the chunks in order, each bound to its index,
-     * and passes every plaintext to [sink]. Every length is checked against the
-     * bytes left in the [size]-byte file before anything is allocated.
-     */
     private fun openChunks(input: DataInputStream, size: Long, key: SecretKey, sink: (ByteArray) -> Unit) {
         var remaining = size - MAGIC.size - Int.SIZE_BYTES
         if (remaining < 0) throw CorruptException("header")
         input.skipBytes(MAGIC.size)
-        input.readInt() // chunk size, informational
+        input.readInt()
         var index = 0
         while (remaining > 0) {
             if (remaining < Int.SIZE_BYTES) throw CorruptException("length")
@@ -156,7 +131,6 @@ object VaultCrypto {
         }
     }
 
-    /** Downsampled, orientation-corrected JPEG for list thumbnails. */
     fun thumbnailJpeg(source: File, maxPixelSize: Int): ByteArray {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(source.path, bounds)

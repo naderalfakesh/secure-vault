@@ -12,9 +12,6 @@ enum PdfPagesError: LocalizedError {
   }
 }
 
-/// Rasterises PDF pages to JPEG files so the viewer only ever deals with
-/// images. Rendering happens from a decrypted temporary copy and the output
-/// lives in the cache directory next to the other decrypted previews.
 enum PdfPages {
   static func render(from source: URL, maxPixelSize: Int, into directory: URL) throws -> [[String: Any]] {
     guard let document = PDFDocument(url: source) else { throw PdfPagesError.unreadable }

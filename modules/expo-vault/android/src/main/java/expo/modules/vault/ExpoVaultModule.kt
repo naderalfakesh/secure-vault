@@ -12,8 +12,6 @@ class ExpoVaultModule : Module() {
 
     private val keyAlias = "encryptionKey"
     private val keystoreProvider = "AndroidKeyStore"
-
-    /** Folder in `filesDir` the picked backup is moved into, so low storage cannot purge it. */
     private val restoreSourceName = "restore-source"
 
     private val restoreCancel = RestoreCancel()
@@ -40,10 +38,8 @@ class ExpoVaultModule : Module() {
             shareExpiry.detach()
         }
 
-        // When an activity of the app was last stopped, in epoch milliseconds; 0 before any.
         Function("lastStoppedAt") { shareExpiry.lastStoppedAt.toDouble() }
 
-        // iOS drops its session's authenticated context here; Android's Keystore uses a timeout window.
         Function("endKeySession") { }
 
         AsyncFunction("createVault") { promise: Promise ->
@@ -60,7 +56,6 @@ class ExpoVaultModule : Module() {
             }
         }
 
-        // "trusted-environment", "strongbox", "software", or "none" before a vault exists.
         AsyncFunction("keyProtection") { promise: Promise ->
             try {
                 val keyStore = KeyStore.getInstance(keystoreProvider)
@@ -84,7 +79,6 @@ class ExpoVaultModule : Module() {
             try {
                 val file = entries.vaultFile(key)
                 StringEntry.write(file, value.toByteArray(), entries.getSecretKey())
-                // The nonce is in the file now; a legacy one left behind is never read.
                 entries.removeLegacyIv(key, synchronous = true)
                 promise.resolve(null)
             } catch (e: Exception) {
@@ -106,8 +100,6 @@ class ExpoVaultModule : Module() {
                 promise.reject(VaultErrors.keyFailureCode(e, "GET_FAILED"), e.message, e)
             }
         }
-
-        // Passphrase-protected backups (see VaultBackupRunner.kt & BackupContainer.kt)
 
         AsyncFunction("exportBackup") { destPath: String, passphrase: String, extraFiles: List<Map<String, String>>, stagingDir: String, promise: Promise ->
             backups.exportBackup(destPath, passphrase, extraFiles, stagingDir, promise)
@@ -135,7 +127,7 @@ class ExpoVaultModule : Module() {
 
         AsyncFunction("delete") { key: String, promise: Promise ->
             try {
-                // The stored nonce goes only once the entry is gone: a kept entry still needs it.
+                // Delete entry before removing legacy IV so a failed delete keeps its IV.
                 VaultFiles.remove(entries.vaultFile(key))
                 entries.removeLegacyIv(key)
                 promise.resolve(null)
@@ -143,8 +135,6 @@ class ExpoVaultModule : Module() {
                 promise.reject("DELETE_FAILED", e.message, e)
             }
         }
-
-        // File-based encryption methods for binary data (images, PDFs, etc.)
 
         AsyncFunction("putFile") { key: String, sourcePath: String, promise: Promise ->
             try {
@@ -154,7 +144,6 @@ class ExpoVaultModule : Module() {
                     return@AsyncFunction
                 }
                 VaultCrypto.encryptFile(sourceFile, entries.vaultFile(key), entries.getSecretKey())
-                // Chunked files carry their own nonces; drop any legacy IV for this key.
                 entries.removeLegacyIv(key)
                 promise.resolve(null)
             } catch (e: Exception) {
@@ -205,7 +194,6 @@ class ExpoVaultModule : Module() {
             }
         }
 
-        // The share chooser is an activity of its own; the app cannot close it.
         AsyncFunction("dismissShareSheet") { false }
 
         Function("clipboardStamp") { shareExpiry.clipboardStamp(appContext.reactContext) }
@@ -218,7 +206,6 @@ class ExpoVaultModule : Module() {
             shareExpiry.cancel(path)
         }
 
-        // Android's backup rules exclude filesDir already.
         Function("excludeFromBackup") { _: String -> }
 
         Function("removeTreeNoFollow") { path: String ->

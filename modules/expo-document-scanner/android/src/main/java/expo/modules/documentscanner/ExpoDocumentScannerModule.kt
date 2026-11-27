@@ -18,11 +18,6 @@ class ScanOptions : Record {
   @Field val maxPages: Int = 20
 }
 
-/**
- * Wraps the ML Kit Document Scanner: a Google-provided activity with edge
- * detection, auto capture, cleanup filters, and multi-page capture. Pages come
- * back as content URIs that JavaScript copies into the vault.
- */
 class ExpoDocumentScannerModule : Module() {
   private var pending: Promise? = null
 

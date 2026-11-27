@@ -2,14 +2,6 @@ import CryptoKit
 import Foundation
 
 extension BackupContainer {
-  /// Writes the container. Plaintext is staged one entry at a time inside
-  /// `staging`, which is swept first (an earlier export may have been killed
-  /// mid-entry) and left empty whether the write succeeds or fails.
-  ///
-  /// When the write fails, the cleanup sweep is best effort and the write's
-  /// own error is what the caller sees. After a successful write, a cleanup
-  /// error fails the export, because a success must not be reported while
-  /// plaintext may still be on disk.
   static func write(
     to destination: URL, passphrase: String, staging: StagingDirectory, entries: [Entry], progress: Progress
   ) throws -> (entries: Int, bytes: Int) {
@@ -68,7 +60,7 @@ extension BackupContainer {
         source = plain
       }
       try VaultCrypto.encryptFile(from: source, to: payload, key: key)
-      // The plaintext has been consumed; drop it before the payload is copied out.
+      // Drop plaintext before copying payload out.
       try? FileManager.default.removeItem(at: plain)
       let meta = try JSONEncoder().encode(Meta(key: entry.key, kind: entry.kind))
       output.write(be32(UInt32(meta.count)))
@@ -82,35 +74,6 @@ extension BackupContainer {
     return (entries.count, bytes)
   }
 
-  /// Decrypts every entry in two passes. The first checks the passphrase
-  /// against the check entry, then decrypts every other payload to nothing,
-  /// so a backup that is damaged anywhere, including its last entry, is
-  /// refused before `handle` runs. The second decrypts again and hands each
-  /// plaintext file to `handle`, which may move it; whatever `handle` leaves
-  /// behind is removed when it returns, even by throwing. The second pass is not a
-  /// transaction: once `handle` has started replacing the vault, a disk, I/O
-  /// or key failure still leaves it partly restored; the caller reports that
-  /// case separately.
-  ///
-  /// `validate` sees each entry's metadata on every pass; `validateAll` sees
-  /// the whole list once, after the pre-pass and before the key is derived,
-  /// for rules about which entries must be present. `preflight` sees the
-  /// pre-pass layout once, after the verify pass and before the restore pass,
-  /// so a device that cannot hold the restore refuses it with the vault
-  /// untouched.
-  ///
-  /// Every payload copy and plaintext lives in `staging`, which is swept
-  /// before anything is read (a staging error is thrown with the vault
-  /// untouched) and again, best effort, when the read ends either way.
-  ///
-  /// `isCancelled` is asked once the key is derived (the KDF itself cannot be
-  /// interrupted), before every entry of the verify pass, and before the
-  /// preflight and the restore pass. A true answer throws
-  /// `BackupError.cancelled` before `handle` has run. The last check, after
-  /// the preflight, is `commit` instead: it answers false for a cancel already
-  /// asked and otherwise marks the point passed in the same step, so a cancel
-  /// can never be accepted after it. Nothing is asked once the restore pass
-  /// has started, because `handle` may already have begun replacing the vault.
   static func read(
     from source: URL, passphrase: String, staging: StagingDirectory, validate: (Meta) throws -> Void,
     validateAll: ([Meta]) throws -> Void = { _ in },
@@ -145,7 +108,7 @@ extension BackupContainer {
     }
     try stopIfCancelled()
     try preflight(layout)
-    // The last point a cancel is honoured: from here on `handle` may replace the vault.
+    // Last point a cancel is honoured before handle mutates the vault.
     if !(commit?() ?? !isCancelled()) { throw BackupError.cancelled }
     try walk(source, staging: staging, validate: validate, memory: memory, progress: { progress(.restore, $0, $1) }) { meta, payload in
       if meta.kind == "c" {
@@ -164,8 +127,6 @@ extension BackupContainer {
     }
   }
 
-  /// The check entry must decrypt to the fixed value; anything else means the
-  /// passphrase is wrong.
   private static func verifyCheck(_ payload: URL, key: SymmetricKey, staging: StagingDirectory) throws {
     let plain = temporaryFile(in: staging)
     defer { try? FileManager.default.removeItem(at: plain) }
@@ -173,10 +134,6 @@ extension BackupContainer {
     guard (try? Data(contentsOf: plain)) == checkValue else { throw BackupError.passphrase }
   }
 
-  /// One pass over the container: each entry's metadata is validated again,
-  /// its payload is copied to a temporary file that `visit` may read but not
-  /// keep, and progress is reported per entry. `beforeEntry` runs before each
-  /// entry is read and may throw to end the pass.
   private static func walk(
     _ source: URL, staging: StagingDirectory, validate: (Meta) throws -> Void, memory: MemoryProbe,
     progress: Progress, beforeEntry: () throws -> Void = {}, visit: (Meta, URL) throws -> Void
@@ -186,7 +143,7 @@ extension BackupContainer {
     let header = try readHeader(input, memory: memory)
     for index in 0..<header.entries {
       try beforeEntry()
-      // Lengths and metadata are checked again in case the file changed since the pre-pass.
+      // Re-validate lengths/metadata in case the source file changed since pre-pass.
       let (meta, size) = try readEntryHead(input, index: index, memory: memory)
       try validate(meta)
       let payload = temporaryFile(in: staging)

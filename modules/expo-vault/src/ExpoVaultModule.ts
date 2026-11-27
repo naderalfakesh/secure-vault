@@ -14,7 +14,6 @@ export type {
   SecureVault,
 } from './types';
 
-// Loads the native module object from JSI (or falls back to the bridge module).
 const ExpoVaultModule = requireNativeModule<SecureVault>('ExpoVault');
 
 export default ExpoVaultModule;

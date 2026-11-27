@@ -14,39 +14,20 @@ import java.util.TimeZone
 import java.util.UUID
 import javax.crypto.SecretKey
 
-/**
- * Passphrase-protected backup container, identical on iOS and Android:
- *
- *   "SVB1" | be32 headerLength | header JSON
- *   then, per entry: be32 metaLength | meta JSON | be64 payloadLength | payload
- *
- * The payload is the vault's own chunked AES-256-GCM stream, keyed with a key
- * derived from the passphrase (PBKDF2-HMAC-SHA256). The first entry is a fixed
- * check value so a wrong passphrase is rejected before anything is touched.
- * Entry kinds: "s" string, "f" vault file, "x" extra file returned to the
- * caller (the SQLite index), "c" the check.
- */
+/** Wire format (shared with iOS): "SVB1" | be32 headerLen | header JSON | entries(be32 metaLen | meta JSON | be64 payloadLen | SVC1 payload). */
 object BackupContainer {
     class CorruptException(reason: String) : Exception("The backup file is not valid: $reason")
     class PassphraseException : Exception("That passphrase does not match this backup.")
-    /** A header setting no committed exporter writes: a newer format, or KDF or cipher settings outside the verified set. */
     class UnsupportedException(reason: String) :
         Exception("This backup uses settings this version of the app does not support: $reason.")
-    /** The device cannot hold what the restore needs in memory; raised before anything is removed. */
     class ResourceException(reason: String) :
         Exception("This device does not have enough memory to restore this backup: $reason.")
-    /** The restore needs more disk than is free plus what the old vault frees; raised before anything is removed. */
     class NoSpaceException(val needed: Long, val available: Long) :
         Exception("This device does not have enough free space to restore this backup (needs $needed bytes, has $available).")
     class StagingException(reason: String) : Exception("The backup staging folder is not allowed: $reason")
     class RemovalException(reason: String) : Exception("The cache entry cannot be removed: $reason")
-    /** The caller asked to stop while the restore was still checking; nothing was handled. */
     class CancelledException : Exception("The restore was cancelled before anything was changed.")
 
-    /**
-     * The one folder export plaintext may be staged in, `<cacheDir>/backup-staging`, or restore
-     * plaintext, `<cacheDir>/restore-staging`. Only this type can be handed to [write], [read] and [sweep].
-     */
     class StagingDirectory private constructor(val dir: File) {
         companion object {
             const val NAME = "backup-staging"
@@ -59,36 +40,21 @@ object BackupContainer {
 
     data class Header(val version: Int, val app: String, val created: String, val iterations: Int, val salt: ByteArray, val entries: Int)
     data class Meta(val key: String, val kind: String)
-    /** One entry as the pre-pass found it: its metadata and the payload length it declares. */
     data class EntryInfo(val meta: Meta, val payloadLength: Long)
     data class Entry(val key: String, val kind: String, val source: Source)
 
-    /** Where an entry's plaintext comes from while the container is written. */
     sealed class Source {
-        /** A file that is safe to leave where it is: the caller's extra files, which their owner already encrypts (the SQLCipher index). */
         data class Ready(val file: File) : Source()
-
-        /**
-         * Plaintext produced on demand into a file inside the staging directory. [write] removes it as
-         * soon as the entry is encrypted, so at most one entry is in plaintext at any time.
-         */
         class Staged(val produce: (File) -> Unit) : Source()
     }
 
-    /** What the restore pass needs, worked out from the pre-pass before anything is removed. */
     data class RestoreNeeds(
-        /** Upper bound of the largest `s` plaintext, which the restore pass holds in memory whole. */
         val largestString: Long,
-        /** Bytes the restored vault, extras and the restore pass's temporary files can take at their peak. */
         val disk: Long,
-        /**
-         * Bytes the restore pass writes before the old vault is removed: the first restored entry's
-         * payload copy and its plaintext, at most twice its payload. They need free space of their own.
-         */
+        /** Free space needed before wiping old vault (first entry payload copy + plaintext). */
         val scratch: Long,
     )
 
-    /** Which pass of a restore a progress event belongs to; [wireName] is the phase name sent to JavaScript. */
     enum class ReadPhase(val wireName: String) { VERIFY("verify"), RESTORE("import") }
 
     val SUPPORTED_ITERATIONS = BackupFormat.SUPPORTED_ITERATIONS
@@ -120,11 +86,6 @@ object BackupContainer {
     fun checkSpace(needed: Long, scratch: Long, free: Long, freed: Long) =
         BackupPreflight.checkSpace(needed, scratch, free, freed)
 
-    /**
-     * Writes the container. Plaintext is staged one entry at a time inside [staging], which is swept
-     * first (an earlier export may have been killed mid-entry) and left empty whether the write
-     * succeeds or fails. Returns (entries, bytes).
-     */
     fun write(destination: File, passphrase: String, staging: StagingDirectory, entries: List<Entry>, progress: (Int, Int) -> Unit): Pair<Int, Long> {
         sweep(staging)
         val result = try {
@@ -177,7 +138,7 @@ object BackupContainer {
                         is Source.Staged -> plain.also(entrySource.produce)
                     }
                     VaultCrypto.encryptFile(source, payload, key)
-                    // The plaintext has been consumed; drop it before the payload is copied out.
+                    // Drop plaintext before copying payload out.
                     plain.delete()
                     val meta = JSONObject().put("key", entry.key).put("kind", entry.kind)
                         .toString().toByteArray(Charsets.UTF_8)
@@ -195,7 +156,6 @@ object BackupContainer {
         return Pair(entries.size, destination.length())
     }
 
-    /** Decrypts every entry in two passes: verify everything first, then hand plaintext to [handle]. */
     fun read(
         source: File, passphrase: String, staging: StagingDirectory, validate: (Meta) -> Unit,
         validateAll: (List<Meta>) -> Unit = {},
@@ -212,7 +172,7 @@ object BackupContainer {
             try {
                 sweep(staging)
             } catch (cleanup: Exception) {
-                // Each entry's files are already removed; the app's lock and launch sweep retries the folder.
+                // Best-effort cleanup; lock/launch sweep retries the folder.
             }
         }
     }
@@ -247,7 +207,7 @@ object BackupContainer {
         }
         stopIfCancelled()
         preflight(layout)
-        // The last point a cancel is honoured: from here on [handle] may replace the vault.
+        // Last point a cancel is honoured before handle mutates the vault.
         if (!commit()) throw CancelledException()
         walk(source, scratch, validate, { done, total -> progress(ReadPhase.RESTORE, done, total) }) { meta, payload ->
             if (meta.kind == "c") {
@@ -269,7 +229,6 @@ object BackupContainer {
         }
     }
 
-    /** The check entry must decrypt to the fixed value; anything else means the passphrase is wrong. */
     private fun verifyCheck(payload: File, key: SecretKey, scratch: File) {
         val plain = temporaryFile(scratch)
         try {
@@ -292,7 +251,7 @@ object BackupContainer {
             val header = BackupFormat.readHeader(input)
             for (index in 0 until header.entries) {
                 beforeEntry()
-                // Lengths and metadata are checked again in case the file changed since the pre-pass.
+                // Re-validate lengths/metadata in case the source file changed since pre-pass.
                 val (meta, size) = BackupFormat.readEntryHead(input, index)
                 validate(meta)
                 val payload = temporaryFile(scratch)

@@ -16,10 +16,9 @@ extension ExpoVaultModule {
       return
     }
 
-    // A context authenticated for the old key must not stand for the new one.
+    // Invalidate prior LAContext so it cannot authorize the newly stored key.
     keySession.end()
     do {
-      // Sealed to the Secure Enclave where there is one (ADR 0009).
       try VaultKeychain.storeNewKey(SymmetricKey(data: key), service: keychainService)
     } catch {
       promise.reject("KEYCHAIN_STORE_FAILED", "Failed to store key in keychain: \(error.localizedDescription)")
@@ -65,8 +64,6 @@ extension ExpoVaultModule {
       let reason = "Unlock SecureVault to access your documents."
       context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
         if success {
-          // The evaluated context opens the key now and for every read of
-          // the session, so this read shows no second prompt.
           self.keySession.adopt(context)
           do {
             _ = try self.getEncryptionKey()
@@ -76,8 +73,6 @@ extension ExpoVaultModule {
             promise.reject("KEY_RETRIEVAL_FAILED", error.localizedDescription)
           }
         } else if let laError = authenticationError as? LAError, Self.isUserDismissal(laError.code) {
-          // Cancelling the prompt is a choice, not a failure: the caller
-          // falls back to the PIN without showing an error.
           promise.resolve(false)
         } else {
           promise.reject(

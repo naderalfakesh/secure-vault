@@ -8,10 +8,6 @@ final class TextRecognitionFailedException: GenericException<String> {
   override var reason: String { "Could not read text from the image: \(param)." }
 }
 
-/// Apple Vision text recognition (ADR 0011). Runs on the device with the
-/// system's own models: no third-party framework, nothing sent anywhere.
-/// Returns one entry per recognised line, framed in the upright image's
-/// pixels with a top-left origin; the app groups lines into blocks itself.
 enum TextRecognizer {
   static func recognize(path: String) throws -> [String: Any] {
     let url = path.hasPrefix("file://") ? URL(string: path) : URL(fileURLWithPath: path)
@@ -34,7 +30,7 @@ enum TextRecognizer {
       throw TextRecognitionFailedException(error.localizedDescription)
     }
 
-    // Vision's boxes are normalised to the upright image, origin bottom-left.
+    // Vision bounding boxes are normalised to upright image space, origin bottom-left.
     let quarterTurn: [CGImagePropertyOrientation] = [.left, .leftMirrored, .right, .rightMirrored]
     let turned = quarterTurn.contains(orientation)
     let width = Double(turned ? image.height : image.width)

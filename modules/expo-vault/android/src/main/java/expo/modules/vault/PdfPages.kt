@@ -7,11 +7,6 @@ import android.os.ParcelFileDescriptor
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * Rasterises PDF pages to JPEG files so the viewer only ever deals with
- * images. Rendering happens from a decrypted temporary copy and the output
- * lives in the cache directory next to the other decrypted previews.
- */
 object PdfPages {
     fun render(source: File, maxPixelSize: Int, directory: File): List<Map<String, Any>> {
         directory.mkdirs()

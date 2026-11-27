@@ -6,12 +6,6 @@ extension BackupContainer {
     var errorDescription: String? { "The backup staging folder is not allowed: \(reason)" }
   }
 
-  /// The one folder export plaintext may be staged in, `<caches>/backup-staging`,
-  /// or restore plaintext, `<caches>/restore-staging`. The requested path is
-  /// standardized and symlink-resolved, then compared exactly with the app's
-  /// own cache location, so a sweep can never reach the cache root, the vault,
-  /// or whatever a planted link points at. Only this type can be handed to
-  /// `write`, `read` and `sweep`.
   struct StagingDirectory {
     static let name = "backup-staging"
     static let restoreName = "restore-staging"
@@ -20,8 +14,7 @@ extension BackupContainer {
     init(requested: String, caches: URL, name: String = StagingDirectory.name) throws {
       guard requested.hasPrefix("/") else { throw StagingDirectoryError(reason: "not an absolute path") }
       let candidate = URL(fileURLWithPath: requested, isDirectory: true).standardizedFileURL
-      // attributesOfItem does not follow links, so a symlink at the path is
-      // refused here even when it points at the right place.
+      // attributesOfItem does not follow symlinks, rejecting a symlink even if its target matches.
       if let type = (try? FileManager.default.attributesOfItem(atPath: candidate.path))?[.type] as? FileAttributeType {
         guard type == .typeDirectory else { throw StagingDirectoryError(reason: "not a directory") }
       }
@@ -34,15 +27,8 @@ extension BackupContainer {
     }
   }
 
-  /// Empties the staging directory, creating it if needed. Backup and restore
-  /// plaintext only ever lives there, so one sweep is the whole cleanup after a crash.
-  /// `removeItem` deletes a link itself and never follows it. Throws when the
-  /// folder cannot be created or something in it could not be removed:
-  /// staging must not start next to leftover plaintext.
   static func sweep(_ staging: StagingDirectory) throws {
     let fileManager = FileManager.default
-    // attributesOfItem does not follow links, so a link swapped in for the
-    // folder after it was resolved is refused instead of emptied.
     if let type = (try? fileManager.attributesOfItem(atPath: staging.url.path))?[.type] as? FileAttributeType {
       guard type == .typeDirectory else { throw StagingDirectoryError(reason: "cannot be created") }
     } else {
@@ -66,14 +52,6 @@ extension BackupContainer {
     var errorDescription: String? { "The cache entry cannot be removed: \(reason)" }
   }
 
-  /// Removes `requested` for the app's cache sweeps without following
-  /// symbolic links: `removeItem` unlinks a link itself and never recurses
-  /// through one. Its parent is symlink-resolved and must lie inside one of
-  /// `roots`, so neither `..` nor a linked ancestor can carry the removal out
-  /// of them. Each of `exact` also qualifies, but only itself: the same name
-  /// directly inside its resolved parent, never an entry below it, so a link
-  /// planted in its place is unlinked and its target left alone. A missing
-  /// entry, a dangling link's target included, is fine.
   static func removeNoFollow(_ requested: String, roots: [URL], exact: [URL] = []) throws {
     guard requested.hasPrefix("/") else { throw RemovalError(reason: "not an absolute path") }
     let url = URL(fileURLWithPath: requested).standardizedFileURL
@@ -92,7 +70,7 @@ extension BackupContainer {
     }
     guard inside || named else { throw RemovalError(reason: "not inside the app's cache") }
     let target = URL(fileURLWithPath: parent).appendingPathComponent(name)
-    // attributesOfItem does not follow links, so a dangling link still counts as there.
+    // attributesOfItem does not follow symlinks, so dangling links are still unlinked.
     guard (try? FileManager.default.attributesOfItem(atPath: target.path)) != nil else { return }
     do {
       try FileManager.default.removeItem(at: target)

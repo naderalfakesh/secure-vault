@@ -4,13 +4,9 @@ import LocalAuthentication
 import Security
 
 enum VaultKeyError: LocalizedError {
-  /// An entry name that fails the vault key grammar or path containment.
   case invalid(String)
-  /// No device key in the keychain: the vault has not been created, or its key is gone.
   case missing
-  /// The keychain refused to hand out the device key; the status says why.
   case keychain(OSStatus)
-  /// The Secure Enclave did not open the sealed key, or the item is damaged.
   case sealed(SealedKeyError)
 
   var errorDescription: String? {
@@ -24,34 +20,16 @@ enum VaultKeyError: LocalizedError {
   }
 }
 
-/// The device key's keychain items. Every status the keychain returns becomes
-/// a typed error with the system's own wording, so a locked device, a
-/// cancelled prompt or a missing item is reported as what it is rather than
-/// as a bare number.
-///
-/// Two forms exist (ADR 0009):
-/// - `sealedKey`: the vault key sealed to a Secure Enclave key (SVK1). The
-///   item itself has no access control; the enclave key does, so opening it
-///   needs this device's enclave and the user's presence.
-/// - `encryptionKey`: the vault key as a Keychain item guarded by
-///   `.userPresence`. Vaults created before the enclave, and devices without
-///   one (the simulator), use it. The first unlock on a device with an
-///   enclave seals it and removes it.
 enum VaultKeychain {
   static let account = "encryptionKey"
   static let sealedAccount = "sealedKey"
 
-  /// How the key is protected, for Settings and diagnostics.
   enum Protection: String {
     case secureEnclave = "secure-enclave"
     case keychain
     case none
   }
 
-  /// Reads the key with `context`. A context that has already been
-  /// evaluated opens the key without another prompt; an unevaluated one
-  /// shows the prompt once and is authenticated afterwards, so every later
-  /// read with the same context is silent too.
   static func loadKey(service: String, context: LAContext) throws -> SymmetricKey {
     if let sealed = try sealedItem(service: service) {
       let key: SymmetricKey
@@ -60,7 +38,7 @@ enum VaultKeychain {
       } catch let error as SealedKeyError {
         throw VaultKeyError.sealed(error)
       }
-      // A plain item next to a sealed one is what an interrupted move leaves.
+      // Clean up plain item left by an interrupted migration.
       deleteItem(service: service, account: account)
       return key
     }
@@ -69,8 +47,6 @@ enum VaultKeychain {
     return key
   }
 
-  /// Stores a new vault key: sealed when the device has an enclave, as a
-  /// plain item otherwise. Replaces whatever the service held.
   static func storeNewKey(_ key: SymmetricKey, service: String) throws {
     deleteItem(service: service, account: account)
     deleteItem(service: service, account: sealedAccount)
@@ -79,7 +55,6 @@ enum VaultKeychain {
         try addItem(service: service, account: sealedAccount, data: EnclaveKey.seal(key, accessControl: access), access: nil)
         return
       } catch {
-        // An enclave that refuses to create a key leaves the plain item as the fallback.
         NSLog("[ExpoVault] Secure Enclave key not created, using the Keychain item: \(error.localizedDescription)")
       }
     }
@@ -95,19 +70,12 @@ enum VaultKeychain {
     return .none
   }
 
-  /// The system's sentence for a status, followed by the number for logs.
   static func describe(_ status: OSStatus) -> String {
     let text = (SecCopyErrorMessageString(status, nil) as String?) ?? "Unknown keychain error."
     return "\(text) (\(status))"
   }
 
-  // MARK: - Moving a plain key into the enclave
-
-  /// Seals a plain key that `context` just opened, then removes the plain
-  /// item. Best effort: any failure keeps the plain item, and the vault
-  /// works as before. The sealed item is written and opened with the same
-  /// context before the plain one goes, so a crash at any point leaves at
-  /// least one item that opens.
+  /// Best-effort migration: verify the sealed item opens before deleting the plain key.
   private static func seal(_ key: SymmetricKey, service: String, context: LAContext) {
     guard EnclaveKey.isAvailable, let access = enclaveAccess() else { return }
     do {
@@ -126,16 +94,11 @@ enum VaultKeychain {
     }
   }
 
-  /// The enclave key's access control: usable only while the device is
-  /// unlocked, never leaves it, and asks for Face ID, Touch ID or the device
-  /// passcode, like the plain item's `.userPresence`.
   private static func enclaveAccess() -> SecAccessControl? {
     SecAccessControlCreateWithFlags(
       nil, kSecAttrAccessibleWhenUnlockedThisDeviceOnly, [.privateKeyUsage, .userPresence], nil
     )
   }
-
-  // MARK: - Items
 
   private static func plainKey(service: String, context: LAContext) throws -> SymmetricKey {
     let query: [String: Any] = [
@@ -158,7 +121,7 @@ enum VaultKeychain {
     }
   }
 
-  /// The sealed item has no access control, so reading it never prompts.
+  /// No Keychain ACL so reading never prompts; the enclave key enforces user presence.
   private static func sealedItem(service: String) throws -> Data? {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -195,7 +158,6 @@ enum VaultKeychain {
     guard status == errSecSuccess else { throw VaultKeyError.keychain(status) }
   }
 
-  /// Deleting an access-controlled item needs no authentication, so this never prompts.
   private static func deleteItem(service: String, account: String) {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -205,7 +167,6 @@ enum VaultKeychain {
     SecItemDelete(query as CFDictionary)
   }
 
-  /// Whether the item exists, without reading it or prompting.
   private static func exists(service: String, account: String) -> Bool {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -214,27 +175,17 @@ enum VaultKeychain {
       kSecReturnData as String: false,
       kSecUseAuthenticationUI as String: kSecUseAuthenticationUIFail,
     ]
-    // An access-controlled item answers "interaction required" without its
-    // data; only "not found" means it is missing.
+    // Access-controlled items return errSecInteractionNotAllowed; only errSecItemNotFound means absent.
     return SecItemCopyMatching(query as CFDictionary, nil) != errSecItemNotFound
   }
 }
 
-/// The authenticated `LAContext` of the unlocked session, and the key it
-/// opened. The device key is guarded by user presence, and without a context
-/// every read shows its own Face ID or passcode prompt: one at unlock, then
-/// one per thumbnail. The session keeps the context it unlocked with and the
-/// key that context opened, so later reads neither prompt nor go back to the
-/// Keychain or the Secure Enclave; locking the vault drops both, so the next
-/// read prompts again. Reads run on the vault queue and the unlock prompt
-/// answers on a queue of its own, so access is locked.
+/// Caches the unlocked session's LAContext and key so subsequent reads do not re-prompt.
 final class VaultKeySession {
   private let lock = NSLock()
   private var context: LAContext?
   private var key: SymmetricKey?
 
-  /// The session's context, or a fresh one that becomes the session's once a
-  /// read through it has prompted.
   func current() -> LAContext {
     lock.lock()
     defer { lock.unlock() }
@@ -244,21 +195,18 @@ final class VaultKeySession {
     return fresh
   }
 
-  /// The key `context` opened, while it is still the session's context.
   func key(for context: LAContext) -> SymmetricKey? {
     lock.lock()
     defer { lock.unlock() }
     return self.context === context ? key : nil
   }
 
-  /// Keeps the key `context` opened, unless the session moved on meanwhile.
   func remember(_ key: SymmetricKey, for context: LAContext) {
     lock.lock()
     if self.context === context { self.key = key }
     lock.unlock()
   }
 
-  /// Makes `context`, just evaluated by the unlock prompt, the session's.
   func adopt(_ context: LAContext) {
     lock.lock()
     let previous = self.context
@@ -268,8 +216,6 @@ final class VaultKeySession {
     if previous !== context { previous?.invalidate() }
   }
 
-  /// Drops a context that did not open the key, so a cancelled prompt is not
-  /// remembered as the session's and the next read asks again.
   func discard(_ context: LAContext) {
     lock.lock()
     if self.context === context {
@@ -280,7 +226,6 @@ final class VaultKeySession {
     context.invalidate()
   }
 
-  /// Ends the session: the next key read prompts.
   func end() {
     lock.lock()
     let previous = context

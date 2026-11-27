@@ -2,11 +2,8 @@ import Foundation
 import ImageIO
 import UIKit
 
-// Kept apart from VaultCrypto.swift so the format code builds without UIKit
-// and its tests run on the Mac with `swift test` (see Package.swift).
+// Split from VaultCrypto.swift so macOS `swift test` compiles without UIKit.
 extension VaultCrypto {
-  /// Downsampled JPEG for list thumbnails; orientation is applied so the
-  /// thumbnail matches the photo the user took.
   static func thumbnailJPEG(from source: URL, maxPixelSize: Int) throws -> Data {
     let options: [CFString: Any] = [
       kCGImageSourceCreateThumbnailFromImageAlways: true,

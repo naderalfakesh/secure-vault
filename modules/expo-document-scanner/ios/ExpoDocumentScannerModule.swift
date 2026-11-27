@@ -2,10 +2,6 @@ import ExpoModulesCore
 import UIKit
 import VisionKit
 
-/// Wraps VisionKit's document camera: edge detection, auto capture, perspective
-/// correction, and multi-page capture come from the platform. Pages are written
-/// as JPEGs to the cache directory and their paths returned to JavaScript, which
-/// encrypts them into the vault and deletes the temporary files.
 public class ExpoDocumentScannerModule: Module {
   private var delegate: ScannerDelegate?
 
@@ -16,9 +12,7 @@ public class ExpoDocumentScannerModule: Module {
       VNDocumentCameraViewController.isSupported
     }
 
-    // Selecting the picker's camera source without a camera throws an
-    // NSInvalidArgumentException that JavaScript cannot catch; this is the
-    // check UIKit documents for it.
+    // Guard against uncatchable NSInvalidArgumentException when opening camera picker without hardware.
     Function("isCameraAvailable") { () -> Bool in
       UIImagePickerController.isSourceTypeAvailable(.camera)
     }

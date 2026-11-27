@@ -15,9 +15,6 @@ final class ModelFailedException: GenericException<String> {
   override var reason: String { param }
 }
 
-/// Apple's on-device Foundation Model (iOS 26 and later, Apple Intelligence on).
-/// The text never leaves the device. On older systems the module answers
-/// "unavailable" and the app keeps its heuristic suggestions.
 public final class ExpoDocumentAiModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoDocumentAi")
@@ -31,7 +28,6 @@ public final class ExpoDocumentAiModule: Module {
       return ["engine": "apple-foundation-models", "status": "unavailable", "reason": "ios-version"]
     }
 
-    // Apple downloads its model with Apple Intelligence; there is nothing to start here.
     AsyncFunction("downloadModel") { () throws in
       throw ModelUnavailableException("managed-by-system")
     }
@@ -45,7 +41,6 @@ public final class ExpoDocumentAiModule: Module {
       throw ModelUnavailableException("ios-version")
     }
 
-    // Apple Vision OCR (ADR 0011). Async functions run off the main queue.
     AsyncFunction("recognizeText") { (path: String) throws -> [String: Any] in
       try TextRecognizer.recognize(path: path)
     }
@@ -53,9 +48,6 @@ public final class ExpoDocumentAiModule: Module {
 }
 
 #if canImport(FoundationModels)
-  /// The shape the model must answer in. Guided generation makes the framework
-  /// produce exactly these fields; empty strings stand for "not in the text".
-  /// The caller still checks every value against the text before showing it.
   @available(iOS 26.0, *)
   @Generable
   struct DocumentDetails {
@@ -85,8 +77,7 @@ public final class ExpoDocumentAiModule: Module {
   enum AppleModel {
     static func info() -> [String: Any?] {
       #if targetEnvironment(simulator)
-        // The simulator reports the model as available, then refuses every
-        // request ("Simulator is not supported"); say so instead of failing per document.
+        // Simulator reports .available then throws on respond(); report unavailable upfront.
         return ["engine": "apple-foundation-models", "status": "unavailable", "reason": "simulator"]
       #else
         return deviceInfo()
@@ -98,7 +89,6 @@ public final class ExpoDocumentAiModule: Module {
       case .available:
         return ["engine": "apple-foundation-models", "status": "available", "reason": nil]
       case .unavailable(let reason):
-        // modelNotReady: Apple Intelligence is on but the model is still downloading.
         let status = "\(reason)" == "modelNotReady" ? "downloading" : "unavailable"
         return ["engine": "apple-foundation-models", "status": status, "reason": "\(reason)"]
       @unknown default:

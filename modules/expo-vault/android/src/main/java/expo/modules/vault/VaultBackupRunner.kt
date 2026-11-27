@@ -6,9 +6,6 @@ import android.os.storage.StorageManager
 import expo.modules.kotlin.Promise
 import java.io.File
 
-/**
- * Backup export, inspection, restore and preflight space/memory checks for Android.
- */
 internal class VaultBackupRunner(
     private val contextProvider: () -> Context,
     private val entries: VaultEntryStore,
@@ -17,10 +14,7 @@ internal class VaultBackupRunner(
 ) {
     private val resourceMessage = "This device does not have enough memory to read this backup."
 
-    /**
-     * Copies of an `s` plaintext the restore pass holds at once (headroom for Keystore buffering).
-     * Never below 3.
-     */
+    /** Peak copies of a string entry in restore (with Keystore buffering headroom); never below 3. */
     private val stringEntryCopies = 4
 
     fun exportBackup(
@@ -114,8 +108,6 @@ internal class VaultBackupRunner(
                 },
                 preflight = { layout ->
                     preflightRestore(layout)
-                    // Probe once before the first Restoring event so a lapsed Keystore window fails
-                    // before anything is wiped.
                     entries.probeKey(secretKey)
                 },
                 cancelled = { restoreCancel.isRequested },
@@ -193,7 +185,6 @@ internal class VaultBackupRunner(
         return BackupContainer.writableBytes(usable, allocatable, treeBytes(context.cacheDir))
     }
 
-    /** Bytes of the regular files under [root], links not followed. */
     private fun treeBytes(root: File): Long =
         root.walkTopDown()
             .onEnter { !java.nio.file.Files.isSymbolicLink(it.toPath()) }

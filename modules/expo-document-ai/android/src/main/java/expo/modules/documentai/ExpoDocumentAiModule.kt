@@ -12,11 +12,7 @@ class ModelUnavailableException(reason: String) :
 class ModelFailedException(cause: Throwable) :
   CodedException("MODEL_FAILED", cause.message ?: "The on-device model did not answer.", cause)
 
-/**
- * Gemini Nano through ML Kit's GenAI Prompt API. The model runs in Android
- * AICore on the device; the text never leaves it. ML Kit GenAI needs API 26,
- * so [GeminiNano] is only loaded from there on.
- */
+/** Guards [GeminiNano] behind API 26+ (ML Kit GenAI minimum). */
 class ExpoDocumentAiModule : Module() {
   private val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 

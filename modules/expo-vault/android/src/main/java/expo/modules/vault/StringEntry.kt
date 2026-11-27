@@ -7,16 +7,7 @@ import javax.crypto.Cipher
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/**
- * A string entry (the index key, the key probe): magic "SVS1", the 12-byte
- * nonce, then the AES-256-GCM ciphertext and tag.
- *
- * The nonce travels inside the file, and the file is replaced with a single
- * rename after its bytes are synced, so a write the process never finishes
- * leaves the previous entry or none, never a ciphertext whose nonce is
- * somewhere else. Entries written before this format keep their nonce in
- * SharedPreferences and are read with [legacyIv] until they are written again.
- */
+/** String entry ("SVS1" | 12B nonce | AES-GCM ciphertext+tag), fsync+rename atomic; falls back to SharedPreferences legacyIv. */
 internal object StringEntry {
     private val MAGIC = "SVS1".toByteArray(Charsets.US_ASCII)
     private const val NONCE_SIZE = 12
@@ -30,7 +21,7 @@ internal object StringEntry {
         if (nonce.size != NONCE_SIZE) throw IllegalStateException("Unexpected GCM nonce size ${nonce.size}")
         val sealed = cipher.doFinal(plain)
 
-        // A leading dot keeps the temporary file out of the vault entry grammar.
+        // Leading dot excludes temp file from vault entry prefix matching.
         val parent = destination.parentFile ?: throw IOException("No folder for ${destination.name}")
         val temp = File(parent, ".tmp-${destination.name}")
         try {
@@ -46,7 +37,6 @@ internal object StringEntry {
         }
     }
 
-    /** True when [bytes] is in this format; anything else is a legacy single GCM box. */
     fun isInline(bytes: ByteArray): Boolean =
         bytes.size >= MAGIC.size && bytes.copyOfRange(0, MAGIC.size).contentEquals(MAGIC)
 

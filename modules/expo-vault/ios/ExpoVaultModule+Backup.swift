@@ -11,8 +11,6 @@ extension ExpoVaultModule {
     promise: Promise
   ) {
     do {
-      // Checked before anything is swept or written: only the app's own
-      // backup-staging cache folder may hold export plaintext.
       let caches = try FileManager.default.url(
         for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true
       )
@@ -20,8 +18,6 @@ extension ExpoVaultModule {
       let encryptionKey = try getEncryptionKey()
       var entries: [BackupContainer.Entry] = []
       for url in try vaultEntryURLs() {
-        // Only the kind is read here; the container decrypts each entry
-        // into the staging directory when its turn comes.
         let kind = try Self.entryKind(at: url)
         entries.append(.init(key: url.lastPathComponent, kind: kind, source: .staged { plain in
           try self.decryptEntry(at: url, to: plain, key: encryptionKey)
@@ -71,11 +67,9 @@ extension ExpoVaultModule {
     promise: Promise
   ) {
     var cleared = false
-    // A cancel kept for this run is honoured; one for another run is dropped.
     restoreCancel.start(runId)
     defer { restoreCancel.finish(runId) }
     do {
-      // Decrypted entries may only land in the app's restore-staging cache folder.
       let caches = try FileManager.default.url(
         for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true
       )
@@ -86,8 +80,6 @@ extension ExpoVaultModule {
       let source = URL(fileURLWithPath: sourcePath)
       let extras = URL(fileURLWithPath: extraDir, isDirectory: true)
       try FileManager.default.createDirectory(at: extras, withIntermediateDirectories: true)
-      // Every key is checked and every entry decrypted once before the
-      // first entry is handled; the vault is only cleared after both.
       var restored: [[String: String]] = []
       var count = 0
       try BackupContainer.read(from: source, passphrase: passphrase, staging: staging, validate: { meta in
@@ -103,11 +95,10 @@ extension ExpoVaultModule {
       }, commit: {
         self.restoreCancel.commit()
       }) { meta, plain in
-        // Registered first, so a wipe failure cannot leave the decrypted entry behind.
+        // Register cleanup before wiping so a wipe failure never leaves plaintext behind.
         defer { try? FileManager.default.removeItem(at: plain) }
         if !cleared {
           let previous = try self.vaultEntryURLs()
-          // From the first removal on, a failure is a partial restore.
           cleared = true
           for url in previous { try FileManager.default.removeItem(at: url) }
         }
@@ -130,9 +121,6 @@ extension ExpoVaultModule {
       }
       promise.resolve(["entries": count, "extras": restored])
     } catch let error where cleared {
-      // Every entry had already decrypted once, so a failure after the wipe
-      // is usually disk, I/O or the key, not the file; it is named either
-      // way, because the old vault is gone.
       promise.reject("BACKUP_PARTIAL", "The restore stopped after the previous vault was removed: \(error.localizedDescription)")
     } catch let error as BackupContainer.StagingDirectoryError {
       promise.reject("BACKUP_RESTORE_STAGING_INVALID", error.localizedDescription)
@@ -148,18 +136,10 @@ extension ExpoVaultModule {
     } catch VaultKeyError.invalid(let key) {
       promise.reject("BACKUP_INVALID", VaultKeyError.invalid(key).localizedDescription)
     } catch {
-      // Includes the keychain refusing the device key, which is not the file's fault.
       promise.reject("BACKUP_IMPORT_FAILED", error.localizedDescription)
     }
   }
 
-  /// Runs after every entry has decrypted once and before the vault is
-  /// cleared. The largest `s` entry, held whole in memory three times over,
-  /// must fit in what the OS says the process can still use, and the restored
-  /// vault plus the pass's temporary files must fit in the free space plus
-  /// what the old vault's entries give back, with the files written before
-  /// the wipe in the free space alone. A figure the OS does not give is
-  /// not a refusal. Either refusal leaves the vault untouched.
   func preflightRestore(_ layout: [BackupContainer.EntryInfo]) throws {
     let needs = BackupContainer.restoreNeeds(layout)
     try BackupContainer.checkMemory(
@@ -171,7 +151,7 @@ extension ExpoVaultModule {
     let values = try directory.resourceValues(
       forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey]
     )
-    // The figure for user-requested work counts space the system can purge on demand.
+    // volumeAvailableCapacityForImportantUsage includes system-purgeable space.
     let free = values.volumeAvailableCapacityForImportantUsage.map { Int64($0) }
       ?? values.volumeAvailableCapacity.map { Int64($0) }
     guard let free else { return }

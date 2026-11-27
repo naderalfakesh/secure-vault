@@ -2,10 +2,6 @@ interface KeyRecoveryTarget {
   unlockWithBiometrics(): Promise<boolean>;
 }
 
-/**
- * True for the error the Android Keystore raises once its authentication
- * window has lapsed: the key exists but needs the user to authenticate again.
- */
 export function isKeyLocked(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   const { code, message } = error as { code?: unknown; message?: unknown };
@@ -23,16 +19,8 @@ function isThenable(value: unknown): value is Promise<unknown> {
 }
 
 /**
- * Wraps the native vault so that a call failing with a locked key prompts the
- * system credential once and retries. On iOS the Keychain shows its own
- * prompt, so the wrapper only ever engages on Android. It only prompts while
- * `isForeground` holds: a prompt requested from the background is never shown
- * and would leave the caller waiting.
- *
- * One prompt is open at a time. Android keeps a single prompt callback per
- * activity, so a second prompt requested while one is showing takes over its
- * answer and the first caller never hears back. Every caller that asks while
- * a prompt is open shares that prompt's outcome instead.
+ * Retries Android Keystore KEY_LOCKED errors after prompting (foreground-only so background calls never hang).
+ * Coalesces concurrent prompts because Android BiometricPrompt keeps a single callback per activity.
  */
 export function withKeyRecovery<T extends KeyRecoveryTarget>(
   vault: T,
@@ -58,8 +46,6 @@ export function withKeyRecovery<T extends KeyRecoveryTarget>(
       const method = value as (...args: unknown[]) => unknown;
       return (...args: unknown[]) => {
         const result = method.apply(target, args);
-        // Only promise-returning vault calls take part; event subscriptions
-        // and other synchronous helpers pass through untouched.
         if (!isThenable(result)) return result;
         return result.catch(async (error: unknown) => {
           if (!isKeyLocked(error) || !isForeground()) throw error;

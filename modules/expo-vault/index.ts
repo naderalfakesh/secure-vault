@@ -1,5 +1,3 @@
-// The native module, wrapped so a lapsed Android key window re-prompts and
-// retries instead of surfacing "User not authenticated" to a screen.
 import { AppState } from 'react-native';
 
 import ExpoVaultModule from './src/ExpoVaultModule';

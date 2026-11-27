@@ -11,17 +11,11 @@ import androidx.fragment.app.FragmentActivity
 import expo.modules.kotlin.Promise
 import javax.crypto.KeyGenerator
 
-/**
- * Android Keystore key creation and biometric / device-credential prompt coordination.
- */
 internal class VaultBiometrics(
     private val keyAlias: String,
     private val keystoreProvider: String,
 ) {
     private val authValiditySeconds = 300
-
-    // Callers of the prompt that is currently open, settled together from its
-    // callback. Touched on the main thread only (runOnUiThread and the main executor).
     private val promptWaiters = mutableListOf<Promise>()
 
     fun createVault(context: Context?, promise: Promise) {
@@ -54,8 +48,6 @@ internal class VaultBiometrics(
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setUserAuthenticationRequired(true)
 
-            // Timeout-based key: any successful biometric or device-credential prompt
-            // unlocks it for the window below (ADR 0003).
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 parameterSpecBuilder.setUserAuthenticationParameters(
                     authValiditySeconds,
@@ -81,7 +73,6 @@ internal class VaultBiometrics(
         }
         val available = BiometricManager.from(context)
             .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS
-        // Android does not expose which biometric is enrolled; "biometrics" keeps the copy honest.
         promise.resolve(if (available) "biometrics" else "none")
     }
 
@@ -92,14 +83,12 @@ internal class VaultBiometrics(
         }
 
         activity.runOnUiThread {
-            // Once the activity has saved its state, androidx refuses to show the
-            // prompt without calling back, which would leave this promise pending.
+            // After onSaveInstanceState, BiometricPrompt silently drops the prompt without invoking callbacks.
             if (activity.isFinishing || activity.isDestroyed || activity.supportFragmentManager.isStateSaved) {
                 promise.resolve(false)
                 return@runOnUiThread
             }
-            // androidx keeps one prompt callback per activity: callers arriving while
-            // a prompt is open wait for its outcome instead of replacing its callback.
+            // BiometricPrompt holds one callback per activity; queue concurrent callers on the active prompt.
             if (promptWaiters.isNotEmpty()) {
                 promptWaiters.add(promise)
                 return@runOnUiThread
@@ -151,10 +140,6 @@ internal class VaultBiometrics(
         waiters.forEach(outcome)
     }
 
-    /**
-     * What the unlock prompt accepts. Android 11+ takes a strong biometric or the screen lock;
-     * Android 9 and 10 only accept weak biometric or device credential with screen lock.
-     */
     private fun promptAuthenticators(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL

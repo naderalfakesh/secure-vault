@@ -3,17 +3,9 @@ import Foundation
 enum BackupError: LocalizedError {
   case corrupt(String)
   case passphrase
-  /// A header setting no committed exporter writes: a newer format, or KDF or
-  /// cipher settings outside the verified set.
   case unsupported(String)
-  /// The device cannot hold what the restore needs in memory; raised before
-  /// anything is removed.
   case resource(String)
-  /// The restore needs more disk than is free plus what the old vault frees;
-  /// raised before anything is removed.
   case noSpace(needed: Int64, available: Int64)
-  /// The caller asked to stop while the restore was still checking; nothing
-  /// was handled.
   case cancelled
 
   var errorDescription: String? {
