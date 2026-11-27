@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react';
 
 import { useToast } from '@/components/ui';
+import { useBackupActivity } from '@/features/backup/hooks/useBackupActivity';
 import { confirmErase, eraseEverything } from '@/features/session/eraseEverything';
 import { useSessionActions } from '@/features/session/SessionProvider';
-import { useBackupActivity } from '@/hooks/useBackupActivity';
 import { t } from '@/i18n';
 import { describeBackupError } from '@/services/BackupService';
 import { documentService } from '@/services/DocumentService';

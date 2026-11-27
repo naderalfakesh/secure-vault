@@ -5,8 +5,8 @@ import { useSessionToasts } from '@/features/session/hooks/useSessionToasts';
 import { useVaultSweep } from '@/features/session/hooks/useVaultSweep';
 import { useSessionState } from '@/features/session/SessionProvider';
 
-import { useLaunchSplash } from './launchSplash';
-import { stackAnimation } from './stackAnimation';
+import { useLaunchSplash } from '../launchSplash';
+import { stackAnimation } from '../stackAnimation';
 import { useReturnToShare } from './useReturnToShare';
 
 /**

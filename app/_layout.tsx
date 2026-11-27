@@ -4,9 +4,9 @@ import { useUnistyles } from 'react-native-unistyles';
 
 import { AppProviders } from '@/features/navigation/AppProviders';
 import { HeaderBackButton } from '@/features/navigation/HeaderBackButton';
+import { useRootGate } from '@/features/navigation/hooks/useRootGate';
 import { holdNativeSplash } from '@/features/navigation/launchSplash';
 import { useStatusBarStyle } from '@/features/navigation/statusBarStyle';
-import { useRootGate } from '@/features/navigation/useRootGate';
 import { SecurityOverlay } from '@/features/session/SecurityOverlay';
 import { SplashHandoff } from '@/features/session/SplashHandoff';
 

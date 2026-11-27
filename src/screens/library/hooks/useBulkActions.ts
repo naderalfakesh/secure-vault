@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useToast } from '@/components/ui';
 import { categoryLabel } from '@/features/documents/categories';
-import { useDeleteWithUndo } from '@/features/documents/useDeleteWithUndo';
+import { useDeleteWithUndo } from '@/features/documents/hooks/useDeleteWithUndo';
 import { t, tp } from '@/i18n';
 import { documentService } from '@/services/DocumentService';
 import type { Document, DocumentCategory } from '@/types';

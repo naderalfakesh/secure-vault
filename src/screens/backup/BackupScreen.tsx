@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { BackBar, Screen, TitledScroll } from '@/components/ui';
 import { backupCopy as copy } from '@/features/backup/backupCopy';
 import { CreateBackupSheet } from '@/features/backup/CreateBackupSheet';
+import { useBackupActivity } from '@/features/backup/hooks/useBackupActivity';
 import { RestoreSheet } from '@/features/backup/RestoreSheet';
-import { useBackupActivity } from '@/hooks/useBackupActivity';
 
 import { CreateBackupCard, RestoreGroup } from './components';
 import { useLastBackup } from './hooks/useLastBackup';
